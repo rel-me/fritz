@@ -1,6 +1,4 @@
-mod config;
-mod local;
-mod provider;
+use fritz::{config, harness_client, local, provider};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -11,7 +9,7 @@ use std::{
     collections::HashMap,
     io::{self, Write},
 };
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use uuid::Uuid;
 
 #[derive(Parser)]
@@ -68,6 +66,11 @@ enum Command {
         effort: Option<String>,
         #[arg(long, value_parser = ["standard", "priority", "flex"])]
         speed: Option<String>,
+        /// Enable coding tools in this project (commands run with your user permissions).
+        #[arg(long)]
+        project: Option<String>,
+        #[arg(long, default_value_t = 24, value_parser = clap::value_parser!(u32).range(1..=40))]
+        max_turns: u32,
     },
 }
 
@@ -155,7 +158,9 @@ struct Request {
 async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Value> {
     let params = &request.params;
     match request.method.as_str() {
-        "health" => Ok(json!({"name":"fritz","version":env!("CARGO_PKG_VERSION")})),
+        "health" => Ok(
+            json!({"name":"fritz","version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"harness":"fritz-harness"}),
+        ),
         "localModels.list" => match params["modelId"].as_str() {
             Some(id) => local::models::inventory_model(id).await,
             None => local::models::inventory().await,
@@ -196,7 +201,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             Ok(json!({"models":models}))
         }
         "chat" => {
-            provider::chat(serde_json::from_value(params.clone())?, emit).await?;
+            harness_client::chat(serde_json::from_value(params.clone())?, emit).await?;
             Ok(json!({}))
         }
         _ => bail!("Unknown agent method: {}", request.method),
@@ -215,9 +220,9 @@ async fn agent() -> Result<()> {
         }
         Ok::<_, anyhow::Error>(())
     });
-    let mut input = BufReader::new(tokio::io::stdin()).lines();
+    let mut input = BufReader::new(tokio::io::stdin());
     let mut jobs: HashMap<String, tokio::task::JoinHandle<()>> = HashMap::new();
-    while let Some(line) = input.next_line().await? {
+    while let Some(line) = harness_client::read_line(&mut input, 3_000_000).await? {
         jobs.retain(|_, job| !job.is_finished());
         if line.len() > 3_000_000 {
             let _ = sender.send(json!({"id":"","type":"error","message":"Request too large."}));
@@ -242,6 +247,7 @@ async fn agent() -> Result<()> {
                 && let Some(job) = jobs.remove(target)
             {
                 job.abort();
+                let _ = job.await;
                 let _ = sender.send(json!({"id":target,"type":"cancelled"}));
             }
             let _ = sender.send(json!({"id":request.id,"type":"result","result":{}}));
@@ -286,9 +292,7 @@ fn envelope(id: &str, result: Result<Value>) -> Value {
 
 #[tokio::main]
 async fn main() {
-    let result = run().await;
-    local::shutdown().await;
-    if let Err(error) = result {
+    if let Err(error) = run().await {
         eprintln!("fritz: {error:#}");
         std::process::exit(1);
     }
@@ -368,6 +372,8 @@ async fn run() -> Result<()> {
             model,
             effort,
             speed,
+            project,
+            max_turns,
         }) => {
             let connection = config::find(connection.as_deref())?;
             let model = model.unwrap_or(connection.model_id);
@@ -381,7 +387,14 @@ async fn run() -> Result<()> {
             if prompt.trim().is_empty() {
                 bail!("Enter a prompt.");
             }
-            provider::chat(
+            let project = project
+                .map(|path| {
+                    std::fs::canonicalize(path)
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .context("Could not open the project folder.")
+                })
+                .transpose()?;
+            harness_client::chat(
                 provider::ChatRequest {
                     connection_id: connection.id.to_string(),
                     model,
@@ -391,9 +404,25 @@ async fn run() -> Result<()> {
                     }],
                     effort,
                     speed,
+                    mode: if project.is_some() {
+                        provider::ChatMode::Code
+                    } else {
+                        provider::ChatMode::Chat
+                    },
+                    project_path: project,
+                    max_turns: max_turns as usize,
                 },
                 |event| {
-                    if let Some(text) = event["text"].as_str() {
+                    if event["type"] == "tool_start" {
+                        eprintln!(
+                            "[{}] {}",
+                            event["name"].as_str().unwrap_or("tool"),
+                            event["summary"].as_str().unwrap_or("")
+                        );
+                    }
+                    if event["type"] == "delta"
+                        && let Some(text) = event["text"].as_str()
+                    {
                         print!("{text}");
                         let _ = io::stdout().flush();
                     }

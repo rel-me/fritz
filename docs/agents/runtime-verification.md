@@ -25,9 +25,16 @@ make build
 harness. The harness starts `tests/mock_provider.py` on a free loopback port,
 creates temporary data, and checks discovery, streaming, provider errors,
 cancellation, persistence, and agent shutdown without API keys.
+`tests/coding_integration.py` exercises native tool streams for all six adapters,
+real edits and commands, limits, and cancellation of child process groups.
+Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
+coding workflow against the bundled binaries.
+For native Code-mode checks, `python3 tests/coding_provider.py` provides
+`coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
+`cancel-command` (runs a cancellable sleep). Use a temporary project folder.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign
-`dist/Fritz.app`, including `Contents/Resources/fritz` and package resources.
+`dist/Fritz.app`, including `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`, and package resources. Both binaries are signed and verified.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.
@@ -82,7 +89,7 @@ the catalog and missing-model behavior without downloading weights. For an
 explicit real-download smoke check, use an isolated `FRITZ_DATA_DIR`, install a
 small catalog entry with `fritz local-models install MODEL_ID`, then add a `fritz`
 provider and exercise streaming and cancellation. Do not borrow REL's model files
-or provider registry. The native Metal runtime is bundled into the Fritz CLI.
+or provider registry. The native Metal runtime is bundled into fritz-harness.
 
 After that explicit installation, run the opt-in native lifecycle check:
 

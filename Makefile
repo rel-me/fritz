@@ -15,6 +15,7 @@ test:
 	swift test --package-path app
 	cargo build --locked
 	python3 tests/integration.py
+	python3 tests/coding_integration.py
 
 check:
 	cargo fmt --check

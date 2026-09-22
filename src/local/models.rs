@@ -101,7 +101,7 @@ impl Drop for Partial {
     }
 }
 
-pub(crate) async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
+pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
     let pin = manifest(model_id)?;
     let url = format!(
         "https://huggingface.co/{}/resolve/{}/{}",
@@ -195,11 +195,11 @@ async fn download_to(
 
 #[cfg(test)]
 const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
-pub(crate) async fn inventory() -> Result<Value> {
+pub async fn inventory() -> Result<Value> {
     inventory_for(catalog().iter()).await
 }
 
-pub(crate) async fn inventory_model(id: &str) -> Result<Value> {
+pub async fn inventory_model(id: &str) -> Result<Value> {
     inventory_for(std::iter::once(manifest(id)?)).await
 }
 

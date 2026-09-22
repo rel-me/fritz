@@ -29,7 +29,7 @@ fn error(message: &str) -> anyhow::Error {
     anyhow!("Fritz local model: {message}")
 }
 
-// The model is shared across turns in the same agent. Its context is fresh per
+// Weights belong to the current harness process. Its context is fresh per
 // request so data cannot leak between calls. Backend outlives every model.
 static BACKEND: OnceLock<Result<LlamaBackend, String>> = OnceLock::new();
 #[derive(Clone)]

@@ -6,10 +6,10 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
 
 - SwiftUI/AppKit lives in `app/Sources/Fritz`; Rust owns provider networking, model discovery, saved credentials, and the `fritz` CLI in `src`.
 - The main sidebar contains projects and their threads; Model Providers opens from the window toolbar. Preserve independent transcripts, drafts, model settings, and the selected thread across launches.
-- The app supervises its bundled `fritz --agent` through private pipes. Do not add an HTTP daemon just for app communication.
+- The app supervises its bundled `fritz --agent` through private pipes. Each chat runs in a separate bundled `fritz-harness` process. Do not add an HTTP daemon just for app communication.
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
 - Preserve separation from the source app: no CEF, embedded web engine, browsing sessions, profiles, proxy management, or REL runtime dependencies.
-- Keep documentation honest about the current scope: chat works; filesystem and command-execution tools are future work.
+- Keep documentation honest about the current scope: Chat is tool-free; Code uses project file tools and noninteractive commands. Commands run with user permissions, not in an OS sandbox. Preserve cancellation, tool activity records, native tool-result history, and execution limits.
 
 ## Build and runtime verification
 

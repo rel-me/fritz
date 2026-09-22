@@ -16,6 +16,7 @@ app_bundle="$PWD/dist/Fritz.app"
 if [ -d "$app_bundle" ]; then rm -rf "$app_bundle"; fi
 ditto "dist/DerivedData/Build/Products/$xcode_configuration/Fritz.app" "$app_bundle"
 cp "target/$configuration/fritz" "$app_bundle/Contents/Resources/fritz"
+cp "target/$configuration/fritz-harness" "$app_bundle/Contents/Resources/fritz-harness"
 package_checkouts="$PWD/dist/DerivedData/SourcePackages/checkouts"
 mkdir -p "$app_bundle/Contents/Resources/Licenses"
 for dependency in textual swiftui-math swift-concurrency-extras; do
@@ -25,6 +26,7 @@ cp "$package_checkouts/textual/LICENSE-3rdparty.csv" "$app_bundle/Contents/Resou
 cp "$package_checkouts/swiftui-math/Sources/SwiftUIMath/mathFonts.bundle/LICENSE" "$app_bundle/Contents/Resources/Licenses/math-fonts.txt"
 cp resources/licenses/*.txt "$app_bundle/Contents/Resources/Licenses/"
 codesign --force --sign - --identifier dev.fritz.agent --requirements '=designated => identifier "dev.fritz.agent"' "$app_bundle/Contents/Resources/fritz"
+codesign --force --sign - --identifier dev.fritz.harness "$app_bundle/Contents/Resources/fritz-harness"
 codesign --force --sign - --identifier dev.fritz.app --requirements '=designated => identifier "dev.fritz.app"' "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"
 echo "Built $app_bundle"

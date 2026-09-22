@@ -11,6 +11,11 @@ struct AgentEvent: Decodable, Sendable {
     let type: String
     let text: String?
     let message: String?
+    let toolCallId: String?
+    let name: String?
+    let summary: String?
+    let details: String?
+    let success: Bool?
 }
 
 /// One app-owned process. Private pipes carry requests and credentials; stdout is protocol only.

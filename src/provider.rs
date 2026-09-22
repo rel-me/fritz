@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::time::Duration;
 
-const SYSTEM: &str = "You are Fritz, a coding assistant in a native macOS app. Help the user understand and write software. Be concise and accurate. This initial version provides chat only: you have no access to files, terminals, or external tools. Do not claim to inspect or change files or execute commands.";
+pub(crate) const SYSTEM: &str = "You are Fritz, a coding assistant in a native macOS app. Help the user understand and write software. Be concise and accurate. This conversation is in Chat mode: you have no access to files, terminals, or external tools. Do not claim to inspect or change files or execute commands.";
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Message {
@@ -14,7 +14,7 @@ pub struct Message {
     pub content: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
     pub connection_id: String,
@@ -24,6 +24,23 @@ pub struct ChatRequest {
     pub effort: Option<String>,
     #[serde(default)]
     pub speed: Option<String>,
+    #[serde(default)]
+    pub project_path: Option<String>,
+    #[serde(default)]
+    pub mode: ChatMode,
+    #[serde(default = "default_max_turns")]
+    pub max_turns: usize,
+}
+
+#[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ChatMode {
+    #[default]
+    Chat,
+    Code,
+}
+fn default_max_turns() -> usize {
+    24
 }
 
 #[derive(Serialize)]
@@ -33,7 +50,7 @@ pub struct Model {
     pub display_name: String,
 }
 
-fn client() -> Result<Client> {
+pub(crate) fn client() -> Result<Client> {
     Ok(Client::builder()
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(300))
@@ -41,7 +58,10 @@ fn client() -> Result<Client> {
         .build()?)
 }
 
-fn credential(connection: &Connection, supplied: Option<&str>) -> Result<Option<String>> {
+pub(crate) fn credential(
+    connection: &Connection,
+    supplied: Option<&str>,
+) -> Result<Option<String>> {
     if supplied.is_none_or(str::is_empty)
         && let Some(saved) = config::load()?
             .connections
@@ -62,7 +82,11 @@ fn credential(connection: &Connection, supplied: Option<&str>) -> Result<Option<
     Ok(key)
 }
 
-fn authenticate(request: RequestBuilder, kind: ProviderKind, key: Option<&str>) -> RequestBuilder {
+pub(crate) fn authenticate(
+    request: RequestBuilder,
+    kind: ProviderKind,
+    key: Option<&str>,
+) -> RequestBuilder {
     let request = if kind == ProviderKind::Anthropic {
         request.header("anthropic-version", "2023-06-01")
     } else {
@@ -76,7 +100,7 @@ fn authenticate(request: RequestBuilder, kind: ProviderKind, key: Option<&str>) 
     }
 }
 
-async fn checked(request: RequestBuilder) -> Result<reqwest::Response> {
+pub(crate) async fn checked(request: RequestBuilder) -> Result<reqwest::Response> {
     let response = request
         .send()
         .await
@@ -173,7 +197,10 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
     bail!("The model catalog exceeded the pagination limit.")
 }
 
-fn payload(connection: &Connection, request: &ChatRequest) -> Result<(&'static str, Value)> {
+pub(crate) fn payload(
+    connection: &Connection,
+    request: &ChatRequest,
+) -> Result<(&'static str, Value)> {
     if request.model.trim().is_empty() {
         bail!("Choose a model before sending.");
     }
@@ -345,34 +372,41 @@ fn decode_event(kind: ProviderKind, value: &Value, emit: &impl Fn(Value)) -> Res
     Ok(complete)
 }
 
-pub async fn chat(request: ChatRequest, emit: impl Fn(Value) + Sync) -> Result<()> {
-    let connection = config::find(Some(&request.connection_id))?;
-    connection.validate()?;
-    let (suffix, body) = payload(&connection, &request)?;
-    if connection.provider == ProviderKind::Fritz {
-        return crate::local::chat(&request, SYSTEM, &emit).await;
-    }
-    let key = credential(&connection, None)?;
+pub(crate) async fn stream_body(
+    connection: &Connection,
+    key: Option<&str>,
+    model: &str,
+    suffix: &str,
+    body: &Value,
+    emit: impl Fn(Value),
+    observe: impl Fn(&Value) -> Result<()>,
+) -> Result<()> {
     let mut url = reqwest::Url::parse(&format!("{}/{}", connection.base_url(), suffix))?;
     if connection.provider == ProviderKind::Gemini {
         url = reqwest::Url::parse(&format!("{}/models/", connection.base_url()))?;
         url.path_segments_mut()
             .map_err(|_| anyhow::anyhow!("Invalid endpoint"))?
             .pop_if_empty()
-            .push(&format!("{}:streamGenerateContent", request.model));
+            .push(&format!("{model}:streamGenerateContent"));
         url.query_pairs_mut().append_pair("alt", "sse");
     }
     let response = checked(authenticate(
-        client()?.post(url).json(&body),
+        client()?.post(url).json(body),
         connection.provider,
-        key.as_deref(),
+        key,
     ))
     .await?;
     let mut stream = response.bytes_stream();
     let mut decoder = StreamDecoder::default();
     let mut complete = false;
+    let mut received = 0;
     while let Some(chunk) = stream.next().await {
-        for line in decoder.push(&chunk?)? {
+        let chunk = chunk?;
+        received += chunk.len();
+        if received > 8_000_000 {
+            bail!("Provider response exceeded the size limit.");
+        }
+        for line in decoder.push(&chunk)? {
             let data = if connection.provider == ProviderKind::Ollama {
                 line.as_str()
             } else {
@@ -391,6 +425,7 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value) + Sync) -> Result<(
             let value: Value =
                 serde_json::from_str(data).context("Invalid provider stream event.")?;
             complete |= decode_event(connection.provider, &value, &emit)?;
+            observe(&value)?;
         }
     }
     if !decoder.buffer.is_empty() {
@@ -402,7 +437,9 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value) + Sync) -> Result<(
             if data == "[DONE]" {
                 complete = true;
             } else if !data.is_empty() {
-                complete |= decode_event(connection.provider, &serde_json::from_str(data)?, &emit)?;
+                let value = serde_json::from_str(data)?;
+                complete |= decode_event(connection.provider, &value, &emit)?;
+                observe(&value)?;
             }
         }
     }
@@ -480,6 +517,9 @@ mod tests {
             }],
             effort: Some("high".into()),
             speed: Some("priority".into()),
+            project_path: None,
+            mode: ChatMode::Chat,
+            max_turns: 24,
         };
         let (path, body) = payload(&connection, &request).unwrap();
         assert_eq!(path, "chat/completions");

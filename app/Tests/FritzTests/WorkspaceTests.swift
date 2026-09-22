@@ -78,6 +78,49 @@ import XCTest
         XCTAssertEqual(workspace.projects.count, 1)
     }
 
+    func testCodeModeUsesItsOwnProjectAndPersistsChoice() throws {
+        let root = try directory()
+        let firstFolder = root.appendingPathComponent("first")
+        let secondFolder = root.appendingPathComponent("second")
+        try FileManager.default.createDirectory(at: firstFolder, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: secondFolder, withIntermediateDirectories: true)
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        try workspace.createProject(name: "One", directory: firstFolder)
+        let firstID = try XCTUnwrap(workspace.selectedThreadID)
+        let first = try XCTUnwrap(workspace.selectedChat)
+        XCTAssertEqual(first.mode, .code)
+        XCTAssertEqual(first.projectPath, firstFolder.resolvingSymlinksInPath().path)
+        first.mode = .chat
+        try workspace.createProject(name: "Two", directory: secondFolder)
+        XCTAssertEqual(workspace.selectedChat?.mode, .code)
+        XCTAssertEqual(workspace.selectedChat?.projectPath, secondFolder.resolvingSymlinksInPath().path)
+        workspace.shutdown()
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        restored.select(firstID)
+        XCTAssertEqual(restored.selectedChat?.mode, .chat)
+        XCTAssertEqual(restored.selectedChat?.projectPath, firstFolder.resolvingSymlinksInPath().path)
+    }
+
+    func testInterruptedToolsSurviveRestartAndRemainInContext() throws {
+        let root = try directory()
+        let file = root.appendingPathComponent("thread.json")
+        let assistantID = UUID()
+        let messages = [ChatMessage(id: assistantID, role: "assistant", content: "", isComplete: false)]
+        try JSONEncoder().encode(messages).write(to: file)
+        let store = ChatStore(agent: AgentClient(), transcriptURL: file)
+        let start = Data(#"{"id":"request","type":"tool_start","toolCallId":"call","name":"edit_file","summary":"hello.txt","details":"arguments"}"#.utf8)
+        store.recordToolEvent(try JSONDecoder().decode(AgentEvent.self, from: start), assistantID: assistantID)
+        // Serialize an interrupted run as it would be saved on Stop or at each tool event.
+        try JSONEncoder().encode(store.messages).write(to: file)
+        let restored = ChatStore(agent: AgentClient(), transcriptURL: file)
+        XCTAssertEqual(restored.messages.first?.tools?.count, 1)
+        XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("may have taken effect") == true)
+        let end = Data(#"{"id":"request","type":"tool_end","toolCallId":"call","name":"edit_file","success":true,"details":"edited hello.txt"}"#.utf8)
+        restored.recordToolEvent(try JSONDecoder().decode(AgentEvent.self, from: end), assistantID: assistantID)
+        XCTAssertEqual(restored.messages.first?.tools?.first?.success, true)
+        XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("edited hello.txt") == true)
+    }
+
     func testProviderCategoriesDistinguishCustomEndpointsAndHostedPresets() {
         XCTAssertTrue(AIProviderCategory.local.contains(.adapter(.ollama)))
         XCTAssertFalse(AIProviderCategory.remote.contains(.adapter(.ollama)))

@@ -39,7 +39,8 @@ import Observation
 
     func chat(for id: UUID) -> ChatStore {
         if let chat = chats[id] { return chat }
-        let chat = ChatStore(agent: agent, transcriptURL: transcriptURL(for: id))
+        let project = projects.first { $0.threads.contains { $0.id == id } }
+        let chat = ChatStore(agent: agent, transcriptURL: transcriptURL(for: id), projectPath: project?.directory)
         chat.onFirstPrompt = { [weak self] prompt in self?.nameThread(id, from: prompt) }
         chats[id] = chat
         return chat

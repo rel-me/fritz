@@ -49,6 +49,20 @@ struct ChatView: View {
                         .font(.caption).foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
+                if store.projectPath != nil {
+                    HStack(spacing: 12) {
+                        Picker("Mode", selection: $store.mode) {
+                            ForEach(ChatMode.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(width: 140)
+                        .disabled(store.isResponding)
+                        Text(store.mode == .code ? "Can edit files and run commands" : "Conversation only")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                    }
+                }
                 ChatComposer(
                     draft: $store.draft,
                     placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
@@ -89,6 +103,7 @@ struct ChatView: View {
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
         .onChange(of: store.effort) { _, _ in store.savePreferences() }
+        .onChange(of: store.mode) { _, _ in store.savePreferences() }
         .onChange(of: store.speed) { _, _ in store.savePreferences() }
         .onChange(of: store.isResponding) { _, responding in if !responding { synchronizeModel() } }
     }
@@ -98,6 +113,7 @@ struct ChatView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
                     ForEach(store.messages) { message in
+                        let isActive = store.isResponding && message.id == store.messages.last?.id
                         VStack(alignment: .leading, spacing: 8) {
                             if message.role == "user" {
                                 Text(message.content)
@@ -105,9 +121,26 @@ struct ChatView: View {
                                     .padding(.horizontal, 16).padding(.vertical, 12)
                                     .background(ChatVisualStyle.subtleFill, in: RoundedRectangle(cornerRadius: 16))
                                     .frame(maxWidth: .infinity, alignment: .trailing)
-                            } else if !message.content.isEmpty {
-                                ChatAssistantMessage(content: message.content)
-                                if !message.isComplete && !store.isResponding {
+                            } else {
+                                if let tools = message.tools, !tools.isEmpty {
+                                    DisclosureGroup("\(tools.count) tool action\(tools.count == 1 ? "" : "s")") {
+                                        ForEach(tools) { tool in
+                                            DisclosureGroup {
+                                                Text(tool.arguments).font(.caption.monospaced()).textSelection(.enabled)
+                                                if let result = tool.result {
+                                                    Text(result).font(.caption.monospaced()).textSelection(.enabled)
+                                                }
+                                            } label: {
+                                                Label(tool.summary, systemImage: tool.success == true ? "checkmark.circle" : tool.success == false ? "exclamationmark.circle" : isActive ? "ellipsis.circle" : "stop.circle")
+                                                    .font(.callout).lineLimit(2)
+                                            }
+                                        }
+                                    }
+                                    .padding(12)
+                                    .background(ChatVisualStyle.subtleFill, in: RoundedRectangle(cornerRadius: 10))
+                                }
+                                if !message.content.isEmpty { ChatAssistantMessage(content: message.content) }
+                                if !message.isComplete && !isActive {
                                     Text("Response interrupted").font(.caption).foregroundStyle(.secondary)
                                 }
                             }
@@ -117,7 +150,7 @@ struct ChatView: View {
                     if store.isResponding {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
-                            Text("Fritz is working…").font(.callout).foregroundStyle(.secondary)
+                            Text(store.activity ?? "Fritz is working…").font(.callout).foregroundStyle(.secondary)
                         }
                     }
                     Color.clear.frame(height: 1).id("bottom")
@@ -127,6 +160,7 @@ struct ChatView: View {
                 .padding(24)
             }
             .defaultScrollAnchor(.bottom)
+            .onChange(of: store.activity) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
             .onChange(of: store.messages.last?.content) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
         }
     }
