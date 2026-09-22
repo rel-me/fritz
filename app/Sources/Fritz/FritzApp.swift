@@ -71,6 +71,8 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
+    @State private var isRightPanelPresented = false
+    @State private var isBottomPanelPresented = false
 
     var body: some View {
         NavigationSplitView(columnVisibility: $sidebarVisibility) {
@@ -78,37 +80,58 @@ private struct FritzWorkspaceView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
         } detail: {
             VStack(spacing: 0) {
-                if let error = state.workspace.error {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange).textSelection(.enabled).padding(12)
-                }
-                if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
+                HStack(spacing: 0) {
                     VStack(spacing: 0) {
-                        HStack(spacing: 8) {
-                            Text(state.workspace.selectedProject?.name ?? "").foregroundStyle(.secondary)
-                            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                            Text(thread.title).lineLimit(1).truncationMode(.tail)
-                            Spacer()
+                        if let error = state.workspace.error {
+                            Label(error, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                         }
-                        .font(.callout)
-                        .padding(.horizontal, 20).padding(.vertical, 14)
-                        ChatView(store: chat, providers: state.providers,
-                                 openProviders: { openWindow(id: "providers") },
-                                 addProvider: { state.editor = ProviderEditorSelection() })
-                            .id(thread.id)
-                    }
-                    .background(FritzWindowStyle.contentBackground)
-                } else {
-                    ContentUnavailableView {
-                        Label("Start a project", systemImage: "folder.badge.plus")
-                    } description: {
-                        Text("Keep your coding conversations together, one project at a time.")
-                    } actions: {
-                        Button("New Project") { state.isCreatingProject = true }
-                            .buttonStyle(FritzButtonStyle(.primary)).disabled(!state.workspace.canSave)
+                        if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
+                            VStack(spacing: 0) {
+                                HStack(spacing: 8) {
+                                    Text(state.workspace.selectedProject?.name ?? "").foregroundStyle(.secondary)
+                                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                                    Text(thread.title).lineLimit(1).truncationMode(.tail)
+                                    Spacer()
+                                }
+                                .font(.callout)
+                                .padding(.horizontal, 20).padding(.vertical, 14)
+                                ChatView(store: chat, providers: state.providers,
+                                         openProviders: { openWindow(id: "providers") },
+                                         addProvider: { state.editor = ProviderEditorSelection() })
+                                    .id(thread.id)
+                            }
+                            .background(FritzWindowStyle.contentBackground)
+                        } else {
+                            ContentUnavailableView {
+                                Label("Start a project", systemImage: "folder.badge.plus")
+                            } description: {
+                                Text("Keep your coding conversations together, one project at a time.")
+                            } actions: {
+                                Button("New Project") { state.isCreatingProject = true }
+                                    .buttonStyle(FritzButtonStyle(.primary)).disabled(!state.workspace.canSave)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(FritzWindowStyle.contentBackground)
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(FritzWindowStyle.contentBackground)
+
+                    if isRightPanelPresented {
+                        Rectangle().fill(.separator).frame(width: 0.5)
+                        WorkspacePlaceholderPanel(title: "Right Panel", systemImage: "sidebar.right") {
+                            isRightPanelPresented = false
+                        }
+                        .frame(width: 260)
+                    }
+                }
+
+                if isBottomPanelPresented {
+                    Rectangle().fill(.separator).frame(height: 0.5)
+                    WorkspacePlaceholderPanel(title: "Bottom Panel", systemImage: "rectangle.bottomthird.inset.filled") {
+                        isBottomPanelPresented = false
+                    }
+                    .frame(height: 190)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
@@ -133,12 +156,60 @@ private struct FritzWorkspaceView: View {
                     .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
                     .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Toggle Right Panel", systemImage: "sidebar.right") {
+                    isRightPanelPresented.toggle()
+                }
+                .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar))
+                .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
+                .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
+                .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Toggle Bottom Panel", systemImage: "rectangle.bottomthird.inset.filled") {
+                    isBottomPanelPresented.toggle()
+                }
+                .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar))
+                .foregroundStyle(isBottomPanelPresented ? Color.accentColor : .secondary)
+                .help(isBottomPanelPresented ? "Hide Bottom Panel" : "Show Bottom Panel")
+                .accessibilityValue(isBottomPanelPresented ? "Shown" : "Hidden")
+            }
         }
         .toolbarBackground(FritzWindowStyle.workspaceBackground, for: .windowToolbar)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+    }
+}
+
+private struct WorkspacePlaceholderPanel: View {
+    let title: String
+    let systemImage: String
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Label(title, systemImage: systemImage)
+                    .font(.headline)
+                Spacer()
+                Button("Close \(title)", systemImage: "xmark", action: close)
+                    .modifier(FritzPanelIconControl())
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Divider()
+
+            Text("This panel is a placeholder for future workspace tools.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(16)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(FritzWindowStyle.contentBackground)
     }
 }
 
