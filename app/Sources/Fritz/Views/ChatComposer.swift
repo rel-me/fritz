@@ -388,12 +388,16 @@ struct ChatModelPickerPopover: View {
                     }
                 }
 
-                Button("Open Models", action: configureModels)
-                    .font(.callout)
-                    .buttonStyle(FritzButtonStyle(.primary))
-                    .buttonBorderShape(.capsule)
-                    .fritzButtonSize(.small)
-                    .help("Open Model Providers")
+                Button(action: configureModels) {
+                    Text("Open Models")
+                        .font(.callout)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.accentColor, in: Capsule())
+                }
+                .buttonStyle(FritzButtonStyle(.inline))
+                .help("Open Model Providers")
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
