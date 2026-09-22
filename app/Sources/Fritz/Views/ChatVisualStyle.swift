@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ChatVisualStyle {
-    static let contentMaxWidth: CGFloat = 720
+    static let contentMaxWidth: CGFloat = 780
     static let horizontalPadding: CGFloat = 24
     static let transcriptSpacing: CGFloat = 28
     static let composerCornerRadius = FritzWindowStyle.cornerRadius

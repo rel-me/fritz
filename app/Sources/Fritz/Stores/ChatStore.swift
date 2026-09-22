@@ -27,17 +27,13 @@ struct ChatToolActivity: Codable, Identifiable, Equatable, Sendable {
     var success: Bool?
 }
 
-enum ChatMode: String, Codable, CaseIterable {
-    case chat, code
-    var title: String { self == .chat ? "Chat" : "Code" }
-}
+enum ChatMode: String, Codable { case chat, code }
 
 private struct ChatPreferences: Codable {
     var draft: String
     var selectedModel: ChatModelOption?
     var effort: ChatReasoningEffort
     var speed: ChatSpeed
-    var mode: ChatMode?
 }
 
 @MainActor @Observable final class ChatStore {
@@ -49,7 +45,7 @@ private struct ChatPreferences: Codable {
     var effort: ChatReasoningEffort = .medium
     var speed: ChatSpeed = .standard
     var responseTokens: Int?
-    var mode: ChatMode
+    let mode: ChatMode
     let projectPath: String?
     private(set) var activity: String?
     let agent: AgentClient
@@ -74,7 +70,6 @@ private struct ChatPreferences: Codable {
                 let saved = try JSONDecoder().decode(ChatPreferences.self, from: Data(contentsOf: preferencesURL))
                 draft = saved.draft; selectedModel = saved.selectedModel
                 effort = saved.effort; speed = saved.speed
-                if projectPath != nil, let savedMode = saved.mode { mode = savedMode }
             } catch { self.error = "Could not restore thread settings: \(error.localizedDescription)" }
         }
     }
@@ -191,7 +186,7 @@ private struct ChatPreferences: Codable {
     func savePreferences() {
         do {
             try FileManager.default.createDirectory(at: preferencesURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let settings = ChatPreferences(draft: draft, selectedModel: selectedModel, effort: effort, speed: speed, mode: mode)
+            let settings = ChatPreferences(draft: draft, selectedModel: selectedModel, effort: effort, speed: speed)
             try JSONEncoder().encode(settings).write(to: preferencesURL, options: .atomic)
         } catch { self.error = "Could not save thread settings: \(error.localizedDescription)" }
     }
