@@ -1,4 +1,4 @@
-use fritz::{config, harness_client, provider};
+use fritz::{config, harness_client, local, provider};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -24,6 +24,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// List or explicitly download Fritz's built-in local models.
+    LocalModels {
+        #[command(subcommand)]
+        command: LocalModelCommand,
+    },
     /// List saved provider connections (never prints keys).
     Providers,
     /// Add a provider. Read a key from stdin with --api-key-stdin.
@@ -69,12 +74,25 @@ enum Command {
     },
 }
 
+#[derive(Subcommand)]
+enum LocalModelCommand {
+    /// Show the pinned catalog and verified installation status.
+    List { model: Option<String> },
+    /// Download and verify a model; progress is newline-delimited JSON.
+    Install { model: String },
+}
+
 fn save(
     connection: Connection,
     api_key: Option<String>,
     make_default: bool,
 ) -> Result<config::Registry> {
     connection.validate()?;
+    if connection.provider == ProviderKind::Fritz
+        && api_key.as_deref().is_some_and(|key| !key.is_empty())
+    {
+        bail!("Fritz local models do not use an API key.");
+    }
     config::update(|registry| {
         if registry
             .connections
@@ -82,6 +100,9 @@ fn save(
             .any(|c| c.id != connection.id && c.name.eq_ignore_ascii_case(&connection.name))
         {
             bail!("A connection with that name already exists.");
+        }
+        if connection.provider == ProviderKind::Fritz {
+            config::delete_key(connection.id)?;
         }
         if let Some(old) = registry.connections.iter().find(|c| c.id == connection.id)
             && (old.provider != connection.provider || old.base_url() != connection.base_url())
@@ -134,12 +155,23 @@ struct Request {
     params: Value,
 }
 
-async fn dispatch(request: &Request, emit: impl Fn(Value)) -> Result<Value> {
+async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Value> {
     let params = &request.params;
     match request.method.as_str() {
         "health" => Ok(
             json!({"name":"fritz","version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"harness":"fritz-harness"}),
         ),
+        "localModels.list" => match params["modelId"].as_str() {
+            Some(id) => local::models::inventory_model(id).await,
+            None => local::models::inventory().await,
+        },
+        "localModels.install" => {
+            let id = params["modelId"]
+                .as_str()
+                .context("Choose a local model.")?;
+            local::models::download(id, &emit).await?;
+            Ok(json!({"modelId":id,"installed":true}))
+        }
         "providers.list" => Ok(serde_json::to_value(config::load()?)?),
         "providers.save" => Ok(serde_json::to_value(save(
             serde_json::from_value(params["connection"].clone())?,
@@ -240,8 +272,10 @@ async fn agent() -> Result<()> {
             );
         }
     }
-    for (_, job) in jobs {
+    for job in jobs.values() {
         job.abort();
+    }
+    for (_, job) in jobs {
         let _ = job.await;
     }
     drop(sender);
@@ -269,6 +303,22 @@ async fn run() -> Result<()> {
         return agent().await;
     }
     match cli.command {
+        Some(Command::LocalModels { command }) => match command {
+            LocalModelCommand::List { model } => {
+                let inventory = match model {
+                    Some(id) => local::models::inventory_model(&id).await?,
+                    None => local::models::inventory().await?,
+                };
+                println!("{}", serde_json::to_string_pretty(&inventory)?);
+            }
+            LocalModelCommand::Install { model } => {
+                local::models::download(&model, &|event| {
+                    println!("{event}");
+                    let _ = io::stdout().flush();
+                })
+                .await?;
+            }
+        },
         None => {
             use clap::CommandFactory;
             Cli::command().print_help()?;

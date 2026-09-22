@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::time::Duration;
 
-const SYSTEM: &str = "You are Fritz, a coding assistant in a native macOS app. Help the user understand and write software. Be concise and accurate. This conversation is in Chat mode: you have no access to files, terminals, or external tools. Do not claim to inspect or change files or execute commands.";
+pub(crate) const SYSTEM: &str = "You are Fritz, a coding assistant in a native macOS app. Help the user understand and write software. Be concise and accurate. This conversation is in Chat mode: you have no access to files, terminals, or external tools. Do not claim to inspect or change files or execute commands.";
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Message {
@@ -123,6 +123,19 @@ pub(crate) async fn checked(request: RequestBuilder) -> Result<reqwest::Response
 
 pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
+    if connection.provider == ProviderKind::Fritz {
+        let inventory = crate::local::models::inventory().await?;
+        return Ok(inventory["models"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|model| model["installed"] == true)
+            .map(|model| Model {
+                id: model["id"].as_str().unwrap().into(),
+                display_name: model["name"].as_str().unwrap().into(),
+            })
+            .collect());
+    }
     let key = credential(connection, supplied_key)?;
     let client = client()?;
     let suffix = if connection.provider == ProviderKind::Ollama {

@@ -88,7 +88,7 @@ enum AIProviderCategory: String, CaseIterable, Identifiable {
     func contains(_ preset: AIProviderPreset) -> Bool {
         switch self {
         case .all: true
-        case .local: preset.provider == .ollama
+        case .local: [.fritz, .ollama].contains(preset.provider)
         case .remote: !AIProviderCategory.local.contains(preset)
         case .frontier: [.openAI, .anthropic, .gemini].contains(preset.provider)
         case .hosted: [.adapter(.openRouter), .fireworks, .amazonBedrock, .baseten].contains(preset)
@@ -99,7 +99,7 @@ enum AIProviderCategory: String, CaseIterable, Identifiable {
     var help: String {
         switch self {
         case .all: "Show all providers"
-        case .local: "Ollama on this Mac or your network"
+        case .local: "Fritz and Ollama"
         case .remote: "Remote services and configurable API endpoints"
         case .frontier: "OpenAI, Anthropic, and Google Gemini"
         case .hosted: "OpenRouter, Fireworks, Amazon Bedrock, and Baseten"

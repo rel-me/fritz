@@ -109,7 +109,7 @@ struct AIProviderPickerContent: View {
                             } label: {
                                 HStack {
                                     Text(provider.name)
-                                    if provider.provider == .ollama {
+                                    if AIProviderCategory.local.contains(provider) {
                                         Text("local")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
@@ -182,4 +182,3 @@ struct AIProviderPickerContent: View {
     }
 
 }
-

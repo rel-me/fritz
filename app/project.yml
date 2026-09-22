@@ -18,7 +18,10 @@ targets:
     type: application
     platform: macOS
     sources:
-      - Sources/Fritz
+      - path: Sources/Fritz
+        excludes: [LocalModels.json]
+      - path: Sources/Fritz/LocalModels.json
+        buildPhase: resources
     dependencies:
       - package: Textual
     settings:

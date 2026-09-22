@@ -11,7 +11,7 @@ let package = Package(
     targets: [
         .executableTarget(name: "Fritz", dependencies: [
             .product(name: "Textual", package: "textual")
-        ]),
+        ], resources: [.copy("LocalModels.json")]),
         .testTarget(name: "FritzTests", dependencies: ["Fritz"])
     ]
 )

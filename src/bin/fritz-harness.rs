@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use fritz::{harness, harness_client};
+use fritz::{harness, harness_client, local};
 use serde_json::json;
 use std::io::Write;
 use tokio::io::{AsyncReadExt, BufReader};
@@ -84,7 +84,9 @@ impl tokio::io::AsyncRead for PipeReader {
 }
 #[tokio::main]
 async fn main() {
-    if let Err(error) = run().await {
+    let result = run().await;
+    local::shutdown().await;
+    if let Err(error) = result {
         emit(harness_client::terminal(Err(error)));
         std::process::exit(1);
     }

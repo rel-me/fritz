@@ -1,7 +1,7 @@
 mod native;
 
 use crate::{
-    config::Connection,
+    config::{Connection, ProviderKind},
     provider::{self, ChatMode, ChatRequest},
     tools::{self, Workspace},
 };
@@ -30,6 +30,16 @@ pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
         bail!("maxTurns must be between 1 and 40.");
     }
     let run = async {
+        if input.connection.provider == ProviderKind::Fritz {
+            if input.request.mode != ChatMode::Chat {
+                bail!(
+                    "Fritz local models support Chat mode only. Select Chat or choose a provider with tool support for Code mode."
+                );
+            }
+            // Apply the shared request validation before entering native inference.
+            provider::payload(&input.connection, &input.request)?;
+            return crate::local::chat(&input.request, provider::SYSTEM, &emit).await;
+        }
         if input.request.mode == ChatMode::Chat {
             let (suffix, body) = provider::payload(&input.connection, &input.request)?;
             return provider::stream_body(

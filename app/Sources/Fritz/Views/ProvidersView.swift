@@ -45,7 +45,7 @@ struct ProvidersView: View {
                         } else {
                             chip("Ready", color: .green)
                         }
-                        if connection.provider == .ollama { chip("Local") }
+                        if [.fritz, .ollama].contains(connection.provider) { chip("Local") }
                         if connection.id == store.registry.defaultConnectionId { chip("Default") }
                     }
                 }.width(min: 260, ideal: 340, max: .infinity)
@@ -122,10 +122,14 @@ struct ProviderEditor: View {
     @State private var showsAdvanced = false
     @State private var refreshID = 0
     @State private var activeDiscoveryID = UUID()
+    @State private var nativeModel: NativeLocalModel
+    @State private var addsAfterInstallation = false
+    @State private var saveTask: Task<Void, Never>?
 
     init(store: ProviderStore, existing: ProviderConnection?) {
         self.store = store; self.existing = existing
         _id = State(initialValue: existing?.id ?? UUID())
+        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID))
         var initialName = "OpenAI", suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
             initialName = "OpenAI \(suffix)"; suffix += 1
@@ -142,90 +146,130 @@ struct ProviderEditor: View {
             FritzManagementHeader(existing == nil ? "New Provider" : "Edit Provider")
             Divider()
             Form {
-                Section { AIProviderPicker(selection: $preset) }
-                Section {
-                    LabeledContent(preset.provider == .openAICompatible ? "Endpoint" : "Base URL") {
-                        TextField("Endpoint", text: $endpoint, prompt: Text(endpointPrompt))
-                            .labelsHidden().autocorrectionDisabled()
-                    }
-                    .help(preset.provider == .openAICompatible ? "The OpenAI-compatible API endpoint, including its version path." : "Leave blank to use the provider’s default endpoint.")
-                    LabeledContent(apiKeyTitle) {
-                        HStack(spacing: 8) {
-                            Group {
-                                if isAPIKeyVisible {
-                                    TextField(apiKeyTitle, text: $apiKey, prompt: Text(keyPrompt))
-                                } else {
-                                    SecureField(apiKeyTitle, text: $apiKey, prompt: Text(keyPrompt))
-                                }
-                            }.labelsHidden().privacySensitive().accessibilityLabel(apiKeyTitle)
-                            Button(isAPIKeyVisible ? "Hide API Key" : "Show API Key", systemImage: isAPIKeyVisible ? "eye.slash" : "eye") {
-                                isAPIKeyVisible.toggle()
-                            }
-                            .labelStyle(.iconOnly).frame(width: 24, height: 20).disabled(apiKey.isEmpty)
-                            .help(isAPIKeyVisible ? "Hide API Key" : "Show API Key")
-                        }
-                    }.help("API keys are stored in macOS Keychain.")
-                    LabeledContent("Models") {
-                        HStack(spacing: 8) {
-                            Text(isDiscovering ? "Loading…" : "\(models.count) available").foregroundStyle(.secondary)
-                            Button("Refresh Models", systemImage: "arrow.clockwise") { refreshID += 1 }
-                                .labelStyle(.iconOnly).frame(width: 24, height: 20).help("Refresh Models")
-                                .disabled(isDiscovering).opacity(isDiscovering ? 0 : 1)
-                                .overlay { if isDiscovering { ProgressView().controlSize(.small) } }
-                        }.frame(minHeight: 20)
-                    }
+                Section { AIProviderPicker(selection: $preset) }.disabled(nativeModel.state.isBusy)
+                if managesLocalModels {
+                    NativeLocalModelSection(modelID: Binding(
+                        get: { nativeModel.selectedModelID },
+                        set: { addsAfterInstallation = false; nativeModel.select($0) }
+                    ), state: nativeModel.state, hardware: .current)
                     if !store.connections.isEmpty {
-                        Toggle("Use as Default Provider", isOn: $makeDefault)
-                            .disabled(existing?.id == store.registry.defaultConnectionId)
-                    }
-                } footer: {
-                    if let discoveryError {
-                        Label(discoveryError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    } else if discoveryFinished, models.isEmpty {
-                        Text("No models were returned by this model provider.").foregroundStyle(.secondary)
-                    }
-                }
-                Section {
-                    DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
-                        TextField("Connection name", text: $name)
-                        if !models.isEmpty {
-                            Picker("Default model", selection: $modelID) {
-                                Text("Choose automatically").tag("")
-                                if !modelID.isEmpty && !models.contains(where: { $0.id == modelID }) { Text(modelID).tag(modelID) }
-                                ForEach(models) { Text($0.displayName).tag($0.id) }
-                            }
+                        Section {
+                            Toggle("Use as Default Provider", isOn: $makeDefault)
+                                .disabled(nativeModel.state.isBusy || existing?.id == store.registry.defaultConnectionId)
                         }
-                        TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                     }
-                } footer: {
-                    if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
-                    if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
+                    if let error { Section {} footer: { Text(error).foregroundStyle(.red) } }
+                } else {
+                    remoteSections
                 }
             }
             .fritzSettingsFormStyle().disabled(isSaving)
             Divider()
             HStack(spacing: 8) {
+                if managesLocalModels { Link("Model license", destination: nativeModel.selectedModel.licenseURL) }
                 if isSaving { ProgressView().controlSize(.small) }
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(isSaving)
-                Button(existing == nil ? "Add Provider" : "Save", action: { Task { await save() } })
+                Button("Cancel") { addsAfterInstallation = false; nativeModel.cancel(); dismiss() }.keyboardShortcut(.cancelAction).disabled(isSaving)
+                Button(primaryActionTitle, action: save)
                     .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
             .background(FritzWindowStyle.workspaceBackground)
         }
-        .frame(width: 600, height: 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60))
+        .frame(width: 600, height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60))
         .background(FritzWindowStyle.contentBackground)
         .buttonStyle(FritzButtonStyle())
+        .interactiveDismissDisabled(isSaving)
         .onChange(of: preset) { old, new in
+            addsAfterInstallation = false; nativeModel.cancel()
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false; modelID = ""
             models = []; error = nil; discoveryFinished = false; refreshID = 0
         }
+        .task(id: managesLocalModels) {
+            addsAfterInstallation = false
+            if managesLocalModels { nativeModel.refresh() } else { nativeModel.cancel() }
+        }
+        .onChange(of: nativeModel.state) { _, state in
+            if managesLocalModels, state == .installed, addsAfterInstallation {
+                addsAfterInstallation = false
+                save()
+            }
+        }
+        .onDisappear { addsAfterInstallation = false; nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
     }
 
+    @ViewBuilder private var remoteSections: some View {
+        Section {
+            LabeledContent(preset.provider == .openAICompatible ? "Endpoint" : "Base URL") {
+                TextField("Endpoint", text: $endpoint, prompt: Text(endpointPrompt))
+                    .labelsHidden().autocorrectionDisabled()
+            }
+            .help(preset.provider == .openAICompatible ? "The OpenAI-compatible API endpoint, including its version path." : "Leave blank to use the provider’s default endpoint.")
+            LabeledContent(apiKeyTitle) {
+                HStack(spacing: 8) {
+                    Group {
+                        if isAPIKeyVisible {
+                            TextField(apiKeyTitle, text: $apiKey, prompt: Text(keyPrompt))
+                        } else {
+                            SecureField(apiKeyTitle, text: $apiKey, prompt: Text(keyPrompt))
+                        }
+                    }.labelsHidden().privacySensitive().accessibilityLabel(apiKeyTitle)
+                    Button(isAPIKeyVisible ? "Hide API Key" : "Show API Key", systemImage: isAPIKeyVisible ? "eye.slash" : "eye") {
+                        isAPIKeyVisible.toggle()
+                    }
+                    .labelStyle(.iconOnly).frame(width: 24, height: 20).disabled(apiKey.isEmpty)
+                    .help(isAPIKeyVisible ? "Hide API Key" : "Show API Key")
+                }
+            }.help("API keys are stored in macOS Keychain.")
+            LabeledContent("Models") {
+                HStack(spacing: 8) {
+                    Text(isDiscovering ? "Loading…" : "\(models.count) available").foregroundStyle(.secondary)
+                    Button("Refresh Models", systemImage: "arrow.clockwise") { refreshID += 1 }
+                        .labelStyle(.iconOnly).frame(width: 24, height: 20).help("Refresh Models")
+                        .disabled(isDiscovering).opacity(isDiscovering ? 0 : 1)
+                        .overlay { if isDiscovering { ProgressView().controlSize(.small) } }
+                }.frame(minHeight: 20)
+            }
+            if !store.connections.isEmpty {
+                Toggle("Use as Default Provider", isOn: $makeDefault)
+                    .disabled(existing?.id == store.registry.defaultConnectionId)
+            }
+        } footer: {
+            if let discoveryError {
+                Label(discoveryError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            } else if discoveryFinished, models.isEmpty {
+                Text("No models were returned by this model provider.").foregroundStyle(.secondary)
+            }
+        }
+        Section {
+            DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
+                TextField("Connection name", text: $name)
+                if !models.isEmpty {
+                    Picker("Default model", selection: $modelID) {
+                        Text("Choose automatically").tag("")
+                        if !modelID.isEmpty && !models.contains(where: { $0.id == modelID }) { Text(modelID).tag(modelID) }
+                        ForEach(models) { Text($0.displayName).tag($0.id) }
+                    }
+                }
+                TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
+            }
+        } footer: {
+            if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
+            if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
+        }
+    }
+
+    private var managesLocalModels: Bool { preset.provider == .fritz }
+    private var primaryActionTitle: String {
+        guard managesLocalModels else { return existing == nil ? "Add Provider" : "Save" }
+        if nativeModel.state.isBusy { return "Installing…" }
+        if nativeModel.state == .installed { return existing == nil ? "Add Model" : "Save" }
+        if case .failed = nativeModel.state { return "Retry Download & Add" }
+        return "Download & Add"
+    }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
     private var keepsSavedKey: Bool {
@@ -236,15 +280,15 @@ struct ProviderEditor: View {
     }
     private var keyPrompt: String { keepsSavedKey ? "Saved in Keychain" : "Enter API key" }
     private var canSave: Bool {
-        !isSaving && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isSaving && !nativeModel.state.isBusy && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
             && (preset.provider != .openAICompatible || !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
     private var discoveryKey: DiscoveryKey { DiscoveryKey(provider: preset, endpoint: endpoint, apiKey: apiKey, refresh: refreshID) }
     private var connection: ProviderConnection {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
-                           baseURL: endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
-                           modelID: modelID.trimmingCharacters(in: .whitespacesAndNewlines))
+                           baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
+                           modelID: managesLocalModels ? nativeModel.selectedModelID : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private func suggestedName(_ base: String) -> String {
         var candidate = base, count = 2
@@ -254,6 +298,7 @@ struct ProviderEditor: View {
         return candidate
     }
     private func discover() async {
+        guard !managesLocalModels else { return }
         let token = UUID()
         activeDiscoveryID = token
         isDiscovering = false; discoveryError = nil; discoveryFinished = false; models = []
@@ -279,11 +324,24 @@ struct ProviderEditor: View {
             discoveryError = error.localizedDescription; discoveryFinished = true
         }
     }
-    private func save() async {
+    private func save() {
+        guard canSave else { return }
+        if managesLocalModels, nativeModel.state != .installed {
+            addsAfterInstallation = true
+            error = nil
+            nativeModel.install()
+            return
+        }
         isSaving = true; error = nil
-        defer { isSaving = false }
-        do { try await store.save(connection, key: apiKey, makeDefault: makeDefault); apiKey = ""; dismiss() }
-        catch { self.error = error.localizedDescription }
+        saveTask = Task {
+            defer { isSaving = false; saveTask = nil }
+            do {
+                try await store.save(connection, key: apiKey, makeDefault: makeDefault)
+                try Task.checkCancellation()
+                apiKey = ""; dismiss()
+            } catch is CancellationError {
+            } catch { self.error = error.localizedDescription }
+        }
     }
 }
 

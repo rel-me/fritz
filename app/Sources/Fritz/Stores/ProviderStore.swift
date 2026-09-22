@@ -50,12 +50,15 @@ import Observation
                     guard refreshID == revision else { return }
                     nextCatalog[connection.id] = response.models
                     nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
+                    if connection.provider == .fritz, response.models.isEmpty {
+                        nextErrors[connection.id] = "No local models are installed. Edit this provider to download a model."
+                    }
                 } catch {
                     guard refreshID == revision else { return }
                     nextErrors[connection.id] = error.localizedDescription
                 }
                 // A manually configured model supports endpoints that have no catalog API.
-                if !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
+                if connection.provider != .fritz, !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
                     nextModels.append(ChatModelOption(connection: connection))
                 }
             }

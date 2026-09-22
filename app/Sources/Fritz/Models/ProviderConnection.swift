@@ -4,7 +4,7 @@ enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiable, Send
     case openAI = "openai"
     case openAICompatible = "openai-compatible"
     case openRouter = "openrouter"
-    case anthropic, gemini, ollama
+    case anthropic, gemini, ollama, fritz
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -14,9 +14,10 @@ enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiable, Send
         case .anthropic: "Anthropic"
         case .gemini: "Google Gemini"
         case .ollama: "Ollama"
+        case .fritz: "Fritz"
         }
     }
-    var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama }
+    var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && self != .fritz }
     var systemImage: String {
         switch self {
         case .openAI: "sparkles"
@@ -25,6 +26,7 @@ enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiable, Send
         case .anthropic: "text.bubble"
         case .gemini: "diamond"
         case .ollama: "desktopcomputer"
+        case .fritz: "cpu"
         }
     }
     var endpoint: String {
@@ -35,6 +37,7 @@ enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiable, Send
         case .anthropic: "https://api.anthropic.com/v1"
         case .gemini: "https://generativelanguage.googleapis.com/v1beta"
         case .ollama: "http://localhost:11434"
+        case .fritz: ""
         }
     }
 }

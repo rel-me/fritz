@@ -41,7 +41,11 @@ pub async fn read_line(
 
 pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
     let connection = config::find(Some(&request.connection_id))?;
-    let api_key = provider::credential(&connection, None)?;
+    let api_key = if connection.provider == config::ProviderKind::Fritz {
+        None
+    } else {
+        provider::credential(&connection, None)?
+    };
     let input = harness::Input {
         request,
         connection,
@@ -96,7 +100,7 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
     }
     drop(stdin);
     let status = reaper.await??;
-    if !status.success() && terminal.is_none() {
+    if !status.success() && terminal.as_ref().is_none_or(|result| result.is_ok()) {
         bail!("fritz-harness exited unexpectedly.");
     }
     terminal.unwrap_or_else(|| {

@@ -24,6 +24,7 @@ for dependency in textual swiftui-math swift-concurrency-extras; do
 done
 cp "$package_checkouts/textual/LICENSE-3rdparty.csv" "$app_bundle/Contents/Resources/Licenses/"
 cp "$package_checkouts/swiftui-math/Sources/SwiftUIMath/mathFonts.bundle/LICENSE" "$app_bundle/Contents/Resources/Licenses/math-fonts.txt"
+cp resources/licenses/*.txt "$app_bundle/Contents/Resources/Licenses/"
 codesign --force --sign - --identifier dev.fritz.agent --requirements '=designated => identifier "dev.fritz.agent"' "$app_bundle/Contents/Resources/fritz"
 codesign --force --sign - --identifier dev.fritz.harness "$app_bundle/Contents/Resources/fritz-harness"
 codesign --force --sign - --identifier dev.fritz.app --requirements '=designated => identifier "dev.fritz.app"' "$app_bundle"

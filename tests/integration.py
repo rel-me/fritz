@@ -28,6 +28,19 @@ def main():
 
         registry = json.loads(cli("providers").stdout)
         assert registry["connections"] == []
+        # The built-in catalog is offline; listing and chat never install weights.
+        local_models = json.loads(cli("local-models", "list").stdout)["models"]
+        assert len(local_models) > 1 and not any(model["installed"] for model in local_models)
+        assert not (Path(directory) / "Models").exists()
+        assert "Unknown Fritz local model" in cli("local-models", "install", "../../outside", success=False).stderr
+        native_id = local_models[-1]["id"]
+        cli("add-provider", "--name", "Fritz", "--provider", "fritz", "--model", native_id)
+        assert json.loads(cli("models", "--connection", "Fritz").stdout) == []
+        assert "not installed" in cli("chat", "Hi", "--connection", "Fritz", success=False).stderr
+        assert "Chat mode only" in cli("chat", "Hi", "--connection", "Fritz", "--project", directory, success=False).stderr
+        assert not (Path(directory) / "Models").exists()
+        assert "does not use an endpoint" in cli("add-provider", "--name", "Invalid", "--provider", "fritz", "--base-url", endpoint, success=False).stderr
+        cli("remove-provider", "Fritz")
         registry = json.loads(cli("add-provider", "--name", "Test", "--provider", "openai-compatible", "--base-url", endpoint, "--model", "fritz-test", "--default").stdout)
         connection = registry["connections"][0]
         assert registry["defaultConnectionId"] == connection["id"]
@@ -57,6 +70,11 @@ def main():
         health = send("health")
         event = receive()
         assert event["id"] == health and event["result"]["name"] == "fritz"
+        local_list = send("localModels.list", {"modelId": native_id})
+        event = receive()
+        assert event["id"] == local_list and event["result"]["models"][0]["installed"] is False
+        send("localModels.install", {"modelId": "unknown"})
+        assert receive()["type"] == "error"
         chat = send("chat", {"connectionId": connection["id"].upper(), "model": "slow-test", "messages": [{"role": "user", "content": "Hello"}]})
         event = receive()
         assert event["id"] == chat and event["type"] == "delta"

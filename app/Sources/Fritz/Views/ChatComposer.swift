@@ -289,7 +289,6 @@ struct ChatModelPickerPopover: View {
     @State private var searchText = ""
     @State private var selectedProvider: AIProviderPreset?
     @State private var hoveredProviderFilterID: String?
-    @State private var isConfigureModelsHovered = false
     @FocusState private var isSearchFocused: Bool
 
     init(
@@ -389,22 +388,12 @@ struct ChatModelPickerPopover: View {
                     }
                 }
 
-                Button(action: configureModels) {
-                    Text("Edit")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            isConfigureModelsHovered
-                                ? ChatVisualStyle.subtleFill
-                                : ChatVisualStyle.quieterFill,
-                            in: Capsule()
-                        )
-                }
-                .buttonStyle(FritzButtonStyle(.inline))
-                .help("Open Providers")
-                .onHover { isConfigureModelsHovered = $0 }
+                Button("Open Models", action: configureModels)
+                    .font(.callout)
+                    .buttonStyle(FritzButtonStyle(.primary))
+                    .buttonBorderShape(.capsule)
+                    .fritzButtonSize(.small)
+                    .help("Open Model Providers")
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)

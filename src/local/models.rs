@@ -1,17 +1,20 @@
 //! The app ships the inference runtime and manifest, but downloads weights only
 //! after an explicit install request in provider setup. This cache belongs to the selected runtime.
 use anyhow::{Result, anyhow};
+use fs2::FileExt;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::{io::Write, path::{Path, PathBuf}, time::Duration};
-use tokio::io::AsyncReadExt;
-use fs2::FileExt;
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
-    io::Read,
     time::Instant,
 };
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+    time::Duration,
+};
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct Manifest {
@@ -38,11 +41,11 @@ pub(crate) fn catalog() -> &'static [Manifest] {
     })
 }
 
-pub(crate) fn manifest(id: &str) -> Result<&'static Manifest, anyhow::Error> {
+pub(crate) fn manifest(id: &str) -> Result<&'static Manifest> {
     catalog()
         .iter()
         .find(|model| model.id == id)
-        .ok_or_else(|| anyhow!(format!("Unknown Fritz local model: {id}")))
+        .ok_or_else(|| anyhow!("Unknown Fritz local model: {id}"))
 }
 
 fn directory(pin: &Manifest) -> PathBuf {
@@ -72,7 +75,7 @@ async fn verified(path: &Path, pin: &Manifest) -> bool {
     format!("{:x}", hash.finalize()) == pin.sha256
 }
 
-pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf, anyhow::Error> {
+pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
     let pin = manifest(model_id)?;
     let path = directory(pin).join(&pin.file);
     if verified(&path, pin).await {
@@ -85,7 +88,7 @@ pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf, anyhow::Er
     }
 }
 
-fn progress(emit: &impl Fn(Value), downloaded: u64, total: u64, status: &str) {
+fn progress(emit: &(impl Fn(Value) + Sync), downloaded: u64, total: u64, status: &str) {
     emit(json!({"type":"progress","downloaded":downloaded,"total":total,"status":status}));
 }
 
@@ -98,7 +101,7 @@ impl Drop for Partial {
     }
 }
 
-pub(crate) async fn download(model_id: &str, emit: &impl Fn(Value)) -> Result<(), anyhow::Error> {
+pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
     let pin = manifest(model_id)?;
     let url = format!(
         "https://huggingface.co/{}/resolve/{}/{}",
@@ -111,8 +114,8 @@ async fn download_to(
     directory: &Path,
     url: &str,
     pin: &Manifest,
-    emit: &impl Fn(Value),
-) -> Result<(), anyhow::Error> {
+    emit: &(impl Fn(Value) + Sync),
+) -> Result<()> {
     fs::create_dir_all(directory)?;
     let lock = OpenOptions::new()
         .create(true)
@@ -122,8 +125,7 @@ async fn download_to(
         .open(directory.join("download.lock"))?;
     lock.try_lock_exclusive().map_err(|_| {
         anyhow!(
-            "This model is being installed in another window. Retry when that download finishes."
-                ,
+            "This model is being installed in another window. Retry when that download finishes.",
         )
     })?;
     let destination = directory.join(&pin.file);
@@ -140,12 +142,10 @@ async fn download_to(
         .timeout(Duration::from_secs(1800))
         .https_only(!cfg!(test))
         .build()
-        .map_err(|_| anyhow!("Cannot initialize model download.".into()))?;
+        .map_err(|_| anyhow!("Cannot initialize model download."))?;
     progress(emit, 0, pin.size, "downloading");
     let mut response = client.get(url).send().await.map_err(|_| {
-        anyhow!(
-            "Model download could not connect. Check your connection and retry.",
-        )
+        anyhow!("Model download could not connect. Check your connection and retry.",)
     })?;
     if !response.status().is_success() {
         return Err(anyhow!(format!(
@@ -164,16 +164,14 @@ async fn download_to(
     let mut received = 0u64;
     let mut hash = Sha256::new();
     let mut last = Instant::now();
-    while let Some(chunk) = response.chunk().await.map_err(|_| {
-        anyhow!(
-            "Model download was interrupted. Check your connection and retry.",
-        )
-    })? {
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| anyhow!("Model download was interrupted. Check your connection and retry.",))?
+    {
         received = received.saturating_add(chunk.len() as u64);
         if received > pin.size {
-            return Err(anyhow!(
-                "Model download exceeded its expected size.",
-            ));
+            return Err(anyhow!("Model download exceeded its expected size.",));
         }
         file.write_all(&chunk)?;
         hash.update(&chunk);
@@ -185,8 +183,7 @@ async fn download_to(
     progress(emit, received, pin.size, "checking");
     if received != pin.size || format!("{:x}", hash.finalize()) != pin.sha256 {
         return Err(anyhow!(
-            "Model download failed size or SHA-256 verification. Retry to download a fresh copy."
-                ,
+            "Model download failed size or SHA-256 verification. Retry to download a fresh copy.",
         ));
     }
     file.sync_all()?;
@@ -196,12 +193,13 @@ async fn download_to(
     Ok(())
 }
 
-pub(crate) const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
-pub(crate) async fn inventory() -> Result<Value, anyhow::Error> {
+#[cfg(test)]
+const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
+pub async fn inventory() -> Result<Value> {
     inventory_for(catalog().iter()).await
 }
 
-pub(crate) async fn inventory_model(id: &str) -> Result<Value, anyhow::Error> {
+pub async fn inventory_model(id: &str) -> Result<Value> {
     inventory_for(std::iter::once(manifest(id)?)).await
 }
 
@@ -217,7 +215,7 @@ async fn inventory_for<'a>(pins: impl Iterator<Item = &'a Manifest>) -> Result<V
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{net::TcpListener, cell::RefCell};
+    use std::{io::Read, net::TcpListener, sync::Mutex};
 
     #[test]
     fn catalog_pins_are_complete_unique_and_confined_to_model_directories() {
@@ -248,10 +246,10 @@ mod tests {
         let data = b"fixture model";
         for id in [MODEL_ID, "second-model"] {
             let pin = Manifest {
-                id: id,
-                name: id,
+                id: id.into(),
+                name: id.into(),
                 disable_thinking: false,
-                file: "model.gguf",
+                file: "model.gguf".into(),
                 repository: String::new(),
                 revision: String::new(),
                 size: data.len() as u64,
@@ -259,16 +257,25 @@ mod tests {
             };
             let directory = cache_directory(temp.path(), &pin);
             let (url, server) = fixture(data);
-            download_to(&directory, &url, &pin, &|_| {})
-                .await
-                .unwrap();
+            download_to(&directory, &url, &pin, &|_| {}).await.unwrap();
             server.join().unwrap();
             assert!(verified(&directory.join(&pin.file), &pin).await);
         }
-        assert!(temp.path().join("Models/qwen2.5-1.5b-instruct-q4_k_m/model.gguf").exists());
+        assert!(
+            temp.path()
+                .join("Models/qwen2.5-1.5b-instruct-q4_k_m/model.gguf")
+                .exists()
+        );
         assert!(temp.path().join("Models/second-model/model.gguf").exists());
     }
     fn fixture(data: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
+        fixture_response(data, 200, data.len() as u64)
+    }
+    fn fixture_response(
+        data: &'static [u8],
+        status: u16,
+        size: u64,
+    ) -> (String, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let thread = std::thread::spawn(move || {
@@ -276,49 +283,119 @@ mod tests {
             let _ = stream.read(&mut [0; 8192]);
             write!(
                 stream,
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                data.len()
+                "HTTP/1.1 {status} Status\r\nContent-Length: {size}\r\nConnection: close\r\n\r\n"
             )
             .unwrap();
             stream.write_all(data).unwrap();
         });
         (url, thread)
     }
+
+    #[tokio::test]
+    async fn failed_downloads_never_publish_partial_weights() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = b"fixture model";
+        let pin = Manifest {
+            id: "fixture".into(),
+            name: "Fixture".into(),
+            disable_thinking: false,
+            file: "model.gguf".into(),
+            repository: String::new(),
+            revision: String::new(),
+            size: data.len() as u64,
+            sha256: format!("{:x}", Sha256::digest(data)),
+        };
+        for (body, status, size) in [
+            (data.as_slice(), 404, pin.size),
+            (data.as_slice(), 200, pin.size + 1),
+            (b"short".as_slice(), 200, pin.size),
+        ] {
+            let (url, server) = fixture_response(body, status, size);
+            assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
+            server.join().unwrap();
+            assert!(!temp.path().join(&pin.file).exists());
+            assert!(!temp.path().join("model.partial").exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn cancellation_cleans_partial_and_releases_install_lock() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = b"fixture model";
+        let pin = Manifest {
+            id: "fixture".into(),
+            name: "Fixture".into(),
+            disable_thinking: false,
+            file: "model.gguf".into(),
+            repository: String::new(),
+            revision: String::new(),
+            size: data.len() as u64,
+            sha256: format!("{:x}", Sha256::digest(data)),
+        };
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let (ready, received) = tokio::sync::oneshot::channel();
+        let (release, hold) = std::sync::mpsc::channel::<()>();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = stream.read(&mut [0; 8192]);
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nf").unwrap();
+            ready.send(()).unwrap();
+            let _ = hold.recv_timeout(Duration::from_secs(5));
+        });
+        let mut download = Box::pin(download_to(temp.path(), &url, &pin, &|_| {}));
+        tokio::select! {
+            result = &mut download => panic!("download finished early: {result:?}"),
+            _ = received => {},
+        }
+        assert!(temp.path().join("model.partial").exists());
+        drop(download);
+        release.send(()).unwrap();
+        server.join().unwrap();
+        assert!(!temp.path().join("model.partial").exists());
+        assert!(!temp.path().join(&pin.file).exists());
+        let (url, server) = fixture(data);
+        download_to(temp.path(), &url, &pin, &|_| {}).await.unwrap();
+        server.join().unwrap();
+        assert!(verified(&temp.path().join(&pin.file), &pin).await);
+    }
     #[tokio::test]
     async fn download_verifies_atomic_install_and_reuses_offline() {
         let temp = tempfile::tempdir().unwrap();
         let data = b"fixture model";
         let pin = Manifest {
-            id: "fixture",
-            name: "Fixture",
+            id: "fixture".into(),
+            name: "Fixture".into(),
             disable_thinking: false,
-            file: "fixture.gguf",
+            file: "fixture.gguf".into(),
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
             sha256: format!("{:x}", Sha256::digest(data)),
         };
         let (url, server) = fixture(data);
-        let events = RefCell::new(Vec::new());
-        download_to(temp.path(), &url, &pin, &|event| events.borrow_mut().push(event))
-            .await
-            .unwrap();
+        let events = Mutex::new(Vec::new());
+        download_to(temp.path(), &url, &pin, &|event| {
+            events.lock().unwrap().push(event)
+        })
+        .await
+        .unwrap();
         server.join().unwrap();
         assert!(verified(&temp.path().join(&pin.file), &pin).await);
         assert!(!temp.path().join("model.partial").exists());
         assert!(
-            events.borrow().iter().any(|event| event["status"] == "ready")
+            events
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|event| event["status"] == "ready")
         );
         download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
             .await
             .unwrap();
         fs::write(temp.path().join(&pin.file), b"corrupt model").unwrap();
         let (url, server) = fixture(b"wrong weights");
-        assert!(
-            download_to(temp.path(), &url, &pin, &|_| {})
-                .await
-                .is_err()
-        );
+        assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
         server.join().unwrap();
         assert!(!verified(&temp.path().join(&pin.file), &pin).await);
         assert!(!temp.path().join("model.partial").exists());

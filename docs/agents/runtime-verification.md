@@ -2,8 +2,8 @@
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
 locks. It needs full Xcode with Swift 6.3+, Rust 1.88+ with rustfmt and Clippy,
-and Python 3. It does not install toolchains, change Git branches, copy local
-credentials, build an app, or launch one. XcodeGen is needed only when regenerating
+CMake for llama.cpp, and Python 3. It does not install toolchains, change Git
+branches, copy local credentials, build an app, or launch one. XcodeGen is needed only when regenerating
 `app/Fritz.xcodeproj` from `app/project.yml`.
 
 The [Codex environment](../../.codex/environments/environment.toml) adapts REL's
@@ -82,6 +82,25 @@ recents in UserDefaults, or macOS window preferences. Use only newly created,
 keyless mock connections; do not exercise personal accounts. Fritz currently
 has no per-worktree bundle ID or Keychain allocator. Do not claim otherwise or
 import REL's runtime allocator.
+
+Local-model unit tests use small deterministic HTTP fixtures for checksums,
+interruption, cancellation, and atomic installation. CLI integration tests verify
+the catalog and missing-model behavior without downloading weights. For an
+explicit real-download smoke check, use an isolated `FRITZ_DATA_DIR`, install a
+small catalog entry with `fritz local-models install MODEL_ID`, then add a `fritz`
+provider and exercise streaming and cancellation. Do not borrow REL's model files
+or provider registry. The native Metal runtime is bundled into fritz-harness.
+
+After that explicit installation, run the opt-in native lifecycle check:
+
+```sh
+python3 tests/local_inference.py --data-dir "$fritz_test_data"
+```
+
+This uses an existing Fritz provider in the selected test directory; it never
+downloads weights or contacts a remote provider. It checks streamed text,
+cancellation, continued agent health, and clean Metal teardown when stdin closes
+during generation. It is deliberately separate from `make test`.
 
 When debugging, verify a PID's executable path belongs to the staged bundle
 before attaching or terminating it. Do not use `killall`/`pkill` by app name.

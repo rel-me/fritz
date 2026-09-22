@@ -6,7 +6,7 @@ Fritz includes its own `fritz-harness` coding-agent runtime. In **Code** mode it
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, and Python 3 for integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -23,11 +23,38 @@ In **Model Providers**, click **Add**, choose a provider using search or the Loc
 
 The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a thread, ⇧⌘N opens New Project, and ⌘, opens Model Providers. Chat Options can clear the current thread after confirmation. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
+## Download local models
+
+In **Model Providers → Add**, choose **Fritz** (also shown under **Local**),
+select a model, and click **Download & Add**. The setup shows the download size,
+recommended memory, license, progress, and installation status. Cancel stops the
+download; Retry starts a fresh attempt. After verification, the provider is saved
+and installed models become available in the chat model picker. Edit the Fritz
+provider to download another model. Removing a provider leaves downloaded weights
+available for reuse.
+
+The catalog and installer are adapted from REL, with Fritz's own storage and
+private agent transport. Downloads are pinned to repository revisions, file sizes,
+and SHA-256 hashes. Models run offline inside the per-chat Rust harness using
+llama.cpp and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
+models or sending a chat never starts a download. Weights live under
+`~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
+The native runtime's licenses ship in the app; each model's license is linked in
+setup. Memory recommendations are estimates. Local chat supports an 8,192-token
+context and up to 2,048 output tokens per reply.
+
+Downloaded Fritz models support **Chat** mode. Select Chat above the composer
+for a project thread; use a provider with native tool support for Code mode.
+
 ## CLI
 
 ```sh
 make install-cli  # symlink the bundled CLI into ~/.local/bin
 fritz --help
+fritz local-models list
+fritz local-models install qwen3-0.6b-q4_k_m
+fritz add-provider --name Fritz --provider fritz --model qwen3-0.6b-q4_k_m
+fritz chat "Explain Rust ownership" --connection Fritz
 fritz providers
 fritz add-provider --name Ollama --provider ollama --model llama3.2 --default
 fritz models
@@ -98,7 +125,7 @@ make test
 make check
 ```
 
-Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, tool parsing/history, file boundaries, atomic edits, command output/timeouts, and the real CLI/agent/harness against local deterministic providers. End-to-end coding tests cover all six adapters, interrupted tool streams, recovery, limits, and process/descendant cancellation. They do not require API keys or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
+Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, tool parsing/history, file boundaries, atomic edits, command output/timeouts, and the real CLI/agent/harness against local deterministic providers. End-to-end coding tests cover all six adapters, interrupted tool streams, recovery, limits, and process/descendant cancellation. They do not download weights, require API keys, or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
 
 See [docs/protocol.md](docs/protocol.md) for the private app/agent protocol.
 

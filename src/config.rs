@@ -16,11 +16,12 @@ pub enum ProviderKind {
     Anthropic,
     Gemini,
     Ollama,
+    Fritz,
 }
 
 impl ProviderKind {
     pub fn requires_key(self) -> bool {
-        !matches!(self, Self::OpenaiCompatible | Self::Ollama)
+        !matches!(self, Self::OpenaiCompatible | Self::Ollama | Self::Fritz)
     }
     pub fn default_url(self) -> &'static str {
         match self {
@@ -30,6 +31,7 @@ impl ProviderKind {
             Self::Anthropic => "https://api.anthropic.com/v1",
             Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
             Self::Ollama => "http://localhost:11434",
+            Self::Fritz => "",
         }
     }
 }
@@ -57,6 +59,15 @@ impl Connection {
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             bail!("Enter a provider connection name.");
+        }
+        if self.provider == ProviderKind::Fritz {
+            if !self.base_url().is_empty() {
+                bail!("Fritz runs models on this Mac and does not use an endpoint.");
+            }
+            if !self.model_id.is_empty() {
+                crate::local::models::manifest(&self.model_id)?;
+            }
+            return Ok(());
         }
         let url = reqwest::Url::parse(self.base_url()).context("Enter a valid endpoint URL.")?;
         if !matches!(url.scheme(), "https" | "http")
