@@ -1,0 +1,7 @@
+/target/
+/dist/
+/app/.build/
+/app/.swiftpm/
+.DS_Store
+xcuserdata/
+__pycache__/

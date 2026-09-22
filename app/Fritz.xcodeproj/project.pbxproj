@@ -1,0 +1,475 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0686FB42796455AB592D7BD6 /* ProviderConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52FE5416559D374FCA803AA /* ProviderConnection.swift */; };
+		07AEEAAB88CB70C6C94B48F2 /* FritzListSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3713CACF28037690000DB8 /* FritzListSurface.swift */; };
+		0C7765A37B15195AF646507F /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B07E94B391896D246239ED0 /* ChatStore.swift */; };
+		1DBBC16BE5243164E9257DEE /* ProviderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F63B541A22F41ADBBFA229D /* ProviderStore.swift */; };
+		23390E84BC348C12257BB2B1 /* ProvidersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18739264547CAB0D6256B2E5 /* ProvidersView.swift */; };
+		2B77040B926F2D9E20DF4922 /* AIProviderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37E7E4E113B1ACCA1BC3B39 /* AIProviderPicker.swift */; };
+		3C56990A5845F52C38745470 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 4351D7F458560EF87E1970C6 /* Textual */; };
+		3D470CCB145B5F49F7C93965 /* ChatResponseClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */; };
+		3D800CBA430884FC1186159B /* AgentClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */; };
+		3EF7757F8BF41D91F29016E0 /* NativeLocalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24FDD47C29522CFAC24A8A67 /* NativeLocalModel.swift */; };
+		3FA307208422A6E30839ED9E /* FritzWindowStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */; };
+		556A60AA3D09719094DD3419 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E2C42C88F12B1800D985E2 /* Project.swift */; };
+		5740E415BE3C91A304A77262 /* ChatAssistantMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D889D2A5A39ECE1194232E5 /* ChatAssistantMessage.swift */; };
+		60F1ACDD2BAAA77A6CD38613 /* FritzApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E954ED0C803B0A5BCCA8B /* FritzApp.swift */; };
+		6142D03C2D193CBAA3FB3F85 /* ChatModelOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = F035A99571417D182BD55259 /* ChatModelOption.swift */; };
+		6562C1F40B60A9EFA91236DB /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA14759ABA74D8311285BC6 /* ChatView.swift */; };
+		726435BFBC166FB579AB4603 /* FritzButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */; };
+		85120A23551A9BE3DB14EAA3 /* FritzManagementHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */; };
+		949BF7F80784DB786088DA96 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2449C729E0450165B195C266 /* ChatComposer.swift */; };
+		9B7EF3DACDEBF7DE2B625D92 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73835E7146A92557D60E42ED /* WorkspaceStore.swift */; };
+		BF7499508BCEE843792ADC08 /* NativeModelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8EFDBB9CF240F7E5BEFAA60 /* NativeModelDescriptor.swift */; };
+		C5A79BD3FCCEC494AD929432 /* AIProviderPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1F2EFAFA9158AC7FC12206 /* AIProviderPreset.swift */; };
+		D3D65A7E5916A53EDECC3647 /* ChatVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */; };
+		DE44D7D2E0FA4F636A789ACE /* LocalModels.json in Resources */ = {isa = PBXBuildFile; fileRef = D4D193EB445F47918DF0B1E5 /* LocalModels.json */; };
+		EADA125C1016BD3728636567 /* ChatModelPickerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D5E2AFFB791E6CF0A73A0D7 /* ChatModelPickerSection.swift */; };
+		EC69041B570A6185961C0178 /* NativeLocalModelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9419DE0BB26DAD25C8EFAA /* NativeLocalModelSection.swift */; };
+		EE7318607EC06CD6F6308ABA /* ChatStartScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */; };
+		F7221D606D05F809ED265A80 /* ProjectsSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DCA850CBC772CA88EBED2E /* ProjectsSidebar.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStartScreenLayout.swift; sourceTree = "<group>"; };
+		18739264547CAB0D6256B2E5 /* ProvidersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvidersView.swift; sourceTree = "<group>"; };
+		20DCA850CBC772CA88EBED2E /* ProjectsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectsSidebar.swift; sourceTree = "<group>"; };
+		2449C729E0450165B195C266 /* ChatComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComposer.swift; sourceTree = "<group>"; };
+		24FDD47C29522CFAC24A8A67 /* NativeLocalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLocalModel.swift; sourceTree = "<group>"; };
+		2EA14759ABA74D8311285BC6 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		2F63B541A22F41ADBBFA229D /* ProviderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderStore.swift; sourceTree = "<group>"; };
+		368E954ED0C803B0A5BCCA8B /* FritzApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzApp.swift; sourceTree = "<group>"; };
+		4A1F2EFAFA9158AC7FC12206 /* AIProviderPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderPreset.swift; sourceTree = "<group>"; };
+		4B07E94B391896D246239ED0 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
+		50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzButtonStyle.swift; sourceTree = "<group>"; };
+		5D889D2A5A39ECE1194232E5 /* ChatAssistantMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAssistantMessage.swift; sourceTree = "<group>"; };
+		68E2C42C88F12B1800D985E2 /* Project.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Project.swift; sourceTree = "<group>"; };
+		6D5E2AFFB791E6CF0A73A0D7 /* ChatModelPickerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModelPickerSection.swift; sourceTree = "<group>"; };
+		73835E7146A92557D60E42ED /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
+		847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzWindowStyle.swift; sourceTree = "<group>"; };
+		9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzManagementHeader.swift; sourceTree = "<group>"; };
+		9B3713CACF28037690000DB8 /* FritzListSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzListSurface.swift; sourceTree = "<group>"; };
+		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
+		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
+		C37E7E4E113B1ACCA1BC3B39 /* AIProviderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderPicker.swift; sourceTree = "<group>"; };
+		C8EFDBB9CF240F7E5BEFAA60 /* NativeModelDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelDescriptor.swift; sourceTree = "<group>"; };
+		D4D193EB445F47918DF0B1E5 /* LocalModels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LocalModels.json; sourceTree = "<group>"; };
+		DC9419DE0BB26DAD25C8EFAA /* NativeLocalModelSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLocalModelSection.swift; sourceTree = "<group>"; };
+		F035A99571417D182BD55259 /* ChatModelOption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModelOption.swift; sourceTree = "<group>"; };
+		F158A68672FD5FBA65BD1F03 /* Fritz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fritz.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F52FE5416559D374FCA803AA /* ProviderConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderConnection.swift; sourceTree = "<group>"; };
+		F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResponseClipboard.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		768FA7B0CC7516CDF189E258 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3C56990A5845F52C38745470 /* Textual in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		05B50DCEBCD7B7A7414B8686 /* Fritz */ = {
+			isa = PBXGroup;
+			children = (
+				368E954ED0C803B0A5BCCA8B /* FritzApp.swift */,
+				D4D193EB445F47918DF0B1E5 /* LocalModels.json */,
+				5026887945DF41050A082EC5 /* Models */,
+				DCF61C31A1B85580A91EADAC /* Services */,
+				1A41CD32C55145FF848D06C1 /* Stores */,
+				3CB81FAA60F778389A4B0C5B /* Views */,
+			);
+			name = Fritz;
+			path = Sources/Fritz;
+			sourceTree = "<group>";
+		};
+		1A41CD32C55145FF848D06C1 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				4B07E94B391896D246239ED0 /* ChatStore.swift */,
+				24FDD47C29522CFAC24A8A67 /* NativeLocalModel.swift */,
+				2F63B541A22F41ADBBFA229D /* ProviderStore.swift */,
+				73835E7146A92557D60E42ED /* WorkspaceStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		3CB81FAA60F778389A4B0C5B /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				C37E7E4E113B1ACCA1BC3B39 /* AIProviderPicker.swift */,
+				5D889D2A5A39ECE1194232E5 /* ChatAssistantMessage.swift */,
+				2449C729E0450165B195C266 /* ChatComposer.swift */,
+				0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */,
+				2EA14759ABA74D8311285BC6 /* ChatView.swift */,
+				A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */,
+				50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */,
+				9B3713CACF28037690000DB8 /* FritzListSurface.swift */,
+				9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */,
+				847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */,
+				DC9419DE0BB26DAD25C8EFAA /* NativeLocalModelSection.swift */,
+				20DCA850CBC772CA88EBED2E /* ProjectsSidebar.swift */,
+				18739264547CAB0D6256B2E5 /* ProvidersView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		3E6F5AFD4838A58E2A7EB54F = {
+			isa = PBXGroup;
+			children = (
+				05B50DCEBCD7B7A7414B8686 /* Fritz */,
+				B95C419B4F2B2E104305E902 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5026887945DF41050A082EC5 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				4A1F2EFAFA9158AC7FC12206 /* AIProviderPreset.swift */,
+				F035A99571417D182BD55259 /* ChatModelOption.swift */,
+				6D5E2AFFB791E6CF0A73A0D7 /* ChatModelPickerSection.swift */,
+				C8EFDBB9CF240F7E5BEFAA60 /* NativeModelDescriptor.swift */,
+				68E2C42C88F12B1800D985E2 /* Project.swift */,
+				F52FE5416559D374FCA803AA /* ProviderConnection.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		B95C419B4F2B2E104305E902 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F158A68672FD5FBA65BD1F03 /* Fritz.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DCF61C31A1B85580A91EADAC /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */,
+				F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		392CE3E56A69EBC5F7C18DD0 /* Fritz */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA9EC8FB827724E763E498AF /* Build configuration list for PBXNativeTarget "Fritz" */;
+			buildPhases = (
+				9ABC844D83654A2A92F0E598 /* Sources */,
+				28339165BEFFE668277D2661 /* Resources */,
+				768FA7B0CC7516CDF189E258 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Fritz;
+			packageProductDependencies = (
+				4351D7F458560EF87E1970C6 /* Textual */,
+			);
+			productName = Fritz;
+			productReference = F158A68672FD5FBA65BD1F03 /* Fritz.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F8324B703AE63557B22997DB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					392CE3E56A69EBC5F7C18DD0 = {
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = C118F4DA3BC5E3BB170B2501 /* Build configuration list for PBXProject "Fritz" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 3E6F5AFD4838A58E2A7EB54F;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7B1FC3347CE9B6665A97E18D /* XCRemoteSwiftPackageReference "textual" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B95C419B4F2B2E104305E902 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				392CE3E56A69EBC5F7C18DD0 /* Fritz */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		28339165BEFFE668277D2661 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DE44D7D2E0FA4F636A789ACE /* LocalModels.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9ABC844D83654A2A92F0E598 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B77040B926F2D9E20DF4922 /* AIProviderPicker.swift in Sources */,
+				C5A79BD3FCCEC494AD929432 /* AIProviderPreset.swift in Sources */,
+				3D800CBA430884FC1186159B /* AgentClient.swift in Sources */,
+				5740E415BE3C91A304A77262 /* ChatAssistantMessage.swift in Sources */,
+				949BF7F80784DB786088DA96 /* ChatComposer.swift in Sources */,
+				6142D03C2D193CBAA3FB3F85 /* ChatModelOption.swift in Sources */,
+				EADA125C1016BD3728636567 /* ChatModelPickerSection.swift in Sources */,
+				3D470CCB145B5F49F7C93965 /* ChatResponseClipboard.swift in Sources */,
+				EE7318607EC06CD6F6308ABA /* ChatStartScreenLayout.swift in Sources */,
+				0C7765A37B15195AF646507F /* ChatStore.swift in Sources */,
+				6562C1F40B60A9EFA91236DB /* ChatView.swift in Sources */,
+				D3D65A7E5916A53EDECC3647 /* ChatVisualStyle.swift in Sources */,
+				60F1ACDD2BAAA77A6CD38613 /* FritzApp.swift in Sources */,
+				726435BFBC166FB579AB4603 /* FritzButtonStyle.swift in Sources */,
+				07AEEAAB88CB70C6C94B48F2 /* FritzListSurface.swift in Sources */,
+				85120A23551A9BE3DB14EAA3 /* FritzManagementHeader.swift in Sources */,
+				3FA307208422A6E30839ED9E /* FritzWindowStyle.swift in Sources */,
+				3EF7757F8BF41D91F29016E0 /* NativeLocalModel.swift in Sources */,
+				EC69041B570A6185961C0178 /* NativeLocalModelSection.swift in Sources */,
+				BF7499508BCEE843792ADC08 /* NativeModelDescriptor.swift in Sources */,
+				556A60AA3D09719094DD3419 /* Project.swift in Sources */,
+				F7221D606D05F809ED265A80 /* ProjectsSidebar.swift in Sources */,
+				0686FB42796455AB592D7BD6 /* ProviderConnection.swift in Sources */,
+				1DBBC16BE5243164E9257DEE /* ProviderStore.swift in Sources */,
+				23390E84BC348C12257BB2B1 /* ProvidersView.swift in Sources */,
+				9B7EF3DACDEBF7DE2B625D92 /* WorkspaceStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		431EC9A0F1697942310BBCFE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A9C1B61B3D87C4B9290527E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AC1DF0AC179F8ED54882EE08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.app;
+				PRODUCT_NAME = Fritz;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		C84B34EEBE452556321B62EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.app;
+				PRODUCT_NAME = Fritz;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BA9EC8FB827724E763E498AF /* Build configuration list for PBXNativeTarget "Fritz" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C84B34EEBE452556321B62EA /* Debug */,
+				AC1DF0AC179F8ED54882EE08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C118F4DA3BC5E3BB170B2501 /* Build configuration list for PBXProject "Fritz" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9C1B61B3D87C4B9290527E0 /* Debug */,
+				431EC9A0F1697942310BBCFE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7B1FC3347CE9B6665A97E18D /* XCRemoteSwiftPackageReference "textual" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/textual";
+			requirement = {
+				kind = exactVersion;
+				version = 0.5.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4351D7F458560EF87E1970C6 /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7B1FC3347CE9B6665A97E18D /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F8324B703AE63557B22997DB /* Project object */;
+}
