@@ -28,7 +28,13 @@ jobs:
           swift --version
 
       - name: Run Swift tests
+        if: hashFiles('app/Package.swift') != ''
         run: swift test --package-path app
 
       - name: Build native macOS target
+        if: hashFiles('app/Package.swift') != ''
         run: swift build --package-path app -c release
+
+      - name: Explain skipped Swift checks
+        if: hashFiles('app/Package.swift') == ''
+        run: echo "Skipping Swift tests and build because app/Package.swift is not present in this commit."
