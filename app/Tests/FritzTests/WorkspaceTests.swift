@@ -78,7 +78,7 @@ import XCTest
         XCTAssertEqual(workspace.projects.count, 1)
     }
 
-    func testCodeModeUsesItsOwnProjectAndPersistsChoice() throws {
+    func testProjectThreadsAlwaysUseCodeMode() throws {
         let root = try directory()
         let firstFolder = root.appendingPathComponent("first")
         let secondFolder = root.appendingPathComponent("second")
@@ -90,14 +90,13 @@ import XCTest
         let first = try XCTUnwrap(workspace.selectedChat)
         XCTAssertEqual(first.mode, .code)
         XCTAssertEqual(first.projectPath, firstFolder.resolvingSymlinksInPath().path)
-        first.mode = .chat
         try workspace.createProject(name: "Two", directory: secondFolder)
         XCTAssertEqual(workspace.selectedChat?.mode, .code)
         XCTAssertEqual(workspace.selectedChat?.projectPath, secondFolder.resolvingSymlinksInPath().path)
         workspace.shutdown()
         let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
         restored.select(firstID)
-        XCTAssertEqual(restored.selectedChat?.mode, .chat)
+        XCTAssertEqual(restored.selectedChat?.mode, .code)
         XCTAssertEqual(restored.selectedChat?.projectPath, firstFolder.resolvingSymlinksInPath().path)
     }
 
