@@ -1,0 +1,46 @@
+name: Fritz
+options:
+  bundleIdPrefix: dev.fritz
+  deploymentTarget:
+    macOS: "15.0"
+packages:
+  Textual:
+    url: https://github.com/gonzalezreal/textual
+    exactVersion: 0.5.0
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    ENABLE_APP_SANDBOX: NO
+    CODE_SIGN_STYLE: Manual
+targets:
+  Fritz:
+    type: application
+    platform: macOS
+    sources:
+      - Sources/Fritz
+    dependencies:
+      - package: Textual
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.fritz.app
+        PRODUCT_NAME: Fritz
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleName: Fritz
+        CFBundleDisplayName: Fritz
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSHighResolutionCapable: true
+        NSPrincipalClass: NSApplication
+schemes:
+  Fritz:
+    build:
+      targets:
+        Fritz: all
+    run:
+      config: Debug

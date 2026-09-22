@@ -1,0 +1,22 @@
+version = 1
+name = "Fritz"
+
+[setup]
+script = "make setup"
+
+[[actions]]
+name = "Run Fritz"
+icon = "run"
+command = "make dev-open"
+
+[[actions]]
+name = "Build"
+command = "make build"
+
+[[actions]]
+name = "Test"
+command = "make test"
+
+[[actions]]
+name = "Check"
+command = "make check"
