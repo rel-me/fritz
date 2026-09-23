@@ -1,4 +1,4 @@
-.PHONY: setup build run dev-open test check install-cli update-archive appcast beta publish-beta promote
+.PHONY: setup build run dev-open test test-runtime test-swift check install-cli update-archive appcast beta publish-beta promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -10,14 +10,18 @@ build:
 run dev-open: build
 	open -n "$$(cat dist/.last-built-app)"
 
-test:
+test: test-runtime test-swift
+
+test-runtime:
 	cargo test --locked
-	swift test
-	swift test --package-path app
 	cargo build --locked
 	python3 tests/integration.py
 	python3 tests/coding_integration.py
 	python3 tests/test_release_tasks.py
+
+test-swift:
+	swift test
+	swift test --package-path app
 
 check:
 	cargo fmt --check

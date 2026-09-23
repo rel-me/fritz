@@ -52,6 +52,31 @@ with `codesign --verify --deep --strict dist/Fritz.app`. Fix the build script
 rather than silently hand-patching the bundle. Local signing does not establish
 distribution signing or notarization.
 
+## CI
+
+CI runs for PRs authored by `gabriel`, pushes to `main`, and manual dispatches.
+PRs by other authors skip every job, including the final check; rerunning one as
+`gabriel` does not change eligibility. Feature-branch pushes do not start a
+duplicate run. New commits cancel older runs for the same PR or branch.
+
+macOS checks run on the registered `fritz-mac-mini` runner using the labels
+`self-hosted`, `macOS`, `ARM64`, and `gabriel-ci`. It has one runner, so one job
+runs `make -j2 test` (Rust/runtime and Swift test groups concurrently), followed
+by `make check`. Tests compile the Rust and Swift code they exercise; CI does
+not build, stage, or sign a release app. Verify packaging and signing separately
+with `CONFIGURATION=release make build` when needed.
+The final “Libraries, app, and runtime” check
+runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
+The repository must be enabled in the Blacksmith GitHub App for that job to run.
+
+The Mini retains `target`, `.build`, and `app/.build` in its
+own CI checkout between runs. Checkout resets tracked files and removes all
+other untracked files; runtime data and staged app bundles are not retained.
+An Apple/Rust/CMake toolchain fingerprint invalidates those build directories
+when the installed toolchains change. There is no remote cache transfer, and no
+build outputs are copied from another checkout. Delete the retained directories
+and `dist/.ci-toolchain` in that runner checkout to force a cold build.
+
 ## Isolated UI and CLI verification
 
 Use synthetic data and the mock provider for manual checks as well. For example,

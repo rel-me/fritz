@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # PR branches are covered by pull_request; do not run them twice.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -14,14 +16,25 @@ concurrency:
 
 jobs:
   macos:
-    name: Libraries, app, and runtime
-    # Public contributions must not execute on a personal self-hosted runner.
-    runs-on: macos-26
+    name: Mac mini tests and Rust checks
+    # Check the PR author, not the actor who happens to rerun the workflow.
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel'
+    runs-on: [self-hosted, macOS, ARM64, gabriel-ci]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          # Preserve this runner checkout's incremental build outputs.
+          clean: false
+      - name: Clean sources while keeping build outputs
+        run: |
+          git reset --hard HEAD
+          git clean -ffdx -e /target/ -e /.build/ -e /app/.build/ -e /dist/.ci-toolchain
+      - name: Locate local build tools
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo /opt/homebrew/bin >> "$GITHUB_PATH"
       - name: Select installed Swift 6.3 or newer
         run: |
           python3 - <<'PY'
@@ -39,15 +52,35 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
+      - name: Invalidate local build outputs when toolchains change
+        run: |
+          fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
+          if [[ ! -f dist/.ci-toolchain || "$(cat dist/.ci-toolchain)" != "$fingerprint" ]]; then
+            rm -rf target .build app/.build
+            mkdir -p dist
+            echo "$fingerprint" > dist/.ci-toolchain
+          fi
       - name: Check toolchains
         run: |
           xcodebuild -version
           swift --version
           cargo --version
           cmake --version
-      - name: Test libraries and application
-        run: make test
+      - name: Test Rust, runtime, libraries, and application
+        # One runner services the Mini: parallelize independent test groups here.
+        run: make -j2 test
       - name: Check Rust
         run: make check
-      - name: Build and sign complete application locally
-        run: CONFIGURATION=release make build
+
+  # Preserve the original required-check name and propagate failure/cancellation.
+  complete:
+    name: Libraries, app, and runtime
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel')
+    needs: macos
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - name: Require every check to pass
+        env:
+          RESULT: ${{ needs.macos.result }}
+        run: test "$RESULT" = success
