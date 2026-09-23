@@ -55,6 +55,16 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
         .parent()
         .context("Missing executable directory")?
         .join("fritz-harness");
+    chat_with_input(&executable, input, emit).await
+}
+
+/// Runs a host-selected harness with explicit input over private pipes.
+/// Dropping the future closes stdin and lets the child tear down its command groups.
+pub async fn chat_with_input(
+    executable: &std::path::Path,
+    input: harness::Input,
+    emit: impl Fn(Value),
+) -> Result<()> {
     let mut child = tokio::process::Command::new(executable)
         .arg("chat")
         .stdin(Stdio::piped())

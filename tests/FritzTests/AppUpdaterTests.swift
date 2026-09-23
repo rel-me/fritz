@@ -1,5 +1,6 @@
 import XCTest
-@testable import Fritz
+import Fritz
+import FritzUpdates
 
 final class AppUpdaterTests: XCTestCase {
     func testConfigurationRequiresHTTPSFeedAndPublicKey() {

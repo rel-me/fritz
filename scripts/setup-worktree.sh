@@ -21,6 +21,7 @@ cargo clippy --version
 # Resolve the committed versions into checkout-local build directories. Never
 # copy another checkout's credentials, app data, targets, or DerivedData.
 cargo fetch --locked
+swift package --force-resolved-versions resolve
 swift package --package-path app --force-resolved-versions resolve
 xcodebuild -resolvePackageDependencies \
   -project app/Fritz.xcodeproj -scheme Fritz \

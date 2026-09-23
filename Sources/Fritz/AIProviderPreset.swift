@@ -1,16 +1,16 @@
 import Foundation
 
 /// Editor presets configure existing adapters without adding wire-protocol provider kinds.
-enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
+public enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
     case adapter(AIProviderKind)
     case fireworks
     case amazonBedrock
     case baseten
 
-    static let allCases: [Self] = AIProviderKind.allCases.map(Self.adapter)
+    public static let allCases: [Self] = AIProviderKind.allCases.map(Self.adapter)
         + [.fireworks, .amazonBedrock, .baseten]
 
-    var id: String {
+    public var id: String {
         switch self {
         case .adapter(let kind): kind.rawValue
         case .fireworks: "fireworks"
@@ -19,12 +19,12 @@ enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
         }
     }
 
-    var connectionName: String? {
+    public var connectionName: String? {
         if case .adapter = self { return nil }
         return id
     }
 
-    var name: String {
+    public var name: String {
         switch self {
         case .adapter(let kind): kind.name
         case .fireworks: "Fireworks"
@@ -33,26 +33,26 @@ enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
         }
     }
 
-    var provider: AIProviderKind {
+    public var provider: AIProviderKind {
         if case .adapter(let kind) = self { return kind }
         return .openAICompatible
     }
 
-    var displayName: String {
+    public var displayName: String {
         self == .amazonBedrock ? "Bedrock" : name
     }
 
-    static func displayProvider(provider: AIProviderKind, baseURL: String?) -> Self {
+    public static func displayProvider(provider: AIProviderKind, baseURL: String?) -> Self {
         matching(provider: provider, baseURL: baseURL) == .amazonBedrock
             ? .amazonBedrock : .adapter(provider)
     }
 
-    var requiresAPIKey: Bool {
+    public var requiresAPIKey: Bool {
         if case .adapter(let kind) = self { return kind.requiresAPIKey }
         return true
     }
 
-    var baseURL: String {
+    public var baseURL: String {
         switch self {
         case .adapter: ""
         case .fireworks: "https://api.fireworks.ai/inference/v1"
@@ -61,7 +61,7 @@ enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
         }
     }
 
-    static func matching(provider: AIProviderKind, baseURL: String?) -> Self {
+    public static func matching(provider: AIProviderKind, baseURL: String?) -> Self {
         guard provider == .openAICompatible,
               let url = URL(string: baseURL ?? ""), url.scheme == "https" else {
             return .adapter(provider)
@@ -75,7 +75,7 @@ enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
-enum AIProviderCategory: String, CaseIterable, Identifiable {
+public enum AIProviderCategory: String, CaseIterable, Identifiable {
     case all = "All"
     case local = "Local"
     case remote = "Remote"
@@ -83,9 +83,9 @@ enum AIProviderCategory: String, CaseIterable, Identifiable {
     case hosted = "Hosted"
     case custom = "Custom"
 
-    var id: Self { self }
+    public var id: Self { self }
 
-    func contains(_ preset: AIProviderPreset) -> Bool {
+    public func contains(_ preset: AIProviderPreset) -> Bool {
         switch self {
         case .all: true
         case .local: [.fritz, .ollama].contains(preset.provider)
@@ -96,7 +96,7 @@ enum AIProviderCategory: String, CaseIterable, Identifiable {
         }
     }
 
-    var help: String {
+    public var help: String {
         switch self {
         case .all: "Show all providers"
         case .local: "Fritz and Ollama"

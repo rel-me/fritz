@@ -17,7 +17,7 @@ use std::{
 use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct Manifest {
+pub struct Manifest {
     pub id: String,
     pub name: String,
     pub disable_thinking: bool,
@@ -25,32 +25,28 @@ pub(crate) struct Manifest {
     file: String,
     repository: String,
     revision: String,
-    pub(crate) size: u64,
-    pub(crate) sha256: String,
+    pub size: u64,
+    pub sha256: String,
 }
 
-pub(crate) fn catalog() -> &'static [Manifest] {
+pub fn catalog() -> &'static [Manifest] {
     #[derive(Deserialize)]
     struct Catalog {
         models: Vec<Manifest>,
     }
     static CATALOG: std::sync::OnceLock<Vec<Manifest>> = std::sync::OnceLock::new();
     CATALOG.get_or_init(|| {
-        serde_json::from_str::<Catalog>(include_str!("../../app/Sources/Fritz/LocalModels.json"))
+        serde_json::from_str::<Catalog>(include_str!("../../Sources/Fritz/LocalModels.json"))
             .expect("checked-in local model catalog")
             .models
     })
 }
 
-pub(crate) fn manifest(id: &str) -> Result<&'static Manifest> {
+pub fn manifest(id: &str) -> Result<&'static Manifest> {
     catalog()
         .iter()
         .find(|model| model.id == id)
         .ok_or_else(|| anyhow!("Unknown Fritz local model: {id}"))
-}
-
-fn directory(pin: &Manifest) -> PathBuf {
-    cache_directory(&crate::config::data_dir(), pin)
 }
 
 fn cache_directory(data: &Path, pin: &Manifest) -> PathBuf {
@@ -77,15 +73,35 @@ async fn verified(path: &Path, pin: &Manifest) -> bool {
 }
 
 pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
-    let pin = manifest(model_id)?;
-    let path = directory(pin).join(&pin.file);
-    if verified(&path, pin).await {
-        Ok(path)
-    } else {
-        Err(anyhow!(format!(
-            "{} is not installed. Open Providers → New Provider → Local → Fritz to download and install it.",
-            pin.name
-        )))
+    ModelStore::new(crate::config::data_dir())
+        .installed_path(model_id)
+        .await
+}
+
+/// Pinned model downloads and integrity checks in a host-selected data directory.
+#[derive(Clone, Debug)]
+pub struct ModelStore {
+    directory: PathBuf,
+}
+
+impl ModelStore {
+    pub fn new(directory: impl Into<PathBuf>) -> Self {
+        Self {
+            directory: directory.into(),
+        }
+    }
+
+    pub async fn installed_path(&self, model_id: &str) -> Result<PathBuf> {
+        let pin = manifest(model_id)?;
+        let path = cache_directory(&self.directory, pin).join(&pin.file);
+        if verified(&path, pin).await {
+            Ok(path)
+        } else {
+            Err(anyhow!(format!(
+                "{} is not installed. Open Providers → New Provider → Local → Fritz to download and install it.",
+                pin.name
+            )))
+        }
     }
 }
 
@@ -103,12 +119,20 @@ impl Drop for Partial {
 }
 
 pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
-    let pin = manifest(model_id)?;
-    let url = format!(
-        "https://huggingface.co/{}/resolve/{}/{}",
-        pin.repository, pin.revision, pin.file
-    );
-    download_to(&directory(pin), &url, pin, emit).await
+    ModelStore::new(crate::config::data_dir())
+        .download(model_id, emit)
+        .await
+}
+
+impl ModelStore {
+    pub async fn download(&self, model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
+        let pin = manifest(model_id)?;
+        let url = format!(
+            "https://huggingface.co/{}/resolve/{}/{}",
+            pin.repository, pin.revision, pin.file
+        );
+        download_to(&cache_directory(&self.directory, pin), &url, pin, emit).await
+    }
 }
 
 async fn download_to(
@@ -197,20 +221,32 @@ async fn download_to(
 #[cfg(test)]
 const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
 pub async fn inventory() -> Result<Value> {
-    inventory_for(catalog().iter()).await
+    ModelStore::new(crate::config::data_dir()).inventory().await
 }
 
 pub async fn inventory_model(id: &str) -> Result<Value> {
-    inventory_for(std::iter::once(manifest(id)?)).await
+    ModelStore::new(crate::config::data_dir())
+        .inventory_model(id)
+        .await
 }
 
-async fn inventory_for<'a>(pins: impl Iterator<Item = &'a Manifest>) -> Result<Value> {
-    let mut models = Vec::new();
-    for pin in pins {
-        let path = directory(pin).join(&pin.file);
-        models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":verified(&path,pin).await}));
+impl ModelStore {
+    pub async fn inventory(&self) -> Result<Value> {
+        self.inventory_for(catalog().iter()).await
     }
-    Ok(json!({"models":models}))
+
+    pub async fn inventory_model(&self, id: &str) -> Result<Value> {
+        self.inventory_for(std::iter::once(manifest(id)?)).await
+    }
+
+    async fn inventory_for<'a>(&self, pins: impl Iterator<Item = &'a Manifest>) -> Result<Value> {
+        let mut models = Vec::new();
+        for pin in pins {
+            let path = cache_directory(&self.directory, pin).join(&pin.file);
+            models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":verified(&path,pin).await}));
+        }
+        Ok(json!({"models":models}))
+    }
 }
 
 #[cfg(test)]

@@ -136,21 +136,43 @@ fn load_from(dir: &std::path::Path) -> Result<Registry> {
 }
 
 pub fn update(f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
-    let dir = data_dir();
-    fs::create_dir_all(&dir)?;
-    let lock = OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .read(true)
-        .write(true)
-        .open(dir.join("providers.lock"))?;
-    lock.lock_exclusive()?;
-    let mut registry = load_from(&dir)?;
-    f(&mut registry)?;
-    let temporary = dir.join(format!("providers-{}.tmp", Uuid::new_v4()));
-    fs::write(&temporary, serde_json::to_vec_pretty(&registry)?)?;
-    fs::rename(temporary, dir.join("providers.json"))?;
-    Ok(registry)
+    RegistryStore::new(data_dir()).update(f)
+}
+
+/// A host-owned provider registry. Construct separate stores instead of changing process environment.
+#[derive(Clone, Debug)]
+pub struct RegistryStore {
+    directory: PathBuf,
+}
+
+impl RegistryStore {
+    pub fn new(directory: impl Into<PathBuf>) -> Self {
+        Self {
+            directory: directory.into(),
+        }
+    }
+
+    pub fn load(&self) -> Result<Registry> {
+        load_from(&self.directory)
+    }
+
+    pub fn update(&self, f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
+        let dir = &self.directory;
+        fs::create_dir_all(dir)?;
+        let lock = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(dir.join("providers.lock"))?;
+        lock.lock_exclusive()?;
+        let mut registry = load_from(dir)?;
+        f(&mut registry)?;
+        let temporary = dir.join(format!("providers-{}.tmp", Uuid::new_v4()));
+        fs::write(&temporary, serde_json::to_vec_pretty(&registry)?)?;
+        fs::rename(temporary, dir.join("providers.json"))?;
+        Ok(registry)
+    }
 }
 
 const KEYCHAIN_SERVICE: &str = "dev.fritz.provider-credentials";
@@ -168,37 +190,60 @@ fn keychain_service() -> String {
         .unwrap_or_else(|| KEYCHAIN_SERVICE.to_owned())
 }
 
+/// Explicit Keychain namespace for a host application; credentials never enter the registry.
+#[cfg(target_os = "macos")]
+pub struct CredentialStore {
+    service: String,
+}
+
+#[cfg(target_os = "macos")]
+impl CredentialStore {
+    pub fn new(service: impl Into<String>) -> Result<Self> {
+        let service = service.into();
+        if service.trim().is_empty() {
+            bail!("A Keychain service name is required.");
+        }
+        Ok(Self { service })
+    }
+    pub fn key(&self, id: Uuid) -> Result<Option<String>> {
+        match security_framework::passwords::get_generic_password(&self.service, &id.to_string()) {
+            Ok(bytes) => Ok(Some(String::from_utf8(bytes)?)),
+            Err(e) if e.code() == -25300 => Ok(None),
+            Err(e) => Err(e).context("Could not read the provider key from Keychain."),
+        }
+    }
+    pub fn set_key(&self, id: Uuid, value: &str) -> Result<()> {
+        if value.is_empty() {
+            return Ok(());
+        }
+        security_framework::passwords::set_generic_password(
+            &self.service,
+            &id.to_string(),
+            value.as_bytes(),
+        )
+        .context("Could not save the provider key in Keychain.")
+    }
+    pub fn delete_key(&self, id: Uuid) -> Result<()> {
+        match security_framework::passwords::delete_generic_password(&self.service, &id.to_string())
+        {
+            Ok(()) => Ok(()),
+            Err(e) if e.code() == -25300 => Ok(()),
+            Err(e) => Err(e).context("Could not delete the provider key from Keychain."),
+        }
+    }
+}
+
 #[cfg(target_os = "macos")]
 pub fn key(id: Uuid) -> Result<Option<String>> {
-    match security_framework::passwords::get_generic_password(&keychain_service(), &id.to_string())
-    {
-        Ok(bytes) => Ok(Some(String::from_utf8(bytes)?)),
-        Err(e) if e.code() == -25300 => Ok(None),
-        Err(e) => Err(e).context("Could not read the provider key from Keychain."),
-    }
+    CredentialStore::new(keychain_service())?.key(id)
 }
 #[cfg(target_os = "macos")]
 pub fn set_key(id: Uuid, value: &str) -> Result<()> {
-    if value.is_empty() {
-        return Ok(());
-    }
-    security_framework::passwords::set_generic_password(
-        &keychain_service(),
-        &id.to_string(),
-        value.as_bytes(),
-    )
-    .context("Could not save the provider key in Keychain.")
+    CredentialStore::new(keychain_service())?.set_key(id, value)
 }
 #[cfg(target_os = "macos")]
 pub fn delete_key(id: Uuid) -> Result<()> {
-    match security_framework::passwords::delete_generic_password(
-        &keychain_service(),
-        &id.to_string(),
-    ) {
-        Ok(()) => Ok(()),
-        Err(e) if e.code() == -25300 => Ok(()),
-        Err(e) => Err(e).context("Could not delete the provider key from Keychain."),
-    }
+    CredentialStore::new(keychain_service())?.delete_key(id)
 }
 
 pub fn find(selector: Option<&str>) -> Result<Connection> {

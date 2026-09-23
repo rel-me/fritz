@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "392CE3E56A69EBC5F7C18DD0"
+               BlueprintIdentifier = "78D914F4EA2A58EA5AF2E78E"
                BuildableName = "Fritz.app"
-               BlueprintName = "Fritz"
+               BlueprintName = "FritzApp"
                ReferencedContainer = "container:Fritz.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +32,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "392CE3E56A69EBC5F7C18DD0"
+            BlueprintIdentifier = "78D914F4EA2A58EA5AF2E78E"
             BuildableName = "Fritz.app"
-            BlueprintName = "Fritz"
+            BlueprintName = "FritzApp"
             ReferencedContainer = "container:Fritz.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -55,9 +55,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "392CE3E56A69EBC5F7C18DD0"
+            BlueprintIdentifier = "78D914F4EA2A58EA5AF2E78E"
             BuildableName = "Fritz.app"
-            BlueprintName = "Fritz"
+            BlueprintName = "FritzApp"
             ReferencedContainer = "container:Fritz.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -74,9 +74,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "392CE3E56A69EBC5F7C18DD0"
+            BlueprintIdentifier = "78D914F4EA2A58EA5AF2E78E"
             BuildableName = "Fritz.app"
-            BlueprintName = "Fritz"
+            BlueprintName = "FritzApp"
             ReferencedContainer = "container:Fritz.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

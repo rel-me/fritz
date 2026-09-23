@@ -1,4 +1,4 @@
-enum AppUpdateStartupState: Equatable {
+public enum AppUpdateStartupState: Equatable {
     case notConfigured
     case pending
     case checking
@@ -6,7 +6,7 @@ enum AppUpdateStartupState: Equatable {
     case available(version: String, requiresUpgrade: Bool)
     case failed
 
-    var hasCompletedCheck: Bool {
+    public var hasCompletedCheck: Bool {
         switch self {
         case .pending, .checking:
             false
@@ -15,7 +15,7 @@ enum AppUpdateStartupState: Equatable {
         }
     }
 
-    var allowsAppUse: Bool {
+    public var allowsAppUse: Bool {
         switch self {
         case .pending, .checking:
             false
@@ -26,7 +26,7 @@ enum AppUpdateStartupState: Equatable {
         }
     }
 
-    var requiredVersion: String? {
+    public var requiredVersion: String? {
         guard case .available(let version, requiresUpgrade: true) = self else {
             return nil
         }

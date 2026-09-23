@@ -21,7 +21,7 @@ make check
 CONFIGURATION=release make build
 ```
 
-`make test` runs Rust tests, Swift tests, and the real CLI/agent integration
+`make test` runs Rust tests, root Swift-library tests, app Swift tests, and the real CLI/agent integration
 harness. The harness starts `tests/mock_provider.py` on a free loopback port,
 creates temporary data, and checks discovery, streaming, provider errors,
 cancellation, persistence, and agent shutdown without API keys.
@@ -109,3 +109,12 @@ When debugging, verify a PID's executable path belongs to the staged bundle
 before attaching or terminating it. Do not use `killall`/`pkill` by app name.
 Keep build outputs and test data in this checkout; never share writable target,
 DerivedData, app bundle, or SwiftPM build directories between worktrees.
+
+## Shared libraries
+
+The root `Package.swift` publishes `Fritz` and `FritzUpdates`; the app package
+and Xcode target consume them. Run `swift test` for public-library tests and
+`swift test --package-path app` for application tests. The model catalog lives
+in `Sources/Fritz/LocalModels.json` and is consumed by both Swift and Rust.
+The staged Xcode app must include the Fritz resource bundle as well as Sparkle
+and Textual resources. See [the library guide](../libraries.md).

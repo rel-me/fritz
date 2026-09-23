@@ -12,6 +12,7 @@ run dev-open: build
 
 test:
 	cargo test --locked
+	swift test
 	swift test --package-path app
 	cargo build --locked
 	python3 tests/integration.py

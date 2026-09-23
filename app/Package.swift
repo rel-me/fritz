@@ -2,18 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "Fritz",
+    name: "FritzApp",
     platforms: [.macOS(.v15)],
-    products: [.executable(name: "Fritz", targets: ["Fritz"])],
+    products: [.executable(name: "FritzApp", targets: ["FritzApp"])],
     dependencies: [
-        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
-        .package(url: "https://github.com/gonzalezreal/textual", exact: "0.5.0")
+        .package(name: "Fritz", path: ".."),
+        .package(url: "https://github.com/gonzalezreal/textual", exact: "0.5.0"),
     ],
     targets: [
-        .executableTarget(name: "Fritz", dependencies: [
-            .product(name: "Sparkle", package: "Sparkle"),
-            .product(name: "Textual", package: "textual")
-        ], resources: [.copy("LocalModels.json")]),
-        .testTarget(name: "FritzTests", dependencies: ["Fritz"])
+        .executableTarget(name: "FritzApp", dependencies: [
+            .product(name: "Fritz", package: "Fritz"),
+            .product(name: "FritzUpdates", package: "Fritz"),
+            .product(name: "Textual", package: "textual"),
+        ], path: "Sources/Fritz"),
+        .testTarget(name: "FritzTests", dependencies: ["FritzApp"]),
     ]
 )

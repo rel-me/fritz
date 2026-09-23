@@ -4,9 +4,8 @@ options:
   deploymentTarget:
     macOS: "15.0"
 packages:
-  Sparkle:
-    url: https://github.com/sparkle-project/Sparkle
-    exactVersion: 2.9.6
+  Fritz:
+    path: ..
   Textual:
     url: https://github.com/gonzalezreal/textual
     exactVersion: 0.5.0
@@ -17,28 +16,28 @@ settings:
     ENABLE_APP_SANDBOX: NO
     CODE_SIGN_STYLE: Manual
 targets:
-  Fritz:
+  FritzApp:
+    productName: Fritz
     type: application
     platform: macOS
     sources:
       - path: Sources/Fritz
-        excludes: [LocalModels.json]
-      - path: Sources/Fritz/LocalModels.json
-        buildPhase: resources
       - path: Resources/AppIcon.icon
         buildPhase: resources
       - path: Resources/Assets.xcassets
         buildPhase: resources
     dependencies:
-      - package: Sparkle
-        product: Sparkle
+      - package: Fritz
+        product: Fritz
+      - package: Fritz
+        product: FritzUpdates
       - package: Textual
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fritz.app
         PRODUCT_NAME: $(FRITZ_PRODUCT_NAME)
         FRITZ_PRODUCT_NAME: Fritz
-        PRODUCT_MODULE_NAME: Fritz
+        PRODUCT_MODULE_NAME: FritzApp
         LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/../Frameworks
         MARKETING_VERSION: 0.1.1
         CURRENT_PROJECT_VERSION: 2
@@ -56,6 +55,6 @@ schemes:
   Fritz:
     build:
       targets:
-        Fritz: all
+        FritzApp: all
     run:
       config: Debug

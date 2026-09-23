@@ -1,3 +1,5 @@
+import FritzUpdates
+import Fritz
 import SwiftUI
 
 enum FritzSettingsTab: String, CaseIterable, Identifiable {

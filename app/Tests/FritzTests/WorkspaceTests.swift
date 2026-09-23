@@ -1,5 +1,7 @@
 import XCTest
-@testable import Fritz
+import Fritz
+import FritzUpdates
+@testable import FritzApp
 
 @MainActor final class WorkspaceTests: XCTestCase {
     private func directory() throws -> URL {

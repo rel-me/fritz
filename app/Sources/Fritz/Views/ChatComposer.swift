@@ -1,3 +1,4 @@
+import Fritz
 // Adapted from REL’s native composer and model picker.
 import SwiftUI
 

@@ -1,3 +1,4 @@
+import Fritz
 import SwiftUI
 
 /// Installation feedback belongs to provider setup, before a model can be used.

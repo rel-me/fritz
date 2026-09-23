@@ -19,13 +19,13 @@ use std::{path::PathBuf, time::Duration};
 
 const BATCH: usize = 256;
 
-pub(crate) struct Generation {
+pub struct Generation {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub truncated: bool,
 }
 
-pub(crate) struct GenerationOptions {
+pub struct GenerationOptions {
     pub grammar: Option<&'static str>,
     pub raw: bool,
     pub context_size: usize,
@@ -41,8 +41,8 @@ fn error(message: &str) -> anyhow::Error {
 // request so data cannot leak between calls. Backend outlives every model.
 static BACKEND: OnceLock<Result<LlamaBackend, String>> = OnceLock::new();
 #[derive(Clone)]
-pub(crate) struct Engine {
-    pub model_id: String,
+pub struct Engine {
+    pub(crate) model_id: String,
     path: PathBuf,
     model: Arc<Mutex<Option<LlamaModel>>>,
 }
@@ -55,6 +55,11 @@ impl Drop for Cancellation {
 }
 
 impl Engine {
+    /// Catalog identifier of the verified weights owned by this engine.
+    pub fn model_id(&self) -> &str {
+        &self.model_id
+    }
+
     pub async fn unload(self) {
         // Rust statics are not dropped at exit. Release weights before Metal's
         // native global destructors, waiting for any cancelled worker to finish.
@@ -69,7 +74,16 @@ impl Engine {
     }
 
     pub async fn installed(model_id: &str) -> Result<Self, anyhow::Error> {
-        let path = super::models::installed_path(model_id).await?;
+        Self::installed_in(
+            &super::models::ModelStore::new(crate::config::data_dir()),
+            model_id,
+        )
+        .await
+    }
+
+    /// Verifies installed weights in the caller's store before constructing a lazy engine.
+    pub async fn installed_in(store: &super::models::ModelStore, model_id: &str) -> Result<Self> {
+        let path = store.installed_path(model_id).await?;
         Ok(Self {
             model_id: model_id.into(),
             path,
