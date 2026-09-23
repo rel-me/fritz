@@ -12,6 +12,12 @@ the following surfaces, include these behaviors:
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
   sidebar visibility, + menu, New Project folder selection/cancel, and Settings
   opening with Command-comma. The toolbar opens the Model Providers page in Settings.
+  Enter and exit fullscreen in light and dark appearance; the toolbar background
+  should match the workspace surround in both modes, including with the sidebar hidden.
+  With the sidebar shown, preserve its rounded outline through the titlebar around
+  the traffic lights and sidebar toggle; it must not stop below a flat toolbar strip.
+  Compare the toolbar with the exposed padding around the rounded detail corner:
+  the color must remain continuous in fullscreen as well as in a normal window.
 - **Projects and threads:** stable selection, rename, New Thread/Command-N,
   independent transcripts and drafts, model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,

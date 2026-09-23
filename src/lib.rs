@@ -12,3 +12,5 @@ pub mod harness_client;
 pub mod local;
 pub mod provider;
 pub mod tools;
+
+pub use fritz_state as state;

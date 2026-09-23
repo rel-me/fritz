@@ -6,21 +6,15 @@ import Observation
     private(set) var document = WorkspaceDocument()
     var error: String?
     private(set) var canSave = true
-    private let dataDirectory: URL
+    let database: AppDatabase
     @ObservationIgnored private let agent: AgentClient
     @ObservationIgnored private var chats: [UUID: ChatStore] = [:]
 
     init(agent: AgentClient, dataDirectory: URL = FritzPaths.data) {
         self.agent = agent
-        self.dataDirectory = dataDirectory
+        self.database = AppDatabase(directory: dataDirectory)
         do {
-            if FileManager.default.fileExists(atPath: workspaceURL.path) {
-                let loaded = try JSONDecoder().decode(WorkspaceDocument.self, from: Data(contentsOf: workspaceURL))
-                try loaded.validate()
-                document = loaded
-            } else {
-                try importPreviousConversation()
-            }
+            document = try database.loadWorkspace()
         } catch {
             self.error = "Could not restore projects: \(error.localizedDescription)"
             canSave = false
@@ -36,12 +30,11 @@ import Observation
         selectedProject?.threads.first { $0.id == selectedThreadID }
     }
     var selectedChat: ChatStore? { selectedThreadID.map { chat(for: $0) } }
-    private var workspaceURL: URL { dataDirectory.appendingPathComponent("workspace.json") }
 
     func chat(for id: UUID) -> ChatStore {
         if let chat = chats[id] { return chat }
         let project = projects.first { $0.threads.contains { $0.id == id } }
-        let chat = ChatStore(agent: agent, transcriptURL: transcriptURL(for: id), projectPath: project?.directory)
+        let chat = ChatStore(agent: agent, database: database, threadID: id, projectPath: project?.directory)
         chat.onFirstPrompt = { [weak self] prompt in self?.nameThread(id, from: prompt) }
         chats[id] = chat
         return chat
@@ -125,30 +118,10 @@ import Observation
     }
 
     private func commit(_ next: WorkspaceDocument) throws {
-        guard canSave else { throw AgentFailure(message: "The workspace could not be loaded. The existing file has been preserved.") }
+        guard canSave else { throw AgentFailure(message: "The workspace could not be loaded. The database has been preserved.") }
         try next.validate()
-        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-        try JSONEncoder().encode(next).write(to: workspaceURL, options: .atomic)
+        try database.saveWorkspace(next)
         document = next
         error = nil
-    }
-
-    private func transcriptURL(for id: UUID) -> URL {
-        dataDirectory.appendingPathComponent("Threads").appendingPathComponent("\(id.uuidString).json")
-    }
-
-    private func importPreviousConversation() throws {
-        let previousURL = dataDirectory.appendingPathComponent("chat.json")
-        guard FileManager.default.fileExists(atPath: previousURL.path) else { return }
-        let data = try Data(contentsOf: previousURL)
-        let messages = try JSONDecoder().decode([ChatMessage].self, from: data)
-        guard !messages.isEmpty else { return }
-        let thread = ProjectThread(title: "Previous conversation", titleIsAutomatic: false)
-        let project = FritzProject(name: "Chats", threads: [thread])
-        let destination = transcriptURL(for: thread.id)
-        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: destination, options: .atomic)
-        try commit(WorkspaceDocument(projects: [project], selectedThreadID: thread.id))
-        // The original single-chat file remains untouched as a recovery copy.
     }
 }

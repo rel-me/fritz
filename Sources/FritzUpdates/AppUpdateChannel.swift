@@ -22,8 +22,4 @@ public enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
         case .dev: ["beta", "dev"]
         }
     }
-
-    public static var saved: Self {
-        Self(rawValue: UserDefaults.standard.string(forKey: "updateChannel") ?? "") ?? .release
-    }
 }

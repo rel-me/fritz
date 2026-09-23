@@ -16,15 +16,13 @@ struct FritzProject: Codable, Identifiable, Equatable {
 }
 
 struct WorkspaceDocument: Codable, Equatable {
-    var version = 1
     var projects: [FritzProject] = []
     var selectedThreadID: UUID?
 
     func validate() throws {
         let projectIDs = projects.map(\.id)
         let threadIDs = projects.flatMap(\.threads).map(\.id)
-        guard version == 1,
-              Set(projectIDs).count == projectIDs.count,
+        guard Set(projectIDs).count == projectIDs.count,
               Set(threadIDs).count == threadIDs.count,
               selectedThreadID == nil || threadIDs.contains(selectedThreadID!) else {
             throw AgentFailure(message: "The saved workspace is invalid or uses an unsupported version.")

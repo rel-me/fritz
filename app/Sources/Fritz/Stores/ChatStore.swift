@@ -28,7 +28,7 @@ struct ChatToolActivity: Codable, Identifiable, Equatable, Sendable {
     var success: Bool?
 }
 
-private struct ChatPreferences: Codable {
+struct ChatPreferences: Codable {
     var draft: String
     var selectedModel: ChatModelOption?
     var effort: ChatReasoningEffort
@@ -50,30 +50,30 @@ private struct ChatPreferences: Codable {
     @ObservationIgnored private var requestID: String?
     @ObservationIgnored private var responseTask: Task<Void, Never>?
     @ObservationIgnored var onFirstPrompt: ((String) -> Void)?
-    private let transcriptURL: URL
-    private var preferencesURL: URL { transcriptURL.deletingPathExtension().appendingPathExtension("preferences.json") }
+    private let database: AppDatabase
+    private let threadID: UUID
+    private var canSave = true
 
-    init(agent: AgentClient, transcriptURL: URL = FritzPaths.data.appendingPathComponent("chat.json"), projectPath: String? = nil) {
+    init(agent: AgentClient, database: AppDatabase, threadID: UUID, projectPath: String? = nil) {
         self.agent = agent
-        self.transcriptURL = transcriptURL
+        self.database = database
+        self.threadID = threadID
         self.projectPath = projectPath
         do {
-            let data = try Data(contentsOf: transcriptURL)
-            messages = try JSONDecoder().decode([ChatMessage].self, from: data)
-        } catch let failure as NSError where failure.domain == NSCocoaErrorDomain && failure.code == NSFileReadNoSuchFileError {
-        } catch { self.error = "Could not restore the conversation: \(error.localizedDescription)" }
-        if FileManager.default.fileExists(atPath: preferencesURL.path) {
-            do {
-                let saved = try JSONDecoder().decode(ChatPreferences.self, from: Data(contentsOf: preferencesURL))
+            messages = try database.messages(for: threadID)
+            if let saved = try database.preferences(for: threadID) {
                 draft = saved.draft; selectedModel = saved.selectedModel
                 effort = saved.effort; speed = saved.speed
-            } catch { self.error = "Could not restore thread settings: \(error.localizedDescription)" }
+            }
+        } catch {
+            canSave = false
+            self.error = "Could not restore the conversation: \(error.localizedDescription)"
         }
     }
 
     var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && selectedModel != nil && agent.isRunning && !isResponding
+            && canSave && selectedModel != nil && agent.isRunning && !isResponding
     }
 
     func select(_ model: ChatModelOption) {
@@ -148,6 +148,7 @@ private struct ChatPreferences: Codable {
     }
 
     func clear() {
+        guard canSave else { return }
         stop(); messages = []; error = nil; responseTokens = nil
         persist()
     }
@@ -171,20 +172,20 @@ private struct ChatPreferences: Codable {
         }
     }
 
+    private var preferences: ChatPreferences {
+        ChatPreferences(draft: draft, selectedModel: selectedModel, effort: effort, speed: speed)
+    }
+
     private func persist() {
-        do {
-            try FileManager.default.createDirectory(at: transcriptURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(messages).write(to: transcriptURL, options: .atomic)
-        } catch { self.error = "Could not save the conversation: \(error.localizedDescription)" }
-        savePreferences()
+        guard canSave else { return }
+        do { try database.save(messages: messages, preferences: preferences, for: threadID) }
+        catch { self.error = "Could not save the conversation: \(error.localizedDescription)" }
     }
 
     func savePreferences() {
-        do {
-            try FileManager.default.createDirectory(at: preferencesURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let settings = ChatPreferences(draft: draft, selectedModel: selectedModel, effort: effort, speed: speed)
-            try JSONEncoder().encode(settings).write(to: preferencesURL, options: .atomic)
-        } catch { self.error = "Could not save thread settings: \(error.localizedDescription)" }
+        guard canSave else { return }
+        do { try database.save(preferences: preferences, for: threadID) }
+        catch { self.error = "Could not save thread settings: \(error.localizedDescription)" }
     }
 }
 

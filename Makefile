@@ -13,7 +13,7 @@ run dev-open: build
 test: test-runtime test-swift
 
 test-runtime:
-	cargo test --locked
+	cargo test --workspace --locked
 	cargo build --locked
 	python3 tests/integration.py
 	python3 tests/coding_integration.py
@@ -24,8 +24,8 @@ test-swift:
 	swift test --package-path app
 
 check:
-	cargo fmt --check
-	cargo clippy --locked --all-targets -- -D warnings
+	cargo fmt --all --check
+	cargo clippy --workspace --locked --all-targets -- -D warnings
 
 install-cli:
 	@CONFIGURATION=release $(MAKE) --no-print-directory build

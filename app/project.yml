@@ -31,6 +31,8 @@ targets:
         product: Fritz
       - package: Fritz
         product: FritzUpdates
+      - package: Fritz
+        product: FritzState
       - package: Textual
     settings:
       base:

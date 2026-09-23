@@ -11,6 +11,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(name: "FritzApp", dependencies: [
+            .product(name: "FritzState", package: "Fritz"),
             .product(name: "Fritz", package: "Fritz"),
             .product(name: "FritzUpdates", package: "Fritz"),
             .product(name: "Textual", package: "textual"),

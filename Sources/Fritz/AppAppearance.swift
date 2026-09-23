@@ -8,9 +8,6 @@ public enum AppAppearance: String, CaseIterable, Codable, Identifiable, Sendable
 
     public var id: String { rawValue }
 
-    public static var saved: Self {
-        Self(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "") ?? .system
-    }
 
     public var title: String {
         switch self {

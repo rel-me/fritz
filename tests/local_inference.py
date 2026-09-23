@@ -16,7 +16,7 @@ def main():
     parser.add_argument("--executable", type=Path, default=Path("dist/Fritz.app/Contents/Resources/fritz"))
     args = parser.parse_args()
     env = dict(os.environ, FRITZ_DATA_DIR=str(args.data_dir.resolve()))
-    registry = json.loads((args.data_dir / "providers.json").read_text())
+    registry = json.loads(subprocess.check_output([str(args.executable.resolve()), "providers"], env=env, text=True))
     connection = next(c for c in registry["connections"] if c["provider"] == "fritz" and c["modelId"])
     params = {"connectionId": connection["id"], "model": connection["modelId"]}
     with tempfile.TemporaryFile(mode="w+") as errors:

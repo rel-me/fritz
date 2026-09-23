@@ -1,5 +1,6 @@
 """Exercise the real Fritz executable with no API credentials or remote requests."""
 import json
+import sqlite3
 import os
 from pathlib import Path
 import queue
@@ -52,7 +53,9 @@ def main():
         assert "reasoning" not in Provider.requests[0]
         assert Provider.requests[0]["messages"][0]["role"] == "system"
         cli("add-provider", "--name", "Test", "--provider", "ollama", success=False)
-        assert "apiKey" not in (Path(directory) / "providers.json").read_text()
+        with sqlite3.connect(Path(directory) / "providers.sqlite") as database:
+            assert all("apiKey" not in row[0] for row in database.execute("SELECT payload FROM providers"))
+        assert not (Path(directory) / "providers.json").exists()
 
         agent = subprocess.Popen([str(EXECUTABLE), "--agent"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
         events = queue.Queue()
