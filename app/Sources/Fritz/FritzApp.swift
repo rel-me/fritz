@@ -184,10 +184,10 @@ private struct FritzWorkspaceView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
             .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
-            .background(FritzWindowStyle.workspaceBackground)
+            .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
         .navigationSplitViewStyle(.prominentDetail)
-        .background(FritzWindowStyle.workspaceBackground)
+        .background { FritzWorkspaceBackground().ignoresSafeArea() }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,
@@ -224,7 +224,10 @@ private struct FritzWorkspaceView: View {
             }
         }
         .toolbarBackground(FritzWindowStyle.workspaceBackground, for: .windowToolbar)
+        // A hidden toolbar background preserves the sidebar's rounded titlebar outline.
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        // Give fullscreen the workspace palette behind its native toolbar material.
+        .containerBackground(FritzWindowStyle.workspaceBackground, for: .window)
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
