@@ -181,10 +181,10 @@ private struct FritzWorkspaceView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
             .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
-            .background(FritzWindowStyle.workspaceBackground)
+            .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
         .navigationSplitViewStyle(.prominentDetail)
-        .background(FritzWindowStyle.workspaceBackground)
+        .background { FritzWorkspaceBackground().ignoresSafeArea() }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,

@@ -16,6 +16,8 @@ the following surfaces, include these behaviors:
   should match the workspace surround in both modes, including with the sidebar hidden.
   With the sidebar shown, preserve its rounded outline through the titlebar around
   the traffic lights and sidebar toggle; it must not stop below a flat toolbar strip.
+  Compare the toolbar with the exposed padding around the rounded detail corner:
+  the color must remain continuous in fullscreen as well as in a normal window.
 - **Projects and threads:** stable selection, rename, New Thread/Command-N,
   independent transcripts and drafts, model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,

@@ -18,6 +18,52 @@ enum FritzWindowStyle {
     }
 }
 
+/// Match the native fullscreen toolbar while retaining Fritz's windowed palette.
+/// AppKit owns the window mode; this background redraws without publishing view state.
+struct FritzWorkspaceBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> BackgroundView { BackgroundView() }
+    func updateNSView(_ nsView: BackgroundView, context: Context) {}
+
+    static func dismantleNSView(_ nsView: BackgroundView, coordinator: ()) {
+        NotificationCenter.default.removeObserver(nsView)
+    }
+
+    final class BackgroundView: NSView {
+        override var isOpaque: Bool { true }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            NotificationCenter.default.removeObserver(self)
+            if let window {
+                for name in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
+                    NotificationCenter.default.addObserver(self, selector: #selector(redraw),
+                                                           name: name, object: window)
+                }
+            }
+            needsDisplay = true
+        }
+
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            needsDisplay = true
+        }
+
+        @objc private func redraw(_ notification: Notification) {
+            needsDisplay = true
+        }
+
+        override func draw(_ dirtyRect: NSRect) {
+            let color = window?.styleMask.contains(.fullScreen) == true
+                ? NSColor.windowBackgroundColor
+                : FritzWindowStyle.workspaceBackgroundNSColor
+            color.setFill()
+            bounds.fill()
+        }
+    }
+}
+
 struct WindowNewItemMenu: View {
     let canCreateThread: Bool
     let createProject: () -> Void
