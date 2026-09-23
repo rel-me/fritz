@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 configuration="${CONFIGURATION:-debug}"
+source scripts/release-config.sh
 case "$configuration" in
   debug)
     source scripts/dev-runtime.sh
@@ -41,8 +42,8 @@ xcodebuild -quiet -project app/Fritz.xcodeproj -scheme Fritz \
   -destination "platform=macOS,arch=$(uname -m)" \
   -onlyUsePackageVersionsFromResolvedFile \
   FRITZ_PRODUCT_NAME="$app_name" PRODUCT_BUNDLE_IDENTIFIER="$bundle_id" \
-  MARKETING_VERSION="${FRITZ_VERSION:-0.1.0}" \
-  CURRENT_PROJECT_VERSION="${FRITZ_BUILD_NUMBER:-1}" \
+  MARKETING_VERSION="$FRITZ_VERSION" \
+  CURRENT_PROJECT_VERSION="$FRITZ_BUILD_NUMBER" \
   CODE_SIGNING_ALLOWED=NO build
 
 app_bundle="$PWD/dist/$app_name.app"

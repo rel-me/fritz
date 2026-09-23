@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export FRITZ_DISTRIBUTION=1
+source scripts/release-config.sh
 channel="${1:-}"
 case "$channel" in
   release|beta|dev) ;;
@@ -22,8 +24,10 @@ temporary_appcast="$(mktemp dist/updates/.appcast.XXXXXX)"
 trap 'rm -f "$temporary_appcast"' EXIT
 if [[ -f dist/updates/appcast.xml ]]; then
   cp dist/updates/appcast.xml "$temporary_appcast"
+else
+  rm "$temporary_appcast"
 fi
-args=(-o "$temporary_appcast" --download-url-prefix "$prefix" --link "$homepage")
+args=(-o "$temporary_appcast" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" --download-url-prefix "${prefix%/}/" --link "$homepage")
 if [[ "$channel" != release ]]; then args+=(--channel "$channel"); fi
 "$tool" "${args[@]}" dist/updates
 python3 - "$channel" "$temporary_appcast" "$version" "$prefix" "$archive" <<'PY'

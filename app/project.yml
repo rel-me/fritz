@@ -40,8 +40,8 @@ targets:
         FRITZ_PRODUCT_NAME: Fritz
         PRODUCT_MODULE_NAME: Fritz
         LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/../Frameworks
-        MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1.1
+        CURRENT_PROJECT_VERSION: 2
         COMBINE_HIDPI_IMAGES: YES
     info:
       path: Resources/Info.plist

@@ -21,14 +21,14 @@ Codex after changing user configuration. See the
 
 ## Adaptation provenance
 
-REL adapted these skills from the installed sources below. Their source
-metadata declares MIT licensing. Entry points now have distinct triggers and
+These skills were adapted from the installed sources below. Their source
+metadata declares MIT licensing. Entry points have distinct triggers and
 use Fritz's platform/build contract. The macOS guide was split into topic
 references; SwiftUI implementation references no longer require a global AppKit
 skill. Generic new-app scaffolding and repeated checklists were removed from the
 implementation entry point because Fritz is an existing app.
 
-Source SKILL.md SHA-256 values identify the upstream inputs recorded by REL:
+Source SKILL.md SHA-256 values identify the upstream inputs:
 
 - `macos-design-guidelines`: platform-design-skills 1.0.0.
   `9fa44a38eee0138d6aaf41b7f34223bcd9b25099e4706846b8773124fc5b6ecc`
@@ -72,13 +72,11 @@ preserve Fritz's existing scenes and stores instead of scaffolding a generic app
 
 ## Fritz adaptation
 
-Copied from the REL working tree on 2026-09-22, based at commit
-`6a1a008325ffbcca6e7c90ba721c70e04356fcbd`. The upstream attribution, source
-hashes, concurrency license, and interface assets above are retained.
+Added to Fritz on 2026-09-22. The upstream attribution, source hashes,
+concurrency license, and interface assets above are retained.
 
 Entry points and project-specific references now describe Fritz's actual
 SwiftUI/AppKit scenes, stores, private-pipe agent, Make targets, and tests.
-REL's browser-debugging skill and runtime/release infrastructure are excluded.
 UI verification is manual with the mock provider; Fritz does not yet have a
 visual snapshot suite. Generic upstream concurrency examples remain reference
 material, not instructions to expand the app's scope or change its toolchain.

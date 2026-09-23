@@ -6,8 +6,8 @@ CMake for llama.cpp, and Python 3. It does not install toolchains, change Git
 branches, copy local credentials, build an app, or launch one. XcodeGen is needed only when regenerating
 `app/Fritz.xcodeproj` from `app/project.yml`.
 
-The [Codex environment](../../.codex/environments/environment.toml) adapts REL's
-local-environment layout to Fritz. Setup runs `make setup`; the toolbar actions
+The [Codex environment](../../.codex/environments/environment.toml)
+defines Fritz's local setup and actions. Setup runs `make setup`; the toolbar actions
 invoke the existing Make targets. See the [official local-environment documentation](https://learn.chatgpt.com/docs/environments/local-environment)
 for setup and action behavior.
 
@@ -91,8 +91,8 @@ interruption, cancellation, and atomic installation. CLI integration tests verif
 the catalog and missing-model behavior without downloading weights. For an
 explicit real-download smoke check, use an isolated `FRITZ_DATA_DIR`, install a
 small catalog entry with `fritz local-models install MODEL_ID`, then add a `fritz`
-provider and exercise streaming and cancellation. Do not borrow REL's model files
-or provider registry. The native Metal runtime is bundled into fritz-harness.
+provider and exercise streaming and cancellation. Use only the isolated test
+directory's model files and provider registry. The native Metal runtime is bundled into fritz-harness.
 
 After that explicit installation, run the opt-in native lifecycle check:
 

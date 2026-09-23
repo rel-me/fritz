@@ -1,4 +1,4 @@
-.PHONY: setup build run dev-open test check install-cli update-archive appcast beta promote
+.PHONY: setup build run dev-open test check install-cli update-archive appcast beta publish-beta promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -28,7 +28,7 @@ install-cli:
 	ln -sfn "$(CURDIR)/dist/Fritz.app/Contents/Resources/fritz" "$(HOME)/.local/bin/fritz"
 
 update-archive:
-	@CONFIGURATION=release $(MAKE) --no-print-directory build
+	@FRITZ_DISTRIBUTION=1 CONFIGURATION=release $(MAKE) --no-print-directory build
 	@./scripts/create-update-archive.sh
 
 appcast:
@@ -37,5 +37,8 @@ appcast:
 beta:
 	@./scripts/beta-release.sh
 
+publish-beta:
+	@./scripts/publish-update.sh beta
+
 promote:
-	@python3 ./scripts/promote-update.py
+	@./scripts/promote-release.sh

@@ -3,8 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 app=dist/Fritz.app
 test -d "$app" || { echo "error: build the Release app first" >&2; exit 1; }
-identity="$(codesign -dv "$app" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
-if [[ -z "$identity" ]]; then
+identity="$(codesign -dvvv "$app" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
+if [[ "$identity" != "Developer ID Application:"* ]]; then
   echo "error: Sparkle distribution needs a Developer ID signed Release app" >&2
   exit 1
 fi

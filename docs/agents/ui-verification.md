@@ -28,8 +28,8 @@ when the changed behavior depends on them. Capture before/after screenshots
 when they help review a visual change, using synthetic text and no credentials.
 
 Fritz currently has model/workspace unit tests and CLI integration tests, but
-no automated visual snapshot suite. Do not claim a snapshot comparison ran or
-invoke REL's snapshot targets. Manual checks complement `make test`.
+no automated visual snapshot suite. Do not claim a snapshot comparison ran.
+Manual checks complement `make test`.
 
 If a task introduces snapshot tests, compare the affected suites before updating
 references. Inspect actual, expected, and diff images. Record only intentional
