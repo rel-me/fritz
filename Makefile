@@ -1,4 +1,4 @@
-.PHONY: setup build run dev-open test check install-cli update-archive appcast
+.PHONY: setup build run dev-open test check install-cli update-archive appcast beta promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -16,6 +16,7 @@ test:
 	cargo build --locked
 	python3 tests/integration.py
 	python3 tests/coding_integration.py
+	python3 tests/test_release_tasks.py
 
 check:
 	cargo fmt --check
@@ -32,3 +33,9 @@ update-archive:
 
 appcast:
 	@./scripts/prepare-update.sh "$(CHANNEL)"
+
+beta:
+	@./scripts/beta-release.sh
+
+promote:
+	@python3 ./scripts/promote-update.py
