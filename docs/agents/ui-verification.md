@@ -17,8 +17,11 @@ the following surfaces, include these behaviors:
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown/code rendering, scrolling,
   error feedback, and switching threads while a response streams.
-- **Settings:** General appearance, update channel, CLI install feedback, Model
-  Providers selection, Local Models process controls, Service status, and Debug page navigation.
+- **Settings:** exactly one app-menu Settings item and Command-comma reopening the
+  selected page; shared title-free unified toolbar, native traffic lights, and
+  rounded inset detail surface in light/dark appearance. General appearance,
+  update channel, CLI install feedback, Model Providers selection, Local Models
+  process controls, Service status, and Debug page navigation.
 - **Providers:** category filters, add/edit/cancel, field labels, discovery and
   refresh, default/manual model choices, validation, and connection errors.
 

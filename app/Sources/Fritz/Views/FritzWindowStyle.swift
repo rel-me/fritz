@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// REL's native window palette and inset surfaces, independent of its runtime.
+/// Shared palette and inset surfaces for every Fritz window.
 enum FritzWindowStyle {
     static let cornerRadius: CGFloat = 20
     static let workspaceBackgroundNSColor = adaptive(light: 0xebebeb, dark: 0x181818)
@@ -38,5 +38,44 @@ struct WindowNewItemMenu: View {
         .buttonStyle(FritzButtonStyle(.toolbar))
         .help("New")
         .accessibilityIdentifier("window-new-item-menu")
+    }
+}
+
+// Keep scene chrome and root backgrounds paired on every app-owned window.
+extension Scene {
+    func fritzWindowStyle() -> some Scene {
+        windowToolbarStyle(.unified(showsTitle: false))
+    }
+}
+
+extension View {
+    func fritzWindowBackground() -> some View {
+        background(FritzWindowStyle.workspaceBackground)
+            .background(FritzWindowChrome())
+            .toolbarBackground(FritzWindowStyle.workspaceBackground, for: .windowToolbar)
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+    }
+}
+
+/// Settings can retain its preferences toolbar style despite the scene modifier.
+/// Configure only the window hosting this root, without searching global windows.
+private struct FritzWindowChrome: NSViewRepresentable {
+    func makeNSView(context: Context) -> WindowView { WindowView() }
+
+    func updateNSView(_ nsView: WindowView, context: Context) {
+        nsView.applyStyle()
+    }
+
+    final class WindowView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            applyStyle()
+        }
+
+        func applyStyle() {
+            guard let window else { return }
+            if window.toolbarStyle != .unified { window.toolbarStyle = .unified }
+            if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
+        }
     }
 }

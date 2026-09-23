@@ -30,6 +30,13 @@ Trace shared components to their consumers and check affected appearance,
 loading, empty, error, and populated states. Report what was actually exercised;
 a successful build or launch alone does not prove the UI works.
 
+All app-owned windows, including Settings, must share `FritzWindowStyle`:
+apply `fritzWindowStyle()` to the scene and `fritzWindowBackground()` to its
+root content. Use the unified toolbar with no window title, native traffic
+lights and dragging, and rounded inset detail surfaces with the shared palette.
+Keep native system dialogs native. Let the `Settings` scene own the Settings
+menu item and Command-comma; do not register a duplicate command.
+
 Reserve list/table/grouped Form rows for controls, actions, and records. Keep
 labels with their controls; put headings, helper text, validation, and status in
 headers, footers, help, or feedback outside cells. Omit empty sections and

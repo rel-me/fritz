@@ -38,7 +38,7 @@ struct FritzSettingsView: View {
     @State private var editor: ProviderEditorSelection?
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView {
             List(selection: selection) {
                 ForEach(FritzSettingsTab.allCases) { tab in
                     Label(tab.title, systemImage: tab.systemImage).tag(tab)
@@ -47,10 +47,8 @@ struct FritzSettingsView: View {
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
             .background(FritzWindowStyle.workspaceBackground)
-            .frame(width: 205)
-
-            Divider().ignoresSafeArea(.container, edges: .top)
-
+            .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
+        } detail: {
             Group {
                 switch state.settingsTab {
                 case .general:
@@ -72,7 +70,11 @@ struct FritzSettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+            .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
         }
+        .navigationSplitViewStyle(.prominentDetail)
+        .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
         .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
     }
