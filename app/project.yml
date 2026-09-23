@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     macOS: "15.0"
 packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.6
   Textual:
     url: https://github.com/gonzalezreal/textual
     exactVersion: 0.5.0
@@ -27,11 +30,16 @@ targets:
       - path: Resources/Assets.xcassets
         buildPhase: resources
     dependencies:
+      - package: Sparkle
+        product: Sparkle
       - package: Textual
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fritz.app
-        PRODUCT_NAME: Fritz
+        PRODUCT_NAME: $(FRITZ_PRODUCT_NAME)
+        FRITZ_PRODUCT_NAME: Fritz
+        PRODUCT_MODULE_NAME: Fritz
+        LD_RUNPATH_SEARCH_PATHS: $(inherited) @executable_path/../Frameworks
         MARKETING_VERSION: 0.1.0
         CURRENT_PROJECT_VERSION: 1
         COMBINE_HIDPI_IMAGES: YES
