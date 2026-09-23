@@ -25,6 +25,14 @@ pub(crate) struct Generation {
     pub truncated: bool,
 }
 
+pub(crate) struct GenerationOptions {
+    pub grammar: Option<&'static str>,
+    pub raw: bool,
+    pub context_size: usize,
+    pub output_limit: usize,
+    pub timeout: Duration,
+}
+
 fn error(message: &str) -> anyhow::Error {
     anyhow!("Fritz local model: {message}")
 }
@@ -72,15 +80,19 @@ impl Engine {
     pub async fn generate(
         &self,
         mut prompt: String,
-        grammar: Option<&'static str>,
-        context_size: usize,
-        output_limit: usize,
-        timeout: Duration,
+        options: GenerationOptions,
         output: tokio::sync::mpsc::UnboundedSender<String>,
     ) -> Result<Generation, anyhow::Error> {
+        let GenerationOptions {
+            grammar,
+            raw,
+            context_size,
+            output_limit,
+            timeout,
+        } = options;
         let path = self.path.clone();
         let model_id = self.model_id.clone();
-        if super::models::manifest(&model_id)?.disable_thinking {
+        if !raw && super::models::manifest(&model_id)?.disable_thinking {
             // All catalog entries use ChatML. Close the thinking block explicitly,
             // matching their published enable_thinking=false generation prefix.
             prompt.push_str("<think>\n\n</think>\n\n");

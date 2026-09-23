@@ -5,6 +5,7 @@ import SwiftUI
     let agent: AgentClient
     let providers: ProviderStore
     let workspace: WorkspaceStore
+    let localModels: LocalModelRuntimeStore
     var settingsTab: FritzSettingsTab = {
         FritzSettingsTab(rawValue: UserDefaults.standard.string(forKey: "FritzSettingsSelectedTab") ?? "") ?? .general
     }()
@@ -16,6 +17,7 @@ import SwiftUI
         self.agent = agent
         providers = ProviderStore(agent: agent)
         workspace = WorkspaceStore(agent: agent)
+        localModels = LocalModelRuntimeStore(agent: agent)
     }
     func newThread() {
         if let project = workspace.selectedProject ?? workspace.projects.first {
@@ -31,6 +33,7 @@ import SwiftUI
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         FritzState.shared.workspace.shutdown()
+        FritzState.shared.localModels.stopAll()
         FritzState.shared.agent.stop()
     }
 }
@@ -94,6 +97,9 @@ import SwiftUI
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
                 Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
+            }
+            CommandMenu("Models") {
+                Button("Local Models…") { state.selectSettings(.localModels); openSettings() }
             }
         }
 

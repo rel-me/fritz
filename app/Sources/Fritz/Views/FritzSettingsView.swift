@@ -3,6 +3,7 @@ import SwiftUI
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
     case providers
+    case localModels
     case service
     case debug
 
@@ -12,6 +13,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .providers: "Model Providers"
+        case .localModels: "Local Models"
         case .service: "Service"
         case .debug: "Debug"
         }
@@ -21,6 +23,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .providers: "cpu"
+        case .localModels: "server.rack"
         case .service: "gearshape.2"
         case .debug: "ladybug"
         }
@@ -51,7 +54,11 @@ struct FritzSettingsView: View {
                 case .general:
                     FritzGeneralSettingsView(updater: updater)
                 case .providers:
-                    ProvidersView(store: state.providers, editor: $editor)
+                    ProvidersView(store: state.providers, editor: $editor,
+                                  openLocalModels: { state.selectSettings(.localModels) })
+                case .localModels:
+                    LocalModelsView(store: state.localModels,
+                                    openProviders: { state.selectSettings(.providers) })
                 case .service:
                     FritzServiceSettingsView(agent: state.agent)
                 case .debug:

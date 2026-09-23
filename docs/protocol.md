@@ -38,6 +38,13 @@ output limit is reached; context is limited to 8,192 tokens.
 Fritz local models support `mode: "chat"`; Code requests return a clear error
 without dispatching tools. Remote providers retain the native tool loop below.
 
+`fritz local-models serve` is an explicit, separate loopback API mode for
+installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
+`/api/generate` routes. The app's private agent and chat harness pipes do not
+use this listener. The Local Models settings page owns only the API processes it
+starts and stops them on app exit; CLI-started listeners remain under CLI
+process control.
+
 ## Harness and coding runs (protocol version 2)
 
 `chat` additionally accepts `mode` (`chat`, default, or `code`), `projectPath`

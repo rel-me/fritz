@@ -18,7 +18,7 @@ the following surfaces, include these behaviors:
   Shift-Return for a newline, Escape to stop, Markdown/code rendering, scrolling,
   error feedback, and switching threads while a response streams.
 - **Settings:** General appearance, update channel, CLI install feedback, Model
-  Providers selection, Service status, and Debug page navigation.
+  Providers selection, Local Models process controls, Service status, and Debug page navigation.
 - **Providers:** category filters, add/edit/cancel, field labels, discovery and
   refresh, default/manual model choices, validation, and connection errors.
 
