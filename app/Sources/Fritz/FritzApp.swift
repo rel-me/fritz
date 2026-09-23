@@ -221,8 +221,9 @@ private struct FritzWorkspaceView: View {
             }
         }
         .toolbarBackground(FritzWindowStyle.workspaceBackground, for: .windowToolbar)
-        .toolbarBackgroundVisibility(.visible, for: .windowToolbar)
-        // Fullscreen hosts the toolbar separately from the workspace view.
+        // A hidden toolbar background preserves the sidebar's rounded titlebar outline.
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        // Give fullscreen the workspace palette behind its native toolbar material.
         .containerBackground(FritzWindowStyle.workspaceBackground, for: .window)
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
