@@ -84,7 +84,8 @@ def main() -> int:
     # archive bytes, so promotion does not sign or rebuild the DMG.
     _, signature = validated_item(ET.parse(appcast), archive, version, build, prefix)
     tool = root / "dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
-    subprocess.run([str(tool), "--verify", str(archive), signature], check=True)
+    account = os.environ.get("FRITZ_SPARKLE_KEY_ACCOUNT", "fritz")
+    subprocess.run([str(tool), "--account", account, "--verify", str(archive), signature], check=True)
     subprocess.run(["xcrun", "stapler", "validate", str(archive)], check=True)
     changed = promote(appcast, archive, version, build, prefix)
     state = "Promoted" if changed else "Already promoted"

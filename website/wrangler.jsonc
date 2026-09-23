@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fritz-updates",
+  "main": "./worker.mjs",
+  "compatibility_date": "2026-05-15",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "fritz.rel.me",
+      "custom_domain": true
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPDATES",
+      "bucket_name": "fritz-updates"
+    }
+  ]
+}
