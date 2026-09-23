@@ -1,3 +1,5 @@
+import { latestDownload } from "./public/appcast.mjs";
+
 const ARCHIVE_PATH = /^\/updates\/(Fritz-\d+\.\d+\.\d+\.dmg)$/;
 
 function rangeFor(header, size) {
@@ -52,10 +54,14 @@ export default {
       return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     }
     const path = new URL(request.url).pathname;
-    if (path === "/") {
-      const html = '<!doctype html><html lang="en"><meta charset="utf-8"><title>Fritz</title><main><h1>Fritz</h1><p>A native macOS coding assistant.</p><p><a href="https://github.com/rel-me/fritz">Source and setup</a></p></main></html>';
-      return new Response(request.method === "HEAD" ? null : html, {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300" },
+    // Static assets in public/ answer first; the home page links here for the current DMG.
+    if (path === "/download") {
+      const appcast = await env.UPDATES.get("appcast.xml");
+      const latest = appcast && latestDownload(await appcast.text());
+      if (!latest) return new Response("No download is available yet", { status: 404 });
+      return new Response(null, {
+        status: 302,
+        headers: { location: `/updates/${latest.filename}`, "cache-control": "no-store" },
       });
     }
     if (path === "/appcast.xml") {

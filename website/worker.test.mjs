@@ -12,7 +12,8 @@ function bucket(objects) {
       const bytes = objects[key];
       if (!bytes) return null;
       const range = options?.range;
-      return { body: range ? bytes.slice(range.offset, range.offset + range.length) : bytes };
+      const body = range ? bytes.slice(range.offset, range.offset + range.length) : bytes;
+      return { body, async text() { return new TextDecoder().decode(body); } };
     },
   };
 }
@@ -52,4 +53,39 @@ test("supports HEAD and byte ranges for archive downloads", async () => {
 test("rejects other artifacts and mutation requests", async () => {
   assert.equal((await worker.fetch(new Request("https://fritz.rel.me/updates/REL-0.1.1.dmg"), env)).status, 404);
   assert.equal((await worker.fetch(new Request("https://fritz.rel.me/updates/Fritz-0.1.1.dmg", { method: "POST" }), env)).status, 405);
+});
+
+function item(version, build, channel) {
+  return `<item><title>${version}</title>${channel ? `<sparkle:channel>${channel}</sparkle:channel>` : ""}
+    <sparkle:version>${build}</sparkle:version><sparkle:shortVersionString>${version}</sparkle:shortVersionString>
+    <enclosure url="https://fritz.rel.me/updates/Fritz-${version}.dmg" length="10" type="application/octet-stream" sparkle:edSignature="c2ln"/></item>`;
+}
+
+function appcast(...items) {
+  const xml = `<?xml version="1.0" standalone="yes"?><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0"><channel><title>Fritz</title>${items.join("")}</channel></rss>`;
+  return { UPDATES: bucket({ "appcast.xml": new TextEncoder().encode(xml) }) };
+}
+
+async function download(env) {
+  return worker.fetch(new Request("https://fritz.rel.me/download"), env);
+}
+
+test("download redirects to the newest Release archive", async () => {
+  const response = await download(appcast(item("0.1.3", 4, "beta"), item("0.1.2", 3), item("0.1.1", 2)));
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/updates/Fritz-0.1.2.dmg");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("download falls back to the newest Beta archive before any Release", async () => {
+  const response = await download(appcast(item("0.1.1", 2, "beta"), item("0.1.2", 3, "beta"), item("0.2.0", 5, "dev")));
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("location"), "/updates/Fritz-0.1.2.dmg");
+});
+
+test("download ignores Dev builds and unexpected archive URLs", async () => {
+  assert.equal((await download(appcast(item("0.2.0", 5, "dev")))).status, 404);
+  const foreign = item("0.1.1", 2).replace("/updates/Fritz-0.1.1.dmg", "/files/Fritz-0.1.1.dmg");
+  assert.equal((await download(appcast(foreign))).status, 404);
+  assert.equal((await download({ UPDATES: bucket({}) })).status, 404);
 });
