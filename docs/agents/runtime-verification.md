@@ -54,24 +54,26 @@ distribution signing or notarization.
 
 ## CI
 
-CI runs once per pull-request update, on pushes to `main`, and on manual dispatch.
-Feature-branch pushes do not also start a duplicate run. New commits cancel older
-runs for the same PR or branch.
+CI runs for PRs authored by `gabriel`, pushes to `main`, and manual dispatches.
+PRs by other authors skip every job, including the final check; rerunning one as
+`gabriel` does not change eligibility. Feature-branch pushes do not start a
+duplicate run. New commits cancel older runs for the same PR or branch.
 
-Four hosted macOS jobs run independently: `make test-runtime`, `make test-swift`,
-`make check`, and `CONFIGURATION=release make build`. `make test` still runs both
-test groups locally. The final “Libraries, app, and runtime” check requires all
-four jobs to succeed and preserves the original check name for branch protection.
+macOS checks run on the registered `fritz-mac-mini` runner using the labels
+`self-hosted`, `macOS`, `ARM64`, and `gabriel-ci`. It has one runner, so one job
+runs `make -j2 test` (Rust/runtime and Swift test groups concurrently), followed
+by `make check` and `CONFIGURATION=release make build`. All existing checks and
+release signing remain enabled. The final “Libraries, app, and runtime” check
+runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
+The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-Rust dependency build outputs are cached separately for tests, Clippy, and
-release builds, keyed by the Rust and Apple toolchains and dependency inputs.
-Swift test build directories are cached by Apple toolchain and package locks,
-with a new snapshot per commit. Xcode packages and DerivedData are cached by
-Apple toolchain, project configuration, and package locks, also with a new snapshot
-per commit. Every run invokes the incremental release build, staging, and signing.
-Caches contain build data only, never runtime data or credentials, and are
-disposable. A cold run still compiles all dependencies; warm-run savings depend
-on which toolchains and locks changed.
+The Mini retains `target`, `.build`, `app/.build`, and `dist/DerivedData` in its
+own CI checkout between runs. Checkout resets tracked files and removes all
+other untracked files; runtime data and staged app bundles are not retained.
+An Apple/Rust/CMake toolchain fingerprint invalidates those build directories
+when the installed toolchains change. There is no remote cache transfer, and no
+build outputs are copied from another checkout. Delete the retained directories
+and `dist/.ci-toolchain` in that runner checkout to force a cold build.
 
 ## Isolated UI and CLI verification
 
