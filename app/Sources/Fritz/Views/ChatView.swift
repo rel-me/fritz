@@ -51,15 +51,6 @@ struct ChatView: View {
                         .font(.caption).foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-                if store.projectPath != nil {
-                    HStack(spacing: 12) {
-                        Text("Code")
-                            .font(.callout.weight(.medium))
-                        Text("Can edit files and run commands")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Spacer(minLength: 0)
-                    }
-                }
                 ChatComposer(
                     draft: $store.draft,
                     placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",

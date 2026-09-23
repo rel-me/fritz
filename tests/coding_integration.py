@@ -73,7 +73,7 @@ def main():
         env = dict(os.environ, FRITZ_DATA_DIR=str(root / "data"))
         connection_id = str(uuid.uuid4())
         def request(kind="openai-compatible", model="coding-test", **overrides):
-            return {"connectionId": connection_id, "model": model, "messages": [{"role": "user", "content": "Change before to after in hello.txt and verify it."}], "mode": "code", "projectPath": str(project), **overrides}
+            return {"connectionId": connection_id, "model": model, "messages": [{"role": "user", "content": "Change before to after in hello.txt and verify it."}], "projectPath": str(project), **overrides}
         def config(kind="openai-compatible", model="coding-test", **overrides):
             return {"request": request(kind, model, **overrides), "connection": {"id": connection_id, "name": "Mock", "provider": kind, "baseUrl": url if kind == "ollama" else url + "/v1", "modelId": model}, "apiKey": None}
         def run(config):
@@ -105,8 +105,16 @@ def main():
                 assert not any(e["type"] == "tool_start" for e in events)
             if model == "loop-test":
                 assert len([e for e in events if e["type"] == "tool_start"]) == 2
-        events = run(config(mode="chat"))
-        assert events[-1]["type"] == "result" and not any(e["type"].startswith("tool_") for e in events)
+        for kind in ["openai-compatible", "openrouter", "openai", "anthropic", "gemini", "ollama"]:
+            events = run(config(kind, projectPath=None))
+            assert events[-1]["type"] == "result", (kind, events)
+            assert not any(e["type"].startswith("tool_") for e in events), kind
+            assert "tools" not in CodingProvider.requests[-1], kind
+        # A provider cannot execute unadvertised tools without an attached workspace.
+        events = run(config(model="cancel-command", projectPath=None))
+        assert events[-1]["type"] == "error" and "without an attached project" in events[-1]["message"]
+        assert not any(e["type"] == "tool_start" for e in events)
+        assert not (project / "running.pid").exists()
         events = run(config(projectPath=str(root / "missing")))
         assert events[-1]["type"] == "error"
         # A direct harness must stop the command and descendants on private-stdin EOF.
@@ -155,7 +163,7 @@ def main():
             assert_gone(descendant)
             (project / "running.pid").unlink()
             (project / "descendant.pid").unlink()
-        print("PASS: recovery, path rejection, incomplete tools, turn limit, chat isolation, EOF, SIGTERM, service Stop, descendant cleanup, and CLI")
+        print("PASS: recovery, path rejection, incomplete tools, turn limit, conversations without a workspace, EOF, SIGTERM, service Stop, descendant cleanup, and CLI")
     server.shutdown()
 
 

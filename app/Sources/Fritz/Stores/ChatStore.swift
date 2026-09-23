@@ -27,8 +27,6 @@ struct ChatToolActivity: Codable, Identifiable, Equatable, Sendable {
     var success: Bool?
 }
 
-enum ChatMode: String, Codable { case chat, code }
-
 private struct ChatPreferences: Codable {
     var draft: String
     var selectedModel: ChatModelOption?
@@ -45,7 +43,6 @@ private struct ChatPreferences: Codable {
     var effort: ChatReasoningEffort = .medium
     var speed: ChatSpeed = .standard
     var responseTokens: Int?
-    let mode: ChatMode
     let projectPath: String?
     private(set) var activity: String?
     let agent: AgentClient
@@ -59,7 +56,6 @@ private struct ChatPreferences: Codable {
         self.agent = agent
         self.transcriptURL = transcriptURL
         self.projectPath = projectPath
-        self.mode = projectPath == nil ? .chat : .code
         do {
             let data = try Data(contentsOf: transcriptURL)
             messages = try JSONDecoder().decode([ChatMessage].self, from: data)
@@ -100,7 +96,6 @@ private struct ChatPreferences: Codable {
         requestID = id; isResponding = true
         persist()
         var params: [String: Any] = ["connectionId": connectionID.uuidString, "model": model.modelID, "messages": context]
-        params["mode"] = mode.rawValue
         if let projectPath { params["projectPath"] = projectPath }
         if model.capabilities.supportsReasoningEffort { params["effort"] = effort.rawValue }
         if model.capabilities.supportsSpeed { params["speed"] = speed.rawValue }

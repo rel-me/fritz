@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::time::Duration;
 
-pub(crate) const SYSTEM: &str = "You are Fritz, a coding assistant in a native macOS app. Help the user understand and write software. Be concise and accurate. This conversation is in Chat mode: you have no access to files, terminals, or external tools. Do not claim to inspect or change files or execute commands.";
+pub(crate) const SYSTEM: &str = "You are Fritz, a coding assistant in a native macOS app. Help the user understand and write software. Be concise and accurate. No tools are available for this request. Do not claim to inspect or change files or execute commands.";
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Message {
@@ -26,19 +26,10 @@ pub struct ChatRequest {
     pub speed: Option<String>,
     #[serde(default)]
     pub project_path: Option<String>,
-    #[serde(default)]
-    pub mode: ChatMode,
     #[serde(default = "default_max_turns")]
     pub max_turns: usize,
 }
 
-#[derive(Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum ChatMode {
-    #[default]
-    Chat,
-    Code,
-}
 fn default_max_turns() -> usize {
     24
 }
@@ -518,7 +509,6 @@ mod tests {
             effort: Some("high".into()),
             speed: Some("priority".into()),
             project_path: None,
-            mode: ChatMode::Chat,
             max_turns: 24,
         };
         let (path, body) = payload(&connection, &request).unwrap();

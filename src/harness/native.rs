@@ -50,8 +50,9 @@ impl Session {
             }
             _ => history[0]["content"] = json!(system),
         }
-        let defs = tools::definitions();
-        base["tools"] = match kind {
+        if request.project_path.is_some() {
+            let defs = tools::definitions();
+            base["tools"] = match kind {
             ProviderKind::Openai => json!(defs.iter().map(|d| json!({"type":"function","name":d["name"],"description":d["description"],"parameters":d["parameters"],"strict":false})).collect::<Vec<_>>()),
             ProviderKind::Anthropic => json!(defs.iter().map(|d| json!({"name":d["name"],"description":d["description"],"input_schema":d["parameters"]})).collect::<Vec<_>>()),
             ProviderKind::Gemini => json!([{"functionDeclarations":defs.iter().map(|d| {
@@ -61,6 +62,7 @@ impl Session {
             }).collect::<Vec<_>>()}]),
             _ => json!(defs.iter().map(|d| json!({"type":"function","function":d})).collect::<Vec<_>>()),
         };
+        }
         if kind == ProviderKind::Ollama {
             base["options"] = json!({"num_predict":8192});
         }
@@ -87,7 +89,7 @@ impl Session {
         let mut body = self.base.clone();
         body[field] = json!(self.history);
         if serde_json::to_vec(&body)?.len() > 2_000_000 {
-            bail!("The coding context reached its size limit. Start a new thread.");
+            bail!("The conversation context reached its size limit. Start a new thread.");
         }
         let round = Mutex::new(Round::default());
         provider::stream_body(
