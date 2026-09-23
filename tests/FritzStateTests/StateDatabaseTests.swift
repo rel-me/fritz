@@ -48,15 +48,17 @@ import FritzState
     }
 
     func testConcurrentFirstOpenAndUpdates() throws {
-        let url = try file()
-        DispatchQueue.concurrentPerform(iterations: 8) { index in
-            do {
-                let db = try StateDatabase(url: url, migrations: ["CREATE TABLE counters (id INTEGER PRIMARY KEY, value INTEGER NOT NULL); INSERT INTO counters VALUES (1, 0);"], schema: ["counters": ["id", "value"]])
-                try db.transaction { try db.execute("UPDATE counters SET value = value + 1 WHERE id = 1") }
-            } catch { XCTFail("Concurrent open \(index) failed: \(error)") }
+        for _ in 0..<32 {
+            let url = try file()
+            DispatchQueue.concurrentPerform(iterations: 8) { index in
+                do {
+                    let db = try StateDatabase(url: url, migrations: ["CREATE TABLE counters (id INTEGER PRIMARY KEY, value INTEGER NOT NULL); INSERT INTO counters VALUES (1, 0);"], schema: ["counters": ["id", "value"]])
+                    try db.transaction { try db.execute("UPDATE counters SET value = value + 1 WHERE id = 1") }
+                } catch { XCTFail("Concurrent open \(index) failed: \(error)") }
+            }
+            let db = try StateDatabase(url: url, migrations: ["CREATE TABLE counters (id INTEGER PRIMARY KEY, value INTEGER NOT NULL); INSERT INTO counters VALUES (1, 0);"], schema: ["counters": ["id", "value"]])
+            XCTAssertEqual(try db.query("SELECT value FROM counters").first?["value"], .integer(8))
         }
-        let db = try StateDatabase(url: url, migrations: ["CREATE TABLE counters (id INTEGER PRIMARY KEY, value INTEGER NOT NULL); INSERT INTO counters VALUES (1, 0);"], schema: ["counters": ["id", "value"]])
-        XCTAssertEqual(try db.query("SELECT value FROM counters").first?["value"], .integer(8))
     }
 
     func testSchemaValidationAndCorruptionAreNotReset() throws {

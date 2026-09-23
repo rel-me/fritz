@@ -2,7 +2,12 @@
 //! Adapted from REL's agent/database.rs and agent/migrations.rs.
 use anyhow::{Context, Result, bail};
 use rusqlite::{Connection, TransactionBehavior};
-use std::{collections::HashSet, fs, path::Path, time::Duration};
+use std::{
+    collections::HashSet,
+    fs,
+    path::Path,
+    time::{Duration, Instant},
+};
 
 pub use rusqlite;
 
@@ -27,12 +32,8 @@ impl Database {
         options.open(path)?;
         private_permissions(path)?;
         let mut connection = Connection::open(path).context("Could not open state database.")?;
+        enable_wal(&connection)?;
         connection.busy_timeout(Duration::from_secs(5))?;
-        let mode: String =
-            connection.query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))?;
-        if !mode.eq_ignore_ascii_case("wal") {
-            bail!("Could not enable state database WAL mode.");
-        }
         connection.execute_batch("PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA wal_autocheckpoint = 1000; PRAGMA journal_size_limit = 67108864;")?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let version: usize = transaction.query_row("PRAGMA user_version", [], |row| row.get(0))?;
@@ -73,6 +74,28 @@ impl Database {
         let value = body(&transaction)?;
         transaction.commit()?;
         Ok(value)
+    }
+}
+
+fn enable_wal(connection: &Connection) -> Result<()> {
+    // SQLite may skip its busy handler during a journal-mode lock upgrade.
+    // Retry only this idempotent statement, dropping each failed statement.
+    connection.busy_timeout(Duration::ZERO)?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        match connection.query_row("PRAGMA journal_mode = WAL", [], |row| {
+            row.get::<_, String>(0)
+        }) {
+            Ok(mode) if mode.eq_ignore_ascii_case("wal") => return Ok(()),
+            Ok(_) => bail!("Could not enable state database WAL mode."),
+            Err(error)
+                if error.sqlite_error_code() == Some(rusqlite::ErrorCode::DatabaseBusy)
+                    && Instant::now() < deadline =>
+            {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(error.into()),
+        }
     }
 }
 

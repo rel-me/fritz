@@ -105,6 +105,9 @@ Both implementations adapt REL's `src/agent/database.rs` and
 bounded journals, private database/sidecar permissions, immediate schema
 transactions, version rejection and structural validation. REL's browser tables,
 old-version migrations, recovery/import machinery and dependencies are not copied.
+WAL initialization retries only SQLite BUSY errors for up to five seconds; failed
+statements release their locks before retrying. Migrations and user transactions
+are never automatically replayed.
 Fritz starts at schema 1; legacy JSON and UserDefaults are deliberately ignored.
 Use a SQLite-aware backup (or close all connections before copying), since live
 WAL files can contain committed data not yet present in the main database file.

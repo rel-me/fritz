@@ -11,8 +11,10 @@ public enum SQLValue: Equatable, Sendable {
 
 public struct StateDatabaseError: LocalizedError {
     public let message: String
+    let sqliteCode: Int32?
     public var errorDescription: String? { message }
-    public init(_ message: String) { self.message = message }
+    public init(_ message: String) { self.message = message; self.sqliteCode = nil }
+    init(_ message: String, sqliteCode: Int32) { self.message = message; self.sqliteCode = sqliteCode }
 }
 
 /// Host-owned, serial SQLite storage. Supply your own path, ordered migrations and schema.
@@ -37,10 +39,8 @@ public final class StateDatabase: @unchecked Sendable {
             throw failure
         }
         do {
+            try enableWAL()
             sqlite3_busy_timeout(handle, 5_000)
-            guard try query("PRAGMA journal_mode = WAL").first?["journal_mode"]?.string == "wal" else {
-                throw StateDatabaseError("Could not enable SQLite WAL mode.")
-            }
             try executeScript("PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA wal_autocheckpoint = 1000; PRAGMA journal_size_limit = 67108864;")
             try transaction {
                 let version = Int(try query("PRAGMA user_version").first?["user_version"]?.integer ?? 0)
@@ -114,6 +114,26 @@ public final class StateDatabase: @unchecked Sendable {
         }
     }
 
+    private func enableWAL() throws {
+        // Journal-mode lock upgrades can return BUSY without invoking SQLite's
+        // busy handler. Retry only this idempotent statement, finalizing each
+        // attempt to release its locks. Never replay migrations or user writes.
+        sqlite3_busy_timeout(handle, 0)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while true {
+            do {
+                guard try query("PRAGMA journal_mode = WAL").first?["journal_mode"]?.string == "wal" else {
+                    throw StateDatabaseError("Could not enable SQLite WAL mode.")
+                }
+                return
+            } catch let error as StateDatabaseError {
+                guard let code = error.sqliteCode, code & 0xff == SQLITE_BUSY,
+                      ContinuousClock.now < deadline else { throw error }
+                Thread.sleep(forTimeInterval: 0.01)
+            }
+        }
+    }
+
     private func executeScript(_ sql: String) throws {
         guard sqlite3_exec(handle, sql, nil, nil, nil) == SQLITE_OK else { throw failure() }
     }
@@ -156,6 +176,6 @@ public final class StateDatabase: @unchecked Sendable {
     }
 
     private func failure() -> StateDatabaseError {
-        StateDatabaseError("SQLite: \(handle.map { String(cString: sqlite3_errmsg($0)) } ?? "could not open database")")
+        StateDatabaseError("SQLite: \(handle.map { String(cString: sqlite3_errmsg($0)) } ?? "could not open database")", sqliteCode: sqlite3_errcode(handle))
     }
 }

@@ -111,3 +111,40 @@ fn registry_ignores_legacy_files_and_serializes_concurrent_updates() {
         1
     );
 }
+
+#[test]
+fn concurrent_first_opens_preserve_every_update() {
+    for _ in 0..32 {
+        let dir = tempfile::tempdir().unwrap();
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let threads: Vec<_> = (0..8)
+            .map(|index| {
+                let path = dir.path().join("state.sqlite");
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    let mut database = Database::open(&path, &[INITIAL], SCHEMA).unwrap();
+                    database
+                        .transaction(|tx| {
+                            tx.execute("INSERT INTO records VALUES (?1, 'value')", [index])?;
+                            Ok(())
+                        })
+                        .unwrap();
+                })
+            })
+            .collect();
+        for thread in threads {
+            thread.join().unwrap();
+        }
+        let database =
+            Database::open(&dir.path().join("state.sqlite"), &[INITIAL], SCHEMA).unwrap();
+        assert_eq!(
+            database
+                .connection()
+                .query_row("SELECT count(*) FROM records", [], |row| row
+                    .get::<_, usize>(0))
+                .unwrap(),
+            8
+        );
+    }
+}
