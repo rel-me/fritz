@@ -4,11 +4,41 @@
     {
       "layers" : [
         {
-          "image-name" : "FritzIcon.png",
-          "name" : "Fritz Artwork"
+          "image-name" : "02-Details.svg",
+          "name" : "Feathers and amber eye"
+        },
+        {
+          "image-name" : "01-Raven.svg",
+          "name" : "Raven silhouette"
         }
       ],
-      "name" : "Fritz"
+      "lighting" : "combined",
+      "name" : "Raven",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "00-Background.svg",
+          "name" : "Background"
+        }
+      ],
+      "name" : "Warm cream",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
     }
   ],
   "supported-platforms" : {

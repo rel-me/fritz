@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="540" height="660" viewBox="260 190 540 660" role="img" aria-labelledby="title">
-  <title id="title">Fritz mark for dark backgrounds</title>
-  <path fill="#FFF4E4" d="M362 216h346c32 0 58 26 58 58v31c0 32-26 58-58 58H473v394c0 35-28 63-63 63h-41c-35 0-63-28-63-63V272c0-31 25-56 56-56Z"/>
-  <path fill="#FF8E72" d="M410 451h250c35 0 63 28 63 63v8c0 35-28 63-63 63H410c-35 0-63-28-63-63v-8c0-35 28-63 63-63Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="580" viewBox="230 240 660 580" role="img" aria-labelledby="title">
+  <title id="title">Fritz raven</title>
+  <path fill="#F2E4CD" d="M252 794C291 748 324 687 337 615C345 581 343 551 328 521C302 469 306 404 334 352C366 292 425 260 490 262C560 263 612 298 640 350C727 355 800 397 850 468C860 482 866 498 864 514C813 482 751 466 680 467C665 504 650 534 626 563C606 587 596 612 601 642L619 698L567 677L580 742L518 718L520 788C434 777 351 817 252 794Z" />
+  <ellipse cx="592" cy="394" rx="15" ry="13" fill="#F5AF55" />
 </svg>
