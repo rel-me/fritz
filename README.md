@@ -5,7 +5,7 @@
   <img src="design/branding/FritzLogo.svg" alt="Fritz" width="360">
 </picture>
 
-A native macOS chat app with projects and their threads in the left sidebar and chat in the main window. The toolbar’s CPU button opens **Settings → Model Providers**; ⌘, opens Settings. The composer includes searchable model and provider pickers, provider category filters, status badges, and model previews.
+A native macOS chat app with projects and their threads in the left sidebar and chat in the main window. The toolbar’s CPU button opens **Settings → Model Providers**; ⌘, opens Settings at the last selected page. Settings shares the main window’s unified toolbar and rounded inset content. The composer includes searchable model and provider pickers, provider category filters, status badges, and model previews.
 
 Fritz uses one `fritz-harness` runtime for every conversation. With a project folder and a model that supports tools, it reads files, makes edits, runs commands, inspects the results, and continues until it can answer.
 

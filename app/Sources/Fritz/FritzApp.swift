@@ -80,7 +80,7 @@ import SwiftUI
                 }
         }
         .defaultSize(width: 1080, height: 760)
-        .windowToolbarStyle(.unified(showsTitle: false))
+        .fritzWindowStyle()
         .commands {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesCommand(updater: updater)
@@ -89,12 +89,6 @@ import SwiftUI
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Thread") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
-            }
-            CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
-                    state.selectSettings(.general)
-                    openSettings()
-                }.keyboardShortcut(",")
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
@@ -108,9 +102,9 @@ import SwiftUI
 
         Settings {
             FritzSettingsView(state: state, updater: updater)
-                .navigationTitle("Settings")
         }
         .defaultSize(width: 900, height: 580)
+        .fritzWindowStyle()
     }
 }
 
@@ -187,7 +181,6 @@ private struct FritzWorkspaceView: View {
             .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
         .navigationSplitViewStyle(.prominentDetail)
-        .background { FritzWorkspaceBackground().ignoresSafeArea() }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,
@@ -223,11 +216,7 @@ private struct FritzWorkspaceView: View {
                 .accessibilityValue(isBottomPanelPresented ? "Shown" : "Hidden")
             }
         }
-        .toolbarBackground(FritzWindowStyle.workspaceBackground, for: .windowToolbar)
-        // A hidden toolbar background preserves the sidebar's rounded titlebar outline.
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-        // Give fullscreen the workspace palette behind its native toolbar material.
-        .containerBackground(FritzWindowStyle.workspaceBackground, for: .window)
+        .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
