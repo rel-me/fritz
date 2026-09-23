@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f3eb" />
+    <meta
+      name="description"
+      content="Meet Fritz, a native macOS companion for thinking and coding. Chat with your favorite models, work on your projects, and run models locally."
+    />
+    <meta
+      property="og:title"
+      content="Fritz — A little bird. A second brain."
+    />
+    <meta
+      property="og:description"
+      content="A native Mac app for your ideas, your code, and your choice of AI."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://fritz.rel.me/" />
+    <title>Fritz — A little bird. A second brain.</title>
+    <link rel="icon" href="/assets/FritzRaven.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/preview.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header wrap">
+      <a class="brand" href="/" aria-label="Fritz home"
+        ><img src="/assets/FritzLogo.svg" alt="Fritz" width="114" height="48"
+      /></a>
+      <nav aria-label="Main navigation">
+        <a href="#meet-fritz">Meet Fritz</a>
+        <a href="https://github.com/rel-me/fritz"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+        <a class="nav-download" href="#download"
+          >Get Fritz <span aria-hidden="true">↓</span></a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="status-dot"></span> YOUR MAC’S NEW COMPANION
+          </p>
+          <h1 id="hero-title">A little bird.<br />A second brain.</h1>
+          <p class="hero-description">
+            Room for your ideas. A hand with your code.<br
+              class="desktop-break"
+            />
+            Meet Fritz, a native Mac app for working with AI.<br
+              class="desktop-break"
+            />
+            Your models. Your projects. Your way.
+          </p>
+          <a class="button" href="/updates/Fritz-0.1.1.dmg"
+            ><svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg
+            >Download for Mac</a
+          >
+          <p class="download-note">
+            v0.1.1 beta <span>·</span> macOS 15+ <span>·</span> Apple silicon
+          </p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <span class="art-spark spark-one">✳</span
+          ><span class="art-spark spark-two">+</span>
+          <img
+            class="hero-raven"
+            src="/assets/FritzRaven.svg"
+            alt=""
+            width="1718"
+            height="1376"
+          />
+          <span class="art-note">A curious mind. Right at home.</span>
+        </div>
+      </section>
+      <section
+        id="meet-fritz"
+        class="showcase wrap"
+        aria-labelledby="showcase-title"
+      >
+        <div class="section-topline">
+          <h2 id="showcase-title">Big ideas. Familiar surroundings.</h2>
+          <span>BUILT FOR THE MAC, FROM THE START</span>
+        </div>
+        <div class="preview-stage">
+          <div class="app-preview" aria-label="Illustrated preview of Fritz">
+            <aside class="app-sidebar" aria-hidden="true">
+              <div class="traffic-lights"><i></i><i></i><i></i></div>
+              <div class="sidebar-heading">Projects <span>+</span></div>
+              <div class="project-name">⌄ <span>▱</span> My website</div>
+              <div class="thread selected">A fresh start</div>
+              <div class="thread">The next small thing</div>
+              <div class="project-name second-project">
+                › <span>▱</span> Weekend ideas
+              </div>
+              <div class="sidebar-bottom">
+                <img
+                  src="/assets/FritzRaven.svg"
+                  alt=""
+                  width="22"
+                  height="18"
+                />
+                A little space to think.
+              </div>
+            </aside>
+            <div class="app-main">
+              <div class="app-toolbar">
+                <span>A fresh start</span
+                ><span aria-hidden="true">◫ &nbsp; ⋯</span>
+              </div>
+              <div
+                class="conversation"
+                id="mode-preview"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <div class="conversation-content" data-mode="chat">
+                  <p class="user-message">
+                    I have an idea for a personal website.<br />Where should I
+                    start?
+                  </p>
+                  <div class="assistant-message">
+                    <img
+                      src="/assets/FritzRaven.svg"
+                      alt="Fritz"
+                      width="27"
+                      height="22"
+                    />
+                    <div>
+                      <p>Start with what makes it yours.</p>
+                      <p>
+                        A few things you’ve made. What you’re curious about.<br
+                          class="desktop-break"
+                        />
+                        A way for people to say hello.
+                      </p>
+                      <p>We can keep it simple and build from there.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="conversation-content" data-mode="code" hidden>
+                  <p class="user-message">
+                    Let’s build a simple homepage for my website.
+                  </p>
+                  <div class="assistant-message">
+                    <img
+                      src="/assets/FritzRaven.svg"
+                      alt="Fritz"
+                      width="27"
+                      height="22"
+                    />
+                    <div>
+                      <p>
+                        I’ll look through the project, then put together a first
+                        pass.
+                      </p>
+                      <div class="tool-record">
+                        <span>✓</span> Read project files<br /><span>✓</span>
+                        Created index.html and styles.css
+                      </div>
+                      <p>
+                        A place for your work, a short introduction, and a
+                        hello.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="composer">
+                <span class="composer-placeholder"
+                  >Where shall we go from here?</span
+                >
+                <div class="composer-bottom">
+                  <div
+                    class="mode-switch"
+                    role="group"
+                    aria-label="Choose preview mode"
+                  >
+                    <button
+                      type="button"
+                      aria-pressed="true"
+                      aria-controls="mode-preview"
+                      data-select-mode="chat"
+                    >
+                      Chat</button
+                    ><button
+                      type="button"
+                      aria-pressed="false"
+                      aria-controls="mode-preview"
+                      data-select-mode="code"
+                    >
+                      Code
+                    </button>
+                  </div>
+                  <span class="model-label"
+                    >Your chosen model <span aria-hidden="true">⌄</span></span
+                  ><span class="send-icon" aria-hidden="true">↑</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-caption">
+            <span class="preview-hint">TWO WAYS TO GET THERE</span>
+            <p id="mode-description">
+              Think it through in Chat. Make it happen in Code.
+            </p>
+            <span class="preview-label"
+              >Illustrative preview · Try the mode switch above</span
+            >
+          </div>
+        </div>
+      </section>
+      <section class="features wrap" aria-label="Made for the way you work">
+        <article>
+          <span class="feature-number">01 / FEELS LIKE HOME</span>
+          <h2>Made of Mac.</h2>
+          <p>
+            Native windows, familiar shortcuts, and a quiet place to focus.
+            Built with SwiftUI and AppKit to feel right at home on your desktop.
+          </p>
+        </article>
+        <article>
+          <span class="feature-number">02 / KEEP YOUR OPTIONS OPEN</span>
+          <h2>Your choice of AI.</h2>
+          <p>
+            Bring your favorite provider or download a model to run on your Mac.
+            Switch models as your work changes, all in one conversation.
+          </p>
+        </article>
+        <article>
+          <span class="feature-number">03 / PICK UP THE THREAD</span>
+          <h2>A place for every idea.</h2>
+          <p>
+            Keep conversations with their projects. Your threads, drafts, and
+            model settings are there when you come back.
+          </p>
+        </article>
+      </section>
+      <section class="providers wrap" aria-labelledby="providers-title">
+        <p id="providers-title">GOOD COMPANY. GREAT POSSIBILITIES.</p>
+        <ul>
+          <li>OpenAI</li>
+          <li>Anthropic</li>
+          <li>Gemini</li>
+          <li>OpenRouter</li>
+          <li>Ollama</li>
+          <li class="local-provider">
+            <span class="status-dot"></span>Local models
+          </li>
+        </ul>
+        <span
+          >Connect with your own API keys, or keep the conversation on your Mac
+          with a downloaded model.</span
+        >
+      </section>
+      <section
+        class="download-section wrap"
+        id="download"
+        aria-labelledby="download-title"
+      >
+        <div>
+          <p class="eyebrow">LET’S SEE WHAT YOU’LL MAKE</p>
+          <h2 id="download-title">Make room for a little Fritz.</h2>
+          <p>Early days. Plenty of possibility. Come build with us.</p>
+        </div>
+        <div class="download-action">
+          <a class="button" href="/updates/Fritz-0.1.1.dmg"
+            >Download for Mac <span aria-hidden="true">↓</span></a
+          >
+          <p class="download-note">v0.1.1 beta · macOS 15+ · Apple silicon</p>
+        </div>
+      </section>
+      <section class="details wrap" aria-label="A few things to know">
+        <details>
+          <summary>What do I need to get started?</summary>
+          <p>
+            A Mac with Apple silicon running macOS 15 or later. Download Fritz,
+            open the disk image, and drag the app to Applications. Add a
+            provider in Settings with your own API key, or choose Fritz to
+            download a local model. Provider usage may have its own costs; local
+            models need enough memory and disk space.
+            <a href="https://github.com/rel-me/fritz#download-local-models"
+              >Read the setup guide.</a
+            >
+          </p>
+        </details>
+        <details>
+          <summary>What’s the difference between Chat and Code?</summary>
+          <p>
+            Chat is a conversation without tools. Code works inside a selected
+            project: it can read files, make edits, and run noninteractive
+            commands with a model that supports tools. Commands run with your
+            user permissions, so use Code with projects you trust. Downloaded
+            Fritz models currently support Chat.
+            <a href="https://github.com/rel-me/fritz#coding-agent-behavior"
+              >Explore Code mode.</a
+            >
+          </p>
+        </details>
+        <details>
+          <summary>Where do my conversations and keys live?</summary>
+          <p>
+            Fritz saves your conversations and project settings on your Mac, and
+            stores provider API keys in macOS Keychain. When you use a remote
+            provider, your prompts and relevant context are sent to that
+            provider. Downloaded Fritz models can chat offline after setup.
+          </p>
+        </details>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a class="brand" href="/" aria-label="Fritz home"
+        ><img src="/assets/FritzLogo.svg" alt="Fritz" width="95" height="40"
+      /></a>
+      <p>A curious companion for your Mac.</p>
+      <div>
+        <a href="https://github.com/rel-me/fritz#readme"
+          >Documentation <span aria-hidden="true">↗</span></a
+        ><a href="https://github.com/rel-me/fritz/issues"
+          >Feedback <span aria-hidden="true">↗</span></a
+        >
+      </div>
+    </footer>
+  </body>
+</html>

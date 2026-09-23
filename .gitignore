@@ -7,3 +7,4 @@
 .DS_Store
 xcuserdata/
 __pycache__/
+/website/.site/

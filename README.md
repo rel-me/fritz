@@ -9,6 +9,21 @@ A native macOS chat app with projects and their threads in the left sidebar and 
 
 Fritz includes its own `fritz-harness` coding-agent runtime. In **Code** mode it reads project files, makes edits, runs commands, inspects the results, and continues until it can answer. **Chat** mode provides a streaming conversation without tools.
 
+## Homepage
+
+The homepage at [fritz.rel.me](https://fritz.rel.me) shares the update Worker in
+`website/`. To preview it locally, run `npm --prefix website ci` and
+`npm --prefix website run dev`. Run `npm --prefix website test` for routing and
+update-download checks. Wrangler runs the static build automatically for preview
+and deployment; `npm --prefix website run build` also builds it independently.
+
+Edit `website/public/` for page content, styles, and the illustrative Chat/Code
+preview. The build copies the current SVG identity from `design/branding/` into
+an ignored output directory, so there is no separate website logo to maintain.
+The page links to the published 0.1.1 beta; update its version labels and download
+links together when a newer public download is available. Deployment uses
+`npm --prefix website run deploy` with the existing Cloudflare configuration.
+
 ## Build and run
 
 Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.

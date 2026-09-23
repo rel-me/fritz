@@ -52,12 +52,6 @@ export default {
       return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     }
     const path = new URL(request.url).pathname;
-    if (path === "/") {
-      const html = '<!doctype html><html lang="en"><meta charset="utf-8"><title>Fritz</title><main><h1>Fritz</h1><p>A native macOS coding assistant.</p><p><a href="https://github.com/rel-me/fritz">Source and setup</a></p></main></html>';
-      return new Response(request.method === "HEAD" ? null : html, {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=300" },
-      });
-    }
     if (path === "/appcast.xml") {
       return serveObject(request, env.UPDATES, "appcast.xml", "application/xml; charset=utf-8", "no-store");
     }
@@ -66,6 +60,19 @@ export default {
       return serveObject(request, env.UPDATES, `updates/${filename}`,
         "application/x-apple-diskimage", "public, max-age=31536000, immutable");
     }
-    return new Response("Not found", { status: 404 });
+    const assetRequest =
+      path === "/"
+        ? new Request(new URL("/index.html", request.url), request)
+        : request;
+    const asset = await env.ASSETS.fetch(assetRequest);
+    const response = new Response(asset.body, asset);
+    response.headers.set("x-content-type-options", "nosniff");
+    response.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+    response.headers.set(
+      "content-security-policy",
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+    );
+    if (asset.ok) response.headers.set("cache-control", "public, max-age=300");
+    return response;
   },
 };
