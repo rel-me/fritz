@@ -1,0 +1,11 @@
+/target/
+/dist/
+/app/.build/
+/app/.swiftpm/
+/website/node_modules/
+/website/.wrangler/
+.DS_Store
+xcuserdata/
+__pycache__/
+/.build/
+/.swiftpm/

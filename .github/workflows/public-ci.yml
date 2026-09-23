@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Libraries, app, and runtime
+    # Public contributions must not execute on a personal self-hosted runner.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Select installed Swift 6.3 or newer
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, subprocess
+          for xcode in sorted(glob.glob('/Applications/Xcode*.app'), reverse=True):
+              developer = xcode + '/Contents/Developer'
+              env = dict(os.environ, DEVELOPER_DIR=developer)
+              result = subprocess.run(['xcrun', 'swift', '--version'], env=env, capture_output=True, text=True)
+              version = re.search(r'Swift version (\d+)\.(\d+)', result.stdout)
+              if result.returncode == 0 and version and tuple(map(int, version.groups())) >= (6, 3):
+                  with open(os.environ['GITHUB_ENV'], 'a') as output:
+                      output.write('DEVELOPER_DIR=' + developer + '\n')
+                  print(result.stdout)
+                  break
+          else:
+              raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
+          PY
+      - name: Check toolchains
+        run: |
+          xcodebuild -version
+          swift --version
+          cargo --version
+          cmake --version
+      - name: Test libraries and application
+        run: make test
+      - name: Check Rust
+        run: make check
+      - name: Build and sign complete application locally
+        run: CONFIGURATION=release make build

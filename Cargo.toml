@@ -1,0 +1,39 @@
+[package]
+name = "fritz"
+version = "0.1.1"
+edition = "2024"
+rust-version = "1.88"
+description = "Shared native AI infrastructure, coding harness, and Fritz command-line interface"
+license = "AGPL-3.0-only"
+repository = "https://github.com/rel-me/fritz"
+readme = "README.md"
+
+publish = false
+default-run = "fritz"
+
+[lib]
+name = "fritz"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+futures-util = "0.3"
+reqwest = { version = "=0.13.4", default-features = false, features = ["json", "query", "rustls", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "io-util", "fs", "sync", "time", "process", "signal", "net"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+fs2 = "0.4"
+libc = "0.2"
+tempfile = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "=3.7.0"
+sha2 = { version = "0.10", features = ["asm"] }
+llama-cpp-2 = { version = "=0.1.156", default-features = false, features = ["metal"] }
+
+# Large model checksums must stay fast in development builds too.
+[profile.dev.package.sha2]
+opt-level = 3
