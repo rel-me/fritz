@@ -1,5 +1,10 @@
 # Fritz
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/branding/FritzLogoDark.svg">
+  <img src="design/branding/FritzLogo.svg" alt="Fritz" width="360">
+</picture>
+
 A native macOS chat app extracted from REL’s chat and model interfaces. The main window uses REL’s unified toolbar and inset chat surface, with projects and their threads in the left sidebar. **Model Providers** opens from the toolbar’s CPU button or ⌘,. The composer, searchable model and provider pickers, provider category filters, status badges, model previews, and native button styling are adapted from REL.
 
 Fritz includes its own `fritz-harness` coding-agent runtime. In **Code** mode it reads project files, makes edits, runs commands, inspects the results, and continues until it can answer. **Chat** mode provides a streaming conversation without tools.

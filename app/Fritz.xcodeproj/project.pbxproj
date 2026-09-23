@@ -25,9 +25,11 @@
 		6562C1F40B60A9EFA91236DB /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA14759ABA74D8311285BC6 /* ChatView.swift */; };
 		726435BFBC166FB579AB4603 /* FritzButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */; };
 		85120A23551A9BE3DB14EAA3 /* FritzManagementHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */; };
+		90DC7F81EC7D1E7CE3A40D6F /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 68687E6286C4B45962191548 /* AppIcon.icon */; };
 		949BF7F80784DB786088DA96 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2449C729E0450165B195C266 /* ChatComposer.swift */; };
 		9B7EF3DACDEBF7DE2B625D92 /* WorkspaceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73835E7146A92557D60E42ED /* WorkspaceStore.swift */; };
 		BF7499508BCEE843792ADC08 /* NativeModelDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8EFDBB9CF240F7E5BEFAA60 /* NativeModelDescriptor.swift */; };
+		C3F3B56A9997E5FF2463E9E6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2862844991E65C805050ED5 /* Assets.xcassets */; };
 		C5A79BD3FCCEC494AD929432 /* AIProviderPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1F2EFAFA9158AC7FC12206 /* AIProviderPreset.swift */; };
 		D3D65A7E5916A53EDECC3647 /* ChatVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */; };
 		DE44D7D2E0FA4F636A789ACE /* LocalModels.json in Resources */ = {isa = PBXBuildFile; fileRef = D4D193EB445F47918DF0B1E5 /* LocalModels.json */; };
@@ -50,6 +52,7 @@
 		4B07E94B391896D246239ED0 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzButtonStyle.swift; sourceTree = "<group>"; };
 		5D889D2A5A39ECE1194232E5 /* ChatAssistantMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAssistantMessage.swift; sourceTree = "<group>"; };
+		68687E6286C4B45962191548 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		68E2C42C88F12B1800D985E2 /* Project.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Project.swift; sourceTree = "<group>"; };
 		6D5E2AFFB791E6CF0A73A0D7 /* ChatModelPickerSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModelPickerSection.swift; sourceTree = "<group>"; };
 		73835E7146A92557D60E42ED /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
@@ -58,6 +61,7 @@
 		9B3713CACF28037690000DB8 /* FritzListSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzListSurface.swift; sourceTree = "<group>"; };
 		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
 		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
+		B2862844991E65C805050ED5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C37E7E4E113B1ACCA1BC3B39 /* AIProviderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderPicker.swift; sourceTree = "<group>"; };
 		C8EFDBB9CF240F7E5BEFAA60 /* NativeModelDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelDescriptor.swift; sourceTree = "<group>"; };
 		D4D193EB445F47918DF0B1E5 /* LocalModels.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LocalModels.json; sourceTree = "<group>"; };
@@ -129,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				05B50DCEBCD7B7A7414B8686 /* Fritz */,
+				6A1A95158920937FE034930A /* Resources */,
 				B95C419B4F2B2E104305E902 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -144,6 +149,15 @@
 				F52FE5416559D374FCA803AA /* ProviderConnection.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		6A1A95158920937FE034930A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				68687E6286C4B45962191548 /* AppIcon.icon */,
+				B2862844991E65C805050ED5 /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		B95C419B4F2B2E104305E902 /* Products */ = {
@@ -227,6 +241,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90DC7F81EC7D1E7CE3A40D6F /* AppIcon.icon in Resources */,
+				C3F3B56A9997E5FF2463E9E6 /* Assets.xcassets in Resources */,
 				DE44D7D2E0FA4F636A789ACE /* LocalModels.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,0 +1,17 @@
+{
+  "fill" : "system-dark",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "FritzIcon.png",
+          "name" : "Fritz Artwork"
+        }
+      ],
+      "name" : "Fritz"
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}
