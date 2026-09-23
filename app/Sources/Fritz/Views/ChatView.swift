@@ -15,7 +15,7 @@ struct ChatView: View {
                     Image("FritzMark")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 75, height: 66)
+                        .frame(width: 82, height: 66)
                         .accessibilityHidden(true)
                     Text("What are we working on?")
                         .font(.system(size: 26, weight: .medium))

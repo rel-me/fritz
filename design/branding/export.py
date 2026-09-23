@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export the raven source vectors. Requires librsvg's rsvg-convert."""
+"""Export the supplied raven trace. Requires librsvg's rsvg-convert."""
 
 from pathlib import Path
 import shutil
@@ -15,8 +15,10 @@ SVG = "http://www.w3.org/2000/svg"
 ET.register_namespace("", SVG)
 
 
-def artwork(filename):
-    return list(ET.parse(HERE / filename).getroot())
+def artwork(color="#231F20"):
+    group = ET.parse(HERE / "FritzRaven.svg").getroot().find(f"{{{SVG}}}g")
+    group.set("fill", color)
+    return group
 
 
 def document(width, height, view_box, title):
@@ -35,29 +37,32 @@ def save(root, filename):
         output.write("\n")
 
 
-for filename in ("00-Background.svg", "01-Raven.svg", "02-Details.svg"):
+icon = document(1024, 1024, "0 0 1024 1024", "Fritz raven app icon")
+placement = ET.SubElement(icon, f"{{{SVG}}}g", {
+    "transform": "translate(108 189) scale(.47)",
+})
+placement.append(artwork())
+save(icon, "01-Raven.svg")
+
+for filename in ("00-Background.svg", "01-Raven.svg"):
     shutil.copyfile(HERE / filename, ICON / filename)
 
-# Keep the small logo to a silhouette and eye; the Dock icon has feather facets.
-for suffix, color in (("", "#172D37"), ("Dark", "#F2E4CD")):
-    body = artwork("01-Raven.svg")[0]
-    body.set("fill", color)
-    eye = artwork("02-Details.svg")[-1]
-    mark = document(660, 580, "230 240 660 580", "Fritz raven")
-    mark.extend((body, eye))
+for suffix, color in (("", "#231F20"), ("Dark", "#FFFFFF")):
+    mark = document(1718, 1376, "0 0 1718 1376", "Fritz raven")
+    mark.append(artwork(color))
     save(mark, f"FritzMark{suffix}.svg")
     subprocess.run([
         "rsvg-convert", "-f", "pdf", str(HERE / f"FritzMark{suffix}.svg"),
         "-o", str(MARK / f"FritzMark{suffix}.pdf"),
     ], check=True)
 
-    logo = document(720, 320, "0 0 720 320", "Fritz")
+    logo = document(760, 320, "0 0 760 320", "Fritz")
     group = ET.SubElement(logo, f"{{{SVG}}}g", {
-        "transform": "translate(-65 -22) scale(.34)",
+        "transform": "translate(26 49) scale(.16)",
     })
-    group.extend((body, eye))
+    group.append(artwork(color))
     ET.SubElement(logo, f"{{{SVG}}}text", {
-        "x": "270", "y": "235", "fill": color,
+        "x": "324", "y": "235", "fill": color,
         "font-family": "Avenir Next, Avenir, sans-serif",
         "font-size": "208", "font-weight": "700",
     }).text = "fritz"

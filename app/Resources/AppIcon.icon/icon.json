@@ -1,47 +1,44 @@
 {
-  "fill" : "system-dark",
-  "groups" : [
+  "fill": "system-dark",
+  "groups": [
     {
-      "layers" : [
+      "layers": [
         {
-          "image-name" : "02-Details.svg",
-          "name" : "Feathers and amber eye"
-        },
-        {
-          "image-name" : "01-Raven.svg",
-          "name" : "Raven silhouette"
+          "glass": false,
+          "image-name": "01-Raven.svg",
+          "name": "Raven silhouette"
         }
       ],
-      "lighting" : "combined",
-      "name" : "Raven",
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+      "lighting": "combined",
+      "name": "Raven",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
       },
-      "translucency" : {
-        "enabled" : false,
-        "value" : 0.5
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
       }
     },
     {
-      "layers" : [
+      "layers": [
         {
-          "image-name" : "00-Background.svg",
-          "name" : "Background"
+          "image-name": "00-Background.svg",
+          "name": "Background"
         }
       ],
-      "name" : "Warm cream",
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+      "name": "White",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
       },
-      "translucency" : {
-        "enabled" : false,
-        "value" : 0.5
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
       }
     }
   ],
-  "supported-platforms" : {
-    "squares" : "shared"
+  "supported-platforms": {
+    "squares": "shared"
   }
 }
