@@ -25,6 +25,10 @@ targets:
         excludes: [LocalModels.json]
       - path: Sources/Fritz/LocalModels.json
         buildPhase: resources
+      - path: Resources/AppIcon.icon
+        buildPhase: resources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
     dependencies:
       - package: Sparkle
         product: Sparkle

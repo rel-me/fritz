@@ -12,9 +12,11 @@ struct ChatView: View {
         VStack(spacing: 0) {
             if store.messages.isEmpty {
                 VStack(spacing: 14) {
-                    Image(systemName: "terminal")
-                        .font(.system(size: 36, weight: .light))
-                        .foregroundStyle(.secondary)
+                    Image("FritzMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 82, height: 66)
+                        .accessibilityHidden(true)
                     Text("What are we working on?")
                         .font(.system(size: 26, weight: .medium))
                     Text(providers.connections.isEmpty
