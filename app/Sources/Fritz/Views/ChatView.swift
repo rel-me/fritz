@@ -51,14 +51,9 @@ struct ChatView: View {
                 }
                 if store.projectPath != nil {
                     HStack(spacing: 12) {
-                        Picker("Mode", selection: $store.mode) {
-                            ForEach(ChatMode.allCases, id: \.self) { mode in Text(mode.title).tag(mode) }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
-                        .frame(width: 140)
-                        .disabled(store.isResponding)
-                        Text(store.mode == .code ? "Can edit files and run commands" : "Conversation only")
+                        Text("Code")
+                            .font(.callout.weight(.medium))
+                        Text("Can edit files and run commands")
                             .font(.caption).foregroundStyle(.secondary)
                         Spacer(minLength: 0)
                     }
@@ -103,7 +98,6 @@ struct ChatView: View {
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
         .onChange(of: store.effort) { _, _ in store.savePreferences() }
-        .onChange(of: store.mode) { _, _ in store.savePreferences() }
         .onChange(of: store.speed) { _, _ in store.savePreferences() }
         .onChange(of: store.isResponding) { _, responding in if !responding { synchronizeModel() } }
     }

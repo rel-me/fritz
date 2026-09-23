@@ -57,3 +57,10 @@ checks, and exact blockers. Prefix the task title with `#<number> ·` once a PR
 exists, preserving its descriptive title. After pushing, finish without polling
 CI or reviews unless the user explicitly requests monitoring. Never describe
 unperformed verification as passing.
+
+## Commits and pull requests
+
+For repository changes, make a focused conventional commit on the current
+branch. If detached, create a `codex/<short-name>` branch first. Push to
+`origin`; create a ready, non-draft PR if none is open for the branch, and use
+the existing PR otherwise.
