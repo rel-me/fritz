@@ -340,7 +340,7 @@ ol {
 
 .hero-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   align-items: end;
   gap: clamp(24px, 5vw, 72px);
   max-width: var(--max);
@@ -354,32 +354,11 @@ ol {
   padding-bottom: clamp(40px, 6vw, 72px);
 }
 
-.eyebrow {
-  font: 600 0.8rem/1 var(--font-brand);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
 h1 {
-  font-size: clamp(3.3rem, 7.4vw, 5.9rem);
+  font-size: clamp(2.05rem, 4.6vw, 3.6rem);
   font-weight: 700;
-  line-height: 0.94;
-  letter-spacing: -0.045em;
-}
-
-h1 em,
-h2 em {
-  font-family: var(--font-text);
-  font-weight: 400;
-  letter-spacing: -0.03em;
-}
-
-.lede {
-  max-width: 31em;
-  font-size: clamp(1.12rem, 1.5vw, 1.3rem);
-  line-height: 1.55;
-  color: var(--ink-2);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
 }
 
 .actions {
@@ -406,37 +385,20 @@ h2 em {
   scroll-margin-top: calc(112px - var(--section-space));
 }
 
+.section--demo {
+  padding-top: clamp(96px, 11vw, 144px);
+}
+
 .section-head {
   display: grid;
-  gap: 24px;
-}
-
-.kicker {
-  display: flex;
-  align-items: center;
-  gap: 0.9em;
-  font: 600 0.78rem/1 var(--font-brand);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.kicker span {
-  color: var(--ink);
-}
-
-.kicker::after {
-  content: "";
-  flex: 0 0 56px;
-  height: 1px;
-  background: var(--rule);
+  gap: 16px;
 }
 
 h2 {
-  font-size: clamp(2.3rem, 5.4vw, 4.5rem);
+  font-size: clamp(1.6rem, 2.6vw, 2.1rem);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 
 h3 {
@@ -447,7 +409,6 @@ h3 {
 
 .section-lede {
   max-width: 36em;
-  font-size: clamp(1.08rem, 1.5vw, 1.25rem);
   line-height: 1.6;
   color: var(--ink-2);
 }
@@ -461,7 +422,7 @@ h3 {
 /* App illustration */
 
 .showcase {
-  margin: clamp(48px, 7vw, 88px) 0 0;
+  margin: 0;
 }
 
 .window {
@@ -698,17 +659,14 @@ h3 {
 .models {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(20px, 3vw, 32px);
-  margin-top: clamp(48px, 6vw, 72px);
+  align-items: start;
+  gap: 32px clamp(32px, 5vw, 72px);
+  margin-top: clamp(24px, 3vw, 36px);
 }
 
 .model-panel {
   display: grid;
-  align-content: start;
-  gap: 20px;
-  padding: clamp(24px, 4vw, 44px);
-  border: 1px solid var(--rule);
-  border-radius: 18px;
+  gap: 12px;
 }
 
 .model-panel h3 {
@@ -718,37 +676,14 @@ h3 {
   color: var(--ink-3);
 }
 
-.providers li {
+.spec li {
   padding: 10px 0;
-  border-bottom: 1px solid var(--rule);
-  font: 600 clamp(1.35rem, 2.6vw, 1.9rem)/1.15 var(--font-brand);
-  letter-spacing: -0.025em;
-}
-
-.providers li:first-child {
   border-top: 1px solid var(--rule);
+  font: 500 1.05rem/1.4 var(--font-brand);
 }
 
-.model-panel p {
-  color: var(--ink-2);
-}
-
-.model-panel--local {
-  align-content: space-between;
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-}
-
-.model-panel--local h3,
-.model-panel--local p {
-  color: color-mix(in srgb, var(--paper) 72%, transparent);
-}
-
-.model-panel--local .big-claim {
-  font: italic 400 clamp(2.4rem, 5vw, 4rem)/1.02 var(--font-text);
-  letter-spacing: -0.02em;
-  color: var(--paper);
+.spec li:last-child {
+  border-bottom: 1px solid var(--rule);
 }
 
 /* Terminal */
@@ -777,10 +712,6 @@ h3 {
   font-size: inherit;
 }
 
-.terminal .comment {
-  color: #8d847e;
-}
-
 .terminal .prompt {
   color: #9db7e8;
   user-select: none;
@@ -807,17 +738,9 @@ h3 {
   width: clamp(150px, 20vw, 220px);
 }
 
-.closing h2,
-.closing .actions {
-  padding-inline: var(--gutter);
-}
-
 .closing .actions {
   justify-content: center;
-}
-
-.closing h2 {
-  font-size: clamp(2.6rem, 6.4vw, 5.2rem);
+  padding-inline: var(--gutter);
 }
 
 /* Footer */

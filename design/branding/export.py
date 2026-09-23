@@ -101,7 +101,7 @@ ET.SubElement(card, f"{{{SVG}}}rect", {"width": "1200", "height": "630", "fill":
 ET.SubElement(card, f"{{{SVG}}}g", {
     "transform": "translate(520 70) scale(.4)",
 }).append(artwork())
-text(card, "fritz", 72, 300, 168, "#231F20", "700")
-text(card, "A familiar for your code.", 80, 384, 46, "#231F20", "500")
-text(card, "Native coding assistant for macOS", 80, 552, 26, "#5E5856", "500")
+text(card, "fritz", 72, 250, 168, "#231F20", "700")
+for line, y in (("A coding app designed", 350), ("to use local decision", 404), ("models.", 458)):
+    text(card, line, 80, y, 44, "#231F20", "500")
 render_png(card, WEBSITE / "social.png", 1200, 630)
