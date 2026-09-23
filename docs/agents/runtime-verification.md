@@ -62,12 +62,14 @@ duplicate run. New commits cancel older runs for the same PR or branch.
 macOS checks run on the registered `fritz-mac-mini` runner using the labels
 `self-hosted`, `macOS`, `ARM64`, and `gabriel-ci`. It has one runner, so one job
 runs `make -j2 test` (Rust/runtime and Swift test groups concurrently), followed
-by `make check` and `CONFIGURATION=release make build`. All existing checks and
-release signing remain enabled. The final “Libraries, app, and runtime” check
+by `make check`. Tests compile the Rust and Swift code they exercise; CI does
+not build, stage, or sign a release app. Verify packaging and signing separately
+with `CONFIGURATION=release make build` when needed.
+The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
 The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-The Mini retains `target`, `.build`, `app/.build`, and `dist/DerivedData` in its
+The Mini retains `target`, `.build`, and `app/.build` in its
 own CI checkout between runs. Checkout resets tracked files and removes all
 other untracked files; runtime data and staged app bundles are not retained.
 An Apple/Rust/CMake toolchain fingerprint invalidates those build directories

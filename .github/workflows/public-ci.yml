@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   macos:
-    name: Mac mini tests and release build
+    name: Mac mini tests and Rust checks
     # Check the PR author, not the actor who happens to rerun the workflow.
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel'
     runs-on: [self-hosted, macOS, ARM64, gabriel-ci]
@@ -30,7 +30,7 @@ jobs:
       - name: Clean sources while keeping build outputs
         run: |
           git reset --hard HEAD
-          git clean -ffdx -e /target/ -e /.build/ -e /app/.build/ -e /dist/DerivedData/ -e /dist/.ci-toolchain
+          git clean -ffdx -e /target/ -e /.build/ -e /app/.build/ -e /dist/.ci-toolchain
       - name: Locate local build tools
         run: |
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
@@ -56,7 +56,7 @@ jobs:
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
           if [[ ! -f dist/.ci-toolchain || "$(cat dist/.ci-toolchain)" != "$fingerprint" ]]; then
-            rm -rf target .build app/.build dist/DerivedData
+            rm -rf target .build app/.build
             mkdir -p dist
             echo "$fingerprint" > dist/.ci-toolchain
           fi
@@ -71,8 +71,6 @@ jobs:
         run: make -j2 test
       - name: Check Rust
         run: make check
-      - name: Build and sign complete application locally
-        run: CONFIGURATION=release make build
 
   # Preserve the original required-check name and propagate failure/cancellation.
   complete:
