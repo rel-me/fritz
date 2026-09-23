@@ -52,6 +52,27 @@ with `codesign --verify --deep --strict dist/Fritz.app`. Fix the build script
 rather than silently hand-patching the bundle. Local signing does not establish
 distribution signing or notarization.
 
+## CI
+
+CI runs once per pull-request update, on pushes to `main`, and on manual dispatch.
+Feature-branch pushes do not also start a duplicate run. New commits cancel older
+runs for the same PR or branch.
+
+Four hosted macOS jobs run independently: `make test-runtime`, `make test-swift`,
+`make check`, and `CONFIGURATION=release make build`. `make test` still runs both
+test groups locally. The final “Libraries, app, and runtime” check requires all
+four jobs to succeed and preserves the original check name for branch protection.
+
+Rust dependency build outputs are cached separately for tests, Clippy, and
+release builds, keyed by the Rust and Apple toolchains and dependency inputs.
+Swift test build directories are cached by Apple toolchain and package locks,
+with a new snapshot per commit. Xcode packages and DerivedData are cached by
+Apple toolchain, project configuration, and package locks, also with a new snapshot
+per commit. Every run invokes the incremental release build, staging, and signing.
+Caches contain build data only, never runtime data or credentials, and are
+disposable. A cold run still compiles all dependencies; warm-run savings depend
+on which toolchains and locks changed.
+
 ## Isolated UI and CLI verification
 
 Use synthetic data and the mock provider for manual checks as well. For example,

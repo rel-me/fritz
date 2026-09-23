@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # PR branches are covered by pull_request; do not run them twice.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -14,7 +16,19 @@ concurrency:
 
 jobs:
   macos:
-    name: Libraries, app, and runtime
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - task: runtime
+            name: Rust and runtime tests
+          - task: lint
+            name: Rust formatting and Clippy
+          - task: swift
+            name: Swift library and app tests
+          - task: app
+            name: Release app and signing
     # Public contributions must not execute on a personal self-hosted runner.
     runs-on: macos-26
     timeout-minutes: 45
@@ -39,15 +53,65 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
+      - name: Identify Apple toolchain for caches
+        id: toolchain
+        run: |
+          fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; } | shasum -a 256 | cut -d ' ' -f 1)
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+      - name: Cache Rust dependencies and native build outputs
+        if: matrix.task != 'swift'
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          # Test, Clippy, and release artifacts have different build profiles.
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ matrix.task }}-${{ steps.toolchain.outputs.fingerprint }}
+          cache-bin: false
+      - name: Cache Swift test builds
+        if: matrix.task == 'swift'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            .build
+            app/.build
+          key: swift-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.swift', 'Package.resolved', 'app/Package.swift', 'app/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            swift-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.swift', 'Package.resolved', 'app/Package.swift', 'app/Package.resolved') }}-
+      - name: Cache Xcode packages and build outputs
+        if: matrix.task == 'app'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: dist/DerivedData
+          key: xcode-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.swift', 'Package.resolved', 'app/Fritz.xcodeproj/project.pbxproj', 'app/Fritz.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            xcode-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.swift', 'Package.resolved', 'app/Fritz.xcodeproj/project.pbxproj', 'app/Fritz.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
       - name: Check toolchains
         run: |
           xcodebuild -version
           swift --version
           cargo --version
           cmake --version
+      - name: Test Rust and runtime
+        if: matrix.task == 'runtime'
+        run: make test-runtime
       - name: Test libraries and application
-        run: make test
+        if: matrix.task == 'swift'
+        run: make test-swift
       - name: Check Rust
+        if: matrix.task == 'lint'
         run: make check
       - name: Build and sign complete application locally
+        if: matrix.task == 'app'
         run: CONFIGURATION=release make build
+
+  # Preserve the original required-check name, and fail if any matrix job fails
+  # or is cancelled. An ordinary dependent job could be skipped instead.
+  complete:
+    name: Libraries, app, and runtime
+    if: always()
+    needs: macos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every check to pass
+        env:
+          RESULT: ${{ needs.macos.result }}
+        run: test "$RESULT" = success
