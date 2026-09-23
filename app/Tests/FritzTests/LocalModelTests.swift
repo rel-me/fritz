@@ -1,5 +1,7 @@
 import XCTest
-@testable import Fritz
+import Fritz
+import FritzUpdates
+@testable import FritzApp
 
 final class LocalModelTests: XCTestCase {
     func testBundledCatalogAndFritzProvider() throws {

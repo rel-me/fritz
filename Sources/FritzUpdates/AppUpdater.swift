@@ -3,11 +3,11 @@ import Foundation
 import Sparkle
 import SwiftUI
 
-struct AppUpdateConfiguration: Equatable {
-    let feedURL: URL?
-    let publicEDKey: String?
+public struct AppUpdateConfiguration: Equatable {
+    public let feedURL: URL?
+    public let publicEDKey: String?
 
-    init(infoDictionary: [String: Any]?) {
+    public init(infoDictionary: [String: Any]?) {
         let feedURLString = infoDictionary?["SUFeedURL"] as? String
         let publicEDKey = infoDictionary?["SUPublicEDKey"] as? String
 
@@ -32,21 +32,21 @@ struct AppUpdateConfiguration: Equatable {
         }
     }
 
-    var isConfigured: Bool {
+    public var isConfigured: Bool {
         feedURL != nil && publicEDKey != nil
     }
 }
 
 @MainActor
-final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
-    @Published private(set) var canCheckForUpdates = false
-    @Published private(set) var startupState: AppUpdateStartupState
+public final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
+    @Published public private(set) var canCheckForUpdates = false
+    @Published public private(set) var startupState: AppUpdateStartupState
 
-    let isConfigured: Bool
-    private(set) var updateChannel: AppUpdateChannel
+    public let isConfigured: Bool
+    public private(set) var updateChannel: AppUpdateChannel
     private var controller: SPUStandardUpdaterController?
 
-    init(bundle: Bundle = .main, updateChannel: AppUpdateChannel = .release) {
+    public init(bundle: Bundle = .main, updateChannel: AppUpdateChannel = .release) {
         let configuration = AppUpdateConfiguration(infoDictionary: bundle.infoDictionary)
         isConfigured = configuration.isConfigured
         self.updateChannel = updateChannel
@@ -68,19 +68,19 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         }
     }
 
-    var hasCompletedStartupCheck: Bool {
+    public var hasCompletedStartupCheck: Bool {
         startupState.hasCompletedCheck
     }
 
-    var allowsAppUse: Bool {
+    public var allowsAppUse: Bool {
         startupState.allowsAppUse
     }
 
-    var requiredVersion: String? {
+    public var requiredVersion: String? {
         startupState.requiredVersion
     }
 
-    func checkForUpdatesAtStartup() {
+    public func checkForUpdatesAtStartup() {
         guard isConfigured, startupState == .pending, let controller else {
             return
         }
@@ -89,11 +89,11 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         controller.updater.checkForUpdatesInBackground()
     }
 
-    func checkForUpdates() {
+    public func checkForUpdates() {
         controller?.checkForUpdates(nil)
     }
 
-    func setUpdateChannel(_ updateChannel: AppUpdateChannel) {
+    public func setUpdateChannel(_ updateChannel: AppUpdateChannel) {
         guard self.updateChannel != updateChannel else {
             return
         }
@@ -101,25 +101,25 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         controller?.updater.resetUpdateCycle()
     }
 
-    func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+    public func allowedChannels(for updater: SPUUpdater) -> Set<String> {
         updateChannel.allowedSparkleChannels
     }
 
-    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+    public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         startupState = .available(
             version: item.displayVersionString,
             requiresUpgrade: item.isCriticalUpdate
         )
     }
 
-    func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
+    public func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
         guard startupState == .checking else {
             return
         }
         startupState = .current
     }
 
-    func updater(
+    public func updater(
         _ updater: SPUUpdater,
         didFinishUpdateCycleFor updateCheck: SPUUpdateCheck,
         error: Error?
@@ -131,10 +131,14 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 }
 
-struct CheckForUpdatesCommand: View {
-    @ObservedObject var updater: AppUpdater
+public struct CheckForUpdatesCommand: View {
+    @ObservedObject private var updater: AppUpdater
 
-    var body: some View {
+    public init(updater: AppUpdater) {
+        self.updater = updater
+    }
+
+    public var body: some View {
         if updater.isConfigured {
             Button("Check for Updates") {
                 updater.checkForUpdates()

@@ -1,21 +1,27 @@
 import Foundation
 
-struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
-    enum Source: Codable, Equatable, Sendable {
+public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
+    public enum Source: Codable, Equatable, Sendable {
         case builtIn
         case configured
     }
 
-    struct Capabilities: Codable, Equatable, Sendable {
-        let supportsReasoningEffort: Bool
-        let supportedSpeeds: [ChatSpeed]
-        let isRecommendedInChatPicker: Bool
+    public struct Capabilities: Codable, Equatable, Sendable {
+        public let supportsReasoningEffort: Bool
+        public let supportedSpeeds: [ChatSpeed]
+        public let isRecommendedInChatPicker: Bool
 
-        var supportsSpeed: Bool {
+        public init(supportsReasoningEffort: Bool, supportedSpeeds: [ChatSpeed], isRecommendedInChatPicker: Bool) {
+            self.supportsReasoningEffort = supportsReasoningEffort
+            self.supportedSpeeds = supportedSpeeds
+            self.isRecommendedInChatPicker = isRecommendedInChatPicker
+        }
+
+        public var supportsSpeed: Bool {
             supportedSpeeds.count > 1
         }
 
-        static func inferred(provider: AIProviderKind, modelID: String) -> Self {
+        public static func inferred(provider: AIProviderKind, modelID: String) -> Self {
             let modelID = modelID.lowercased()
             let isSpecializedModel = [
                 "audio", "computer-use", "dall-e", "embed", "guard", "image",
@@ -70,7 +76,7 @@ struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
             )
         }
 
-        var reasoningEfforts: [ChatReasoningEffort] {
+        public var reasoningEfforts: [ChatReasoningEffort] {
             supportsReasoningEffort ? [.low, .medium, .high] : []
         }
 
@@ -84,23 +90,23 @@ struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         }
     }
 
-    let id: String
-    let displayName: String
-    let provider: AIProviderKind
-    let modelID: String
-    let connectionName: String?
-    let connectionID: UUID?
-    let source: Source
-    let createdAt: UInt64?
-    let verification: AIModelVerification
-    let capabilities: Capabilities
-    let displayProvider: AIProviderPreset
+    public let id: String
+    public let displayName: String
+    public let provider: AIProviderKind
+    public let modelID: String
+    public let connectionName: String?
+    public let connectionID: UUID?
+    public let source: Source
+    public let createdAt: UInt64?
+    public let verification: AIModelVerification
+    public let capabilities: Capabilities
+    public let displayProvider: AIProviderPreset
 
-    var usageKey: String {
+    public var usageKey: String {
         "\(provider.rawValue):\(modelID.lowercased())"
     }
 
-    init(
+    public init(
         id: String,
         displayName: String,
         provider: AIProviderKind,
@@ -126,7 +132,7 @@ struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         self.displayProvider = AIProviderPreset.displayProvider(provider: provider, baseURL: baseURL)
     }
 
-    init(connection: ProviderConnection) {
+    public init(connection: ProviderConnection) {
         self.init(
             id: "connection:\(connection.id.uuidString):\(connection.modelID)",
             displayName: connection.modelID,
@@ -139,7 +145,7 @@ struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         )
     }
 
-    init(connection: ProviderConnection, model: DiscoveredAIModel) {
+    public init(connection: ProviderConnection, model: DiscoveredAIModel) {
         self.init(
             id: "connection:\(connection.id.uuidString):\(model.id)",
             displayName: model.displayName,
@@ -154,7 +160,7 @@ struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         )
     }
 
-    static func balancedPickerRecommendations(
+    public static func balancedPickerRecommendations(
         from options: [Self],
         providerOrder: [AIProviderKind],
         selectedModelID: String?,

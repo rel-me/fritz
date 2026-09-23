@@ -1,5 +1,7 @@
 import XCTest
-@testable import Fritz
+import Fritz
+import FritzUpdates
+@testable import FritzApp
 
 final class ModelTests: XCTestCase {
     func testRecentModelsExcludeRemovedConnections() {

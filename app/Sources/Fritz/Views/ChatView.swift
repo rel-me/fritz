@@ -1,3 +1,4 @@
+import Fritz
 import SwiftUI
 
 struct ChatView: View {

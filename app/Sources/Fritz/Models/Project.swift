@@ -1,3 +1,4 @@
+import Fritz
 import Foundation
 
 struct ProjectThread: Codable, Identifiable, Equatable {

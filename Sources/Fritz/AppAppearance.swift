@@ -1,18 +1,18 @@
 import AppKit
 import Foundation
 
-enum AppAppearance: String, CaseIterable, Codable, Identifiable, Sendable {
+public enum AppAppearance: String, CaseIterable, Codable, Identifiable, Sendable {
     case system
     case light
     case dark
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    static var saved: Self {
+    public static var saved: Self {
         Self(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "") ?? .system
     }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .system: "System"
         case .light: "Light"
@@ -21,7 +21,7 @@ enum AppAppearance: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 
     @MainActor
-    var appKitAppearance: NSAppearance? {
+    public var appKitAppearance: NSAppearance? {
         switch self {
         case .system:
             nil
@@ -33,7 +33,7 @@ enum AppAppearance: String, CaseIterable, Codable, Identifiable, Sendable {
     }
 
     @MainActor
-    func apply(to application: NSApplication) {
+    public func apply(to application: NSApplication) {
         application.appearance = appKitAppearance
     }
 }

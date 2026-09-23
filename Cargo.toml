@@ -3,9 +3,17 @@ name = "fritz"
 version = "0.1.1"
 edition = "2024"
 rust-version = "1.88"
-description = "Native Fritz chat agent and command-line interface"
+description = "Shared native AI infrastructure, coding harness, and Fritz command-line interface"
+license = "AGPL-3.0-only"
+repository = "https://github.com/rel-me/fritz"
+readme = "README.md"
+
 publish = false
 default-run = "fritz"
+
+[lib]
+name = "fritz"
+path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1"

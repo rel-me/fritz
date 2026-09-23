@@ -1,13 +1,13 @@
 import Foundation
 
-enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
+public enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
     case release
     case beta
     case dev
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .release: "Release"
         case .beta: "Beta"
@@ -15,7 +15,7 @@ enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var allowedSparkleChannels: Set<String> {
+    public var allowedSparkleChannels: Set<String> {
         switch self {
         case .release: []
         case .beta: ["beta"]
@@ -23,7 +23,7 @@ enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    static var saved: Self {
+    public static var saved: Self {
         Self(rawValue: UserDefaults.standard.string(forKey: "updateChannel") ?? "") ?? .release
     }
 }

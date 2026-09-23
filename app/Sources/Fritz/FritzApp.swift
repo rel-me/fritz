@@ -1,3 +1,5 @@
+import FritzUpdates
+import Fritz
 import SwiftUI
 
 @MainActor @Observable final class FritzState {

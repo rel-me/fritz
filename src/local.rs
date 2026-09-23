@@ -1,5 +1,5 @@
 //! Fritz's built-in provider. Model weights are installed explicitly and used offline.
-mod inference;
+pub mod inference;
 pub mod models;
 pub mod ollama;
 

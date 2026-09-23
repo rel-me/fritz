@@ -1,15 +1,15 @@
-struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
-    enum ID: Equatable, Hashable, Sendable {
+public struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
+    public enum ID: Equatable, Hashable, Sendable {
         case recent
         case provider(AIProviderKind)
         case bedrock
     }
 
-    let id: ID
-    let title: String
-    let models: [ChatModelOption]
+    public let id: ID
+    public let title: String
+    public let models: [ChatModelOption]
 
-    static func unfiltered(
+    public static func unfiltered(
         from models: [ChatModelOption],
         recentModels: [ChatModelOption],
         providerOrder: [AIProviderKind],
@@ -51,7 +51,7 @@ struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
         return sections
     }
 
-    static func displayProviders(
+    public static func displayProviders(
         from models: [ChatModelOption],
         providerOrder: [AIProviderKind]
     ) -> [AIProviderPreset] {

@@ -123,6 +123,18 @@ pub(crate) async fn checked(request: RequestBuilder) -> Result<reqwest::Response
 
 pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
+    let key = if connection.provider == ProviderKind::Fritz {
+        None
+    } else {
+        credential(connection, supplied_key)?
+    };
+    discover_with_key(connection, key.as_deref()).await
+}
+
+/// Discovers a remote catalog using only the supplied credential, without reading Fritz's Keychain.
+/// The built-in Fritz provider uses Fritz's default model cache; use ModelStore for another host.
+pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Result<Vec<Model>> {
+    connection.validate()?;
     if connection.provider == ProviderKind::Fritz {
         let inventory = crate::local::models::inventory().await?;
         return Ok(inventory["models"]
@@ -136,7 +148,10 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
             })
             .collect());
     }
-    let key = credential(connection, supplied_key)?;
+    let key = key.filter(|key| !key.is_empty());
+    if connection.provider.requires_key() && key.is_none() {
+        bail!("Supply an API key for {}.", connection.name);
+    }
     let client = client()?;
     let suffix = if connection.provider == ProviderKind::Ollama {
         "api/tags"
@@ -155,7 +170,7 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
                 _ => request,
             };
         }
-        let data: Value = checked(authenticate(request, connection.provider, key.as_deref()))
+        let data: Value = checked(authenticate(request, connection.provider, key))
             .await?
             .json()
             .await?;

@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
-@testable import Fritz
+import Fritz
+import FritzUpdates
 
 final class CommandLineInstallerTests: XCTestCase {
     func testInstallsInFirstWritableDirectoryInPath() throws {

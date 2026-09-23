@@ -1,10 +1,14 @@
 import Foundation
 
-struct LocalModelHardware: Sendable {
-    let memoryGB: Int
-    let appleSilicon: Bool
+public struct LocalModelHardware: Sendable {
+    public let memoryGB: Int
+    public let appleSilicon: Bool
+    public init(memoryGB: Int, appleSilicon: Bool) {
+        self.memoryGB = memoryGB
+        self.appleSilicon = appleSilicon
+    }
 
-    static var current: Self {
+    public static var current: Self {
         #if arch(arm64)
         let appleSilicon = true
         #else
@@ -16,36 +20,40 @@ struct LocalModelHardware: Sendable {
         )
     }
 
-    var summary: String {
+    public var summary: String {
         "\(appleSilicon ? "Apple silicon" : "Intel Mac") · \(memoryGB) GB memory"
     }
 
 }
 
-struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendable {
-    let id: String
-    let name: String
-    let size: UInt64
-    let memoryGB: Int
-    let licenseURL: URL
+public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let size: UInt64
+    public let memoryGB: Int
+    public let licenseURL: URL
+
+    public init(id: String, name: String, size: UInt64, memoryGB: Int, licenseURL: URL) {
+        self.id = id
+        self.name = name
+        self.size = size
+        self.memoryGB = memoryGB
+        self.licenseURL = licenseURL
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, size
         case memoryGB = "memory_gb", licenseURL = "license_url"
     }
 
-    var model: DiscoveredAIModel { .init(id: id, displayName: name) }
-    var downloadSummary: String {
+    public var model: DiscoveredAIModel { .init(id: id, displayName: name) }
+    public var downloadSummary: String {
         String(format: "%.2f GB download · %d GB RAM recommended", Double(size) / 1_000_000_000, memoryGB)
     }
 
-    static let catalog: [Self] = {
+    public static let catalog: [Self] = {
         struct Catalog: Decodable { let models: [NativeModelDescriptor] }
-        #if SWIFT_PACKAGE
         let bundle = Bundle.module
-        #else
-        let bundle = Bundle.main
-        #endif
         guard let url = bundle.url(forResource: "LocalModels", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let catalog = try? JSONDecoder().decode(Catalog.self, from: data),

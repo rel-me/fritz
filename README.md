@@ -9,6 +9,21 @@ A native macOS chat app with projects and their threads in the left sidebar and 
 
 Fritz includes its own `fritz-harness` coding-agent runtime. In **Code** mode it reads project files, makes edits, runs commands, inspects the results, and continues until it can answer. **Chat** mode provides a streaming conversation without tools.
 
+## Open source and shared libraries
+
+Fritz's app and shared libraries are licensed under **AGPL-3.0-only**. See
+[LICENSE](LICENSE) and [CONTRIBUTING.md](CONTRIBUTING.md). Commercial use is
+allowed under the license's source-sharing requirements. Third-party dependencies,
+vendored material and model weights retain their respective licenses.
+
+The repository root is a Swift package exposing **Fritz** (provider/model
+metadata, private-pipe transport, appearance and CLI installation) and
+**FritzUpdates** (Sparkle lifecycle and update policy). The **fritz** Rust library
+exposes provider networking, host-scoped registry/Keychain/model storage, native
+inference and coding tools. The app's executable module is **FritzApp**; the
+product remains **Fritz.app**. See [the library guide](docs/libraries.md) for
+Git dependency examples, public APIs, ownership and the planned REL adoption.
+
 ## Build and run
 
 Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.
@@ -100,7 +115,8 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 
 ## Architecture and storage
 
-- `app/`: SwiftUI/AppKit executable with Textual for native Markdown and code rendering.
+- `Sources/Fritz/`, `Sources/FritzUpdates/`: reusable Swift libraries and the shared model catalog.
+- `app/`: `FritzApp` SwiftUI/AppKit executable with Textual for native Markdown and code rendering.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.
 - `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native model/tool loop, and tool history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
 - `src/tools.rs`: directory listing, paginated text reads, new-file creation, exact-match edits, and noninteractive commands. Stop cancels the harness request and terminates command process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
