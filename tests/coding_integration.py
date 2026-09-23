@@ -135,7 +135,8 @@ def main():
         # Service/CLI launches exercise the packaged sibling lookup and private credential handoff.
         data = root / "data"
         data.mkdir(exist_ok=True)
-        (data / "providers.json").write_text(json.dumps({"version": 1, "connections": [config()["connection"]], "defaultConnectionId": connection_id}))
+        saved = subprocess.run([str(BIN / "fritz"), "add-provider", "--name", "Test", "--provider", "openai-compatible", "--base-url", config()["connection"]["baseUrl"], "--model", "coding-test", "--default"], capture_output=True, text=True, env=env, check=True)
+        connection_id = json.loads(saved.stdout)["defaultConnectionId"]
         (project / "hello.txt").write_text("before\n")
         cli = subprocess.run([str(BIN / "fritz"), "chat", "Fix hello.txt", "--project", str(project)], capture_output=True, text=True, env=env, timeout=15)
         assert cli.returncode == 0 and "verified" in cli.stdout, cli.stderr

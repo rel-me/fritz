@@ -10,11 +10,17 @@ import Observation
     private(set) var isLoading = false
     private(set) var hasLoadedModels = false
     var error: String?
-    var recentIDs: [String] = UserDefaults.standard.stringArray(forKey: "recentModelIDs") ?? []
+    var recentIDs: [String] = []
+    private let database: AppDatabase
     let agent: AgentClient
     @ObservationIgnored private var refreshID = UUID()
 
-    init(agent: AgentClient) { self.agent = agent }
+    init(agent: AgentClient, database: AppDatabase) {
+        self.agent = agent
+        self.database = database
+        do { recentIDs = try database.setting("recentModelIDs") ?? [] }
+        catch { self.error = error.localizedDescription }
+    }
     var connections: [ProviderConnection] { registry.connections }
     var providerOrder: [AIProviderKind] { connections.map(\.provider) }
     var recentModels: [ChatModelOption] { recentIDs.compactMap { id in models.first { $0.id == id } } }
@@ -30,7 +36,8 @@ import Observation
         recentIDs.removeAll { $0 == model.id }
         recentIDs.insert(model.id, at: 0)
         recentIDs = Array(recentIDs.prefix(8))
-        UserDefaults.standard.set(recentIDs, forKey: "recentModelIDs")
+        do { try database.set(recentIDs, for: "recentModelIDs") }
+        catch { self.error = error.localizedDescription }
     }
 
     func refresh() async {

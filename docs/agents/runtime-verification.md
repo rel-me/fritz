@@ -80,8 +80,7 @@ instance and stop the mock server with Ctrl-C in its terminal.
 
 `FRITZ_DATA_DIR` isolates provider metadata, projects, threads, and drafts for
 the Release app. It does **not** isolate its Keychain service
-`dev.fritz.provider-credentials`, model recents in UserDefaults, or window
-preferences. Use newly created, keyless mock connections for Release app tests.
+`dev.fritz.provider-credentials`, macOS/Sparkle-managed window and update-engine preferences. Use newly created, keyless mock connections for Release app tests.
 PR Debug apps use a worktree-specific bundle ID, data directory, Keychain
 service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR` and
 `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug identity outside the app.
@@ -112,7 +111,7 @@ DerivedData, app bundle, or SwiftPM build directories between worktrees.
 
 ## Shared libraries
 
-The root `Package.swift` publishes `Fritz` and `FritzUpdates`; the app package
+The root `Package.swift` publishes `Fritz`, `FritzState` and `FritzUpdates`; the app package
 and Xcode target consume them. Run `swift test` for public-library tests and
 `swift test --package-path app` for application tests. The model catalog lives
 in `Sources/Fritz/LocalModels.json` and is consumed by both Swift and Rust.

@@ -1,10 +1,10 @@
-use anyhow::{Context, Result, bail};
-use fs2::FileExt;
-use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, OpenOptions},
-    path::PathBuf,
+use crate::state::{
+    Database,
+    rusqlite::{self, params},
 };
+use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, clap::ValueEnum)]
@@ -118,21 +118,46 @@ pub fn load() -> Result<Registry> {
     load_from(&data_dir())
 }
 fn load_from(dir: &std::path::Path) -> Result<Registry> {
-    let path = dir.join("providers.json");
-    let text = match fs::read(path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Registry::default()),
-        Err(e) => return Err(e.into()),
-    };
-    let registry: Registry =
-        serde_json::from_slice(&text).context("Could not read Fritz provider settings.")?;
-    if registry.version != 1 {
-        bail!(
-            "Unsupported provider settings version {}.",
-            registry.version
-        );
-    }
-    Ok(registry)
+    let mut database = provider_database(dir)?;
+    database.transaction(|transaction| read_registry(transaction))
+}
+
+fn provider_database(dir: &std::path::Path) -> Result<Database> {
+    Database::open(&dir.join("providers.sqlite"), &["
+        CREATE TABLE providers (id TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
+        CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id = 1), default_connection_id TEXT REFERENCES providers(id) ON DELETE SET NULL);
+        INSERT INTO registry VALUES (1, NULL);
+    "], &[("providers", &["id", "position", "payload"]), ("registry", &["id", "default_connection_id"])])
+}
+
+fn read_registry(connection: &rusqlite::Connection) -> Result<Registry> {
+    let records = connection
+        .prepare("SELECT id, payload FROM providers ORDER BY position")?
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let connections = records
+        .iter()
+        .map(|(id, record)| {
+            let provider: Connection = serde_json::from_str(record)?;
+            if provider.id.to_string() != *id {
+                bail!("Invalid provider identity in state database.");
+            }
+            provider.validate()?;
+            Ok(provider)
+        })
+        .collect::<Result<Vec<Connection>>>()?;
+    let default: Option<String> = connection.query_row(
+        "SELECT default_connection_id FROM registry WHERE id = 1",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(Registry {
+        version: 1,
+        connections,
+        default_connection_id: default.map(|id| Uuid::parse_str(&id)).transpose()?,
+    })
 }
 
 pub fn update(f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
@@ -157,21 +182,28 @@ impl RegistryStore {
     }
 
     pub fn update(&self, f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
-        let dir = &self.directory;
-        fs::create_dir_all(dir)?;
-        let lock = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(dir.join("providers.lock"))?;
-        lock.lock_exclusive()?;
-        let mut registry = load_from(dir)?;
-        f(&mut registry)?;
-        let temporary = dir.join(format!("providers-{}.tmp", Uuid::new_v4()));
-        fs::write(&temporary, serde_json::to_vec_pretty(&registry)?)?;
-        fs::rename(temporary, dir.join("providers.json"))?;
-        Ok(registry)
+        let mut database = provider_database(&self.directory)?;
+        database.transaction(|transaction| {
+            let mut registry = read_registry(transaction)?;
+            f(&mut registry)?;
+            transaction.execute("DELETE FROM providers", [])?;
+            for (position, connection) in registry.connections.iter().enumerate() {
+                connection.validate()?;
+                transaction.execute(
+                    "INSERT INTO providers VALUES (?1, ?2, ?3)",
+                    params![
+                        connection.id.to_string(),
+                        position,
+                        serde_json::to_string(connection)?
+                    ],
+                )?;
+            }
+            transaction.execute(
+                "UPDATE registry SET default_connection_id = ?1 WHERE id = 1",
+                [registry.default_connection_id.map(|id| id.to_string())],
+            )?;
+            Ok(registry)
+        })
     }
 }
 
@@ -290,7 +322,7 @@ mod tests {
     fn invalid_existing_registry_is_not_silently_reset() {
         let dir = tempfile::tempdir().unwrap();
         assert!(load_from(dir.path()).unwrap().connections.is_empty());
-        fs::write(dir.path().join("providers.json"), "invalid").unwrap();
+        std::fs::write(dir.path().join("providers.sqlite"), "invalid").unwrap();
         assert!(load_from(dir.path()).is_err());
     }
 }

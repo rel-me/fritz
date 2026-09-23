@@ -25,7 +25,7 @@ fn host_registries_are_independent_without_global_environment_changes() {
         .unwrap();
     assert_eq!(first.load().unwrap().connections.len(), 1);
     assert!(second.load().unwrap().connections.is_empty());
-    assert!(!root.path().join("second").exists());
+    assert!(root.path().join("second/providers.sqlite").exists());
     assert!(
         first
             .update(|registry| {

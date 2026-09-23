@@ -1,0 +1,13 @@
+[package]
+name = "fritz-state"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Reusable SQLite state, transactions, schema validation, and migrations"
+license = "AGPL-3.0-only"
+repository = "https://github.com/rel-me/fritz"
+publish = false
+
+[dependencies]
+anyhow = "1"
+rusqlite = { version = "0.29", features = ["bundled"] }

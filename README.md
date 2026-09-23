@@ -116,16 +116,19 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 
 ## Architecture and storage
 
-- `Sources/Fritz/`, `Sources/FritzUpdates/`: reusable Swift libraries and the shared model catalog.
+- `Sources/Fritz/`, `Sources/FritzState/`, `Sources/FritzUpdates/`: reusable Swift libraries and the shared model catalog.
 - `app/`: `FritzApp` SwiftUI/AppKit executable with Textual for native Markdown and code rendering.
+- `crates/fritz-state/`: independent Rust SQLite state library, also re-exported by `fritz::state`.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.
 - `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native model/tool loop, and tool history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
 - `src/tools.rs`: directory listing, paginated text reads, new-file creation, exact-match edits, and noninteractive commands. Stop cancels the harness request and terminates command process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
-- `~/Library/Application Support/Fritz/Data/providers.json`: versioned, non-secret provider metadata. Writes are atomic and locked across processes.
-- `~/Library/Application Support/Fritz/Data/workspace.json`: project folders, thread names and identities, and the selected thread.
-- `~/Library/Application Support/Fritz/Data/Threads/`: independent thread transcripts and preferences. Tool activity is retained with each assistant message. Interrupted prose is omitted from future context unless it has tool records; in that case the next turn receives the activity and an interruption notice so it can inspect current state before retrying. An existing `chat.json` is imported once into a **Chats** project and kept as a recovery copy.
-- API keys live in macOS Keychain under `dev.fritz.provider-credentials`. Changing an endpoint requires entering a key again.
-- `FRITZ_DATA_DIR` overrides data storage for isolated development and tests. Model recents use Fritz’s UserDefaults domain.
+- `~/Library/Application Support/Fritz/Data/providers.sqlite`: non-secret provider records and the default connection, owned by Rust. Concurrent CLI/agent updates use SQLite transactions.
+- `~/Library/Application Support/Fritz/Data/workspace.sqlite`: projects, threads, ordered messages and tool activity, drafts, model choices, selection, appearance, update channel, settings page and model recents, owned by the native app.
+- SQLite connections use WAL, foreign keys, bounded lock waits, private file permissions, schema validation and atomic versioned migrations. A corrupt or newer database produces an error; it is never silently reset.
+- Legacy JSON files and old application preferences are ignored. There is no import or backwards compatibility. Existing files are left on disk but are no longer read or written.
+- Provider secrets remain in Fritz’s Keychain namespace; they are never stored in SQLite. Local model weights remain in `Data/Models`.
+- `FRITZ_DATA_DIR` overrides both databases and model storage for isolated development and tests. It does not change the Keychain namespace or macOS/Sparkle-managed preferences.
+- Interrupted prose is omitted from future context unless it has tool records; the next turn then receives the activity and an interruption notice so it can inspect current state before retrying.
 
 The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and coding tools.
 

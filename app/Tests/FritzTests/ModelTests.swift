@@ -33,9 +33,9 @@ final class ModelTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let url = directory.appendingPathComponent("chat.json")
+        let url = directory.appendingPathComponent("workspace.sqlite")
         try Data("corrupt".utf8).write(to: url)
-        let store = ChatStore(agent: AgentClient(), transcriptURL: url)
+        let store = ChatStore(agent: AgentClient(), database: AppDatabase(directory: directory), threadID: UUID())
         XCTAssertNotNil(store.error)
         XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "corrupt")
     }
@@ -44,13 +44,15 @@ final class ModelTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let url = directory.appendingPathComponent("chat.json")
+        let database = AppDatabase(directory: directory)
+        let thread = ProjectThread()
+        try database.saveWorkspace(WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id))
         let messages = [ChatMessage(role: "user", content: "Hello"), ChatMessage(role: "assistant", content: "Partial", isComplete: false)]
-        try JSONEncoder().encode(messages).write(to: url)
-        let store = ChatStore(agent: AgentClient(), transcriptURL: url)
+        try database.save(messages: messages, preferences: ChatPreferences(draft: "", effort: .medium, speed: .standard), for: thread.id)
+        let store = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
         XCTAssertEqual(store.messages, messages)
         XCTAssertFalse(store.canSend)
         store.clear()
-        XCTAssertEqual(try JSONDecoder().decode([ChatMessage].self, from: Data(contentsOf: url)), [])
+        XCTAssertEqual(try database.messages(for: thread.id), [])
     }
 }

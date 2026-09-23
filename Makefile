@@ -11,7 +11,7 @@ run dev-open: build
 	open -n "$$(cat dist/.last-built-app)"
 
 test:
-	cargo test --locked
+	cargo test --workspace --locked
 	swift test
 	swift test --package-path app
 	cargo build --locked
@@ -20,8 +20,8 @@ test:
 	python3 tests/test_release_tasks.py
 
 check:
-	cargo fmt --check
-	cargo clippy --locked --all-targets -- -D warnings
+	cargo fmt --all --check
+	cargo clippy --workspace --locked --all-targets -- -D warnings
 
 install-cli:
 	@CONFIGURATION=release $(MAKE) --no-print-directory build
