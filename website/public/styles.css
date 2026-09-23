@@ -225,16 +225,6 @@ h1 {
   font-size: 29px;
   color: #7b8167;
 }
-.art-note {
-  position: absolute;
-  bottom: -2px;
-  right: 25px;
-  font-family: Georgia, serif;
-  font-size: 16px;
-  font-style: italic;
-  color: #777b66;
-  transform: rotate(-7deg);
-}
 .section-topline {
   display: flex;
   justify-content: space-between;
@@ -762,11 +752,6 @@ h1 {
   .spark-two {
     left: 30px;
     bottom: 40px;
-  }
-  .art-note {
-    bottom: 4px;
-    right: 14px;
-    font-size: 14px;
   }
   .section-topline {
     margin-bottom: 16px;
