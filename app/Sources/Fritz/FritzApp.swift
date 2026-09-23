@@ -8,17 +8,19 @@ import SwiftUI
     let providers: ProviderStore
     let workspace: WorkspaceStore
     let localModels: LocalModelRuntimeStore
-    var settingsTab: FritzSettingsTab = {
-        FritzSettingsTab(rawValue: UserDefaults.standard.string(forKey: "FritzSettingsSelectedTab") ?? "") ?? .general
-    }()
+    let settings: AppSettings
+    var settingsTab: FritzSettingsTab {
+        FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
+    }
     var isCreatingProject = false
     var editor: ProviderEditorSelection?
 
     init() {
         let agent = AgentClient()
         self.agent = agent
-        providers = ProviderStore(agent: agent)
         workspace = WorkspaceStore(agent: agent)
+        providers = ProviderStore(agent: agent, database: workspace.database)
+        settings = AppSettings(database: workspace.database)
         localModels = LocalModelRuntimeStore(agent: agent)
     }
     func newThread() {
@@ -27,8 +29,7 @@ import SwiftUI
         } else { isCreatingProject = true }
     }
     func selectSettings(_ tab: FritzSettingsTab) {
-        settingsTab = tab
-        UserDefaults.standard.set(tab.rawValue, forKey: "FritzSettingsSelectedTab")
+        settings.selectedTab = tab.rawValue
     }
 }
 
@@ -43,12 +44,12 @@ import SwiftUI
 @main struct FritzApp: App {
     @NSApplicationDelegateAdaptor(FritzAppDelegate.self) private var delegate
     @State private var state = FritzState.shared
-    @StateObject private var updater = AppUpdater(updateChannel: .saved)
+    @StateObject private var updater = AppUpdater(updateChannel: AppUpdateChannel(rawValue: FritzState.shared.settings.updateChannel) ?? .release)
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
 
     init() {
-        AppAppearance.saved.apply(to: NSApplication.shared)
+        (AppAppearance(rawValue: FritzState.shared.settings.appearance) ?? .system).apply(to: NSApplication.shared)
     }
 
     var body: some Scene {

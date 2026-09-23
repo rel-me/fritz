@@ -54,7 +54,7 @@ struct FritzSettingsView: View {
             Group {
                 switch state.settingsTab {
                 case .general:
-                    FritzGeneralSettingsView(updater: updater)
+                    FritzGeneralSettingsView(updater: updater, settings: state.settings)
                 case .providers:
                     ProvidersView(store: state.providers, editor: $editor,
                                   openLocalModels: { state.selectSettings(.localModels) })
@@ -87,15 +87,14 @@ struct FritzSettingsView: View {
 
 private struct FritzGeneralSettingsView: View {
     @ObservedObject var updater: AppUpdater
-    @AppStorage("appearance") private var appearance = AppAppearance.system.rawValue
-    @AppStorage("updateChannel") private var updateChannel = AppUpdateChannel.release.rawValue
+    @Bindable var settings: AppSettings
     @State private var installResult: CommandLineInstaller.InstallResult?
 
     var body: some View {
         Form {
             Section {
                 LabeledContent("Appearance") {
-                    Picker("Appearance", selection: $appearance) {
+                    Picker("Appearance", selection: $settings.appearance) {
                         ForEach(AppAppearance.allCases) { option in
                             Text(option.title).tag(option.rawValue)
                         }
@@ -112,7 +111,7 @@ private struct FritzGeneralSettingsView: View {
 
             Section {
                 LabeledContent("Update Channel") {
-                    Picker("Update Channel", selection: $updateChannel) {
+                    Picker("Update Channel", selection: $settings.updateChannel) {
                         ForEach(AppUpdateChannel.allCases) { option in
                             Text(option.title).tag(option.rawValue)
                         }
@@ -147,10 +146,13 @@ private struct FritzGeneralSettingsView: View {
             }
         }
         .fritzSettingsFormStyle()
-        .onChange(of: appearance) { _, value in
+        .safeAreaInset(edge: .bottom) {
+            if let error = settings.error { Text(error).foregroundStyle(.orange).textSelection(.enabled).padding() }
+        }
+        .onChange(of: settings.appearance) { _, value in
             (AppAppearance(rawValue: value) ?? .system).apply(to: NSApplication.shared)
         }
-        .onChange(of: updateChannel) { _, value in
+        .onChange(of: settings.updateChannel) { _, value in
             updater.setUpdateChannel(AppUpdateChannel(rawValue: value) ?? .release)
         }
     }
