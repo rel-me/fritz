@@ -80,6 +80,14 @@ enum LocalModelCommand {
     List { model: Option<String> },
     /// Download and verify a model; progress is newline-delimited JSON.
     Install { model: String },
+    /// Serve installed models through an Ollama-compatible API on loopback.
+    Serve {
+        #[arg(long, default_value_t = 11435)]
+        port: u16,
+        /// Restrict this listener to one installed model.
+        #[arg(long)]
+        model: Option<String>,
+    },
 }
 
 fn save(
@@ -318,6 +326,7 @@ async fn run() -> Result<()> {
                 })
                 .await?;
             }
+            LocalModelCommand::Serve { port, model } => local::ollama::serve(port, model).await?,
         },
         None => {
             use clap::CommandFactory;

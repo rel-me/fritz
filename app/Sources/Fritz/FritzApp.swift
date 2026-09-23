@@ -5,6 +5,7 @@ import SwiftUI
     let agent: AgentClient
     let providers: ProviderStore
     let workspace: WorkspaceStore
+    let localModels: LocalModelRuntimeStore
     var isCreatingProject = false
     var editor: ProviderEditorSelection?
 
@@ -13,6 +14,7 @@ import SwiftUI
         self.agent = agent
         providers = ProviderStore(agent: agent)
         workspace = WorkspaceStore(agent: agent)
+        localModels = LocalModelRuntimeStore(agent: agent)
     }
     func newThread() {
         if let project = workspace.selectedProject ?? workspace.projects.first {
@@ -24,6 +26,7 @@ import SwiftUI
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         FritzState.shared.workspace.shutdown()
+        FritzState.shared.localModels.stopAll()
         FritzState.shared.agent.stop()
     }
 }
@@ -57,12 +60,20 @@ import SwiftUI
                 Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
+            CommandMenu("Models") {
+                Button("Local Models…") { openWindow(id: "local-models") }
+            }
         }
 
         Window("Model Providers", id: "providers") {
             ProvidersWindowContent(store: state.providers)
         }
         .defaultSize(width: 860, height: 540)
+        .windowStyle(.hiddenTitleBar)
+        Window("Local Models", id: "local-models") {
+            LocalModelsView(store: state.localModels)
+        }
+        .defaultSize(width: 900, height: 540)
         .windowStyle(.hiddenTitleBar)
     }
 }

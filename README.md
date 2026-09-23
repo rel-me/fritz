@@ -46,6 +46,25 @@ context and up to 2,048 output tokens per reply.
 Downloaded Fritz models support **Chat** mode. Select Chat above the composer
 for a project thread; use a provider with native tool support for Code mode.
 
+## Run a local model API
+
+Open **Model Providers → Local Models** (or **Models → Local Models…**) to
+see installed Fritz models. **Start** launches a separate loopback API process
+for that model; the row shows its process ID and address. **Stop** and
+**Restart** control that process. The app stops processes it started when it
+quits. Chat conversations keep their own harnesses and are unaffected by
+these API controls. The model's weights load on its first API request.
+
+For command-line use, `fritz local-models serve` listens on
+`127.0.0.1:11435` until interrupted. Pass `--port` to choose another port or
+`--model MODEL_ID` to expose only one installed model. The API supports
+`GET /api/tags`, `POST /api/chat`, and `POST /api/generate`. Chat and generate
+accept text, `stream: false` for one JSON response, or the default incremental
+NDJSON stream. `format: "json"` and `options.num_ctx` / `num_predict` are
+supported; temperature is fixed at zero. Tool calls and images are unsupported.
+The listener binds only to this Mac's loopback interface and starts only when
+requested.
+
 ## CLI
 
 ```sh
@@ -53,6 +72,7 @@ make install-cli  # symlink the bundled CLI into ~/.local/bin
 fritz --help
 fritz local-models list
 fritz local-models install qwen3-0.6b-q4_k_m
+fritz local-models serve --port 11435
 fritz add-provider --name Fritz --provider fritz --model qwen3-0.6b-q4_k_m
 fritz chat "Explain Rust ownership" --connection Fritz
 fritz providers

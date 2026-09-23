@@ -6,6 +6,7 @@ struct ProviderEditorSelection: Identifiable {
 }
 
 struct ProvidersView: View {
+    @Environment(\.openWindow) private var openWindow
     @Bindable var store: ProviderStore
     @Binding var editor: ProviderEditorSelection?
     @State private var selectedID: UUID?
@@ -24,6 +25,8 @@ struct ProvidersView: View {
                     .labelStyle(.iconOnly).disabled(selectedConnection == nil).help("Edit Provider")
                     Button("Refresh Models", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                         .labelStyle(.iconOnly).disabled(store.isLoading).help("Refresh Models")
+                    Button("Local Models", systemImage: "server.rack") { openWindow(id: "local-models") }
+                        .labelStyle(.iconOnly).help("Manage Local Models")
                 }
                 .buttonStyle(FritzButtonStyle(.floating))
                 .modifier(FritzGlassControlGroup())
