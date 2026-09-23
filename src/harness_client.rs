@@ -101,7 +101,7 @@ pub async fn chat_with_input(
                 break;
             }
             Some("cancelled") => {
-                terminal = Some(Err(anyhow::anyhow!("The coding run was cancelled.")));
+                terminal = Some(Err(anyhow::anyhow!("The run was cancelled.")));
                 break;
             }
             Some("delta" | "usage" | "activity" | "tool_start" | "tool_end") => emit(event),

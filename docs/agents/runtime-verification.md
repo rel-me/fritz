@@ -29,7 +29,7 @@ cancellation, persistence, and agent shutdown without API keys.
 real edits and commands, limits, and cancellation of child process groups.
 Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
 coding workflow against the bundled binaries.
-For native Code-mode checks, `python3 tests/coding_provider.py` provides
+For native project-tool checks, `python3 tests/coding_provider.py` provides
 `coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
 

@@ -413,11 +413,6 @@ async fn run() -> Result<()> {
                     }],
                     effort,
                     speed,
-                    mode: if project.is_some() {
-                        provider::ChatMode::Code
-                    } else {
-                        provider::ChatMode::Chat
-                    },
                     project_path: project,
                     max_turns: max_turns as usize,
                 },

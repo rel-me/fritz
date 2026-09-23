@@ -11,7 +11,7 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
 - Keep Fritz free of CEF, embedded web engines, browsing sessions, profiles, proxy management, and unrelated runtime dependencies.
 - When the user asks to copy a REL feature, you may inspect its codebase on this computer for reference; implement the feature within Fritz's own architecture.
-- Keep documentation honest about the current scope: Chat is tool-free; Code uses project file tools and noninteractive commands. Commands run with user permissions, not in an OS sandbox. Preserve cancellation, tool activity records, native tool-result history, and execution limits.
+- Keep documentation honest about the current scope: Every conversation uses one harness; attached projects provide file tools and noninteractive commands to models with native tool support. Fritz local models respond without tools. Commands run with user permissions, not in an OS sandbox. Preserve cancellation, tool activity records, native tool-result history, and execution limits.
 
 ## Build and runtime verification
 

@@ -80,7 +80,7 @@ import FritzUpdates
         XCTAssertEqual(workspace.projects.count, 1)
     }
 
-    func testProjectThreadsAlwaysUseCodeMode() throws {
+    func testProjectThreadsKeepTheirOwnWorkspace() throws {
         let root = try directory()
         let firstFolder = root.appendingPathComponent("first")
         let secondFolder = root.appendingPathComponent("second")
@@ -90,15 +90,12 @@ import FritzUpdates
         try workspace.createProject(name: "One", directory: firstFolder)
         let firstID = try XCTUnwrap(workspace.selectedThreadID)
         let first = try XCTUnwrap(workspace.selectedChat)
-        XCTAssertEqual(first.mode, .code)
         XCTAssertEqual(first.projectPath, firstFolder.resolvingSymlinksInPath().path)
         try workspace.createProject(name: "Two", directory: secondFolder)
-        XCTAssertEqual(workspace.selectedChat?.mode, .code)
         XCTAssertEqual(workspace.selectedChat?.projectPath, secondFolder.resolvingSymlinksInPath().path)
         workspace.shutdown()
         let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
         restored.select(firstID)
-        XCTAssertEqual(restored.selectedChat?.mode, .code)
         XCTAssertEqual(restored.selectedChat?.projectPath, firstFolder.resolvingSymlinksInPath().path)
     }
 

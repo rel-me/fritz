@@ -7,7 +7,7 @@
 
 A native macOS chat app with projects and their threads in the left sidebar and chat in the main window. The toolbar’s CPU button opens **Settings → Model Providers**; ⌘, opens Settings. The composer includes searchable model and provider pickers, provider category filters, status badges, and model previews.
 
-Fritz includes its own `fritz-harness` coding-agent runtime. In **Code** mode it reads project files, makes edits, runs commands, inspects the results, and continues until it can answer. **Chat** mode provides a streaming conversation without tools.
+Fritz uses one `fritz-harness` runtime for every conversation. With a project folder and a model that supports tools, it reads files, makes edits, runs commands, inspects the results, and continues until it can answer.
 
 ## Open source and shared libraries
 
@@ -45,7 +45,7 @@ The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkl
 
 The native Xcode project is `app/Fritz.xcodeproj`; its source specification is `app/project.yml`. Regenerate project structure with `xcodegen generate --spec app/project.yml`. Use the Makefile to stage the complete app with its Rust agent. `app/Package.swift` supports fast Swift builds and unit tests.
 
-Use **+ → New Project** to choose an existing folder and create its first thread. Project threads default to **Code** mode. The mode control above the composer shows whether Fritz can edit files and run commands; select **Chat** for conversation without tools. Use **New Thread** or ⌘N for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
+Use **+ → New Project** to choose an existing folder and create its first thread. Project threads give the harness access to that folder’s file and command tools. Use **New Thread** or ⌘N for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
 
 In **Settings → Model Providers**, click **Add**, choose a provider using search or the Local / Remote / Frontier / Hosted / Custom filters, and enter its API key. Models load automatically; the refresh button retries discovery. **Advanced** contains connection naming and default/manual model choices. Supported adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
 
@@ -70,8 +70,9 @@ The native runtime's licenses ship in the app; each model's license is linked in
 setup. Memory recommendations are estimates. Local chat supports an 8,192-token
 context and up to 2,048 output tokens per reply.
 
-Downloaded Fritz models support **Chat** mode. Select Chat above the composer
-for a project thread; use a provider with native tool support for Code mode.
+Downloaded Fritz models respond in any thread, including project threads,
+without file or command tools. Use a provider with native tool support for
+project actions.
 
 ## Run a local model API
 
@@ -111,7 +112,7 @@ fritz chat "Fix the failing test and verify the change" --project .
 fritz chat "Inspect the project" --project /path/to/project --max-turns 12
 ```
 
-Use **Settings → General → Command Line** to install a symlink to the CLI from `/Applications/Fritz.app` in a writable folder already in PATH. `make install-cli` remains available for a checkout-local CLI. Use `--api-key-stdin` with `add-provider` to read a key from standard input. Keys are never command-line arguments. `fritz default-provider NAME` changes the default, and `fritz remove-provider NAME` removes the connection and its saved key. The CLI shares the app’s provider settings and does not modify the app’s transcript. Without `--project`, it uses Chat mode. With `--project`, it runs the coding loop in that directory; assistant text goes to stdout and tool summaries to stderr. The selected model must support native function/tool calling for Code mode.
+Use **Settings → General → Command Line** to install a symlink to the CLI from `/Applications/Fritz.app` in a writable folder already in PATH. `make install-cli` remains available for a checkout-local CLI. Use `--api-key-stdin` with `add-provider` to read a key from standard input. Keys are never command-line arguments. `fritz default-provider NAME` changes the default, and `fritz remove-provider NAME` removes the connection and its saved key. The CLI shares the app’s provider settings and does not modify the app’s transcript. Use `--project` to attach a directory and make project tools available; without it, the harness responds without tools. Assistant text goes to stdout and tool summaries to stderr. Project actions require a model with native function/tool calling.
 
 ## Architecture and storage
 
@@ -146,7 +147,7 @@ creation never overwrites. The harness reads the project's root `AGENTS.md`
 and instructs the model to check nested guidance before editing.
 
 **Commands run with your macOS user permissions; the project directory is a
-working directory, not an OS sandbox.** Code mode is intended for trusted
+working directory, not an OS sandbox.** Project tools are intended for trusted
 projects. Commands use `/bin/bash --noprofile --norc`, a minimal environment,
 no interactive stdin, and a default 30-second timeout (maximum 120 seconds).
 Provider credentials are not passed to command environments. Background
@@ -160,7 +161,7 @@ activity before continuing. There is no automatic commit, rollback, or backgroun
 resume. Native tool history, including provider reasoning/signatures, is kept
 in memory within a run; persisted follow-ups use the transcript and tool records.
 
-Code mode uses native tool protocols for OpenAI Responses, Anthropic Messages,
+The harness uses native tool protocols for OpenAI Responses, Anthropic Messages,
 Gemini, Ollama, OpenRouter, and OpenAI-compatible services. A service/model that
 rejects tools reports an error; there is no parsing of executable commands from
 ordinary assistant prose. See [harness protocol](docs/protocol.md) for limits,

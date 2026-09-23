@@ -35,8 +35,9 @@ process, with a fresh context. The harness releases Metal resources before
 exiting. Local usage events include a `truncated` flag when the 2,048-token
 output limit is reached; context is limited to 8,192 tokens.
 
-Fritz local models support `mode: "chat"`; Code requests return a clear error
-without dispatching tools. Remote providers retain the native tool loop below.
+Fritz local models respond without tools, including in project threads.
+Remote providers use the shared model loop below, with tools when a project
+folder is attached.
 
 `fritz local-models serve` is an explicit, separate loopback API mode for
 installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
@@ -47,18 +48,20 @@ process control.
 
 ## Harness and coding runs (protocol version 2)
 
-`chat` additionally accepts `mode` (`chat`, default, or `code`), `projectPath`
-(an absolute existing directory, required for Code), and `maxTurns` (1–40,
-default 24). The app sends the directory belonging to the request's thread,
-not whichever project happens to be selected when a response arrives. The
-CLI resolves `--project` to an absolute path and enables Code mode.
+`chat` additionally accepts `projectPath` (an absolute existing directory) and
+`maxTurns` (1–40, default 24). There is no Chat/Code mode field. The app sends
+the directory belonging to the request's thread, not whichever project happens
+to be selected when a response arrives. The CLI resolves `--project` to an
+absolute path. Remote requests with a project advertise file and command tools;
+requests without a project use the same loop without tools. Unsolicited tool
+calls without a project fail before execution. Legacy `mode` fields are ignored.
 
-Both modes run in a bundled sibling executable, `fritz-harness chat`. The
+Every conversation runs in a bundled sibling executable, `fritz-harness chat`. The
 service resolves the saved provider and key, then writes exactly one NDJSON
 line to its private stdin:
 
 ```json
-{"request":{"connectionId":"UUID","model":"model-id","messages":[{"role":"user","content":"Fix the test"}],"mode":"code","projectPath":"/path/to/project","maxTurns":24},"connection":{"id":"UUID","name":"Example","provider":"openai-compatible","baseUrl":"http://localhost:8000/v1","modelId":"model-id"},"apiKey":null}
+{"request":{"connectionId":"UUID","model":"model-id","messages":[{"role":"user","content":"Fix the test"}],"projectPath":"/path/to/project","maxTurns":24},"connection":{"id":"UUID","name":"Example","provider":"openai-compatible","baseUrl":"http://localhost:8000/v1","modelId":"model-id"},"apiKey":null}
 ```
 
 `apiKey` is either null or a secret transmitted only over this pipe. Never put
@@ -87,7 +90,7 @@ The final permitted model turn cannot dispatch further tool calls.
 
 Tool definitions: `list_files`, `read_file`, `create_file`, `edit_file`, and
 `run_command`. See `src/tools.rs` for typed arguments and runtime validation.
-Code runs permit at most 64 calls and 600 seconds. Provider payloads are capped
+Runs permit at most 64 calls and 600 seconds. Provider payloads are capped
 at 2 MB, provider streams at 8 MB per turn, and private input lines at 3 MB.
 The tools enforce file and output limits documented in the README. Shells
 start a new process group; normal completion, timeout, and cancellation kill

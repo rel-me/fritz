@@ -37,7 +37,7 @@ def main():
         cli("add-provider", "--name", "Fritz", "--provider", "fritz", "--model", native_id)
         assert json.loads(cli("models", "--connection", "Fritz").stdout) == []
         assert "not installed" in cli("chat", "Hi", "--connection", "Fritz", success=False).stderr
-        assert "Chat mode only" in cli("chat", "Hi", "--connection", "Fritz", "--project", directory, success=False).stderr
+        assert "not installed" in cli("chat", "Hi", "--connection", "Fritz", "--project", directory, success=False).stderr
         assert not (Path(directory) / "Models").exists()
         assert "does not use an endpoint" in cli("add-provider", "--name", "Invalid", "--provider", "fritz", "--base-url", endpoint, success=False).stderr
         cli("remove-provider", "Fritz")
@@ -77,6 +77,8 @@ def main():
         assert receive()["type"] == "error"
         chat = send("chat", {"connectionId": connection["id"].upper(), "model": "slow-test", "messages": [{"role": "user", "content": "Hello"}]})
         event = receive()
+        while event["type"] == "activity":
+            event = receive()
         assert event["id"] == chat and event["type"] == "delta"
         cancel = send("cancel", {"requestId": chat})
         terminal = [receive(), receive()]
