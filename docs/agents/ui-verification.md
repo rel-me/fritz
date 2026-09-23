@@ -12,6 +12,8 @@ the following surfaces, include these behaviors:
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
   sidebar visibility, + menu, New Project folder selection/cancel, and Settings
   opening with Command-comma. The toolbar opens the Model Providers page in Settings.
+  Enter and exit fullscreen in light and dark appearance; the toolbar background
+  should match the workspace surround in both modes, including with the sidebar hidden.
 - **Projects and threads:** stable selection, rename, New Thread/Command-N,
   independent transcripts and drafts, model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
