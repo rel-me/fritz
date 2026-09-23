@@ -1,0 +1,209 @@
+import SwiftUI
+
+enum FritzSettingsTab: String, CaseIterable, Identifiable {
+    case general
+    case providers
+    case localModels
+    case service
+    case debug
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .providers: "Model Providers"
+        case .localModels: "Local Models"
+        case .service: "Service"
+        case .debug: "Debug"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: "gearshape"
+        case .providers: "cpu"
+        case .localModels: "server.rack"
+        case .service: "gearshape.2"
+        case .debug: "ladybug"
+        }
+    }
+}
+
+struct FritzSettingsView: View {
+    @Bindable var state: FritzState
+    @ObservedObject var updater: AppUpdater
+    @State private var editor: ProviderEditorSelection?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            List(selection: selection) {
+                ForEach(FritzSettingsTab.allCases) { tab in
+                    Label(tab.title, systemImage: tab.systemImage).tag(tab)
+                }
+            }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(FritzWindowStyle.workspaceBackground)
+            .frame(width: 205)
+
+            Divider().ignoresSafeArea(.container, edges: .top)
+
+            Group {
+                switch state.settingsTab {
+                case .general:
+                    FritzGeneralSettingsView(updater: updater)
+                case .providers:
+                    ProvidersView(store: state.providers, editor: $editor,
+                                  openLocalModels: { state.selectSettings(.localModels) })
+                case .localModels:
+                    LocalModelsView(store: state.localModels,
+                                    openProviders: { state.selectSettings(.providers) })
+                case .service:
+                    FritzServiceSettingsView(agent: state.agent)
+                case .debug:
+                    Text("Debug")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(24)
+                        .background(FritzWindowStyle.contentBackground)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(minWidth: 800, minHeight: 500)
+        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+    }
+
+    private var selection: Binding<FritzSettingsTab?> {
+        Binding(
+            get: { state.settingsTab },
+            set: { if let tab = $0 { state.selectSettings(tab) } }
+        )
+    }
+}
+
+private struct FritzGeneralSettingsView: View {
+    @ObservedObject var updater: AppUpdater
+    @AppStorage("appearance") private var appearance = AppAppearance.system.rawValue
+    @AppStorage("updateChannel") private var updateChannel = AppUpdateChannel.release.rawValue
+    @State private var installResult: CommandLineInstaller.InstallResult?
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Appearance") {
+                    Picker("Appearance", selection: $appearance) {
+                        ForEach(AppAppearance.allCases) { option in
+                            Text(option.title).tag(option.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                }
+            } header: {
+                settingsTitle("General")
+            } footer: {
+                Text("System follows the appearance selected in macOS.")
+            }
+
+            Section {
+                LabeledContent("Update Channel") {
+                    Picker("Update Channel", selection: $updateChannel) {
+                        ForEach(AppUpdateChannel.allCases) { option in
+                            Text(option.title).tag(option.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                }
+            } header: {
+                Text("Updates")
+            } footer: {
+                Text(updater.isConfigured
+                     ? "Beta includes preview releases. Dev also includes development builds."
+                     : "Updates are unavailable in this build. Beta includes preview releases; Dev also includes development builds.")
+            }
+
+            Section {
+                LabeledContent("Fritz Command Line") {
+                    Button("Install Command Line") {
+                        installResult = CommandLineInstaller().install()
+                    }
+                }
+            } header: {
+                Text("Command Line")
+            } footer: {
+                if let installResult {
+                    Label(installResult.message, systemImage: installResult.systemImage)
+                        .textSelection(.enabled)
+                } else {
+                    Text("Installs a fritz symlink in a writable folder in PATH. Fritz must be installed in /Applications.")
+                }
+            }
+        }
+        .fritzSettingsFormStyle()
+        .onChange(of: appearance) { _, value in
+            (AppAppearance(rawValue: value) ?? .system).apply(to: NSApplication.shared)
+        }
+        .onChange(of: updateChannel) { _, value in
+            updater.setUpdateChannel(AppUpdateChannel(rawValue: value) ?? .release)
+        }
+    }
+}
+
+private struct FritzServiceSettingsView: View {
+    let agent: AgentClient
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Status") {
+                    Label(agent.isRunning ? "Connected" : "Stopped",
+                          systemImage: agent.isRunning ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(agent.isRunning ? .green : .secondary)
+                }
+                LabeledContent("Connection", value: "Private stdin/stdout pipes")
+                LabeledContent("Owner", value: "Fritz.app")
+            } header: {
+                settingsTitle("Service")
+            } footer: {
+                if let error = agent.startupError {
+                    Text(error).foregroundStyle(.orange).textSelection(.enabled)
+                } else {
+                    Text("Fritz supervises its bundled agent. Each active chat uses a separate fritz-harness process.")
+                }
+            }
+        }
+        .fritzSettingsFormStyle()
+    }
+}
+
+private func settingsTitle(_ title: String) -> some View {
+    Text(title)
+        .font(.headline)
+        .foregroundStyle(.primary)
+        .accessibilityAddTraits(.isHeader)
+        .listRowBackground(Color.clear)
+}
+
+private extension CommandLineInstaller.InstallResult {
+    var message: String {
+        switch self {
+        case let .installed(url): "Installed fritz at \(url.path)."
+        case let .alreadyInstalled(url): "fritz is already installed at \(url.path)."
+        case .appNotInstalled: "Install Fritz in /Applications, then try again."
+        case .noAvailableDirectory: "No writable folder in PATH is available."
+        case let .failed(message): "Could not install fritz: \(message)"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .installed, .alreadyInstalled: "checkmark.circle.fill"
+        case .appNotInstalled, .noAvailableDirectory, .failed: "exclamationmark.triangle.fill"
+        }
+    }
+}

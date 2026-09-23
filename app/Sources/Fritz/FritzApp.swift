@@ -6,6 +6,9 @@ import SwiftUI
     let providers: ProviderStore
     let workspace: WorkspaceStore
     let localModels: LocalModelRuntimeStore
+    var settingsTab: FritzSettingsTab = {
+        FritzSettingsTab(rawValue: UserDefaults.standard.string(forKey: "FritzSettingsSelectedTab") ?? "") ?? .general
+    }()
     var isCreatingProject = false
     var editor: ProviderEditorSelection?
 
@@ -21,6 +24,10 @@ import SwiftUI
             workspace.createThread(in: project.id)
         } else { isCreatingProject = true }
     }
+    func selectSettings(_ tab: FritzSettingsTab) {
+        settingsTab = tab
+        UserDefaults.standard.set(tab.rawValue, forKey: "FritzSettingsSelectedTab")
+    }
 }
 
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
@@ -34,12 +41,37 @@ import SwiftUI
 @main struct FritzApp: App {
     @NSApplicationDelegateAdaptor(FritzAppDelegate.self) private var delegate
     @State private var state = FritzState.shared
+    @StateObject private var updater = AppUpdater(updateChannel: .saved)
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
+
+    init() {
+        AppAppearance.saved.apply(to: NSApplication.shared)
+    }
 
     var body: some Scene {
         Window("Fritz", id: "main") {
-            FritzWorkspaceView(state: state)
+            Group {
+                if updater.allowsAppUse {
+                    FritzWorkspaceView(state: state)
+                } else if let version = updater.requiredVersion {
+                    ContentUnavailableView {
+                        Label("Fritz \(version) is required", systemImage: "arrow.down.circle")
+                    } description: {
+                        Text("Install the required update to continue.")
+                    } actions: {
+                        Button("Update Fritz") { updater.checkForUpdates() }
+                    }
+                } else {
+                    ProgressView("Checking for updates…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
                 .task {
+                    updater.checkForUpdatesAtStartup()
+                }
+                .task(id: updater.allowsAppUse) {
+                    guard updater.allowsAppUse else { return }
                     state.agent.start()
                     await state.providers.refresh()
                 }
@@ -47,13 +79,19 @@ import SwiftUI
         .defaultSize(width: 1080, height: 760)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesCommand(updater: updater)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Thread") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
             }
             CommandGroup(replacing: .appSettings) {
-                Button("Model Providers…") { openWindow(id: "providers") }.keyboardShortcut(",")
+                Button("Settings…") {
+                    state.selectSettings(.general)
+                    openSettings()
+                }.keyboardShortcut(",")
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
@@ -61,26 +99,22 @@ import SwiftUI
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
             CommandMenu("Models") {
-                Button("Local Models…") { openWindow(id: "local-models") }
+                Button("Local Models…") { state.selectSettings(.localModels); openSettings() }
             }
         }
 
-        Window("Model Providers", id: "providers") {
-            ProvidersWindowContent(store: state.providers)
+        Settings {
+            FritzSettingsView(state: state, updater: updater)
+                .navigationTitle("Settings")
         }
-        .defaultSize(width: 860, height: 540)
-        .windowStyle(.hiddenTitleBar)
-        Window("Local Models", id: "local-models") {
-            LocalModelsView(store: state.localModels)
-        }
-        .defaultSize(width: 900, height: 540)
-        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 900, height: 580)
     }
 }
 
 private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var isRightPanelPresented = false
     @State private var isBottomPanelPresented = false
@@ -108,7 +142,7 @@ private struct FritzWorkspaceView: View {
                                 .font(.callout)
                                 .padding(.horizontal, 20).padding(.vertical, 14)
                                 ChatView(store: chat, providers: state.providers,
-                                         openProviders: { openWindow(id: "providers") },
+                                         openProviders: { openProviders() },
                                          addProvider: { state.editor = ProviderEditorSelection() })
                                     .id(thread.id)
                             }
@@ -159,7 +193,7 @@ private struct FritzWorkspaceView: View {
                                   createProvider: { state.editor = ProviderEditorSelection() })
             }
             ToolbarItem(placement: .principal) {
-                Button("Model Providers", systemImage: "cpu") { openWindow(id: "providers") }
+                Button("Model Providers", systemImage: "cpu") { openProviders() }
                     .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Model Providers")
             }
             ToolbarItem(placement: .primaryAction) {
@@ -192,6 +226,11 @@ private struct FritzWorkspaceView: View {
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
     }
+
+    private func openProviders() {
+        state.selectSettings(.providers)
+        openSettings()
+    }
 }
 
 private struct WorkspacePlaceholderPanel: View {
@@ -221,15 +260,5 @@ private struct WorkspacePlaceholderPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(FritzWindowStyle.contentBackground)
-    }
-}
-
-private struct ProvidersWindowContent: View {
-    let store: ProviderStore
-    @State private var editor: ProviderEditorSelection?
-    var body: some View {
-        ProvidersView(store: store, editor: $editor)
-            .frame(minWidth: 720, minHeight: 440)
-            .sheet(item: $editor) { ProviderEditor(store: store, existing: $0.connection) }
     }
 }

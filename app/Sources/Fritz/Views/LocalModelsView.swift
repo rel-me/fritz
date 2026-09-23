@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LocalModelsView: View {
     @Bindable var store: LocalModelRuntimeStore
-    @Environment(\.openWindow) private var openWindow
+    let openProviders: () -> Void
 
     private var installed: [NativeModelDescriptor] {
         NativeModelDescriptor.catalog.filter { store.installedIDs.contains($0.id) }
@@ -14,7 +14,7 @@ struct LocalModelsView: View {
                 HStack(spacing: 6) {
                     Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                         .disabled(store.isLoading).help("Refresh installed models")
-                    Button("Download Models", systemImage: "arrow.down.circle") { openWindow(id: "providers") }
+                    Button("Download Models", systemImage: "arrow.down.circle", action: openProviders)
                         .help("Open Model Providers to install models")
                 }
                 .labelStyle(.iconOnly)
@@ -26,7 +26,7 @@ struct LocalModelsView: View {
                 } description: {
                     Text("Install a Fritz model in Model Providers to start a local API session.")
                 } actions: {
-                    Button("Open Model Providers") { openWindow(id: "providers") }
+                    Button("Open Model Providers", action: openProviders)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -45,7 +45,7 @@ struct LocalModelsView: View {
                             if let address = session.address { Text(address).font(.caption).textSelection(.enabled) }
                             if let error = session.error { Text(error).font(.caption).foregroundStyle(.red).lineLimit(2).help(error) }
                         }
-                        .frame(width: 240, alignment: .leading)
+                        .frame(width: 190, alignment: .leading)
                         HStack(spacing: 6) {
                             if session.status == .running || session.status == .starting {
                                 Button("Stop") { store.stop(model.id) }
@@ -55,7 +55,7 @@ struct LocalModelsView: View {
                             }
                         }
                         .buttonStyle(FritzButtonStyle(.inline))
-                        .frame(width: 140, alignment: .trailing)
+                        .frame(width: 125, alignment: .trailing)
                     }
                     .padding(.vertical, 6)
                 }
@@ -68,7 +68,6 @@ struct LocalModelsView: View {
             }
         }
         .background(FritzWindowStyle.workspaceBackground)
-        .frame(minWidth: 760, minHeight: 440)
         .task { await store.refresh() }
     }
 

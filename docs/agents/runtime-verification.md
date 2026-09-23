@@ -18,7 +18,7 @@ For runtime changes:
 ```sh
 make test
 make check
-make build
+CONFIGURATION=release make build
 ```
 
 `make test` runs Rust tests, Swift tests, and the real CLI/agent integration
@@ -33,8 +33,10 @@ For native Code-mode checks, `python3 tests/coding_provider.py` provides
 `coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
 
-`make build` uses `scripts/build-app.sh` to stage and locally sign
-`dist/Fritz.app`, including `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`, and package resources. Both binaries are signed and verified.
+`make build` uses `scripts/build-app.sh` to stage and locally sign a
+`dist/FrizDebug{PR}.app` bundle in a branch with an open PR. Use
+`CONFIGURATION=release make build` for `dist/Fritz.app`, including
+`Contents/Resources/fritz`, `Contents/Resources/fritz-harness`, Sparkle, and package resources. Both binaries are signed and verified.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.
@@ -76,12 +78,13 @@ already running app. Verify the test provider is present before interacting.
 Keep that app running while checking the affected workflow, then quit only that
 instance and stop the mock server with Ctrl-C in its terminal.
 
-`FRITZ_DATA_DIR` isolates provider metadata, projects, threads, and drafts. It
-does **not** isolate Keychain service `dev.fritz.provider-credentials`, model
-recents in UserDefaults, or macOS window preferences. Use only newly created,
-keyless mock connections; do not exercise personal accounts. Fritz currently
-has no per-worktree bundle ID or Keychain allocator. Do not claim otherwise or
-import REL's runtime allocator.
+`FRITZ_DATA_DIR` isolates provider metadata, projects, threads, and drafts for
+the Release app. It does **not** isolate its Keychain service
+`dev.fritz.provider-credentials`, model recents in UserDefaults, or window
+preferences. Use newly created, keyless mock connections for Release app tests.
+PR Debug apps use a worktree-specific bundle ID, data directory, Keychain
+service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR` and
+`FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug identity outside the app.
 
 Local-model unit tests use small deterministic HTTP fixtures for checksums,
 interruption, cancellation, and atomic installation. CLI integration tests verify

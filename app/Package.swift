@@ -6,10 +6,12 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [.executable(name: "Fritz", targets: ["Fritz"])],
     dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
         .package(url: "https://github.com/gonzalezreal/textual", exact: "0.5.0")
     ],
     targets: [
         .executableTarget(name: "Fritz", dependencies: [
+            .product(name: "Sparkle", package: "Sparkle"),
             .product(name: "Textual", package: "textual")
         ], resources: [.copy("LocalModels.json")]),
         .testTarget(name: "FritzTests", dependencies: ["Fritz"])
