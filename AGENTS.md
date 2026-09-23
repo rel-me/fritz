@@ -8,7 +8,8 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
 - The main sidebar contains projects and their threads; Model Providers opens from the window toolbar. Preserve independent transcripts, drafts, model settings, and the selected thread across launches.
 - The app supervises its bundled `fritz --agent` through private pipes. Each chat runs in a separate bundled `fritz-harness` process. Do not add an HTTP daemon just for app communication.
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
-- Preserve separation from the source app: no CEF, embedded web engine, browsing sessions, profiles, proxy management, or REL runtime dependencies.
+- Keep Fritz free of CEF, embedded web engines, browsing sessions, profiles, proxy management, and unrelated runtime dependencies.
+- When the user asks to copy a REL feature, you may inspect its codebase on this computer for reference; implement the feature within Fritz's own architecture.
 - Keep documentation honest about the current scope: Chat is tool-free; Code uses project file tools and noninteractive commands. Commands run with user permissions, not in an OS sandbox. Preserve cancellation, tool activity records, native tool-result history, and execution limits.
 
 ## Build and runtime verification
@@ -19,7 +20,7 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
 - For runtime, agent, or packaging changes, read [runtime verification](docs/agents/runtime-verification.md). Run `make test` and `make check`, then build the staged app and exercise the affected workflow. Documentation and skill-only changes do not require an app build.
 - Use `FRITZ_DATA_DIR` with an isolated directory and `tests/mock_provider.py` for end-to-end verification. Do not use personal provider credentials for automated checks. The override isolates data files, not the Keychain namespace or UserDefaults.
 - Operate only on processes verified to belong to this checkout and test run. Never use broad process-name killing, interact with another checkout's app, or test an installed app in `/Applications`. Optimized local builds use `CONFIGURATION=release make build`; installation and distribution require a task that requests them.
-- Keep `target`, `app/.build`, `dist/DerivedData`, staged apps, and runtime data local to the checkout. Do not seed them from another worktree or copy REL's local environment files.
+- Keep `target`, `app/.build`, `dist/DerivedData`, staged apps, and runtime data local to the checkout. Do not seed them from another worktree or copy another app's local environment files.
 
 ## Native UI and documentation
 

@@ -5,7 +5,7 @@
   <img src="design/branding/FritzLogo.svg" alt="Fritz" width="360">
 </picture>
 
-A native macOS chat app extracted from REL’s chat and model interfaces. The main window uses REL’s unified toolbar and inset chat surface, with projects and their threads in the left sidebar. The toolbar’s CPU button opens **Settings → Model Providers**; ⌘, opens Settings. The composer, searchable model and provider pickers, provider category filters, status badges, model previews, and native button styling are adapted from REL.
+A native macOS chat app with projects and their threads in the left sidebar and chat in the main window. The toolbar’s CPU button opens **Settings → Model Providers**; ⌘, opens Settings. The composer includes searchable model and provider pickers, provider category filters, status badges, and model previews.
 
 Fritz includes its own `fritz-harness` coding-agent runtime. In **Code** mode it reads project files, makes edits, runs commands, inspects the results, and continues until it can answer. **Chat** mode provides a streaming conversation without tools.
 
@@ -18,13 +18,13 @@ make setup     # check tools and resolve committed dependency versions
 make dev-open
 ```
 
-In a branch with an open PR, this builds and opens `dist/FrizDebug{PR}.app`. As in REL, the PR number identifies the app in the Dock, while a hash of the worktree path gives it a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
+In a branch with an open PR, this builds and opens `dist/FrizDebug{PR}.app`. The PR number identifies the app in the Dock, while a hash of the worktree path gives it a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
 
 ## Updates
 
 Fritz includes Sparkle 2.9.6. Open **Fritz → Settings… → General** to choose **Release**, **Beta**, or **Dev**. Beta accepts beta and release items; Dev also accepts dev items. A configured build checks for updates at startup, and **Fritz → Check for Updates** opens Sparkle's update UI. A critical update blocks chat until it is installed. Settings also includes Model Providers, Local Models, bundled Service status, and Debug.
 
-The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkle build number `2`. Release builds use those values by default. Ordinary local builds have no update feed; distribution targets embed Fritz's separate Sparkle public key and `https://fritz.rel.me/appcast.xml`. The private key remains in the macOS Keychain under the `fritz` Sparkle account.
+The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkle build number `2`. Release builds use those values by default. Ordinary local builds have no update feed; distribution targets embed Fritz's Sparkle public key and the feed URL configured in `scripts/release-config.sh`. The private key remains in the macOS Keychain under the `fritz` Sparkle account.
 
 `make beta` builds the Developer ID signed app, creates and notarizes `dist/updates/Fritz-0.1.1.dmg`, signs the beta appcast, and publishes both through Fritz's own Cloudflare Worker and R2 bucket. If a signed local beta is already prepared, rerunning `make beta` resumes publication without rebuilding or notarizing. `make publish-beta` also publishes that prepared beta. After testing, `make promote` publishes the same artifact on the Release channel by updating the appcast. See [the release procedure](docs/agents/releases.md) for one-time Cloudflare setup, credentials, verification, and version bumps.
 
@@ -46,8 +46,7 @@ and installed models become available in the chat model picker. Edit the Fritz
 provider to download another model. Removing a provider leaves downloaded weights
 available for reuse.
 
-The catalog and installer are adapted from REL, with Fritz's own storage and
-private agent transport. Downloads are pinned to repository revisions, file sizes,
+Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run offline inside the per-chat Rust harness using
 llama.cpp and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
 models or sending a chat never starts a download. Weights live under
@@ -108,10 +107,10 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `~/Library/Application Support/Fritz/Data/providers.json`: versioned, non-secret provider metadata. Writes are atomic and locked across processes.
 - `~/Library/Application Support/Fritz/Data/workspace.json`: project folders, thread names and identities, and the selected thread.
 - `~/Library/Application Support/Fritz/Data/Threads/`: independent thread transcripts and preferences. Tool activity is retained with each assistant message. Interrupted prose is omitted from future context unless it has tool records; in that case the next turn receives the activity and an interruption notice so it can inspect current state before retrying. An existing `chat.json` is imported once into a **Chats** project and kept as a recovery copy.
-- API keys live in macOS Keychain under `dev.fritz.provider-credentials`. Fritz does not read REL’s configuration or credentials. Changing an endpoint requires entering a key again.
+- API keys live in macOS Keychain under `dev.fritz.provider-credentials`. Changing an endpoint requires entering a key again.
 - `FRITZ_DATA_DIR` overrides data storage for isolated development and tests. Model recents use Fritz’s UserDefaults domain.
 
-The app has no embedded web engine or browser runtime. Only the selected chat/provider components are included; the Rust runtime is independent of REL and its tools.
+The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and coding tools.
 
 ## Coding-agent behavior
 
@@ -168,6 +167,6 @@ The Codex environment in [.codex/environments/environment.toml](.codex/environme
 provides worktree setup and Run Fritz, Build, Test, and Check actions.
 [AGENTS.md](AGENTS.md) documents the architecture and development rules.
 The repository includes five [native development skills](docs/agents/skills.md)
-adapted from REL for SwiftUI implementation/review, macOS design, concurrency,
+for SwiftUI implementation/review, macOS design, concurrency,
 and builds/AppKit. See [runtime verification](docs/agents/runtime-verification.md)
 and [UI verification](docs/agents/ui-verification.md) for local testing.

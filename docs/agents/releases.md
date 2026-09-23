@@ -1,10 +1,9 @@
 # Fritz releases
 
-Fritz has its own release identity: bundle ID `dev.fritz.app`, Sparkle Keychain
-account `fritz`, custom domain `fritz.rel.me`, and R2 bucket `fritz-updates`.
-REL's update key, website, bucket, and appcast are not used. The same Apple
-Developer team may notarize both apps; `FRITZ_NOTARY_PROFILE` defaults to the
-existing `REL` notarytool profile and can be overridden.
+Fritz's release identity uses bundle ID `dev.fritz.app`, Sparkle Keychain
+account `fritz`, the custom domain configured in `website/wrangler.jsonc`,
+and R2 bucket `fritz-updates`. The Apple notarization profile is configured
+through `FRITZ_NOTARY_PROFILE` in `scripts/release-config.sh`.
 
 ## One-time setup
 
@@ -28,18 +27,19 @@ npx wrangler r2 bucket create fritz-updates
 ```
 
 The first `make beta` deploys `website/worker.mjs` to the custom domain in
-`website/wrangler.jsonc`. The Cloudflare account must own the `rel.me` zone and
-permit custom domains for Workers. Confirm `https://fritz.rel.me` resolves
+`website/wrangler.jsonc`. The Cloudflare account must own the configured zone and
+permit custom domains for Workers. Confirm the configured hostname resolves
 after that deployment. The Worker serves the appcast from R2 with `no-store` and
 versioned DMGs with immutable caching and byte-range support.
 
 `FRITZ_CODE_SIGN_IDENTITY` defaults to the Fritz team's Developer ID
-Application certificate. `FRITZ_NOTARY_PROFILE` defaults to `REL`, which is an
-Apple notarization credential, not a REL app credential. Check access before
-building:
+Application certificate. Check access to the configured notarization profile
+before building:
 
 ```sh
-xcrun notarytool history --keychain-profile REL
+FRITZ_DISTRIBUTION=1
+source scripts/release-config.sh
+xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE"
 ```
 
 ## Beta and promotion
