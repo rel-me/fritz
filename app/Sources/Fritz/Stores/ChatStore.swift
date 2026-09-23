@@ -199,8 +199,8 @@ private struct ChatPreferences: Codable {
 
 enum FritzPaths {
     static var data: URL {
-        if let configured = ProcessInfo.processInfo.environment["FRITZ_DATA_DIR"]
-            ?? Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
+        if let configured = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String
+            ?? ProcessInfo.processInfo.environment["FRITZ_DATA_DIR"] {
             return URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath)
         }
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Fritz/Data")
