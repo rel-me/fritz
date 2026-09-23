@@ -155,9 +155,23 @@ pub fn update(f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
 
 const KEYCHAIN_SERVICE: &str = "dev.fritz.provider-credentials";
 
+fn keychain_service() -> String {
+    std::env::var("FRITZ_KEYCHAIN_SERVICE")
+        .ok()
+        .filter(|value| {
+            value.starts_with("dev.fritz.provider-credentials.")
+                && value.len() <= 100
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
+        })
+        .unwrap_or_else(|| KEYCHAIN_SERVICE.to_owned())
+}
+
 #[cfg(target_os = "macos")]
 pub fn key(id: Uuid) -> Result<Option<String>> {
-    match security_framework::passwords::get_generic_password(KEYCHAIN_SERVICE, &id.to_string()) {
+    match security_framework::passwords::get_generic_password(&keychain_service(), &id.to_string())
+    {
         Ok(bytes) => Ok(Some(String::from_utf8(bytes)?)),
         Err(e) if e.code() == -25300 => Ok(None),
         Err(e) => Err(e).context("Could not read the provider key from Keychain."),
@@ -169,7 +183,7 @@ pub fn set_key(id: Uuid, value: &str) -> Result<()> {
         return Ok(());
     }
     security_framework::passwords::set_generic_password(
-        KEYCHAIN_SERVICE,
+        &keychain_service(),
         &id.to_string(),
         value.as_bytes(),
     )
@@ -177,8 +191,10 @@ pub fn set_key(id: Uuid, value: &str) -> Result<()> {
 }
 #[cfg(target_os = "macos")]
 pub fn delete_key(id: Uuid) -> Result<()> {
-    match security_framework::passwords::delete_generic_password(KEYCHAIN_SERVICE, &id.to_string())
-    {
+    match security_framework::passwords::delete_generic_password(
+        &keychain_service(),
+        &id.to_string(),
+    ) {
         Ok(()) => Ok(()),
         Err(e) if e.code() == -25300 => Ok(()),
         Err(e) => Err(e).context("Could not delete the provider key from Keychain."),

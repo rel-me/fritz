@@ -10,13 +10,15 @@ relevant light/dark, empty, populated, loading, and error states. For changes to
 the following surfaces, include these behaviors:
 
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
-  sidebar visibility, + menu, New Project folder selection/cancel, and Providers
-  opening from the toolbar and Command-comma.
+  sidebar visibility, + menu, New Project folder selection/cancel, and Settings
+  opening with Command-comma. The toolbar opens the Model Providers page in Settings.
 - **Projects and threads:** stable selection, rename, New Thread/Command-N,
   independent transcripts and drafts, model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown/code rendering, scrolling,
   error feedback, and switching threads while a response streams.
+- **Settings:** General appearance, update channel, CLI install feedback, Model
+  Providers selection, Service status, and Debug page navigation.
 - **Providers:** category filters, add/edit/cancel, field labels, discovery and
   refresh, default/manual model choices, validation, and connection errors.
 

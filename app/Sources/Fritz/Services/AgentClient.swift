@@ -39,8 +39,13 @@ struct AgentEvent: Decodable, Sendable {
         process.executableURL = executable
         process.arguments = ["--agent"]
         var environment = ProcessInfo.processInfo.environment
+        environment.removeValue(forKey: "FRITZ_KEYCHAIN_SERVICE")
         if let dataDirectory = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
             environment["FRITZ_DATA_DIR"] = NSString(string: dataDirectory).expandingTildeInPath
+        }
+        if let service = Bundle.main.object(forInfoDictionaryKey: "FritzKeychainService") as? String,
+           !service.isEmpty {
+            environment["FRITZ_KEYCHAIN_SERVICE"] = service
         }
         process.environment = environment
         let stdin = Pipe(), stdout = Pipe()
