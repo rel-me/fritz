@@ -1,4 +1,4 @@
-.PHONY: setup build run dev-open test test-runtime test-swift check install-cli update-archive appcast beta publish-beta promote
+.PHONY: setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -22,6 +22,9 @@ test-runtime:
 test-swift:
 	swift test
 	swift test --package-path app
+
+check-ui-snapshots:
+	./scripts/check-ui-snapshots.sh
 
 check:
 	cargo fmt --all --check

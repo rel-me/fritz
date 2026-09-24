@@ -25,6 +25,9 @@ inference and coding tools. The app's executable module is **FritzApp**; the
 product remains **Fritz.app**. See [the library guide](docs/libraries.md) for
 Git dependency examples, public APIs, ownership and the planned REL adoption.
 
+For shared UI visual regression checks, run `make check-ui-snapshots`. See
+[UI verification](docs/agents/ui-verification.md) for coverage and reference review.
+
 ## Build and run
 
 Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.

@@ -4,7 +4,7 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
 
 ## Product and architecture
 
-- Shared Swift APIs live in `Sources/Fritz`, `Sources/FritzState`, and `Sources/FritzUpdates`; the app module
+- Shared Swift APIs live in `Sources/Fritz`, `Sources/FritzUI`, `Sources/FritzState`, and `Sources/FritzUpdates`; the app module
   `FritzApp` lives in `app/Sources/Fritz`. Rust owns provider networking, model discovery, saved credentials, and the `fritz` CLI in `src`.
   Reusable Rust SQLite infrastructure lives in `crates/fritz-state`.
 - The main sidebar contains projects and their threads; Model Providers opens from the window toolbar. Preserve independent transcripts, drafts, model settings, and the selected thread across launches.

@@ -11,10 +11,15 @@ let package = Package(
         .library(name: "FritzUpdates", targets: ["FritzUpdates"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/gabriel/swiftui-snapshot-testing", exact: "0.1.12"),
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
     ],
     targets: [
         .target(name: "FritzUI"),
+        .testTarget(name: "FritzUISnapshotTests", dependencies: [
+            "FritzUI",
+            .product(name: "SwiftUISnapshotTesting", package: "swiftui-snapshot-testing"),
+        ], path: "tests/FritzUISnapshotTests", exclude: ["__Snapshots__"]),
         .testTarget(name: "FritzUITests", dependencies: ["FritzUI"], path: "tests/FritzUITests"),
         .target(name: "FritzState", linkerSettings: [.linkedLibrary("sqlite3")]),
         .testTarget(name: "FritzStateTests", dependencies: ["FritzState"], path: "tests/FritzStateTests"),
