@@ -47,6 +47,8 @@ rendered surface through its `assertSnapshot(view:device:)` API. This captures t
 compares the pixels; it does not replace controls with stand-ins. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
 indicators, with synthetic model/provider values and no network or credentials.
+The harness also pins each AppKit scroll view to overlay scrollers: hiding
+indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
 
 Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
 same command and uploads mismatches from `dist/snapshot-failures`. Ordinary

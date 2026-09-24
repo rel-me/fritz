@@ -185,6 +185,18 @@ final class SharedControlSnapshots: XCTestCase {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
         window.layoutIfNeeded()
         host.layoutSubtreeIfNeeded()
+        // SwiftUI hides the scroller but legacy AppKit style still reserves a
+        // 17-point gutter. Pin the fixture instead of inheriting macOS settings.
+        func normalizeScrollers(in view: NSView) {
+            if let scrollView = view as? NSScrollView {
+                scrollView.scrollerStyle = .overlay
+            }
+            view.subviews.forEach { normalizeScrollers(in: $0) }
+        }
+        normalizeScrollers(in: host)
+        host.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+        host.layoutSubtreeIfNeeded()
         host.displayIfNeeded()
         let bitmap = try XCTUnwrap(NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
