@@ -197,7 +197,8 @@ public struct ModelPickerPopover<Value>: View {
     ModelPickerData<Value>.sections(
       from: models,
       recentModels: recentModels,
-      providerOrder: modelProviders
+      providerOrder: modelProviders,
+      selectedModelID: selectedModelID
     )
   }
 

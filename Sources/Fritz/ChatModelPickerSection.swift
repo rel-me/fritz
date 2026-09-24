@@ -13,6 +13,7 @@ public struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
         from models: [ChatModelOption],
         recentModels: [ChatModelOption],
         providerOrder: [AIProviderKind],
+        selectedModelID: String? = nil,
         recentLimit: Int = 5,
         providerLimit: Int = 5
     ) -> [Self] {
@@ -20,7 +21,10 @@ public struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
         let availableModelIDs = Set(models.map(\.id))
         let visibleRecentModels = Array(
             recentModels.lazy
-                .filter { availableModelIDs.contains($0.id) }
+                .filter {
+                    availableModelIDs.contains($0.id)
+                        && $0.id != selectedModelID
+                }
                 .prefix(max(0, recentLimit))
         )
         if !visibleRecentModels.isEmpty {
