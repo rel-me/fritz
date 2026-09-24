@@ -32,6 +32,25 @@ permit custom domains for Workers. Confirm the configured hostname resolves
 after that deployment. The Worker serves the appcast from R2 with `no-store` and
 versioned DMGs with immutable caching and byte-range support.
 
+## Home page
+
+The home page is static: `website/public/` is published as the Worker's static
+assets, which answer before the Worker code. `_headers` sets its Content
+Security Policy, so keep scripts and styles in separate files. `/download`
+redirects to the newest Release DMG in the appcast, or the newest Beta before a
+Release exists; the page reads the same appcast to label the version. The raven,
+favicon, touch icon, and social card come from `design/branding/export.py`.
+
+`make beta`, `make publish-beta`, and `make promote` deploy the current page
+with the Worker. Run `npm --prefix website test` after editing it. To preview
+locally, seed the local bucket and start Wrangler; nothing is uploaded:
+
+```sh
+cd website
+npx wrangler r2 object put fritz-updates/appcast.xml --local --file=../dist/updates/appcast.xml
+npx wrangler dev --local
+```
+
 `FRITZ_CODE_SIGN_IDENTITY` defaults to the Fritz team's Developer ID
 Application certificate. Check access to the configured notarization profile
 before building:
