@@ -37,7 +37,7 @@ make setup     # check tools and resolve committed dependency versions
 make dev-open
 ```
 
-In a branch with an open PR, this builds and opens `dist/FrizDebug{PR}.app`. The PR number identifies the app in the Dock, while a hash of the worktree path gives it a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
+`make dev-open` builds and opens `dist/FritzDebug.app`. A hash of the worktree path gives it a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
 
 ## Updates
 

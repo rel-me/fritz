@@ -34,7 +34,7 @@ For native project-tool checks, `python3 tests/coding_provider.py` provides
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
-`dist/FrizDebug{PR}.app` bundle in a branch with an open PR. Use
+`dist/FritzDebug.app` bundle without requiring a branch or open PR. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`, Sparkle, and package resources. Both binaries are signed and verified.
 Inspect that artifact for packaging failures; a raw Swift executable omits
