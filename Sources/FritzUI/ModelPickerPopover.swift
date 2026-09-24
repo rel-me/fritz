@@ -122,7 +122,7 @@ public struct ModelPickerPopover<Value>: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(Color.accentColor, in: Capsule())
+            .background(.tint, in: Capsule())
         }
         .buttonStyle(FritzButtonStyle(.inline))
         .help("Open Model Providers")
