@@ -26,7 +26,7 @@ final class SharedControlSnapshots: XCTestCase {
     }
 
     func testModelPickerPopulated() throws {
-        try snapshot(modelPicker(models: Array(models.prefix(3)), recent: [models[0]]),
+        try snapshot(modelPicker(models: Array(models.prefix(3)), recent: [models[0], models[1]]),
                      name: "model-populated", size: .init(width: 440, height: 380))
     }
 

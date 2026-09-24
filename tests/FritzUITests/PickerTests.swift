@@ -26,6 +26,16 @@ final class PickerTests: XCTestCase {
     XCTAssertNotEqual(sections.first?.id, sections.last?.id)
   }
 
+  func testSectionsExcludeSelectedModelFromRecents() {
+    let models = [model("selected"), model("other")]
+    let sections = ModelPickerData.sections(
+      from: models, recentModels: models, providerOrder: ["rel"],
+      selectedModelID: "selected")
+
+    XCTAssertEqual(sections.first?.id, .recent)
+    XCTAssertEqual(sections.first?.models.map(\.id), ["other"])
+  }
+
   func testRecommendationsPreserveSelectionAndBalanceHostGroups() {
     let models = [
       model("local"), model("jev", group: "jev"), model("cloud", group: "openai"),
