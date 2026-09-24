@@ -22,12 +22,15 @@ public enum ModelPickerData<Value> {
 
   public static func sections(
     from models: [ModelPickerItem<Value>], recentModels: [ModelPickerItem<Value>],
-    providerOrder: [String], recentLimit: Int = 5, providerLimit: Int = 5
+    providerOrder: [String], selectedModelID: String? = nil,
+    recentLimit: Int = 5, providerLimit: Int = 5
   ) -> [ModelPickerSection<Value>] {
     var sections: [ModelPickerSection<Value>] = []
     let available = Set(models.map(\.id))
     let recent = Array(
-      recentModels.filter { available.contains($0.id) }.prefix(max(0, recentLimit)))
+      recentModels.filter {
+        available.contains($0.id) && $0.id != selectedModelID
+      }.prefix(max(0, recentLimit)))
     if !recent.isEmpty { sections.append(.init(id: .recent, title: "Recent", models: recent)) }
     for provider in providers(from: models, providerOrder: providerOrder) {
       let visible = Array(
