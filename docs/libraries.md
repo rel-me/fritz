@@ -217,11 +217,13 @@ It prepares common infrastructure without changing REL in this repository:
 
 - Adopt `Fritz` for provider/model metadata and CLI installation, retaining REL's
   endpoint and wire-model adapters where they differ.
-- Adopt `FritzUpdates` for the shared Sparkle lifecycle after migrating the
-  stored channel value and preserving REL's feed and signing key.
+- Adopt `FritzUI` for picker presentation and native control styles through
+  host-owned presentation values. REL keeps its existing updater; do not adopt
+  `FritzUpdates` as part of this integration.
 - Adopt Rust model storage and inference with REL-owned data and Keychain paths.
 - Keep REL's browser engine, browser tools, HTTP agent transport and application
-  persistence in REL. Keep Fritz's project/thread stores and views in FritzApp.
+  persistence in REL. Keep Fritz's project/thread stores and app-specific views
+  in FritzApp.
 
 REL must reconcile protocol and model-catalog differences during its later
 migration; this change does not assert drop-in compatibility for either entire

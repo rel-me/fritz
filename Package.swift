@@ -5,6 +5,7 @@ let package = Package(
     name: "Fritz",
     platforms: [.macOS(.v15)],
     products: [
+        .library(name: "FritzUI", targets: ["FritzUI"]),
         .library(name: "FritzState", targets: ["FritzState"]),
         .library(name: "Fritz", targets: ["Fritz"]),
         .library(name: "FritzUpdates", targets: ["FritzUpdates"]),
@@ -13,6 +14,8 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
     ],
     targets: [
+        .target(name: "FritzUI"),
+        .testTarget(name: "FritzUITests", dependencies: ["FritzUI"], path: "tests/FritzUITests"),
         .target(name: "FritzState", linkerSettings: [.linkedLibrary("sqlite3")]),
         .testTarget(name: "FritzStateTests", dependencies: ["FritzState"], path: "tests/FritzStateTests"),
         .target(name: "Fritz", resources: [.copy("LocalModels.json")]),

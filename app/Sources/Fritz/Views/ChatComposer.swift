@@ -1,3 +1,4 @@
+import FritzUI
 import Fritz
 // Adapted from REL’s native composer and model picker.
 import SwiftUI
@@ -287,10 +288,7 @@ struct ChatModelPickerPopover: View {
     let selectedModelID: String?
     let selectModel: (ChatModelOption) -> Void
     let configureModels: () -> Void
-    @State private var searchText = ""
-    @State private var selectedProvider: AIProviderPreset?
-    @State private var hoveredProviderFilterID: String?
-    @FocusState private var isSearchFocused: Bool
+    let initialSearchText: String
 
     init(
         models: [ChatModelOption],
@@ -307,308 +305,29 @@ struct ChatModelPickerPopover: View {
         self.selectedModelID = selectedModelID
         self.selectModel = selectModel
         self.configureModels = configureModels
-        _searchText = State(initialValue: initialSearchText)
+        self.initialSearchText = initialSearchText
     }
 
     var body: some View {
-        let showsUnfilteredSections = query.isEmpty && selectedProvider == nil
-        let sections = showsUnfilteredSections ? unfilteredSections : []
-        let visibleModels = showsUnfilteredSections
-            ? sections.flatMap(\.models)
-            : filteredModels
-        let showsSourceName = Set(
-            visibleModels.map { $0.displayProvider.displayName }
-        ).count > 1
-
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                TextField("Search models", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.body)
-                    .focused($isSearchFocused)
-                Button("Clear search", systemImage: "xmark.circle.fill") {
-                    searchText = ""
-                    isSearchFocused = true
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(FritzButtonStyle(.inline))
-                .foregroundStyle(.secondary)
-                .opacity(searchText.isEmpty ? 0 : 1)
-                .disabled(searchText.isEmpty)
-                .accessibilityHidden(searchText.isEmpty)
-            }
-            .padding(12)
-            .fixedSize(horizontal: false, vertical: true)
-
-            ModelProviderFlowLayout(spacing: 6) {
-                ForEach(ChatModelPickerSection.displayProviders(from: models, providerOrder: modelProviders)) { provider in
-                    let filterID = provider.id
-                    let isSelected = selectedProvider == provider
-                    let isHovered = hoveredProviderFilterID == filterID
-
-                    Button {
-                        selectedProvider = isSelected ? nil : provider
-                    } label: {
-                        Text(provider.displayName)
-                            .font(.callout)
-                            .foregroundStyle(isSelected ? .primary : .secondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                isSelected
-                                    ? ChatVisualStyle.modelPickerSelectionFill
-                                    : isHovered
-                                        ? ChatVisualStyle.subtleFill
-                                        : ChatVisualStyle.quieterFill,
-                                in: Capsule()
-                            )
-                            .overlay {
-                                Capsule()
-                                    .stroke(
-                                        isSelected ? ChatVisualStyle.hairline : Color.clear
-                                    )
-                            }
-                    }
-                    .buttonStyle(FritzButtonStyle(.inline))
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    .accessibilityIdentifier("chat-model-provider-filter-\(filterID)")
-                    .help(
-                        isSelected
-                            ? "Show models from all providers"
-                            : "Show only \(provider.displayName) models"
-                    )
-                    .onHover { hovering in
-                        if hovering {
-                            hoveredProviderFilterID = filterID
-                        } else if hoveredProviderFilterID == filterID {
-                            hoveredProviderFilterID = nil
-                        }
-                    }
-                }
-
-                Button(action: configureModels) {
-                    Text("Open Models")
-                        .font(.callout)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.accentColor, in: Capsule())
-                }
-                .buttonStyle(FritzButtonStyle(.inline))
-                .help("Open Model Providers")
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    if showsUnfilteredSections {
-                        ForEach(sections) { section in
-                            let sectionShowsSourceName = Set(
-                                section.models.map { $0.displayProvider.displayName }
-                            ).count > 1
-
-                            // Keep repeated recent/provider models in separate identity scopes.
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(section.title)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .accessibilityAddTraits(.isHeader)
-
-                                ForEach(section.models) { model in
-                                    ChatModelPickerListRow(
-                                        model: model,
-                                        selectedModelID: selectedModelID,
-                                        showsSourceName: sectionShowsSourceName,
-                                        selectModel: selectModel
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        ForEach(visibleModels) { model in
-                            ChatModelPickerListRow(
-                                model: model,
-                                selectedModelID: selectedModelID,
-                                showsSourceName: showsSourceName,
-                                selectModel: selectModel
-                            )
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 4)
-            .overlay {
-                if visibleModels.isEmpty {
-                    Text("No results")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .frame(width: 440, height: 380)
-        .background(ChatVisualStyle.composerBackground)
-        .onAppear {
-            isSearchFocused = true
-        }
-    }
-
-    private var query: String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var unfilteredSections: [ChatModelPickerSection] {
-        ChatModelPickerSection.unfiltered(
-            from: models,
-            recentModels: recentModels,
-            providerOrder: modelProviders
+        FritzUI.ModelPickerPopover(
+            models: models.map(Self.item), recentModels: recentModels.map(Self.item),
+            modelProviders: (modelProviders + AIProviderKind.allCases).map(\.rawValue),
+            selectedModelID: selectedModelID,
+            selectModel: { selectModel($0.value) }, configureModels: configureModels,
+            recommendationLimit: 8, initialSearchText: initialSearchText
         )
+        .fritzPickerStyle(PickerStyle(background: ChatVisualStyle.composerBackground))
     }
 
-    private var filteredModels: [ChatModelOption] {
-        let providerModels: [ChatModelOption]
-        if let selectedProvider {
-            providerModels = models.filter { $0.displayProvider == selectedProvider }
-        } else {
-            providerModels = models
-        }
-
-        guard !query.isEmpty else {
-            return ChatModelOption.balancedPickerRecommendations(
-                from: providerModels,
-                providerOrder: selectedProvider.map { [$0.provider] } ?? modelProviders,
-                selectedModelID: selectedModelID,
-                limit: 8
-            )
-        }
-        return providerModels.filter { model in
-            model.displayName.localizedStandardContains(query)
-                || model.modelID.localizedStandardContains(query)
-                || model.displayProvider.displayName.localizedStandardContains(query)
-                || model.connectionName?.localizedStandardContains(query) == true
-        }
-    }
-}
-
-private struct ModelProviderFlowLayout: Layout {
-    let spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        arrangement(width: proposal.width, subviews: subviews).size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let layout = arrangement(width: bounds.width, subviews: subviews)
-        for (subview, origin) in zip(subviews, layout.origins) {
-            subview.place(
-                at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
-                anchor: .topLeading,
-                proposal: .unspecified
-            )
-        }
-    }
-
-    private func arrangement(width: CGFloat?, subviews: Subviews) -> (size: CGSize, origins: [CGPoint]) {
-        let availableWidth = width ?? .infinity
-        var origins: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var contentWidth: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > availableWidth {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            origins.append(CGPoint(x: x, y: y))
-            contentWidth = max(contentWidth, x + size.width)
-            x += size.width + spacing
-            rowHeight = max(rowHeight, size.height)
-        }
-        return (CGSize(width: availableWidth.isFinite ? availableWidth : contentWidth, height: y + rowHeight), origins)
-    }
-}
-
-private struct ChatModelPickerListRow: View {
-    @Environment(\.dismiss) private var dismiss
-    let model: ChatModelOption
-    let selectedModelID: String?
-    let showsSourceName: Bool
-    let selectModel: (ChatModelOption) -> Void
-
-    var body: some View {
-        Button(action: select) {
-            ChatModelPickerRow(
-                model: model,
-                isSelected: model.id == selectedModelID,
-                showsSourceName: showsSourceName
-            )
-        }
-        .buttonStyle(FritzButtonStyle(.inline))
-        .accessibilityAddTraits(model.id == selectedModelID ? .isSelected : [])
-    }
-
-    private func select() {
-        selectModel(model)
-        dismiss()
-    }
-}
-
-private struct ChatModelPickerRow: View {
-    let model: ChatModelOption
-    let isSelected: Bool
-    let showsSourceName: Bool
-    @State private var isHovered = false
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(model.displayName)
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            Spacer(minLength: 12)
-
-            if model.verification == .compatible {
-                Image(systemName: "wrench.and.screwdriver")
-                    .foregroundStyle(.secondary)
-                    .help("Provider reports tool compatibility; not yet Fritz verified")
-                    .accessibilityLabel("Tool compatible, not Fritz verified")
-            }
-
-            if showsSourceName {
-                Text(model.displayProvider.displayName)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Image(systemName: "checkmark")
-                .font(.body.weight(.semibold))
-                .opacity(isSelected ? 1 : 0)
-                .accessibilityHidden(true)
-        }
-        .font(.body)
-        .foregroundStyle(.primary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            isSelected
-                ? ChatVisualStyle.modelPickerSelectionFill
-                : isHovered ? ChatVisualStyle.subtleFill : Color.clear,
-            in: RoundedRectangle(cornerRadius: 10)
-        )
-        .contentShape(Rectangle())
-        .onHover { isHovered = $0 }
+    static func item(_ model: ChatModelOption) -> ModelPickerItem<ChatModelOption> {
+        .init(id: model.id, value: model, displayName: model.displayName, modelID: model.modelID,
+              provider: .init(id: model.displayProvider.id, displayName: model.displayProvider.displayName,
+                              groupID: model.provider.rawValue),
+              sourceName: model.connectionName, isRecommended: model.capabilities.isRecommendedInChatPicker,
+              badge: model.verification == .compatible ? .init(
+                systemImage: "wrench.and.screwdriver",
+                help: "Provider reports tool compatibility; not yet Fritz verified",
+                accessibilityLabel: "Tool compatible, not Fritz verified"
+              ) : nil)
     }
 }

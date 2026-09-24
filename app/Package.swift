@@ -13,6 +13,7 @@ let package = Package(
         .executableTarget(name: "FritzApp", dependencies: [
             .product(name: "FritzState", package: "Fritz"),
             .product(name: "Fritz", package: "Fritz"),
+            .product(name: "FritzUI", package: "Fritz"),
             .product(name: "FritzUpdates", package: "Fritz"),
             .product(name: "Textual", package: "textual"),
         ], path: "Sources/Fritz"),
