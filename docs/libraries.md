@@ -59,6 +59,52 @@ starting update checks and calling `setUpdateChannel`. There are no implicit
 UserDefaults reads. Sparkle feed/signing configuration remains in the host app's
 Info.plist.
 
+## Shared macOS views
+
+The `FritzUI` product provides SwiftUI controls without depending on Fritz's
+provider protocols, stores, transport, updater, or persistence. Both the Fritz
+app and REL consume the same views. Add `.product(name: "FritzUI", package: "fritz")`
+to the host target and `import FritzUI` where needed.
+
+- `FritzButtonStyle`, `FritzGlassControlGroup`, `FritzPanelIconControl`, and
+  `fritzButtonSize(_:)` preserve native button roles, keyboard activation,
+  control sizing, and availability of Liquid Glass.
+- `ModelPickerPopover<Value>` supplies model search, wrapping provider filters,
+  recent/provider sections, selected-row accessibility, and dismissal after
+  selection. `ModelPickerItem<Value>` carries the original host value plus
+  display metadata; selection returns that item without changing its identity.
+- `ProviderPicker<Value>` supplies the labeled popover control;
+  `ProviderPickerContent<Value>` exposes its contents for embedded surfaces and
+  previews. Hosts supply providers, categories, local badges, and selection.
+- `ModelPickerData` and `ProviderPickerData` expose the view's filtering and
+  grouping rules for host tests. Adapter group IDs are separate from displayed
+  provider IDs, so Bedrock can remain a distinct filter while sharing an adapter.
+- `fritzPickerStyle(_:)` overrides the picker palette. Badge help and accessibility
+  labels are supplied by the host, preserving each application's branding.
+
+```swift
+import FritzUI
+
+let provider = PickerProvider(id: "my-provider", displayName: "My Provider", groupID: "compatible")
+let item = ModelPickerItem(id: "connection:model", value: "my-saved-model-id",
+                           displayName: "My Model", modelID: "model-v1", provider: provider)
+ModelPickerPopover(models: [item], recentModels: [], modelProviders: ["compatible"],
+                   selectedModelID: item.id, selectModel: { item in
+    // Persist or route item.value in the host application.
+}, configureModels: {
+    // Open the host's provider settings.
+})
+```
+
+The host owns discovery, loading/error states around the picker, persisted recent
+selections, reasoning/speed options, and the popover's presenting scene. The
+shared picker owns only transient search, category/filter selection, hover, and
+focus. IDs must be unique within the supplied model/provider list; a recent model
+may also appear in its provider section because each section has its own identity.
+Supply every filter category shown by the provider picker, including `.all`.
+Model/provider lists remain in host order before the documented grouping or
+alphabetical provider search. The library never starts processes or reads settings.
+
 ## SQLite state
 
 `FritzState.StateDatabase` takes an explicit file URL, ordered SQL migration
@@ -171,11 +217,13 @@ It prepares common infrastructure without changing REL in this repository:
 
 - Adopt `Fritz` for provider/model metadata and CLI installation, retaining REL's
   endpoint and wire-model adapters where they differ.
-- Adopt `FritzUpdates` for the shared Sparkle lifecycle after migrating the
-  stored channel value and preserving REL's feed and signing key.
+- Adopt `FritzUI` for picker presentation and native control styles through
+  host-owned presentation values. REL keeps its existing updater; do not adopt
+  `FritzUpdates` as part of this integration.
 - Adopt Rust model storage and inference with REL-owned data and Keychain paths.
 - Keep REL's browser engine, browser tools, HTTP agent transport and application
-  persistence in REL. Keep Fritz's project/thread stores and views in FritzApp.
+  persistence in REL. Keep Fritz's project/thread stores and app-specific views
+  in FritzApp.
 
 REL must reconcile protocol and model-catalog differences during its later
 migration; this change does not assert drop-in compatibility for either entire

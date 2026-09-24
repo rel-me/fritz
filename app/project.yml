@@ -30,6 +30,8 @@ targets:
       - package: Fritz
         product: Fritz
       - package: Fritz
+        product: FritzUI
+      - package: Fritz
         product: FritzUpdates
       - package: Fritz
         product: FritzState

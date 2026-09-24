@@ -17,12 +17,16 @@ allowed under the license's source-sharing requirements. Third-party dependencie
 vendored material and model weights retain their respective licenses.
 
 The repository root is a Swift package exposing **Fritz** (provider/model
-metadata, private-pipe transport, appearance and CLI installation) and
+metadata, private-pipe transport, appearance and CLI installation),
+**FritzUI** (shared model/provider pickers and native button styles), and
 **FritzUpdates** (Sparkle lifecycle and update policy). The **fritz** Rust library
 exposes provider networking, host-scoped registry/Keychain/model storage, native
 inference and coding tools. The app's executable module is **FritzApp**; the
 product remains **Fritz.app**. See [the library guide](docs/libraries.md) for
 Git dependency examples, public APIs, ownership and the planned REL adoption.
+
+For shared UI visual regression checks, run `make check-ui-snapshots`. See
+[UI verification](docs/agents/ui-verification.md) for coverage and reference review.
 
 ## Build and run
 
@@ -116,7 +120,7 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 
 ## Architecture and storage
 
-- `Sources/Fritz/`, `Sources/FritzState/`, `Sources/FritzUpdates/`: reusable Swift libraries and the shared model catalog.
+- `Sources/Fritz/`, `Sources/FritzUI/`, `Sources/FritzState/`, `Sources/FritzUpdates/`: reusable Swift libraries and the shared model catalog.
 - `app/`: `FritzApp` SwiftUI/AppKit executable with Textual for native Markdown and code rendering.
 - `crates/fritz-state/`: independent Rust SQLite state library, also re-exported by `fritz::state`.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.

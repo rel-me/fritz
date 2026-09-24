@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F81721000000000000000001 /* FritzUI in Frameworks */ = {isa = PBXBuildFile; productRef = CD984C7CD5D7BE181952065F /* FritzUI */; };
 		0482B75354A7C7F558191547 /* ProjectsSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20DCA850CBC772CA88EBED2E /* ProjectsSidebar.swift */; };
 		10149F57CD4EDCFB9E4249E3 /* NativeLocalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24FDD47C29522CFAC24A8A67 /* NativeLocalModel.swift */; };
 		12A033895AC8BB3E499DC179 /* FritzState in Frameworks */ = {isa = PBXBuildFile; productRef = C7548171F5DA5137E90765D8 /* FritzState */; };
@@ -82,6 +83,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9CE52D82C7FF3C4602E3CAC9 /* Fritz in Frameworks */,
+				F81721000000000000000001 /* FritzUI in Frameworks */,
 				7246C158DCB886EDE793FF9B /* FritzUpdates in Frameworks */,
 				12A033895AC8BB3E499DC179 /* FritzState in Frameworks */,
 				8F147A4C15E74308B8D82119 /* Textual in Frameworks */,
@@ -211,6 +213,7 @@
 			name = FritzApp;
 			packageProductDependencies = (
 				B6EFA99501077DBF8872E6C4 /* Fritz */,
+				CD984C7CD5D7BE181952065F /* FritzUI */,
 				63772291272E2EF06FD92CDD /* FritzUpdates */,
 				C7548171F5DA5137E90765D8 /* FritzState */,
 				F8FC8A9558DA38A6831276EC /* Textual */,
@@ -505,6 +508,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		CD984C7CD5D7BE181952065F /* FritzUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FritzUI;
+		};
 		63772291272E2EF06FD92CDD /* FritzUpdates */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FritzUpdates;

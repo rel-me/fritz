@@ -1,5 +1,5 @@
 {
-  "originHash" : "149d6bd820bc4115cd4bfd3ed0cadc81f9e4316d1746b4fe4ecdd412d7b7d4c5",
+  "originHash" : "61a2ccd9302f1911bd95eebaaa22482196936b414404f6ff6539b4cbc19ebb7e",
   "pins" : [
     {
       "identity" : "sparkle",
@@ -20,6 +20,33 @@
       }
     },
     {
+      "identity" : "swift-custom-dump",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-custom-dump",
+      "state" : {
+        "revision" : "4fb9e7cbb4b8f5a7354005db39447f570d6b3e19",
+        "version" : "1.7.3"
+      }
+    },
+    {
+      "identity" : "swift-snapshot-testing",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-snapshot-testing",
+      "state" : {
+        "revision" : "28e5de025e3fd98991791bfbf83023ab3708da03",
+        "version" : "1.19.6"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax",
+      "state" : {
+        "revision" : "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf",
+        "version" : "604.0.0"
+      }
+    },
+    {
       "identity" : "swiftui-math",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/gonzalezreal/swiftui-math",
@@ -29,12 +56,30 @@
       }
     },
     {
+      "identity" : "swiftui-snapshot-testing",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gabriel/swiftui-snapshot-testing",
+      "state" : {
+        "revision" : "b9786eec445e30d323147de221b80dcd734af954",
+        "version" : "0.1.12"
+      }
+    },
+    {
       "identity" : "textual",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/gonzalezreal/textual",
       "state" : {
         "revision" : "01b51875a5406eefc95f52a058cb059e7bc94dc4",
         "version" : "0.5.0"
+      }
+    },
+    {
+      "identity" : "xctest-dynamic-overlay",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/xctest-dynamic-overlay",
+      "state" : {
+        "revision" : "d9308ad679143c26a30dec52daefe82f54af2b82",
+        "version" : "1.13.1"
       }
     }
   ],

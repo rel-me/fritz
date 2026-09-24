@@ -1,3 +1,4 @@
+import FritzUI
 import SwiftUI
 
 /// Shared surface for record lists and tables. Apply directly to the collection,
