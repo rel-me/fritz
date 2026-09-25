@@ -1,7 +1,7 @@
 mod native;
 
 use crate::{
-    config::{Connection, ProviderKind},
+    config::Connection,
     provider::{self, ChatRequest},
     tools::{self, Workspace},
 };
@@ -30,11 +30,6 @@ pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
         bail!("maxTurns must be between 1 and 40.");
     }
     let run = async {
-        if input.connection.provider == ProviderKind::Fritz {
-            // Apply the shared request validation before entering native inference.
-            provider::payload(&input.connection, &input.request)?;
-            return crate::local::chat(&input.request, provider::SYSTEM, &emit).await;
-        }
         let workspace = input
             .request
             .project_path

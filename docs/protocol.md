@@ -31,13 +31,24 @@ verified installed models. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
 through the same pipes as remote providers; cancellation also signals the
 blocking inference worker. Each request loads weights in its own harness
-process, with a fresh context. The harness releases Metal resources before
-exiting. Local usage events include a `truncated` flag when the 2,048-token
-output limit is reached; context is limited to 8,192 tokens.
+process, with a fresh context per model turn. The harness releases Metal
+resources before exiting. Local usage events include a `truncated` flag when the
+output limit is reached. Without a project, context is limited to 8,192 tokens
+and output to 2,048; with a project, 32,768 and 8,192. A truncated turn with
+tools fails before any tool runs.
 
-Fritz local models respond without tools, including in project threads.
-Remote providers use the shared model loop below, with tools when a project
-folder is attached.
+Fritz local models use the shared model loop below, like remote providers, with
+tools when a project folder is attached. Each turn renders the
+OpenAI-shaped history and tool definitions with the model's embedded Jinja chat
+template through llama.cpp's `common/chat` library (`src/local/chat_bridge.cpp`
+is the only C++ in Fritz). The same library supplies a lazy grammar that
+constrains a tool call once its opening marker is generated, and the parser that
+turns generated text into prose and `tool_calls`. Text that could still become
+a tool call is withheld from `delta` events until parsing settles. Before
+rendering, the text of the model's control and user-defined tokens is broken
+with a zero-width space in every message string, so file contents, command
+output and user text cannot tokenize as template structure. A template that
+cannot express tools fails the request when tools are offered.
 
 `fritz local-models serve` is an explicit, separate loopback API mode for
 installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
@@ -52,7 +63,7 @@ process control.
 `maxTurns` (1–40, default 24). There is no Chat/Code mode field. The app sends
 the directory belonging to the request's thread, not whichever project happens
 to be selected when a response arrives. The CLI resolves `--project` to an
-absolute path. Remote requests with a project advertise file and command tools;
+absolute path. Requests with a project advertise file and command tools;
 requests without a project use the same loop without tools. Unsolicited tool
 calls without a project fail before execution. Legacy `mode` fields are ignored.
 

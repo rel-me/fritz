@@ -72,11 +72,14 @@ models or sending a chat never starts a download. Weights live under
 `~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
 The native runtime's licenses ship in the app; each model's license is linked in
 setup. Memory recommendations are estimates. Local chat supports an 8,192-token
-context and up to 2,048 output tokens per reply.
+context and up to 2,048 output tokens per reply; project threads use a
+32,768-token context and up to 8,192 output tokens per model turn.
 
-Downloaded Fritz models respond in any thread, including project threads,
-without file or command tools. Use a provider with native tool support for
-project actions.
+In project threads, downloaded Fritz models use the same file and command tools
+as remote providers. Fritz renders each model's own chat template and parses
+its tool calls with llama.cpp's chat library, the code llama.cpp's server uses,
+so any model whose template llama.cpp supports can call tools. A model whose
+template has no tool support reports an error in project threads.
 
 ## Run a local model API
 
@@ -169,7 +172,9 @@ resume. Native tool history, including provider reasoning/signatures, is kept
 in memory within a run; persisted follow-ups use the transcript and tool records.
 
 The harness uses native tool protocols for OpenAI Responses, Anthropic Messages,
-Gemini, Ollama, OpenRouter, and OpenAI-compatible services. A service/model that
+Gemini, Ollama, OpenRouter, and OpenAI-compatible services. Fritz local models
+use their chat template's own tool-call format, constrained by a grammar while a
+call is generated. A service/model that
 rejects tools reports an error; there is no parsing of executable commands from
 ordinary assistant prose. See [harness protocol](docs/protocol.md) for limits,
 process ownership, and implementation details.
@@ -181,7 +186,7 @@ make test
 make check
 ```
 
-Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, tool parsing/history, file boundaries, atomic edits, command output/timeouts, and the real CLI/agent/harness against local deterministic providers. End-to-end coding tests cover all six adapters, interrupted tool streams, recovery, limits, and process/descendant cancellation. They do not download weights, require API keys, or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
+Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, local chat-template rendering and tool-call parsing (against Qwen 3.5's published template), tool parsing/history, file boundaries, atomic edits, command output/timeouts, and the real CLI/agent/harness against local deterministic providers. End-to-end coding tests cover all six adapters, interrupted tool streams, recovery, limits, and process/descendant cancellation. They do not download weights, require API keys, or contact paid services. `tests/local_inference.py` is an opt-in check against an installed model, including a project file-tool run. Real provider credentials are required to validate account-specific model availability and usage limits.
 
 See [docs/protocol.md](docs/protocol.md) for the private app/agent protocol.
 

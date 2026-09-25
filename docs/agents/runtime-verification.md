@@ -125,8 +125,8 @@ python3 tests/local_inference.py --data-dir "$fritz_test_data"
 ```
 
 This uses an existing Fritz provider in the selected test directory; it never
-downloads weights or contacts a remote provider. It checks streamed text,
-cancellation, continued agent health, and clean Metal teardown when stdin closes
+downloads weights or contacts a remote provider. It checks streamed text, a
+project run in which the model reads a file with `read_file`, cancellation, continued agent health, and clean Metal teardown when stdin closes
 during generation. It is deliberately separate from `make test`.
 
 When debugging, verify a PID's executable path belongs to the staged bundle
