@@ -14,9 +14,10 @@ import Observation
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var requestID: String?
 
-    init(agent: AgentClient, modelID: String? = nil) {
+    init(agent: AgentClient, modelID: String? = nil, installed: Bool = false) {
         self.agent = agent
         selectedModelID = NativeModelDescriptor.catalog.first { $0.id == modelID }?.id ?? Self.defaultModelID
+        if installed { state = .installed }
     }
 
     func select(_ id: String) {

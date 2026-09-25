@@ -17,6 +17,8 @@
 		36F4A560A30974915C4101A1 /* LocalModelRuntimeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30CE32C5162893FA5F689978 /* LocalModelRuntimeStore.swift */; };
 		4414AEF0602C46E8DDF68E5B /* FritzApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E954ED0C803B0A5BCCA8B /* FritzApp.swift */; };
 		52F062F7852BC28B3A5F56C4 /* LocalModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEEFD5B580ABF01F9536C503 /* LocalModelsView.swift */; };
+		5B2E1D6F8C3A0B94E7F2D1C3 /* ModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4A3C8B2D0E5F71B6C8D4E2 /* ModelDownloadView.swift */; };
+		4A1D0C5E7B2F9A83D6E1C0B2 /* ModelDownloadStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3F2B7A1C9D4E60A5B7C3D1 /* ModelDownloadStore.swift */; };
 		59B71A94F4501F11D9835AB4 /* ProviderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F63B541A22F41ADBBFA229D /* ProviderStore.swift */; };
 		5A6A40D152E72C6769B8CB16 /* AppDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */; };
 		5CA3881D23D40ED4FDD3498F /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E2C42C88F12B1800D985E2 /* Project.swift */; };
@@ -68,6 +70,8 @@
 		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
 		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
 		AEEFD5B580ABF01F9536C503 /* LocalModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelsView.swift; sourceTree = "<group>"; };
+		9F4A3C8B2D0E5F71B6C8D4E2 /* ModelDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadView.swift; sourceTree = "<group>"; };
+		8E3F2B7A1C9D4E60A5B7C3D1 /* ModelDownloadStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadStore.swift; sourceTree = "<group>"; };
 		B2862844991E65C805050ED5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
 		BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
@@ -113,6 +117,7 @@
 				1AB65E88BEA21E9ECFE860AE /* AppSettings.swift */,
 				4B07E94B391896D246239ED0 /* ChatStore.swift */,
 				30CE32C5162893FA5F689978 /* LocalModelRuntimeStore.swift */,
+				8E3F2B7A1C9D4E60A5B7C3D1 /* ModelDownloadStore.swift */,
 				24FDD47C29522CFAC24A8A67 /* NativeLocalModel.swift */,
 				2F63B541A22F41ADBBFA229D /* ProviderStore.swift */,
 				73835E7146A92557D60E42ED /* WorkspaceStore.swift */,
@@ -135,6 +140,7 @@
 				31B41D0524C0C81414318C5F /* FritzSettingsView.swift */,
 				847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */,
 				AEEFD5B580ABF01F9536C503 /* LocalModelsView.swift */,
+				9F4A3C8B2D0E5F71B6C8D4E2 /* ModelDownloadView.swift */,
 				DC9419DE0BB26DAD25C8EFAA /* NativeLocalModelSection.swift */,
 				20DCA850CBC772CA88EBED2E /* ProjectsSidebar.swift */,
 				18739264547CAB0D6256B2E5 /* ProvidersView.swift */,
@@ -296,6 +302,8 @@
 				63B5F03EEED5EB17667FD289 /* FritzWindowStyle.swift in Sources */,
 				36F4A560A30974915C4101A1 /* LocalModelRuntimeStore.swift in Sources */,
 				52F062F7852BC28B3A5F56C4 /* LocalModelsView.swift in Sources */,
+				5B2E1D6F8C3A0B94E7F2D1C3 /* ModelDownloadView.swift in Sources */,
+				4A1D0C5E7B2F9A83D6E1C0B2 /* ModelDownloadStore.swift in Sources */,
 				10149F57CD4EDCFB9E4249E3 /* NativeLocalModel.swift in Sources */,
 				D24E860A2FED1AFC46F9E8AE /* NativeLocalModelSection.swift in Sources */,
 				5CA3881D23D40ED4FDD3498F /* Project.swift in Sources */,

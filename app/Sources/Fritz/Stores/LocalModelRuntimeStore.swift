@@ -17,7 +17,7 @@ import Observation
     private(set) var sessions: [String: Session] = [:]
     private(set) var isLoading = false
     var error: String?
-    @ObservationIgnored private let agent: AgentClient
+    @ObservationIgnored let agent: AgentClient
     @ObservationIgnored private var processes: [String: Process] = [:]
     @ObservationIgnored private var stderrPipes: [String: Pipe] = [:]
     @ObservationIgnored private var pendingData: [String: Data] = [:]

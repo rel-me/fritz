@@ -57,8 +57,7 @@ struct FritzSettingsView: View {
                     ProvidersView(store: state.providers, editor: $editor,
                                   openLocalModels: { state.selectSettings(.localModels) })
                 case .localModels:
-                    LocalModelsView(store: state.localModels,
-                                    openProviders: { state.selectSettings(.providers) })
+                    LocalModelsView(store: state.localModels)
                 case .service:
                     FritzServiceSettingsView(agent: state.agent)
                 case .debug:

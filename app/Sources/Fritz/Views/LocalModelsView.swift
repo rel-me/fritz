@@ -3,7 +3,7 @@ import SwiftUI
 
 struct LocalModelsView: View {
     @Bindable var store: LocalModelRuntimeStore
-    let openProviders: () -> Void
+    @State private var isDownloading = false
 
     private var installed: [NativeModelDescriptor] {
         NativeModelDescriptor.catalog.filter { store.installedIDs.contains($0.id) }
@@ -15,8 +15,8 @@ struct LocalModelsView: View {
                 HStack(spacing: 6) {
                     Button("Refresh", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                         .disabled(store.isLoading).help("Refresh installed models")
-                    Button("Download Models", systemImage: "arrow.down.circle", action: openProviders)
-                        .help("Open Model Providers to install models")
+                    Button("Download Models", systemImage: "arrow.down.circle") { isDownloading = true }
+                        .help("Download Models")
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(FritzButtonStyle(.floating))
@@ -25,9 +25,9 @@ struct LocalModelsView: View {
                 ContentUnavailableView {
                     Label("No Installed Local Models", systemImage: "cpu")
                 } description: {
-                    Text("Install a Fritz model in Model Providers to start a local API session.")
+                    Text("Download a Fritz model to start a local API session.")
                 } actions: {
-                    Button("Open Model Providers", action: openProviders)
+                    Button("Download Models") { isDownloading = true }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -70,6 +70,9 @@ struct LocalModelsView: View {
         }
         .background(FritzWindowStyle.workspaceBackground)
         .task { await store.refresh() }
+        .sheet(isPresented: $isDownloading, onDismiss: { Task { await store.refresh() } }) {
+            ModelDownloadView(agent: store.agent)
+        }
     }
 
     private func statusName(_ status: LocalModelRuntimeStore.Session.Status) -> String {
