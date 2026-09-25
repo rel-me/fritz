@@ -2,7 +2,9 @@
 
 Fritz keeps its development skills under `.agents/skills/`, tracked with the code.
 They require no global skill installation or plugin. Codex discovers this folder
-from the repository and its subdirectories. Keep entry points short and load
+from the repository and its subdirectories. Claude Code reads the same
+files through the `.claude/skills` symlink, and `CLAUDE.md` imports `AGENTS.md`,
+so edit skills only in `.agents/skills/`. Keep entry points short and load
 only references needed for a task; preserve project safeguards in AGENTS.md.
 
 - `swift-concurrency`: diagnose isolation, Sendable, task lifetime, and async code.
