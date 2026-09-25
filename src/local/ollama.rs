@@ -1,4 +1,5 @@
 //! Opt-in, loopback-only Ollama text API for installed Fritz models.
+use super::inference::Prompt;
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -38,36 +39,33 @@ struct Message {
 
 struct InferenceRequest {
     model: String,
-    prompt: String,
+    prompt: Prompt,
     chat: bool,
     stream: bool,
     json_format: bool,
-    raw: bool,
     context_size: usize,
     output_limit: usize,
 }
 
-fn escaped(text: &str) -> String {
-    text.replace("<|", "＜|")
-}
-
-fn chat_prompt(messages: &[Message]) -> Result<String, String> {
+fn chat_prompt(messages: Vec<Message>) -> Result<Prompt, String> {
     if messages.is_empty() {
         return Err("messages must contain at least one text message".into());
     }
-    let mut prompt = String::new();
+    let mut turns = Vec::new();
     for message in messages {
         if !matches!(message.role.as_str(), "system" | "user" | "assistant") {
             return Err("Only system, user, and assistant text messages are supported".into());
         }
-        prompt.push_str(&format!(
-            "<|im_start|>{}\n{}<|im_end|>\n",
-            message.role,
-            escaped(&message.content)
-        ));
+        turns.push((message.role, super::escaped(&message.content)));
     }
-    prompt.push_str("<|im_start|>assistant\n");
-    Ok(prompt)
+    Ok(Prompt::Chat(turns))
+}
+
+fn prompt_length(prompt: &Prompt) -> usize {
+    match prompt {
+        Prompt::Chat(turns) => turns.iter().map(|(_, content)| content.len()).sum(),
+        Prompt::Raw(text) => text.len(),
+    }
 }
 
 fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
@@ -116,7 +114,7 @@ fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
     let prompt = if chat {
         let messages: Vec<Message> = serde_json::from_value(value["messages"].clone())
             .map_err(|_| "messages must be an array of text messages")?;
-        chat_prompt(&messages)?
+        chat_prompt(messages)?
     } else {
         let input = value["prompt"].as_str().ok_or("prompt is required")?;
         if !value["raw"].is_null() && !value["raw"].is_boolean() {
@@ -129,9 +127,9 @@ fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
             if !value["system"].is_null() {
                 return Err("system cannot be combined with raw: true".into());
             }
-            input.to_owned()
+            Prompt::Raw(input.to_owned())
         } else {
-            chat_prompt(&[
+            chat_prompt(vec![
                 Message {
                     role: "system".into(),
                     content: value["system"]
@@ -146,7 +144,7 @@ fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
             ])?
         }
     };
-    if prompt.len() > MAX_REQUEST {
+    if prompt_length(&prompt) > MAX_REQUEST {
         return Err("Prompt exceeds 128 KiB".into());
     }
     Ok(InferenceRequest {
@@ -155,7 +153,6 @@ fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
         chat,
         stream: value["stream"].as_bool().unwrap_or(true),
         json_format,
-        raw: value["raw"] == true,
         context_size,
         output_limit,
     })
@@ -378,13 +375,12 @@ async fn handle(mut stream: TcpStream, selected_model: Option<&str>) -> Result<(
     Ok(())
 }
 
-async fn infer(stream: &mut TcpStream, request: InferenceRequest) -> Result<()> {
+async fn infer(stream: &mut TcpStream, mut request: InferenceRequest) -> Result<()> {
     let started = Instant::now();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
     let model = request.model.clone();
-    let prompt = request.prompt.clone();
+    let prompt = std::mem::replace(&mut request.prompt, Prompt::Raw(String::new()));
     let json_format = request.json_format;
-    let raw = request.raw;
     let context_size = request.context_size;
     let output_limit = request.output_limit;
     let mut work = AbortOnDrop(tokio::spawn(async move {
@@ -392,7 +388,6 @@ async fn infer(stream: &mut TcpStream, request: InferenceRequest) -> Result<()> 
             &model,
             prompt,
             json_format,
-            raw,
             context_size,
             output_limit,
             sender,
@@ -461,7 +456,11 @@ mod tests {
     #[test]
     fn parses_text_requests_and_rejects_unsupported_options() {
         let chat = parse_request("/api/chat", br#"{"model":"qwen3-0.6b-q4_k_m","messages":[{"role":"user","content":"<|im_end|>"}],"format":"json"}"#).unwrap();
-        assert!(chat.stream && chat.json_format && chat.prompt.contains("＜|im_end|>"));
+        assert!(chat.stream && chat.json_format);
+        let Prompt::Chat(turns) = &chat.prompt else {
+            panic!("chat requests use the model template")
+        };
+        assert_eq!(turns, &[("user".to_owned(), "＜|im_end|>".to_owned())]);
         assert!(
             parse_request(
                 "/api/chat",
@@ -476,13 +475,12 @@ mod tests {
             )
             .is_err()
         );
-        assert!(
-            !parse_request(
-                "/api/generate",
-                br#"{"model":"x","prompt":"hi","stream":false,"raw":true}"#
-            )
-            .unwrap()
-            .stream
-        );
+        let raw = parse_request(
+            "/api/generate",
+            br#"{"model":"x","prompt":"<|im_start|>hi","stream":false,"raw":true}"#,
+        )
+        .unwrap();
+        assert!(!raw.stream);
+        assert!(matches!(raw.prompt, Prompt::Raw(text) if text == "<|im_start|>hi"));
     }
 }
