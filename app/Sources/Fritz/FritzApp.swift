@@ -146,9 +146,9 @@ private struct FritzWorkspaceView: View {
                             .background(FritzWindowStyle.contentBackground)
                         } else {
                             ContentUnavailableView {
-                                Label("Start a project", systemImage: "folder.badge.plus")
+                                Label("Start a conversation", systemImage: "folder.badge.plus")
                             } description: {
-                                Text("Keep your coding conversations together, one project at a time.")
+                                Text("Choose a folder to group related conversations. Fritz can use its contents when you ask.")
                             } actions: {
                                 Button("New Project") { state.isCreatingProject = true }
                                     .buttonStyle(FritzButtonStyle(.primary)).disabled(!state.workspace.canSave)

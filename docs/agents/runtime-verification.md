@@ -28,7 +28,7 @@ cancellation, persistence, and agent shutdown without API keys.
 `tests/coding_integration.py` exercises native tool streams for all six adapters,
 real edits and commands, limits, and cancellation of child process groups.
 Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
-coding workflow against the bundled binaries.
+folder-action workflow against the bundled binaries.
 For native project-tool checks, `python3 tests/coding_provider.py` provides
 `coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.

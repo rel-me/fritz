@@ -18,11 +18,11 @@ struct ChatView: View {
                         .scaledToFit()
                         .frame(width: 82, height: 66)
                         .accessibilityHidden(true)
-                    Text("What are we working on?")
+                    Text("How can I help?")
                         .font(.system(size: 26, weight: .medium))
                     Text(providers.connections.isEmpty
                          ? "Add a provider to start a conversation with Fritz."
-                         : "Ask a question, explore an idea, or work through some code.")
+                         : "Ask a question, plan your day, or explore an idea.")
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

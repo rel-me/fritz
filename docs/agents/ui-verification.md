@@ -21,7 +21,7 @@ the following surfaces, include these behaviors:
 - **Projects and threads:** stable selection, rename, New Thread/Command-N,
   independent transcripts and drafts, model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
-  Shift-Return for a newline, Escape to stop, Markdown/code rendering, scrolling,
+  Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
   selected page; shared title-free unified toolbar, native traffic lights, and

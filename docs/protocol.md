@@ -46,10 +46,10 @@ use this listener. The Local Models settings page owns only the API processes it
 starts and stops them on app exit; CLI-started listeners remain under CLI
 process control.
 
-## Harness and coding runs (protocol version 2)
+## Chat harness (protocol version 2)
 
 `chat` additionally accepts `projectPath` (an absolute existing directory) and
-`maxTurns` (1–40, default 24). There is no Chat/Code mode field. The app sends
+`maxTurns` (1–40, default 24). There is no separate assistant mode field. The app sends
 the directory belonging to the request's thread, not whichever project happens
 to be selected when a response arrives. The CLI resolves `--project` to an
 absolute path. Remote requests with a project advertise file and command tools;
@@ -61,7 +61,7 @@ service resolves the saved provider and key, then writes exactly one NDJSON
 line to its private stdin:
 
 ```json
-{"request":{"connectionId":"UUID","model":"model-id","messages":[{"role":"user","content":"Fix the test"}],"projectPath":"/path/to/project","maxTurns":24},"connection":{"id":"UUID","name":"Example","provider":"openai-compatible","baseUrl":"http://localhost:8000/v1","modelId":"model-id"},"apiKey":null}
+{"request":{"connectionId":"UUID","model":"model-id","messages":[{"role":"user","content":"Summarize my notes"}],"projectPath":"/path/to/notes","maxTurns":24},"connection":{"id":"UUID","name":"Example","provider":"openai-compatible","baseUrl":"http://localhost:8000/v1","modelId":"model-id"},"apiKey":null}
 ```
 
 `apiKey` is either null or a secret transmitted only over this pipe. Never put

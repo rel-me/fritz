@@ -180,7 +180,7 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `local::models::ModelStore` | Supply the host data directory. Inventory verifies existing weights; only `download` downloads. |
 | `local::models::{catalog, manifest}` | Read the shared, revision/size/SHA-256-pinned model catalog. |
 | `local::inference::Engine` | Use `installed_in` with the host's ModelStore; it verifies pinned weights before lazy mistral.rs loading. |
-| `harness::run` | Supply the connection, chat request and credential in memory. This is Fritz's coding/chat policy, not REL's browser-tool harness. |
+| `harness::run` | Supply the connection, chat request and credential in memory. Fritz owns its conversation and action policy. |
 | `harness_client::chat_with_input` | Supply a bundled harness executable and explicit input; transport is private pipes. Dropping the future closes stdin for cancellation. |
 | `tools::Workspace` | Supply a trusted project directory; commands run with user permissions, not an OS sandbox. |
 

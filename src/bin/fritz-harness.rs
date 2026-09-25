@@ -8,7 +8,7 @@ use tokio::io::{AsyncReadExt, BufReader};
 #[derive(Parser)]
 #[command(
     version,
-    about = "Fritz coding-agent harness. Private NDJSON input/output; no HTTP listener."
+    about = "Fritz chat harness. Private NDJSON input/output; no HTTP listener."
 )]
 struct Cli {
     #[command(subcommand)]

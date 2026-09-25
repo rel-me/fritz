@@ -66,7 +66,7 @@ enum Command {
         effort: Option<String>,
         #[arg(long, value_parser = ["standard", "priority", "flex"])]
         speed: Option<String>,
-        /// Enable coding tools in this project (commands run with your user permissions).
+        /// Attach a folder for file actions (local processes run with your user permissions).
         #[arg(long)]
         project: Option<String>,
         #[arg(long, default_value_t = 24, value_parser = clap::value_parser!(u32).range(1..=40))]

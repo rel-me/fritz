@@ -1,6 +1,6 @@
 # Fritz Agent Guidance
 
-Fritz is a native macOS coding-assistant foundation. Keep the initial product focused on Chat and Providers. The chat interface is the main content.
+Fritz is a native macOS personal assistant. Keep the current product focused on Chat and Providers while building toward user-controlled personal context and everyday tasks. The chat interface is the main content. Follow the [personal assistant plan](docs/personal-assistant-plan.md) when shaping new features and product language.
 
 ## Product and architecture
 
@@ -12,7 +12,7 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
 - Keep Fritz free of CEF, embedded web engines, browsing sessions, profiles, proxy management, and unrelated runtime dependencies.
 - When the user asks to copy a REL feature, you may inspect its codebase on this computer for reference; implement the feature within Fritz's own architecture.
-- Keep documentation honest about the current scope: Every conversation uses one harness; attached projects provide file tools and noninteractive commands to models with native tool support, including Fritz local models with compatible GGUF chat templates. Commands run with user permissions, not in an OS sandbox. Preserve cancellation, tool activity records, native tool-result history, and execution limits.
+- Keep documentation honest about the current scope: Every conversation uses one harness. Folder-attached conversations still have file and local process actions for models with native tool support, including compatible Fritz local models. These actions run with user permissions, not in an OS sandbox. Preserve cancellation, activity records, native tool-result history, and execution limits during the transition. Do not position folder actions as the product's purpose or default path.
 
 ## Build and runtime verification
 
