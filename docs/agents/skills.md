@@ -13,6 +13,7 @@ only references needed for a task; preserve project safeguards in AGENTS.md.
 - `swiftui-pro`: review correctness, state/task ownership, lifecycle, and performance.
 - `macos-design-guidelines`: audit HIG/accessibility or answer a specific native
   convention question.
+- `test-audit`: gate new or changed tests and audit low-value or duplicative ones.
 
 Do not install duplicate global copies. Codex does not merge same-name skills;
 remove a personal duplicate or disable its absolute SKILL.md path with a
@@ -60,7 +61,16 @@ Source SKILL.md SHA-256 values identify the upstream inputs:
   - telemetry: `64fae6fd88c411d108b321462f90b74deb42fb043b815baae04b199a07dfbd25`
   - appkit-interop: `7c91be82e30340ed9c929270f102965da3d67bcf509eecf8bf207c8a679fd3b6`
 
-Both additions are repository-owned and require no global plugin or skill.
+- `test-audit`: [OpenClaw's test-audit skill](https://github.com/openclaw/openclaw/tree/main/.agents/skills/test-audit)
+  (MIT, license included), fetched from `main` on 2026-09-25. Input SHA-256:
+  SKILL.md `01c421239797a8950fe1287f293d2e05f127e69ac457d1b9cdf9b296ac77eacd`,
+  CAMPAIGN.md `6c278ec5c4c0a9f7555e348992b5d9c4df3264c4aec115967e98d1c9a50e2737`.
+  CAMPAIGN.md is unchanged. SKILL.md keeps the upstream gate, junk patterns,
+  and retention bar; its discovery lanes, validation, and landing sections now
+  use Fritz's directories, Make targets, and AGENTS.md rules instead of
+  OpenClaw's Vitest and PR tooling.
+
+These additions are repository-owned and require no global plugin or skill.
 Upstream concurrency examples are topic references, not instructions to change
 Fritz's platform, toolchain, dependencies, or test harness.
 

@@ -54,8 +54,8 @@ agent protocol in `docs/protocol.md`, and development procedures in
 Repository-owned skills live in `.agents/skills/`; see [sources and routing](docs/agents/skills.md).
 Use `swiftui-patterns` for implementation, `swiftui-pro` for focused reviews,
 `macos-design-guidelines` for HIG/accessibility questions, `swift-concurrency`
-for task/isolation work, and `build-macos-apps` for build/debug/signing or AppKit
-boundaries. Load only the references needed for the task; no global installation
+for task/isolation work, `build-macos-apps` for build/debug/signing or AppKit
+boundaries, and `test-audit` when writing, changing, or reviewing tests. Load only the references needed for the task; no global installation
 is required.
 
 Review the diff and run the affected local checks before reporting completion.
