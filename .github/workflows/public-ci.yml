@@ -54,7 +54,7 @@ jobs:
           PY
       - name: Invalidate local build outputs when toolchains change
         run: |
-          fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
+          fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; } | shasum -a 256 | cut -d ' ' -f 1)
           if [[ ! -f dist/.ci-toolchain || "$(cat dist/.ci-toolchain)" != "$fingerprint" ]]; then
             rm -rf target .build app/.build
             mkdir -p dist
@@ -65,7 +65,6 @@ jobs:
           xcodebuild -version
           swift --version
           cargo --version
-          cmake --version
       - name: Test Rust, runtime, libraries, and application
         # One runner services the Mini: parallelize independent test groups here.
         run: make -j2 test

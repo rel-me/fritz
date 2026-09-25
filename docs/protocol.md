@@ -29,10 +29,11 @@ with the catalog's exact size and SHA-256 are atomically published and loaded.
 The `fritz` provider has no endpoint or API key. `models.list` returns its
 verified installed models. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
-through the same pipes as remote providers; cancellation also signals the
-blocking inference worker. Each request loads weights in its own harness
-process, with a fresh context. The harness releases Metal resources before
-exiting. Local usage events include a `truncated` flag when the 2,048-token
+through the same pipes as remote providers; cancellation closes the
+generation stream, which stops the sequence. Each harness process loads the
+weights with mistral.rs; prompts are rendered by the chat template embedded in
+the pinned GGUF file, and the prefix cache is disabled so requests never share
+context. Local usage events include a `truncated` flag when the 2,048-token
 output limit is reached; context is limited to 8,192 tokens.
 
 Fritz local models respond without tools, including in project threads.

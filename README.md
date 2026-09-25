@@ -30,7 +30,7 @@ For shared UI visual regression checks, run `make check-ui-snapshots`. See
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, and Python 3 for integration tests.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -67,7 +67,7 @@ available for reuse.
 
 Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run offline inside the per-chat Rust harness using
-llama.cpp and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
+[mistral.rs](https://github.com/EricLBuehler/mistral.rs) and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
 models or sending a chat never starts a download. Weights live under
 `~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
 The native runtime's licenses ship in the app; each model's license is linked in

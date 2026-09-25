@@ -6,7 +6,7 @@ resolver = "3"
 name = "fritz"
 version = "0.1.1"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.94"
 description = "Shared native AI infrastructure, coding harness, and Fritz command-line interface"
 license = "AGPL-3.0-only"
 repository = "https://github.com/rel-me/fritz"
@@ -33,11 +33,14 @@ uuid = { version = "1", features = ["v4", "serde"] }
 fs2 = "0.4"
 libc = "0.2"
 tempfile = "3"
+# Offline GGUF inference. Metal is enabled for macOS below.
+mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", tag = "v0.9.4" }
+either = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"
 sha2 = { version = "0.10", features = ["asm"] }
-llama-cpp-2 = { version = "=0.1.156", default-features = false, features = ["metal"] }
+mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", tag = "v0.9.4", features = ["metal"] }
 
 # Large model checksums must stay fast in development builds too.
 [profile.dev.package.sha2]

@@ -167,7 +167,7 @@ fritz = { git = "https://github.com/rel-me/fritz", rev = "<commit-sha>" }
 
 The library is named `fritz`; the `fritz` and `fritz-harness` binaries remain
 separate targets. This initial library requires macOS and the native inference
-build toolchain (Rust 1.88+, CMake and Xcode). Native Metal inference is currently
+build toolchain (Rust 1.94+ and Xcode). Native Metal inference through mistral.rs is currently
 part of the crate, rather than an optional feature. `publish = false` prevents
 an accidental crates.io upload; Git and path dependencies are supported.
 
@@ -204,10 +204,10 @@ through the Fritz harness also retain the default Fritz model cache. Hosts
 requiring independent storage should use `ModelStore` and `Engine::installed_in`
 directly, not mutate process-wide environment variables to switch stores.
 
-The inference backend is process-global, while engine weights and generation
-state are owned by the engine. Dropping a generation future signals its worker
-to cancel; `unload()` waits for the worker before releasing weights. Neither
-inventory nor engine construction downloads a model.
+Each engine owns its mistral.rs model, loaded on first use from the verified
+GGUF file. Dropping a generation future closes its response stream, which
+stops the sequence; `unload()` releases the engine's reference to the weights.
+Neither inventory nor engine construction downloads a model.
 
 ## REL adoption map
 
