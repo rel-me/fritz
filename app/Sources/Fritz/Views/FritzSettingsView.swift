@@ -36,6 +36,7 @@ struct FritzSettingsView: View {
     @Bindable var state: FritzState
     @ObservedObject var updater: AppUpdater
     @State private var editor: ProviderEditorSelection?
+    @State private var showsDownload = false
 
     var body: some View {
         NavigationSplitView {
@@ -55,10 +56,11 @@ struct FritzSettingsView: View {
                     FritzGeneralSettingsView(updater: updater, settings: state.settings)
                 case .providers:
                     ProvidersView(store: state.providers, editor: $editor,
-                                  openLocalModels: { state.selectSettings(.localModels) })
+                                  openLocalModels: { state.selectSettings(.localModels) },
+                                  downloadModel: { showsDownload = true })
                 case .localModels:
                     LocalModelsView(store: state.localModels,
-                                    openProviders: { state.selectSettings(.providers) })
+                                    downloadModel: { showsDownload = true })
                 case .service:
                     FritzServiceSettingsView(agent: state.agent)
                 case .debug:
@@ -77,6 +79,14 @@ struct FritzSettingsView: View {
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
         .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection, initialCategory: $0.category) }
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            Task {
+                await state.localModels.refresh()
+                await state.providers.refresh()
+            }
+        }) {
+            LocalModelDownloadSheet(agent: state.agent)
+        }
     }
 
     private var selection: Binding<FritzSettingsTab?> {

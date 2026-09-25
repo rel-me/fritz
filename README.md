@@ -57,13 +57,13 @@ The composer includes model search, provider filtering, recent selections, and r
 
 ## Download local models
 
-In **Settings → Model Providers → Add**, choose **Fritz** (also shown under **Local**),
-select a model, and click **Download & Add**. The setup shows the download size,
-recommended memory, license, progress, and installation status. Cancel stops the
-download; Retry starts a fresh attempt. After verification, the provider is saved
-and installed models become available in the chat model picker. Edit the Fritz
-provider to download another model. Removing a provider leaves downloaded weights
-available for reuse.
+In **Settings → Model Providers**, click **Download Model** to choose and download
+a Fritz model. The download sheet shows its size, recommended memory, license,
+progress, and installation status. Cancel stops the download; Retry starts a fresh
+attempt. You can also open this sheet from **Settings → Local Models**. Once the
+model is installed, add or edit a **Fritz** provider under **LLMs** and select it.
+Installed models then become available in the chat model picker. Removing a
+provider leaves downloaded weights available for reuse.
 
 Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run inside the per-chat Rust harness using
@@ -71,7 +71,7 @@ mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key i
 models or sending a chat never starts a download. Weights live under
 `~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
 The native runtime's licenses ship in the app; each model's license is linked in
-setup. Memory recommendations are estimates. Local chat supports an 8,192-token
+the download sheet. Memory recommendations are estimates. Local chat supports an 8,192-token
 context and up to 2,048 output tokens per model turn.
 
 In a folder-attached thread, a downloaded Fritz model can use the current folder

@@ -11,6 +11,7 @@ struct ProvidersView: View {
     @Bindable var store: ProviderStore
     @Binding var editor: ProviderEditorSelection?
     var openLocalModels: () -> Void
+    var downloadModel: () -> Void
     @State private var selectedID: UUID?
     @State private var deleting: ProviderConnection?
     @State private var category: AIModelCategory = .llm
@@ -32,6 +33,9 @@ struct ProvidersView: View {
                     .labelStyle(.iconOnly).disabled(selectedConnection == nil).help("Edit Provider")
                     Button("Refresh Models", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                         .labelStyle(.iconOnly).disabled(store.isLoading).help("Refresh Models")
+                    Button("Download Model", systemImage: "arrow.down.circle", action: downloadModel)
+                        .labelStyle(.iconOnly).help("Download Local Model")
+                        .disabled(category == .decision)
                     Button("Local Models", systemImage: "server.rack", action: openLocalModels)
                         .labelStyle(.iconOnly).help("Manage Local Models")
                         .disabled(category == .decision)
@@ -149,7 +153,7 @@ struct ProviderEditor: View {
     @State private var refreshID = 0
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: NativeLocalModel
-    @State private var addsAfterInstallation = false
+    @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
     init(store: ProviderStore, existing: ProviderConnection?, initialCategory: AIModelCategory = .llm) {
@@ -189,14 +193,27 @@ struct ProviderEditor: View {
                                      providers: AIProviderPreset.allCases.filter { $0.category == category })
                 }.disabled(nativeModel.state.isBusy)
                 if managesLocalModels {
-                    NativeLocalModelSection(modelID: Binding(
-                        get: { nativeModel.selectedModelID },
-                        set: { addsAfterInstallation = false; nativeModel.select($0) }
-                    ), state: nativeModel.state, hardware: .current)
+                    Section {
+                        Picker("Model", selection: Binding(
+                            get: { nativeModel.selectedModelID },
+                            set: { nativeModel.select($0) }
+                        )) {
+                            ForEach(NativeModelDescriptor.catalog) { model in
+                                Text(model.name).tag(model.id)
+                            }
+                        }
+                        Button("Download Model…") { showsDownload = true }
+                    } footer: {
+                        switch nativeModel.state {
+                        case .installed: Text("Installed and ready for chat.")
+                        case .checking: Text("Checking local model…")
+                        case .available, .downloading, .failed: Text("Download this model before adding it as a provider.")
+                        }
+                    }
                     if store.registry.defaultConnectionId != nil {
                         Section {
                             Toggle("Use as Default Provider", isOn: $makeDefault)
-                                .disabled(nativeModel.state.isBusy || existing?.id == store.registry.defaultConnectionId)
+                                .disabled(existing?.id == store.registry.defaultConnectionId)
                         }
                     }
                     if let error { Section {} footer: { Text(error).foregroundStyle(.red) } }
@@ -207,10 +224,9 @@ struct ProviderEditor: View {
             .fritzSettingsFormStyle().disabled(isSaving)
             Divider()
             HStack(spacing: 8) {
-                if managesLocalModels { Link("Model license", destination: nativeModel.selectedModel.licenseURL) }
                 if isSaving { ProgressView().controlSize(.small) }
                 Spacer()
-                Button("Cancel") { addsAfterInstallation = false; nativeModel.cancel(); dismiss() }.keyboardShortcut(.cancelAction).disabled(isSaving)
+                Button("Cancel") { nativeModel.cancel(); dismiss() }.keyboardShortcut(.cancelAction).disabled(isSaving)
                 Button(primaryActionTitle, action: save)
                     .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
                     .disabled(!canSave)
@@ -223,7 +239,7 @@ struct ProviderEditor: View {
         .buttonStyle(FritzButtonStyle())
         .interactiveDismissDisabled(isSaving)
         .onChange(of: preset) { old, new in
-            addsAfterInstallation = false; nativeModel.cancel()
+            nativeModel.cancel()
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.category == .decision ? "jev-latest" : ""
@@ -234,16 +250,12 @@ struct ProviderEditor: View {
             makeDefault = new == .llm && store.registry.defaultConnectionId == nil
         }
         .task(id: managesLocalModels) {
-            addsAfterInstallation = false
             if managesLocalModels { nativeModel.refresh() } else { nativeModel.cancel() }
         }
-        .onChange(of: nativeModel.state) { _, state in
-            if managesLocalModels, state == .installed, addsAfterInstallation {
-                addsAfterInstallation = false
-                save()
-            }
+        .sheet(isPresented: $showsDownload, onDismiss: { nativeModel.refresh() }) {
+            LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID)
         }
-        .onDisappear { addsAfterInstallation = false; nativeModel.cancel(); saveTask?.cancel() }
+        .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
     }
 
@@ -323,13 +335,7 @@ struct ProviderEditor: View {
     }
 
     private var managesLocalModels: Bool { preset.provider == .fritz }
-    private var primaryActionTitle: String {
-        guard managesLocalModels else { return existing == nil ? "Add Provider" : "Save" }
-        if nativeModel.state.isBusy { return "Installing…" }
-        if nativeModel.state == .installed { return existing == nil ? "Add Model" : "Save" }
-        if case .failed = nativeModel.state { return "Retry Download & Add" }
-        return "Download & Add"
-    }
+    private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
     private var keepsSavedKey: Bool {
@@ -340,7 +346,8 @@ struct ProviderEditor: View {
     }
     private var keyPrompt: String { keepsSavedKey ? "Saved in Keychain" : "Enter API key" }
     private var canSave: Bool {
-        !isSaving && !nativeModel.state.isBusy && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isSaving && (!managesLocalModels || nativeModel.state == .installed)
+            && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
             && (preset.provider != .openAICompatible || !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
@@ -386,12 +393,6 @@ struct ProviderEditor: View {
     }
     private func save() {
         guard canSave else { return }
-        if managesLocalModels, nativeModel.state != .installed {
-            addsAfterInstallation = true
-            error = nil
-            nativeModel.install()
-            return
-        }
         isSaving = true; error = nil
         saveTask = Task {
             defer { isSaving = false; saveTask = nil }
