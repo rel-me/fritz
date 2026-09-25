@@ -61,7 +61,7 @@ import Observation
                         nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
                     }
                     if connection.provider == .fritz, response.models.isEmpty {
-                        nextErrors[connection.id] = "No local models are installed. Use Download Model in Model Providers."
+                        nextErrors[connection.id] = "No local models are installed. Download a model in Local Models."
                     }
                 } catch {
                     guard refreshID == revision else { return }

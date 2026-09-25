@@ -51,17 +51,17 @@ The native Xcode project is `app/Fritz.xcodeproj`; its source specification is `
 
 Use **+ → New Project** to choose an existing folder and create its first thread. The current app uses “Project” for a folder group; this is a temporary part of its navigation. Use **New Thread** or ⌘N for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
 
-In **Settings → Model Providers**, choose **LLMs** for conversational models or **Decision Models** for typed judgments. Under LLMs, click **Add**, choose a provider using search or the Local / Remote / Frontier / Hosted / Custom filters, and enter its API key. Models load automatically; the refresh button retries discovery. **Advanced** contains connection naming and default/manual model choices. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
+In **Settings → Model Providers**, click **Add** to choose an LLM or decision provider. Search or use the Local / Remote / Frontier / Hosted / Custom filters to find a provider, then enter its API key if needed. The list shows both model categories together. Models load automatically; the refresh button retries discovery. **Advanced** contains connection naming and default/manual model choices. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
 
 The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a thread, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Model Providers page directly. Chat Options can clear the current thread after confirmation. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
 ## Download local models
 
-In **Settings → Model Providers**, click **Download Model** to choose and download
+In **Settings → Local Models**, click **Download Models** to choose and download
 a Fritz model. The download sheet shows its size, recommended memory, license,
 progress, and installation status. Cancel stops the download; Retry starts a fresh
-attempt. You can also open this sheet from **Settings → Local Models**. Once the
-model is installed, add or edit a **Fritz** provider under **LLMs** and select it.
+attempt. Once the model is installed, add or edit a **Fritz** provider in
+**Settings → Model Providers** and select it.
 Installed models then become available in the chat model picker. Removing a
 provider leaves downloaded weights available for reuse.
 

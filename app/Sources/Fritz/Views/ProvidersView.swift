@@ -10,57 +10,34 @@ struct ProviderEditorSelection: Identifiable {
 struct ProvidersView: View {
     @Bindable var store: ProviderStore
     @Binding var editor: ProviderEditorSelection?
-    var openLocalModels: () -> Void
-    var downloadModel: () -> Void
     @State private var selectedID: UUID?
     @State private var deleting: ProviderConnection?
-    @State private var category: AIModelCategory = .llm
-
-    private var visibleConnections: [ProviderConnection] {
-        store.connections.filter { $0.category == category }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
-            FritzManagementHeader("Model Providers", description: "Choose an LLM for chat or a decision model for typed judgments.") {
+            FritzManagementHeader("Model Providers") {
                 HStack(spacing: 6) {
-                    Button("Add") { editor = ProviderEditorSelection(category: category) }
+                    Button("Add") { editor = ProviderEditorSelection() }
                         .buttonStyle(FritzButtonStyle(.floatingPrimary)).help("Add Provider")
                         .accessibilityLabel("Add Provider")
                     Button("Edit Provider", systemImage: "square.and.pencil") {
-                        if let selectedConnection { editor = ProviderEditorSelection(connection: selectedConnection, category: category) }
+                        if let selectedConnection { editor = ProviderEditorSelection(connection: selectedConnection) }
                     }
                     .labelStyle(.iconOnly).disabled(selectedConnection == nil).help("Edit Provider")
                     Button("Refresh Models", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
                         .labelStyle(.iconOnly).disabled(store.isLoading).help("Refresh Models")
-                    Button("Download Model", systemImage: "arrow.down.circle", action: downloadModel)
-                        .labelStyle(.iconOnly).help("Download Local Model")
-                        .disabled(category == .decision)
-                    Button("Local Models", systemImage: "server.rack", action: openLocalModels)
-                        .labelStyle(.iconOnly).help("Manage Local Models")
-                        .disabled(category == .decision)
                 }
                 .buttonStyle(FritzButtonStyle(.floating))
                 .modifier(FritzGlassControlGroup())
             }
 
-            Picker("Model category", selection: $category) {
-                ForEach(AIModelCategory.allCases) { option in
-                    Text(option.title).tag(option)
-                }
-            }
-            .pickerStyle(.segmented)
-            .fixedSize()
-            .padding(.vertical, 10)
-            .onChange(of: category) { _, _ in selectedID = nil }
-
-            Table(visibleConnections, selection: $selectedID) {
+            Table(store.connections, selection: $selectedID) {
                 TableColumn("Name") { connection in
                     HStack(spacing: 6) {
                         Text(connection.providerDisplayName).lineLimit(1).truncationMode(.tail)
                             .help(connection.name)
                         if let warning = store.discoveryErrors[connection.id] {
-                            Button { editor = ProviderEditorSelection(connection: connection, category: category) } label: {
+                            Button { editor = ProviderEditorSelection(connection: connection) } label: {
                                 chip("Needs Setup", color: .orange)
                             }
                             .buttonStyle(FritzButtonStyle(.inline)).help(warning)
@@ -87,8 +64,8 @@ struct ProvidersView: View {
             .fritzListSurface()
             .contextMenu(forSelectionType: UUID.self) { ids in
                 if let connection = store.connections.first(where: { ids.contains($0.id) }) {
-                    Button("Edit Provider", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection, category: category) }
-                    if category == .llm {
+                    Button("Edit Provider", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
+                    if connection.category == .llm {
                         Button("Make Default", systemImage: "checkmark.circle") { Task { await store.makeDefault(connection) } }
                             .disabled(connection.id == store.registry.defaultConnectionId)
                     }
@@ -97,17 +74,10 @@ struct ProvidersView: View {
                 }
             } primaryAction: { ids in
                 if let connection = store.connections.first(where: { ids.contains($0.id) }) {
-                    editor = ProviderEditorSelection(connection: connection, category: category)
+                    editor = ProviderEditorSelection(connection: connection)
                 }
             }
             .onDeleteCommand { deleting = selectedConnection }
-            .overlay {
-                if visibleConnections.isEmpty {
-                    ContentUnavailableView(category == .llm ? "No LLM Providers" : "No Decision Models",
-                                           systemImage: "cpu",
-                                           description: Text(category == .llm ? "Add an LLM service or local model." : "Add Jev to evaluate typed decisions."))
-                }
-            }
             if let error = store.error {
                 Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).textSelection(.enabled).padding(12)
             }

@@ -28,8 +28,9 @@ the following surfaces, include these behaviors:
   rounded inset detail surface in light/dark appearance. General appearance,
   update channel, CLI install feedback, Model Providers selection, Local Models
   process controls, Service status, and Debug page navigation.
-- **Providers:** category filters, add/edit/cancel, field labels, discovery and
-  refresh, default/manual model choices, validation, and connection errors.
+- **Providers:** combined LLM and decision provider list, add/edit/cancel, field
+  labels, discovery and refresh, default/manual model choices, validation, and
+  connection errors.
 
 Check keyboard focus and command targets when moving between chat, popovers,
 and Providers. Exercise accessibility or reduced-motion/transparency settings

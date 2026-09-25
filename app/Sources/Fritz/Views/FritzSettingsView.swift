@@ -56,9 +56,7 @@ struct FritzSettingsView: View {
                     case .general:
                         FritzGeneralSettingsView(updater: updater, settings: state.settings)
                     case .providers:
-                        ProvidersView(store: state.providers, editor: $editor,
-                                      openLocalModels: { state.selectSettings(.localModels) },
-                                      downloadModel: { showsDownload = true })
+                        ProvidersView(store: state.providers, editor: $editor)
                     case .localModels:
                         LocalModelsView(store: state.localModels,
                                         downloadModel: { showsDownload = true })
