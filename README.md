@@ -65,6 +65,12 @@ and installed models become available in the chat model picker. Edit the Fritz
 provider to download another model. Removing a provider leaves downloaded weights
 available for reuse.
 
+To download models without changing providers, open **Settings → Local Models**
+and click **Download Models**. The window lists every Fritz model with its size,
+recommended memory, license, and installed status. Each model downloads, cancels,
+and retries independently, and several can download at once. Closing the window
+cancels downloads in progress. A Fritz provider lists every installed model.
+
 Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run offline inside the per-chat Rust harness using
 llama.cpp and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
