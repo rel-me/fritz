@@ -8,8 +8,12 @@ fn main() {
     println!("cargo:rerun-if-changed=src/local/chat_bridge.cpp");
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("Cargo.toml");
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    // Filter to this build's platform: offline metadata must not need packages
+    // (Android, Windows, ...) that this build never downloads.
+    let target = env::var("TARGET").unwrap();
     let output = Command::new(cargo)
         .args(["metadata", "--format-version", "1", "--locked", "--offline"])
+        .args(["--filter-platform", &target])
         .arg("--manifest-path")
         .arg(&manifest)
         .output()
