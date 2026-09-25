@@ -32,11 +32,16 @@ folder-action workflow against the bundled binaries.
 For native project-tool checks, `python3 tests/coding_provider.py` provides
 `coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
+`tests/decision_integration.py` exercises the separate decision harness against
+a local mock of Jev's typed API using a dummy key, including answer validation
+and pipe cancellation. No TypeSafe credential is needed.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
 `dist/FritzDebug.app` bundle without requiring a branch or open PR. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
-`Contents/Resources/fritz`, `Contents/Resources/fritz-harness`, Sparkle, and package resources. Both binaries are signed and verified.
+`Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
+`Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
+All three binaries are signed and verified.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.

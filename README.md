@@ -126,6 +126,7 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `crates/fritz-state/`: independent Rust SQLite state library, also re-exported by `fritz::state`.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.
 - `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native action loop, and action history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
+- `src/bin/fritz-decision-harness.rs`, `src/decision.rs`, `src/decision_client.rs`: a separate typed-judgment runtime and Jev adapter. The host supplies the credential over a private pipe; neither decision code nor chat code treats Jev as a conversational provider.
 - `src/tools.rs`: current folder actions, including listing, reading, creating, and changing files, plus noninteractive local processes. Stop cancels the harness request and terminates child process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
 - `~/Library/Application Support/Fritz/Data/providers.sqlite`: non-secret provider records and the default connection, owned by Rust. Concurrent CLI/agent updates use SQLite transactions.
 - `~/Library/Application Support/Fritz/Data/workspace.sqlite`: projects, threads, ordered messages and tool activity, drafts, model choices, selection, appearance, update channel, settings page and model recents, owned by the native app.
@@ -136,6 +137,10 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - Interrupted prose is omitted from future context unless it has tool records; the next turn then receives the activity and an interruption notice so it can inspect current state before retrying.
 
 The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and the current folder actions.
+
+## Decision models
+
+Fritz now has a separate private-pipe decision harness for typed judgments. Its remote Jev adapter accepts Choice, Score, and Noul questions and returns validated answers with probabilities; host code can use those answers before or alongside a conversational model. The harness is a runtime API, not a chat provider or an automatic step in conversations. A shared backend interface is ready for a native local decision model, but none is bundled yet. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
 
 ## Current folder access and limits
 
@@ -181,7 +186,7 @@ make test
 make check
 ```
 
-Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, action parsing/history, file boundaries, atomic changes, process output/timeouts, and the real CLI/agent/harness against local deterministic providers. End-to-end action tests cover all six adapters, interrupted streams, recovery, limits, and child process cancellation. They do not download weights, require API keys, or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
+Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, action parsing/history, file boundaries, atomic changes, process output/timeouts, and the real CLI/agent/harness against local deterministic providers. The decision-harness check uses a local Jev-shaped endpoint and a dummy key to verify typed answers and cancellation. End-to-end action tests cover all six chat adapters, interrupted streams, recovery, limits, and child process cancellation. They do not download weights, require personal API keys, or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
 
 See [docs/protocol.md](docs/protocol.md) for the private app/agent protocol.
 

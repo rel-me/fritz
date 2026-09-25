@@ -13,12 +13,17 @@ Fritz has persistent conversations, provider and model selection, local model do
 - **Clear control.** Ask before connecting a source or taking an action. Let people inspect, correct, export, and delete retained context, and revoke access at any time.
 - **Local where practical.** Keep the existing local-model path, disclose when a remote provider receives content, and minimize what is sent.
 - **Quiet by default.** Notifications and recurring routines are opt-in, limited, and easy to stop.
+- **Typed decisions where useful.** Let a decision model make narrow judgments, while Fritz's code controls thresholds, permissions, and whether a conversational model should explain the result.
+
+## Decision-model foundation
+
+Keep decision models in a separate harness and API from conversational models. Jev is a remote decision backend; a native local decision backend must use the same typed question and answer contract without pretending that a conversational GGUF's generated text is a calibrated probability. The first runtime slice is described in the [decision-harness guide](decision-harness.md). Add an evaluated local model, credential and model selection, and a concrete personal workflow before enabling automatic pairing in chat. A decision can route work to an LLM, but code owns the routing and any action.
 
 ## Roadmap
 
 | Phase | Product work | Done when |
 | --- | --- | --- |
-| 1. Personal chat foundation | Make conversations the primary navigation; replace folder-first setup with a simple first-chat flow; add clear empty states and examples for everyday tasks. Keep provider choice and local models. | A new user can start and resume a useful conversation without choosing a folder or configuring an action first. |
+| 1. Personal chat foundation | Make conversations the primary navigation; replace folder-first setup with a simple first-chat flow; add clear empty states and examples for everyday tasks. Keep provider choice and local conversational models. | A new user can start and resume a useful conversation without choosing a folder or configuring an action first. |
 | 2. Personal context | Add a small, user-controlled profile for preferences and facts; connect one personal source in read-only mode, starting with calendar or notes; provide source attribution, access status, and deletion controls. | Fritz can answer a question using an authorized source, show where the answer came from, and stop using that source after revocation. |
 | 3. Helpful actions | Add scoped actions such as creating a reminder or preparing a calendar event or message. Show the exact proposed change and require confirmation before writing or sending. Keep a visible action history. | A user can complete one everyday task from chat and inspect or undo it where the service allows. |
 | 4. Follow-through | Add opt-in recurring check-ins and reminders, with notification controls and clear failure states. | Fritz can follow up at the chosen time without duplicating an action or silently continuing after access is lost. |

@@ -1,4 +1,4 @@
-use fritz::{config, harness_client, local, provider};
+use fritz::{config, decision, decision_client, harness_client, local, provider};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
@@ -211,6 +211,16 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
         "chat" => {
             harness_client::chat(serde_json::from_value(params.clone())?, emit).await?;
             Ok(json!({}))
+        }
+        "decisions.evaluate" => {
+            let executable = std::env::current_exe()?
+                .parent()
+                .context("Missing executable directory")?
+                .join("fritz-decision-harness");
+            let input: decision::HarnessInput = serde_json::from_value(params.clone())?;
+            Ok(serde_json::to_value(
+                decision_client::evaluate_with_input(&executable, input).await?,
+            )?)
         }
         _ => bail!("Unknown agent method: {}", request.method),
     }

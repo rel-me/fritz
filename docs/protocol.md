@@ -13,6 +13,7 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, verified `installed` status |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
+| `decisions.evaluate` | `request` (`state`, `model`, `questions`), `backend`, `apiKey` | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
@@ -45,6 +46,18 @@ installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
 use this listener. The Local Models settings page owns only the API processes it
 starts and stops them on app exit; CLI-started listeners remain under CLI
 process control.
+
+## Decision harness
+
+`fritz-decision-harness evaluate` accepts one private NDJSON line with a typed
+`request`, `backend`, and optional `apiKey`. It returns one terminal `result`,
+`error`, or `cancelled` event. The backend does not produce chat deltas or execute
+folder actions. Closing stdin cancels it. The [decision-harness guide](decision-harness.md)
+documents its contract, Jev adapter, local backend boundary, and how to pair a
+judgment with a separate conversational run.
+The agent's `decisions.evaluate` method supervises this child and returns its
+typed result under the request ID. Its optional `apiKey` comes from the host
+over the private pipe; the agent does not store it or return it.
 
 ## Chat harness (protocol version 2)
 
