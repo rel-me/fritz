@@ -1,6 +1,8 @@
 .PHONY: setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote
 .DEFAULT_GOAL := build
 
+export MISTRALRS_METAL_PLATFORMS ?= macos
+
 setup:
 	./scripts/setup-worktree.sh
 

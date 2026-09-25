@@ -1,8 +1,8 @@
 # Runtime verification
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
-locks. It needs full Xcode with Swift 6.3+, Rust 1.88+ with rustfmt and Clippy,
-CMake for llama.cpp, and Python 3. It does not install toolchains, change Git
+locks. It needs full Xcode with Swift 6.3+, Rust 1.94+ with rustfmt and Clippy,
+CMake for a native TLS dependency, and Python 3. It does not install toolchains, change Git
 branches, copy local credentials, build an app, or launch one. XcodeGen is needed only when regenerating
 `app/Fritz.xcodeproj` from `app/project.yml`.
 

@@ -29,15 +29,15 @@ with the catalog's exact size and SHA-256 are atomically published and loaded.
 The `fritz` provider has no endpoint or API key. `models.list` returns its
 verified installed models. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
-through the same pipes as remote providers; cancellation also signals the
-blocking inference worker. Each request loads weights in its own harness
-process, with a fresh context. The harness releases Metal resources before
-exiting. Local usage events include a `truncated` flag when the 2,048-token
-output limit is reached; context is limited to 8,192 tokens.
+through the same pipes as remote providers. Each request loads weights in its
+own harness process; closing its pipe cancels the run. The local model is
+limited to 8,192 context tokens and 2,048 output tokens per turn.
 
-Fritz local models respond without tools, including in project threads.
-Remote providers use the shared model loop below, with tools when a project
-folder is attached.
+Fritz local models use the shared harness tool loop when a project folder is
+attached. The pinned GGUF runs in process through mistral.rs. Catalog models
+marked to disable thinking use reasoning effort off; tool choice is automatic.
+Structured calls and tool results remain
+in model-native history for the next turn. Without a project, no tools are sent.
 
 `fritz local-models serve` is an explicit, separate loopback API mode for
 installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and

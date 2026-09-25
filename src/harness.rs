@@ -1,4 +1,5 @@
 mod native;
+pub(crate) use native::Call;
 
 use crate::{
     config::{Connection, ProviderKind},
@@ -31,9 +32,7 @@ pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
     }
     let run = async {
         if input.connection.provider == ProviderKind::Fritz {
-            // Apply the shared request validation before entering native inference.
             provider::payload(&input.connection, &input.request)?;
-            return crate::local::chat(&input.request, provider::SYSTEM, &emit).await;
         }
         let workspace = input
             .request
@@ -55,26 +54,48 @@ pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
         } else {
             provider::SYSTEM.to_owned()
         };
-        let mut session = native::Session::new(&input.connection, &input.request, &system)?;
+        let mut local_session = if input.connection.provider == ProviderKind::Fritz {
+            Some(crate::local::Session::new(&input.request, &system).await?)
+        } else {
+            None
+        };
+        let mut session = if local_session.is_none() {
+            Some(native::Session::new(
+                &input.connection,
+                &input.request,
+                &system,
+            )?)
+        } else {
+            None
+        };
         let mut tool_count = 0;
         for turn in 1..=input.request.max_turns {
             emit(json!({"type":"activity","message":format!("Thinking · step {turn}")}));
             let has_text = AtomicBool::new(false);
-            let calls = session
-                .turn(
-                    &input.connection,
-                    input.api_key.as_deref(),
-                    &input.request,
-                    &|event| {
-                        if event["type"] == "delta"
-                            && event["text"].as_str().is_some_and(|t| !t.trim().is_empty())
-                        {
-                            has_text.store(true, Ordering::Relaxed);
-                        }
-                        emit(event);
-                    },
-                )
-                .await?;
+            let observe = |event: Value| {
+                if event["type"] == "delta"
+                    && event["text"]
+                        .as_str()
+                        .is_some_and(|text| !text.trim().is_empty())
+                {
+                    has_text.store(true, Ordering::Relaxed);
+                }
+                emit(event);
+            };
+            let calls = if let Some(local) = &mut local_session {
+                local.turn(workspace.is_some(), &observe).await?
+            } else {
+                session
+                    .as_mut()
+                    .unwrap()
+                    .turn(
+                        &input.connection,
+                        input.api_key.as_deref(),
+                        &input.request,
+                        &observe,
+                    )
+                    .await?
+            };
             if calls.is_empty() {
                 if !has_text.load(Ordering::Relaxed) {
                     bail!("The model returned no text or tool calls.");
@@ -137,7 +158,11 @@ pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
                 );
                 results.push((call, value, failed));
             }
-            session.results(&results);
+            if let Some(local) = &mut local_session {
+                local.results(&results);
+            } else {
+                session.as_mut().unwrap().results(&results);
+            }
             emit(json!({"type":"delta","text":"\n\n"}));
         }
         unreachable!()

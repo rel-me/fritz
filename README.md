@@ -30,7 +30,7 @@ For shared UI visual regression checks, run `make check-ui-snapshots`. See
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for integration tests.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -66,17 +66,18 @@ provider to download another model. Removing a provider leaves downloaded weight
 available for reuse.
 
 Downloads are pinned to repository revisions, file sizes,
-and SHA-256 hashes. Models run offline inside the per-chat Rust harness using
-llama.cpp and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
+and SHA-256 hashes. Models run inside the per-chat Rust harness using
+mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
 models or sending a chat never starts a download. Weights live under
 `~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
 The native runtime's licenses ship in the app; each model's license is linked in
 setup. Memory recommendations are estimates. Local chat supports an 8,192-token
-context and up to 2,048 output tokens per reply.
+context and up to 2,048 output tokens per model turn.
 
-Downloaded Fritz models respond in any thread, including project threads,
-without file or command tools. Use a provider with native tool support for
-project actions.
+Downloaded Fritz models can use file and command tools in project threads when
+their GGUF chat template and checkpoint support structured tool calls. Fritz
+keeps the same 64-tool and model-turn limits used for remote providers. Without
+a project, local models answer without tools.
 
 ## Run a local model API
 
@@ -93,7 +94,8 @@ For command-line use, `fritz local-models serve` listens on
 `GET /api/tags`, `POST /api/chat`, and `POST /api/generate`. Chat and generate
 accept text, `stream: false` for one JSON response, or the default incremental
 NDJSON stream. `format: "json"` and `options.num_ctx` / `num_predict` are
-supported; temperature is fixed at zero. Tool calls and images are unsupported.
+supported up to 8,192 context tokens; temperature is fixed at zero. Raw prompts,
+tool calls, and images are unsupported by this optional API.
 The listener binds only to this Mac's loopback interface and starts only when
 requested.
 

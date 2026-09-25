@@ -300,7 +300,9 @@ fn envelope(id: &str, result: Result<Value>) -> Value {
 
 #[tokio::main]
 async fn main() {
-    if let Err(error) = run().await {
+    let result = run().await;
+    local::shutdown().await;
+    if let Err(error) = result {
         eprintln!("fritz: {error:#}");
         std::process::exit(1);
     }

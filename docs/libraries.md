@@ -167,7 +167,7 @@ fritz = { git = "https://github.com/rel-me/fritz", rev = "<commit-sha>" }
 
 The library is named `fritz`; the `fritz` and `fritz-harness` binaries remain
 separate targets. This initial library requires macOS and the native inference
-build toolchain (Rust 1.88+, CMake and Xcode). Native Metal inference is currently
+build toolchain (Rust 1.94+, CMake and Xcode). Native Metal inference is currently
 part of the crate, rather than an optional feature. `publish = false` prevents
 an accidental crates.io upload; Git and path dependencies are supported.
 
@@ -179,7 +179,7 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `provider::discover_with_key` | Supply a connection and credential explicitly. Remote discovery does not consult Fritz's registry or Keychain. |
 | `local::models::ModelStore` | Supply the host data directory. Inventory verifies existing weights; only `download` downloads. |
 | `local::models::{catalog, manifest}` | Read the shared, revision/size/SHA-256-pinned model catalog. |
-| `local::inference::Engine` | Use `installed_in` with the host's ModelStore; own streaming, cancellation and `unload()` before process teardown. |
+| `local::inference::Engine` | Use `installed_in` with the host's ModelStore; it verifies pinned weights before lazy mistral.rs loading. |
 | `harness::run` | Supply the connection, chat request and credential in memory. This is Fritz's coding/chat policy, not REL's browser-tool harness. |
 | `harness_client::chat_with_input` | Supply a bundled harness executable and explicit input; transport is private pipes. Dropping the future closes stdin for cancellation. |
 | `tools::Workspace` | Supply a trusted project directory; commands run with user permissions, not an OS sandbox. |
@@ -199,15 +199,14 @@ async fn inventory() -> anyhow::Result<()> {
 
 Module-level convenience functions retain Fritz's data paths and Keychain
 namespace. `provider::discover_with_key` with the built-in `Fritz` provider,
-`local::{chat, generate}`, the Ollama-compatible local API, and local-model calls
+`local::generate`, the Ollama-compatible local API, and local-model calls
 through the Fritz harness also retain the default Fritz model cache. Hosts
 requiring independent storage should use `ModelStore` and `Engine::installed_in`
 directly, not mutate process-wide environment variables to switch stores.
 
-The inference backend is process-global, while engine weights and generation
-state are owned by the engine. Dropping a generation future signals its worker
-to cancel; `unload()` waits for the worker before releasing weights. Neither
-inventory nor engine construction downloads a model.
+Each engine owns its mistral.rs model and lazily loads the verified local GGUF.
+The harness owns model turns and drops the model before exit. Neither inventory
+nor engine construction downloads a model.
 
 ## REL adoption map
 
