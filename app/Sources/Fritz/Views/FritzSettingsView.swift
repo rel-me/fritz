@@ -39,43 +39,47 @@ struct FritzSettingsView: View {
     @State private var showsDownload = false
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: selection) {
-                ForEach(FritzSettingsTab.allCases) { tab in
-                    Label(tab.title, systemImage: tab.systemImage).tag(tab)
+        GeometryReader { geometry in
+            NavigationSplitView {
+                List(selection: selection) {
+                    ForEach(FritzSettingsTab.allCases) { tab in
+                        Label(tab.title, systemImage: tab.systemImage).tag(tab)
+                    }
                 }
-            }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(FritzWindowStyle.workspaceBackground)
-            .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
-        } detail: {
-            Group {
-                switch state.settingsTab {
-                case .general:
-                    FritzGeneralSettingsView(updater: updater, settings: state.settings)
-                case .providers:
-                    ProvidersView(store: state.providers, editor: $editor,
-                                  openLocalModels: { state.selectSettings(.localModels) },
-                                  downloadModel: { showsDownload = true })
-                case .localModels:
-                    LocalModelsView(store: state.localModels,
-                                    downloadModel: { showsDownload = true })
-                case .service:
-                    FritzServiceSettingsView(agent: state.agent)
-                case .debug:
-                    Text("Debug")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(24)
-                        .background(FritzWindowStyle.contentBackground)
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
+                .background(FritzWindowStyle.workspaceBackground)
+                .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
+            } detail: {
+                Group {
+                    switch state.settingsTab {
+                    case .general:
+                        FritzGeneralSettingsView(updater: updater, settings: state.settings)
+                    case .providers:
+                        ProvidersView(store: state.providers, editor: $editor,
+                                      openLocalModels: { state.selectSettings(.localModels) },
+                                      downloadModel: { showsDownload = true })
+                    case .localModels:
+                        LocalModelsView(store: state.localModels,
+                                        downloadModel: { showsDownload = true })
+                    case .service:
+                        FritzServiceSettingsView(agent: state.agent)
+                    case .debug:
+                        Text("Debug")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(24)
+                            .background(FritzWindowStyle.contentBackground)
+                    }
                 }
+                // Settings can measure lists with an oversized ideal height; keep the detail inside the window.
+                .frame(height: max(0, geometry.size.height - 80))
+                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+                .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
-            .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            .navigationSplitViewStyle(.prominentDetail)
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .navigationSplitViewStyle(.prominentDetail)
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
         .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection, initialCategory: $0.category) }
