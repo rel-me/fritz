@@ -27,7 +27,8 @@ the following surfaces, include these behaviors:
   selected page; shared title-free unified toolbar, native traffic lights, and
   rounded inset detail surface in light/dark appearance. General appearance,
   update channel, CLI install feedback, Model Providers selection, Local Models
-  process controls, Service status, and Debug page navigation.
+  blank and populated lists, download and process controls, Service status, and
+  Debug page navigation.
 - **Providers:** combined LLM and decision provider list, add/edit/cancel, field
   labels, discovery and refresh, default/manual model choices, validation, and
   connection errors.

@@ -57,7 +57,7 @@ The composer includes model search, provider filtering, recent selections, and r
 
 ## Download local models
 
-In **Settings → Local Models**, click **Download Models** to choose and download
+In **Settings → Local Models**, click the download button to choose and download
 a Fritz model. The download sheet shows its size, recommended memory, license,
 progress, and installation status. Cancel stops the download; Retry starts a fresh
 attempt. Once the model is installed, add or edit a **Fritz** provider in
