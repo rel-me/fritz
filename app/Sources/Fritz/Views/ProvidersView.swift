@@ -16,19 +16,12 @@ struct ProvidersView: View {
     var body: some View {
         VStack(spacing: 0) {
             FritzManagementHeader("Model Providers") {
-                HStack(spacing: 6) {
-                    Button("Add") { editor = ProviderEditorSelection() }
-                        .buttonStyle(FritzButtonStyle(.floatingPrimary)).help("Add Provider")
-                        .accessibilityLabel("Add Provider")
-                    Button("Edit Provider", systemImage: "square.and.pencil") {
-                        if let selectedConnection { editor = ProviderEditorSelection(connection: selectedConnection) }
-                    }
-                    .labelStyle(.iconOnly).disabled(selectedConnection == nil).help("Edit Provider")
-                    Button("Refresh Models", systemImage: "arrow.clockwise") { Task { await store.refresh() } }
-                        .labelStyle(.iconOnly).disabled(store.isLoading).help("Refresh Models")
+                Button("Add Provider", systemImage: "plus") {
+                    editor = ProviderEditorSelection()
                 }
-                .buttonStyle(FritzButtonStyle(.floating))
-                .modifier(FritzGlassControlGroup())
+                .labelStyle(.iconOnly)
+                .buttonStyle(FritzButtonStyle(.floatingPrimary))
+                .help("Add Provider")
             }
 
             Table(store.connections, selection: $selectedID) {

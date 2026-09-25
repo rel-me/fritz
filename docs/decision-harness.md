@@ -14,7 +14,7 @@ keep inference inside the decision harness, and measure answer quality and
 probability calibration on Fritz's intended tasks. A threshold tuned for Jev
 does not automatically transfer to another model.
 
-Jev can be configured under **Model Providers → Decision Models**. Fritz stores
+Jev can be configured from **Model Providers → + → Decision Models**. Fritz stores
 its key in the existing Keychain namespace and keeps its fixed `jev-latest`
 model out of chat selection. The agent's `decisions.evaluate` method can resolve
 that saved connection by `connectionId`, fetch its key, and run the decision
