@@ -192,12 +192,17 @@ private struct FritzWorkspaceView: View {
                 Button("Model Providers", systemImage: "cpu") { openProviders() }
                     .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Model Providers")
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button("New Thread", systemImage: "square.and.pencil", action: state.newThread)
-                    .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
-                    .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
+            if #available(macOS 26.0, *) {
+                ToolbarItem(placement: .primaryAction) {
+                    newThreadToolbarButton
+                }
+                .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .primaryAction) {
+                    newThreadToolbarButton
+                }
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button("Toggle Right Panel", systemImage: "sidebar.right") {
                     isRightPanelPresented.toggle()
                 }
@@ -205,8 +210,6 @@ private struct FritzWorkspaceView: View {
                 .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
                 .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
                 .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
-            }
-            ToolbarItem(placement: .primaryAction) {
                 Button("Toggle Bottom Panel", systemImage: "rectangle.bottomthird.inset.filled") {
                     isBottomPanelPresented.toggle()
                 }
@@ -220,6 +223,12 @@ private struct FritzWorkspaceView: View {
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+    }
+
+    private var newThreadToolbarButton: some View {
+        Button("New Thread", systemImage: "square.and.pencil", action: state.newThread)
+            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
+            .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
     }
 
     private func openProviders() {
