@@ -126,6 +126,12 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
 /// The built-in Fritz provider uses Fritz's default model cache; use ModelStore for another host.
 pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
+    if connection.provider == ProviderKind::Jev {
+        return Ok(vec![Model {
+            id: "jev-latest".into(),
+            display_name: "Jev".into(),
+        }]);
+    }
     if connection.provider == ProviderKind::Fritz {
         let inventory = crate::local::models::inventory().await?;
         return Ok(inventory["models"]
@@ -207,6 +213,9 @@ pub(crate) fn payload(
     connection: &Connection,
     request: &ChatRequest,
 ) -> Result<(&'static str, Value)> {
+    if connection.provider == ProviderKind::Jev {
+        bail!("Jev is a decision model. Use decisions.evaluate instead of chat.");
+    }
     if request.model.trim().is_empty() {
         bail!("Choose a model before sending.");
     }
@@ -458,6 +467,31 @@ pub(crate) async fn stream_body(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn jev_has_a_decision_catalog_and_cannot_chat() {
+        let connection = Connection {
+            id: uuid::Uuid::new_v4(),
+            name: "Jev".into(),
+            provider: ProviderKind::Jev,
+            base_url: None,
+            model_id: "jev-latest".into(),
+        };
+        let models = discover_with_key(&connection, None).await.unwrap();
+        assert_eq!(models[0].id, "jev-latest");
+        let request = ChatRequest {
+            connection_id: connection.id.to_string(),
+            model: "jev-latest".into(),
+            messages: vec![Message {
+                role: "user".into(),
+                content: "Hi".into(),
+            }],
+            effort: None,
+            speed: None,
+            project_path: None,
+            max_turns: 24,
+        };
+        assert!(payload(&connection, &request).is_err());
+    }
     #[test]
     fn fragmented_utf8_and_crlf_stream() {
         let mut decoder = StreamDecoder::default();

@@ -96,6 +96,9 @@ fn save(
     make_default: bool,
 ) -> Result<config::Registry> {
     connection.validate()?;
+    if make_default && connection.provider.category() != config::ModelCategory::Llm {
+        bail!("Only an LLM provider can be the default chat provider.");
+    }
     if connection.provider == ProviderKind::Fritz
         && api_key.as_deref().is_some_and(|key| !key.is_empty())
     {
@@ -125,8 +128,23 @@ fn save(
         if connection.provider.requires_key() && config::key(connection.id)?.is_none() {
             bail!("This provider requires an API key.");
         }
-        if make_default || registry.connections.is_empty() {
+        if make_default
+            || registry.default_connection_id.is_none()
+                && connection.provider.category() == config::ModelCategory::Llm
+        {
             registry.default_connection_id = Some(connection.id);
+        }
+        if registry.default_connection_id == Some(connection.id)
+            && connection.provider.category() != config::ModelCategory::Llm
+        {
+            registry.default_connection_id = registry
+                .connections
+                .iter()
+                .find(|candidate| {
+                    candidate.id != connection.id
+                        && candidate.provider.category() == config::ModelCategory::Llm
+                })
+                .map(|candidate| candidate.id);
         }
         if let Some(old) = registry
             .connections
@@ -149,7 +167,11 @@ fn remove(id: Uuid) -> Result<config::Registry> {
         config::delete_key(id)?;
         registry.connections.retain(|c| c.id != id);
         if registry.default_connection_id == Some(id) {
-            registry.default_connection_id = registry.connections.first().map(|c| c.id);
+            registry.default_connection_id = registry
+                .connections
+                .iter()
+                .find(|c| c.provider.category() == config::ModelCategory::Llm)
+                .map(|c| c.id);
         }
         Ok(())
     })
@@ -192,8 +214,13 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
         "providers.default" => {
             let id: Uuid = serde_json::from_value(params["id"].clone())?;
             Ok(serde_json::to_value(config::update(|registry| {
-                if !registry.connections.iter().any(|c| c.id == id) {
-                    bail!("Provider not found.");
+                let connection = registry
+                    .connections
+                    .iter()
+                    .find(|c| c.id == id)
+                    .context("Provider not found.")?;
+                if connection.provider.category() != config::ModelCategory::Llm {
+                    bail!("Only an LLM provider can be the default chat provider.");
                 }
                 registry.default_connection_id = Some(id);
                 Ok(())
@@ -217,7 +244,24 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
                 .parent()
                 .context("Missing executable directory")?
                 .join("fritz-decision-harness");
-            let input: decision::HarnessInput = serde_json::from_value(params.clone())?;
+            let input: decision::HarnessInput = if let Some(id) = params["connectionId"].as_str() {
+                let connection = config::find(Some(id))?;
+                if connection.provider != ProviderKind::Jev {
+                    bail!("Choose a decision-model connection.");
+                }
+                let request: decision::DecisionRequest =
+                    serde_json::from_value(params["request"].clone())?;
+                if request.model != "jev-latest" {
+                    bail!("Jev currently supports the jev-latest model.");
+                }
+                decision::HarnessInput {
+                    request,
+                    backend: decision::HarnessBackend::Jev { endpoint: None },
+                    api_key: config::key(connection.id)?,
+                }
+            } else {
+                serde_json::from_value(params.clone())?
+            };
             Ok(serde_json::to_value(
                 decision_client::evaluate_with_input(&executable, input).await?,
             )?)

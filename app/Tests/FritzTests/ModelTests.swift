@@ -29,6 +29,18 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(connection, decoded)
     }
 
+    func testModelCategoriesKeepJevOutOfChat() throws {
+        let decision = ProviderConnection(name: "Jev", provider: .jev, modelID: "jev-latest")
+        XCTAssertEqual(decision.category, .decision)
+        XCTAssertEqual(try decision.jsonObject()["provider"] as? String, "jev")
+        XCTAssertEqual(try JSONDecoder().decode(ProviderConnection.self, from: JSONEncoder().encode(decision)), decision)
+        XCTAssertEqual(AIProviderPreset.adapter(.jev).category, .decision)
+        XCTAssertEqual(ChatModelOption(id: "chat", displayName: "Chat", provider: .openAI, modelID: "gpt-5").category, .llm)
+        let jev = ChatModelOption(connection: decision)
+        XCTAssertEqual(jev.category, .decision)
+        XCTAssertTrue(ChatModelPickerSection.unfiltered(from: [jev], recentModels: [jev], providerOrder: [.jev]).isEmpty)
+    }
+
     @MainActor func testCorruptTranscriptSurfacesErrorWithoutOverwriting() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

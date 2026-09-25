@@ -14,10 +14,13 @@ keep inference inside the decision harness, and measure answer quality and
 probability calibration on Fritz's intended tasks. A threshold tuned for Jev
 does not automatically transfer to another model.
 
-The decision harness is currently a runtime building block exposed through the
-agent's `decisions.evaluate` method. It is not a Model Providers option and is not
-called automatically for every chat. In particular, Jev is not offered as a
-conversational model.
+Jev can be configured under **Model Providers → Decision Models**. Fritz stores
+its key in the existing Keychain namespace and keeps its fixed `jev-latest`
+model out of chat selection. The agent's `decisions.evaluate` method can resolve
+that saved connection by `connectionId`, fetch its key, and run the decision
+harness. Decisions are not called automatically for every chat. A future local
+decision model belongs in the same category and must implement the typed backend
+contract before it is exposed in settings.
 
 ## Pairing with chat
 

@@ -22,7 +22,7 @@ import Observation
         catch { self.error = error.localizedDescription }
     }
     var connections: [ProviderConnection] { registry.connections }
-    var providerOrder: [AIProviderKind] { connections.map(\.provider) }
+    var providerOrder: [AIProviderKind] { connections.filter { $0.category == .llm }.map(\.provider) }
     var recentModels: [ChatModelOption] { recentIDs.compactMap { id in models.first { $0.id == id } } }
     var defaultModel: ChatModelOption? {
         if let recent = recentModels.first { return recent }
@@ -57,7 +57,9 @@ import Observation
                     let response: ModelCatalog = try await agent.request("models.list", params: ["connectionId": connection.id.uuidString])
                     guard refreshID == revision else { return }
                     nextCatalog[connection.id] = response.models
-                    nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
+                    if connection.category == .llm {
+                        nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
+                    }
                     if connection.provider == .fritz, response.models.isEmpty {
                         nextErrors[connection.id] = "No local models are installed. Edit this provider to download a model."
                     }
@@ -66,7 +68,7 @@ import Observation
                     nextErrors[connection.id] = error.localizedDescription
                 }
                 // A manually configured model supports endpoints that have no catalog API.
-                if connection.provider != .fritz, !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
+                if connection.category == .llm, connection.provider != .fritz, !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
                     nextModels.append(ChatModelOption(connection: connection))
                 }
             }

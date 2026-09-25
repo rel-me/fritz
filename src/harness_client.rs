@@ -84,6 +84,9 @@ pub async fn read_line(
 
 pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
     let connection = config::find(Some(&request.connection_id))?;
+    if connection.provider.category() != config::ModelCategory::Llm {
+        bail!("Choose an LLM provider for chat.");
+    }
     let api_key = if connection.provider == config::ProviderKind::Fritz {
         None
     } else {

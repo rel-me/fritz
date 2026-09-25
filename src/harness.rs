@@ -24,6 +24,9 @@ pub struct Input {
 
 pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
     input.connection.validate()?;
+    if input.connection.provider.category() != crate::config::ModelCategory::Llm {
+        bail!("Choose an LLM provider for chat.");
+    }
     if input.connection.id.to_string() != input.request.connection_id.to_lowercase() {
         bail!("The selected connection does not match the harness request.");
     }

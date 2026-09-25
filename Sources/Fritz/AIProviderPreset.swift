@@ -38,6 +38,8 @@ public enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
         return .openAICompatible
     }
 
+    public var category: AIModelCategory { provider.category }
+
     public var displayName: String {
         self == .amazonBedrock ? "Bedrock" : name
     }

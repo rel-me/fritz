@@ -76,7 +76,7 @@ struct FritzSettingsView: View {
         .navigationSplitViewStyle(.prominentDetail)
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection, initialCategory: $0.category) }
     }
 
     private var selection: Binding<FritzSettingsTab?> {

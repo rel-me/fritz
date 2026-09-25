@@ -183,6 +183,7 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `harness::run` | Supply the connection, chat request and credential in memory. Fritz owns its conversation and action policy. |
 | `harness_client::chat_with_input` | Supply a bundled harness executable and explicit input; transport is private pipes. Dropping the future closes stdin for cancellation. |
 | `decision::{DecisionModel, DecisionRequest, DecisionResponse}` | Evaluate typed Choice, Score, and Noul questions through a backend-neutral contract. A local model can implement the trait. |
+| `config::{ModelCategory, ProviderKind}` and Swift `AIModelCategory` | Keep LLM and Decision connections distinct; Jev is a Decision provider and cannot be selected for chat. |
 | `decision::Jev` | Remote TypeSafe adapter; the host supplies a key in memory. Jev is separate from conversational providers. |
 | `decision_client::evaluate_with_input` | Run the bundled decision harness with a private input pipe and receive one validated result. |
 | `tools::Workspace` | Supply a trusted project directory; commands run with user permissions, not an OS sandbox. |

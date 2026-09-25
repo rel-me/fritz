@@ -82,14 +82,23 @@ def evaluate_via_agent(endpoint):
         child = subprocess.Popen([str(BIN.with_name("fritz")), "--agent"],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, text=True, env=env)
+        jev_connection = {
+            "id": "e2aa77fb-18e9-42c8-9e47-45798368ab35",
+            "name": "Jev", "provider": "jev", "modelId": "jev-latest",
+        }
+        child.stdin.write(json.dumps({"id": "catalog-1", "method": "models.list",
+                                      "params": {"connection": jev_connection,
+                                                 "apiKey": "test-key"}}) + "\n")
         child.stdin.write(json.dumps({"id": "decision-1", "method": "decisions.evaluate",
                                       "params": decision_input(endpoint)}) + "\n")
         child.stdin.flush()
-        event = json.loads(child.stdout.readline())
+        events = [json.loads(child.stdout.readline()) for _ in range(2)]
         child.stdin.close()
         child.wait(timeout=15)
         assert child.returncode == 0, child.stderr.read()
-        return event
+        catalog = next(event for event in events if event["id"] == "catalog-1")
+        assert catalog["result"]["models"][0]["id"] == "jev-latest", catalog
+        return next(event for event in events if event["id"] == "decision-1")
 
 
 def main():
@@ -109,7 +118,7 @@ def main():
         assert evaluate(endpoint, {"invalid": True})["type"] == "error"
         assert evaluate(endpoint, key=None)["type"] == "error"
         assert evaluate(endpoint, cancel=True)["type"] == "cancelled"
-        print("PASS: typed Jev request/response, agent supervision, invalid answer rejection, missing key, pipe cancellation")
+        print("PASS: Jev decision catalog, typed request/response, agent supervision, invalid answer rejection, missing key, pipe cancellation")
     finally:
         server.shutdown()
         server.server_close()

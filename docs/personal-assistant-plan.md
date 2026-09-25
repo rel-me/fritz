@@ -17,7 +17,7 @@ Fritz has persistent conversations, provider and model selection, local model do
 
 ## Decision-model foundation
 
-Keep decision models in a separate harness and API from conversational models. Jev is a remote decision backend; a native local decision backend must use the same typed question and answer contract without pretending that a conversational GGUF's generated text is a calibrated probability. The first runtime slice is described in the [decision-harness guide](decision-harness.md). Add an evaluated local model, credential and model selection, and a concrete personal workflow before enabling automatic pairing in chat. A decision can route work to an LLM, but code owns the routing and any action.
+Keep Decision Models and LLMs as distinct model categories. Jev is a remote Decision Model configured with a Keychain-backed connection; a native local decision backend must use the same typed question and answer contract without pretending that a conversational GGUF's generated text is a calibrated probability. The current runtime and provider setup are described in the [decision-harness guide](decision-harness.md). Add an evaluated local decision model and a concrete personal workflow before enabling automatic pairing in chat. A decision can route work to an LLM, but code owns the routing and any action.
 
 ## Roadmap
 
