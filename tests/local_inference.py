@@ -57,6 +57,23 @@ def main():
                 assert event["id"] == request_id and event["type"] != "error", event
                 if event["type"] == "result":
                     break
+            # Project threads give local models the harness's file tools through the model's own template.
+            with tempfile.TemporaryDirectory(prefix="fritz-local-tools-") as project:
+                secret = uuid.uuid4().hex[:12]
+                Path(project, "secret.txt").write_text(secret + "\n")
+                request_id = send("chat", dict(params, projectPath=project, maxTurns=4, messages=[
+                    {"role": "user", "content": "Use read_file to read secret.txt, then reply with its exact contents."}]))
+                tools, text = [], ""
+                while True:
+                    event = events.get(timeout=300)
+                    assert event["id"] == request_id and event["type"] != "error", event
+                    if event["type"] == "tool_start":
+                        tools.append(event["name"])
+                    elif event["type"] == "delta":
+                        text += event["text"]
+                    elif event["type"] == "result":
+                        break
+                assert "read_file" in tools and secret in text, (tools, text)
             request_id = chat("List every integer from 1 to 500, separated by commas.")
             first_delta(request_id)
             cancel = send("cancel", {"requestId": request_id})
@@ -75,7 +92,7 @@ def main():
             code = agent.wait(timeout=30)
             errors.seek(0)
             assert code == 0, errors.read()
-            print("PASS: native streaming, cancellation, health after cancellation, and clean Metal shutdown on EOF")
+            print("PASS: native streaming, project file tools, cancellation, health after cancellation, and clean Metal shutdown on EOF")
         finally:
             if agent.poll() is None:
                 agent.kill()

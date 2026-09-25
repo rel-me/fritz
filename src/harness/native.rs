@@ -91,6 +91,14 @@ impl Session {
         if serde_json::to_vec(&body)?.len() > 2_000_000 {
             bail!("The conversation context reached its size limit. Start a new thread.");
         }
+        if self.kind == ProviderKind::Fritz {
+            // Offline inference returns one parsed OpenAI-shaped assistant message.
+            let message =
+                crate::local::turn(&request.model, &body["messages"], &body["tools"], emit).await?;
+            let (items, calls) = Round::local(&message).finish(self.kind)?;
+            self.history.extend(items);
+            return Ok(calls);
+        }
         let round = Mutex::new(Round::default());
         provider::stream_body(
             connection,
@@ -135,6 +143,17 @@ struct Round {
     complete: bool,
 }
 impl Round {
+    fn local(message: &Value) -> Self {
+        let mut round = Round {
+            text: message["content"].as_str().unwrap_or("").to_owned(),
+            complete: true,
+            ..Round::default()
+        };
+        for call in message["tool_calls"].as_array().into_iter().flatten() {
+            round.items.insert(round.items.len(), call.clone());
+        }
+        round
+    }
     fn push(&mut self, kind: ProviderKind, v: &Value) -> Result<()> {
         let index = v["index"].as_u64().unwrap_or(0) as usize;
         if index > 128 {
@@ -319,11 +338,13 @@ impl Round {
                     name: required(&item["function"], "name")?,
                     arguments: item["function"]["arguments"].to_string(),
                 }),
-                ProviderKind::OpenaiCompatible | ProviderKind::Openrouter => Some(Call {
-                    id: required(item, "id")?,
-                    name: required(&item["function"], "name")?,
-                    arguments: required(&item["function"], "arguments")?,
-                }),
+                ProviderKind::OpenaiCompatible | ProviderKind::Openrouter | ProviderKind::Fritz => {
+                    Some(Call {
+                        id: required(item, "id")?,
+                        name: required(&item["function"], "name")?,
+                        arguments: required(&item["function"], "arguments")?,
+                    })
+                }
                 _ => None,
             };
             if let Some(call) = call {
@@ -382,6 +403,20 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].arguments, "{\"path\":\"a.txt\"}");
         assert_eq!(history[0]["reasoning_content"], "opaque");
+    }
+    #[test]
+    fn local_messages_become_calls_and_tool_history() {
+        let message = json!({"role":"assistant","content":"Checking.","tool_calls":[{"id":"fritz-0","type":"function","function":{"name":"read_file","arguments":"{\"path\":\"a.txt\"}"}}]});
+        let (history, calls) = Round::local(&message).finish(ProviderKind::Fritz).unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "fritz-0");
+        assert_eq!(calls[0].arguments, "{\"path\":\"a.txt\"}");
+        assert_eq!(history[0]["content"], "Checking.");
+        assert_eq!(history[0]["tool_calls"][0]["function"]["name"], "read_file");
+        let (history, calls) = Round::local(&json!({"role":"assistant","content":"Done."}))
+            .finish(ProviderKind::Fritz)
+            .unwrap();
+        assert!(calls.is_empty() && history[0]["tool_calls"].is_null());
     }
     #[test]
     fn signed_provider_content_is_kept() {

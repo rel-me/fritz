@@ -488,6 +488,7 @@ name = "fritz"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "cc",
  "chrono",
  "clap",
  "fritz-state",

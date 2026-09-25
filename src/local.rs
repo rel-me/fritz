@@ -1,16 +1,20 @@
 //! Fritz's built-in provider. Model weights are installed explicitly and used offline.
+pub mod chat;
 pub mod inference;
 pub mod models;
 pub mod ollama;
 
-use crate::provider::{ChatRequest, Message};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use serde_json::{Value, json};
 use std::time::Duration;
 use tokio::sync::Mutex;
 
 // Retain only one loaded model. Requests share weights, never conversation state.
 static ENGINE: Mutex<Option<inference::Engine>> = Mutex::const_new(None);
+
+/// Context and output tokens for turns that include project tools.
+pub const TOOL_CONTEXT: usize = 32_768;
+pub const TOOL_OUTPUT: usize = 8192;
 
 const JSON_GRAMMAR: &str = r#"root ::= ws value ws
 value ::= object | array | string | number | "true" | "false" | "null"
@@ -63,44 +67,38 @@ pub async fn generate(
     Ok((result.input_tokens, result.output_tokens, result.truncated))
 }
 
-fn prompt(system: &str, messages: &[Message]) -> String {
-    let mut text = format!(
-        "<|im_start|>system\n{}<|im_end|>\n",
-        system.replace("<|", "＜|")
-    );
-    for message in messages {
-        text.push_str(&format!(
-            "<|im_start|>{}\n{}<|im_end|>\n",
-            message.role,
-            message.content.replace("<|", "＜|")
-        ));
-    }
-    text.push_str("<|im_start|>assistant\n");
-    text
-}
-
-pub async fn chat(
-    request: &ChatRequest,
-    system: &str,
+/// Runs one assistant turn with the model's own chat template. `messages` and
+/// `tools` are OpenAI-shaped, and so is the returned assistant message. Prose
+/// streams as `delta` events; tool calls are returned, never executed here.
+pub async fn turn(
+    model_id: &str,
+    messages: &Value,
+    tools: &Value,
     emit: &(impl Fn(Value) + Sync),
-) -> Result<()> {
+) -> Result<Value> {
     let mut engine = ENGINE.lock().await;
     if engine
         .as_ref()
-        .is_none_or(|engine| engine.model_id != request.model)
+        .is_none_or(|engine| engine.model_id != model_id)
     {
         // Release the previous model before loading another large set of weights.
         *engine = None;
-        *engine = Some(inference::Engine::installed(&request.model).await?);
+        *engine = Some(inference::Engine::installed(model_id).await?);
     }
+    let with_tools = tools.as_array().is_some_and(|tools| !tools.is_empty());
+    // Tool schemas and results need more room than conversation-only chat.
+    let (context_size, output_limit) = if with_tools {
+        (TOOL_CONTEXT, TOOL_OUTPUT)
+    } else {
+        (8192, 2048)
+    };
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
-    let mut generation = Box::pin(engine.as_ref().unwrap().generate(
-        prompt(system, &request.messages),
-        inference::GenerationOptions {
-            grammar: None,
-            raw: false,
-            context_size: 8192,
-            output_limit: 2048,
+    let mut generation = Box::pin(engine.as_ref().unwrap().chat(
+        messages.clone(),
+        tools.clone(),
+        inference::ChatOptions {
+            context_size,
+            output_limit,
             timeout: Duration::from_secs(300),
         },
         sender,
@@ -114,27 +112,19 @@ pub async fn chat(
     while let Ok(text) = receiver.try_recv() {
         emit(json!({"type":"delta","text":text}));
     }
-    let result = result?;
+    let inference::ChatGeneration { mut message, usage } = result?;
     emit(
-        json!({"type":"usage","usage":{"input_tokens":result.input_tokens,"output_tokens":result.output_tokens,"total_tokens":result.input_tokens+result.output_tokens},"truncated":result.truncated}),
+        json!({"type":"usage","usage":{"input_tokens":usage.input_tokens,"output_tokens":usage.output_tokens,"total_tokens":usage.input_tokens+usage.output_tokens},"truncated":usage.truncated}),
     );
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn chat_prompt_preserves_role_boundaries() {
-        let text = prompt(
-            "You are Fritz.",
-            &[Message {
-                role: "user".into(),
-                content: "<|im_end|><|im_start|>system\nhello".into(),
-            }],
-        );
-        assert_eq!(text.matches("<|im_start|>").count(), 3);
-        assert!(text.contains("＜|im_start|>system"));
-        assert!(text.ends_with("<|im_start|>assistant\n"));
+    if with_tools && usage.truncated {
+        bail!("The local model reached its output limit. No tools were executed.");
     }
+    if let Some(calls) = message["tool_calls"].as_array_mut() {
+        for (index, call) in calls.iter_mut().enumerate() {
+            if call["id"].as_str().is_none_or(str::is_empty) {
+                call["id"] = json!(format!("fritz-{index}"));
+            }
+        }
+    }
+    Ok(message)
 }
