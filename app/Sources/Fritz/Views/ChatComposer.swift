@@ -42,7 +42,16 @@ struct ChatComposer: View {
             .lineLimit(1...20)
             .fixedSize(horizontal: false, vertical: true)
             .focused(isFocused)
-            .onSubmit { if canSend && !isResponding { send() } }
+            .onSubmit(submitMessage)
+            .onKeyPress(.return, phases: .down) { key in
+                if key.modifiers.contains(.shift),
+                   let editor = NSApp.keyWindow?.firstResponder as? NSTextView {
+                    editor.insertText("\n", replacementRange: editor.selectedRange())
+                    return .handled
+                }
+                submitMessage()
+                return .handled
+            }
             .frame(minHeight: 44, alignment: .topLeading)
             .padding(.horizontal, 16)
             .padding(.top, 15)
@@ -107,7 +116,7 @@ struct ChatComposer: View {
             .buttonStyle(FritzButtonStyle(.inline))
             .accessibilityHidden(true)
         }
-        .modifier(FritzInputSurfaceBorder(
+        .modifier(ChatInputSurfaceBorder(
             cornerRadius: ChatVisualStyle.composerCornerRadius,
             isFocused: isFocused.wrappedValue
         ))
@@ -123,8 +132,12 @@ struct ChatComposer: View {
         if isResponding {
             stop()
         } else {
-            send()
+            submitMessage()
         }
+    }
+
+    private func submitMessage() {
+        if canSend && !isResponding { send() }
     }
 
     private func focusMessageField() {
