@@ -17,9 +17,23 @@ pub enum ProviderKind {
     Gemini,
     Ollama,
     Fritz,
+    Jev,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ModelCategory {
+    Llm,
+    Decision,
 }
 
 impl ProviderKind {
+    pub fn category(self) -> ModelCategory {
+        match self {
+            Self::Jev => ModelCategory::Decision,
+            _ => ModelCategory::Llm,
+        }
+    }
     pub fn requires_key(self) -> bool {
         !matches!(self, Self::OpenaiCompatible | Self::Ollama | Self::Fritz)
     }
@@ -32,6 +46,7 @@ impl ProviderKind {
             Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
             Self::Ollama => "http://localhost:11434",
             Self::Fritz => "",
+            Self::Jev => "https://api.typesafe.ai/v1/systemone",
         }
     }
 }
@@ -66,6 +81,19 @@ impl Connection {
             }
             if !self.model_id.is_empty() {
                 crate::local::models::manifest(&self.model_id)?;
+            }
+            return Ok(());
+        }
+        if self.provider == ProviderKind::Jev {
+            if self
+                .base_url
+                .as_deref()
+                .is_some_and(|url| !url.trim().is_empty())
+            {
+                bail!("Jev uses TypeSafe's fixed HTTPS endpoint.");
+            }
+            if !self.model_id.is_empty() && self.model_id != "jev-latest" {
+                bail!("Jev currently supports the jev-latest model.");
             }
             return Ok(());
         }
@@ -186,6 +214,14 @@ impl RegistryStore {
         database.transaction(|transaction| {
             let mut registry = read_registry(transaction)?;
             f(&mut registry)?;
+            if let Some(default_id) = registry.default_connection_id
+                && !registry.connections.iter().any(|connection| {
+                    connection.id == default_id
+                        && connection.provider.category() == ModelCategory::Llm
+                })
+            {
+                bail!("The default chat provider must be an LLM connection.");
+            }
             transaction.execute("DELETE FROM providers", [])?;
             for (position, connection) in registry.connections.iter().enumerate() {
                 connection.validate()?;
@@ -294,6 +330,43 @@ pub fn find(selector: Option<&str>) -> Result<Connection> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn jev_is_a_decision_model_with_a_fixed_endpoint() {
+        assert_eq!(ProviderKind::Jev.category(), ModelCategory::Decision);
+        assert_eq!(ProviderKind::Openai.category(), ModelCategory::Llm);
+        let mut connection = Connection {
+            id: Uuid::new_v4(),
+            name: "Jev".into(),
+            provider: ProviderKind::Jev,
+            base_url: None,
+            model_id: "jev-latest".into(),
+        };
+        connection.validate().unwrap();
+        connection.base_url = Some("https://example.com".into());
+        assert!(connection.validate().is_err());
+    }
+    #[test]
+    fn decision_connection_cannot_be_default_chat_provider() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = RegistryStore::new(directory.path());
+        let id = Uuid::new_v4();
+        assert!(
+            store
+                .update(|registry| {
+                    registry.connections.push(Connection {
+                        id,
+                        name: "Jev".into(),
+                        provider: ProviderKind::Jev,
+                        base_url: None,
+                        model_id: "jev-latest".into(),
+                    });
+                    registry.default_connection_id = Some(id);
+                    Ok(())
+                })
+                .is_err()
+        );
+        assert!(store.load().unwrap().connections.is_empty());
+    }
     #[test]
     fn validates_endpoint_and_requires_compatible_url() {
         let mut c = Connection {

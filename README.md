@@ -5,9 +5,9 @@
   <img src="design/branding/FritzLogo.svg" alt="Fritz" width="360">
 </picture>
 
-A native macOS chat app with projects and their threads in the left sidebar and chat in the main window. The toolbar’s CPU button opens **Settings → Model Providers**; ⌘, opens Settings at the last selected page. Settings shares the main window’s unified toolbar and rounded inset content. The composer includes searchable model and provider pickers, provider category filters, status badges, and model previews.
+A native macOS personal assistant with persistent conversations and a choice of local or remote models. Fritz keeps chat at the center of the window. The current release provides chat and model management; [the personal assistant plan](docs/personal-assistant-plan.md) sets out how Fritz will add personal context, useful actions, and opt-in follow-through.
 
-Fritz uses one `fritz-harness` runtime for every conversation. With a project folder and a model that supports tools, it reads files, makes edits, runs commands, inspects the results, and continues until it can answer.
+Fritz currently groups conversations under folders in the sidebar. Folder-attached conversations can access and change files and run local processes with your macOS permissions when the selected model supports actions. Choose only folders you trust. This workflow is scheduled for replacement with narrower, permission-based personal sources.
 
 ## Open source and shared libraries
 
@@ -21,7 +21,7 @@ metadata, private-pipe transport, appearance and CLI installation),
 **FritzUI** (shared model/provider pickers and native button styles), and
 **FritzUpdates** (Sparkle lifecycle and update policy). The **fritz** Rust library
 exposes provider networking, host-scoped registry/Keychain/model storage, native
-inference and coding tools. The app's executable module is **FritzApp**; the
+inference and the current folder actions. The app's executable module is **FritzApp**; the
 product remains **Fritz.app**. See [the library guide](docs/libraries.md) for
 Git dependency examples, public APIs, ownership and the planned REL adoption.
 
@@ -30,7 +30,7 @@ For shared UI visual regression checks, run `make check-ui-snapshots`. See
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.88+ with rustfmt and Clippy, CMake (for native inference), and Python 3 for integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for integration tests.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -49,34 +49,35 @@ The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkl
 
 The native Xcode project is `app/Fritz.xcodeproj`; its source specification is `app/project.yml`. Regenerate project structure with `xcodegen generate --spec app/project.yml`. Use the Makefile to stage the complete app with its Rust agent. `app/Package.swift` supports fast Swift builds and unit tests.
 
-Use **+ → New Project** to choose an existing folder and create its first thread. Project threads give the harness access to that folder’s file and command tools. Use **New Thread** or ⌘N for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
+Use **+ → New Project** to choose an existing folder and create its first thread. The current app uses “Project” for a folder group; this is a temporary part of its navigation. Use **New Thread** or ⌘N for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
 
-In **Settings → Model Providers**, click **Add**, choose a provider using search or the Local / Remote / Frontier / Hosted / Custom filters, and enter its API key. Models load automatically; the refresh button retries discovery. **Advanced** contains connection naming and default/manual model choices. Supported adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
+In **Settings → Model Providers**, click **+** to choose an LLM or decision provider. Search or use the Local / Remote / Frontier / Hosted / Custom filters to find a provider, then enter its API key if needed. The list shows both model categories together; open a provider from the list to edit it. Models load automatically, and the provider editor can retry discovery. **Advanced** contains connection naming and default/manual model choices. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
 
 The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a thread, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Model Providers page directly. Chat Options can clear the current thread after confirmation. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
 ## Download local models
 
-In **Settings → Model Providers → Add**, choose **Fritz** (also shown under **Local**),
-select a model, and click **Download & Add**. The setup shows the download size,
-recommended memory, license, progress, and installation status. Cancel stops the
-download; Retry starts a fresh attempt. After verification, the provider is saved
-and installed models become available in the chat model picker. Edit the Fritz
-provider to download another model. Removing a provider leaves downloaded weights
-available for reuse.
+In **Settings → Local Models**, click the download button to choose and download
+a Fritz model. The download sheet shows its size, recommended memory, license,
+progress, and installation status. Cancel stops the download; Retry starts a fresh
+attempt. Once the model is installed, add or edit a **Fritz** provider in
+**Settings → Model Providers** and select it.
+Installed models then become available in the chat model picker. Removing a
+provider leaves downloaded weights available for reuse.
 
 Downloads are pinned to repository revisions, file sizes,
-and SHA-256 hashes. Models run offline inside the per-chat Rust harness using
-llama.cpp and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
+and SHA-256 hashes. Models run inside the per-chat Rust harness using
+mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
 models or sending a chat never starts a download. Weights live under
 `~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
 The native runtime's licenses ship in the app; each model's license is linked in
-setup. Memory recommendations are estimates. Local chat supports an 8,192-token
-context and up to 2,048 output tokens per reply.
+the download sheet. Memory recommendations are estimates. Local chat supports an 8,192-token
+context and up to 2,048 output tokens per model turn.
 
-Downloaded Fritz models respond in any thread, including project threads,
-without file or command tools. Use a provider with native tool support for
-project actions.
+In a folder-attached thread, a downloaded Fritz model can use the current folder
+actions if its GGUF chat template and checkpoint support structured tool calls.
+The same action and turn limits apply as for remote providers. In a conversation
+without a folder, local models answer without actions.
 
 ## Run a local model API
 
@@ -93,7 +94,8 @@ For command-line use, `fritz local-models serve` listens on
 `GET /api/tags`, `POST /api/chat`, and `POST /api/generate`. Chat and generate
 accept text, `stream: false` for one JSON response, or the default incremental
 NDJSON stream. `format: "json"` and `options.num_ctx` / `num_predict` are
-supported; temperature is fixed at zero. Tool calls and images are unsupported.
+supported up to 8,192 context tokens; temperature is fixed at zero. Raw prompts,
+tool calls, and images are unsupported by this optional API.
 The listener binds only to this Mac's loopback interface and starts only when
 requested.
 
@@ -106,26 +108,26 @@ fritz local-models list
 fritz local-models install qwen3-0.6b-q4_k_m
 fritz local-models serve --port 11435
 fritz add-provider --name Fritz --provider fritz --model qwen3-0.6b-q4_k_m
-fritz chat "Explain Rust ownership" --connection Fritz
+fritz chat "Help me plan a quiet weekend" --connection Fritz
 fritz providers
 fritz add-provider --name Ollama --provider ollama --model llama3.2 --default
 fritz models
-fritz chat "Explain Rust ownership" --model llama3.2
+fritz chat "Make a packing list for a three-day trip" --model llama3.2
 fritz chat --connection Ollama --model llama3.2 < prompt.txt
-fritz chat "Fix the failing test and verify the change" --project .
-fritz chat "Inspect the project" --project /path/to/project --max-turns 12
+fritz chat "Summarize the notes in this folder" --project /path/to/folder
 ```
 
-Use **Settings → General → Command Line** to install a symlink to the CLI from `/Applications/Fritz.app` in a writable folder already in PATH. `make install-cli` remains available for a checkout-local CLI. Use `--api-key-stdin` with `add-provider` to read a key from standard input. Keys are never command-line arguments. `fritz default-provider NAME` changes the default, and `fritz remove-provider NAME` removes the connection and its saved key. The CLI shares the app’s provider settings and does not modify the app’s transcript. Use `--project` to attach a directory and make project tools available; without it, the harness responds without tools. Assistant text goes to stdout and tool summaries to stderr. Project actions require a model with native function/tool calling.
+Use **Settings → General → Command Line** to install a symlink to the CLI from `/Applications/Fritz.app` in a writable folder already in PATH. `make install-cli` remains available for a checkout-local CLI. Use `--api-key-stdin` with `add-provider` to read a key from standard input. Keys are never command-line arguments. `fritz default-provider NAME` changes the default, and `fritz remove-provider NAME` removes the connection and its saved key. The CLI shares the app’s provider settings and does not modify the app’s transcript. The current `--project` option attaches a folder and enables its actions when the model supports native function calling. Assistant text goes to stdout and action summaries to stderr.
 
 ## Architecture and storage
 
 - `Sources/Fritz/`, `Sources/FritzUI/`, `Sources/FritzState/`, `Sources/FritzUpdates/`: reusable Swift libraries and the shared model catalog.
-- `app/`: `FritzApp` SwiftUI/AppKit executable with Textual for native Markdown and code rendering.
+- `app/`: `FritzApp` SwiftUI/AppKit executable with Textual for native Markdown rendering.
 - `crates/fritz-state/`: independent Rust SQLite state library, also re-exported by `fritz::state`.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.
-- `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native model/tool loop, and tool history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
-- `src/tools.rs`: directory listing, paginated text reads, new-file creation, exact-match edits, and noninteractive commands. Stop cancels the harness request and terminates command process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
+- `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native action loop, and action history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
+- `src/bin/fritz-decision-harness.rs`, `src/decision.rs`, `src/decision_client.rs`: a separate typed-judgment runtime and Jev adapter. The host supplies the credential over a private pipe; neither decision code nor chat code treats Jev as a conversational provider.
+- `src/tools.rs`: current folder actions, including listing, reading, creating, and changing files, plus noninteractive local processes. Stop cancels the harness request and terminates child process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
 - `~/Library/Application Support/Fritz/Data/providers.sqlite`: non-secret provider records and the default connection, owned by Rust. Concurrent CLI/agent updates use SQLite transactions.
 - `~/Library/Application Support/Fritz/Data/workspace.sqlite`: projects, threads, ordered messages and tool activity, drafts, model choices, selection, appearance, update channel, settings page and model recents, owned by the native app.
 - SQLite connections use WAL, foreign keys, bounded lock waits, private file permissions, schema validation and atomic versioned migrations. A corrupt or newer database produces an error; it is never silently reset.
@@ -134,43 +136,46 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `FRITZ_DATA_DIR` overrides both databases and model storage for isolated development and tests. It does not change the Keychain namespace or macOS/Sparkle-managed preferences.
 - Interrupted prose is omitted from future context unless it has tool records; the next turn then receives the activity and an interruption notice so it can inspect current state before retrying.
 
-The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and coding tools.
+The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and the current folder actions.
 
-## Coding-agent behavior
+## Decision models
+
+Under **Settings → Model Providers**, click **+**, choose **Decision Models**, and add Jev with a TypeSafe API key. Fritz stores the key in Keychain and shows Jev alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. A shared backend interface is ready for a native local decision model, but none is bundled yet. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
+
+## Current folder access and limits
 
 ```mermaid
 flowchart LR
     App[Fritz.app] -->|private NDJSON| Service[fritz --agent]
     CLI[fritz chat] --> Harness[fritz-harness chat]
     Service -->|one child per request| Harness
-    Harness <-->|native streamed tool calls and results| Provider[Model provider]
-    Harness --> Tools[Project files and commands]
+    Harness <-->|streamed actions and results| Provider[Model provider]
+    Harness --> Tools[Attached folder]
 ```
 
-File tools accept relative paths and reject parent traversal, `.git`, and symlinks
-that resolve outside the selected project. Edits require a unique `old_text`
-match and replace files atomically, preserving file permissions; new-file
-creation never overwrites. The harness reads the project's root `AGENTS.md`
-and instructs the model to check nested guidance before editing.
+Folder actions accept relative paths and reject parent traversal, `.git`, and
+symlinks that resolve outside the selected folder. Changes require a unique
+`old_text` match and replace files atomically, preserving permissions; new-file
+creation never overwrites. The harness reads the folder's root `AGENTS.md` when
+present and instructs the model to check nested guidance before changes.
 
-**Commands run with your macOS user permissions; the project directory is a
-working directory, not an OS sandbox.** Project tools are intended for trusted
-projects. Commands use `/bin/bash --noprofile --norc`, a minimal environment,
-no interactive stdin, and a default 30-second timeout (maximum 120 seconds).
-Provider credentials are not passed to command environments. Background
-processes in the command's process group are stopped when it finishes.
+**Local processes run with your macOS user permissions; the attached folder is a
+working directory, not an OS sandbox.** Attach only folders you trust. Processes
+use `/bin/bash --noprofile --norc`, a minimal environment, no interactive stdin,
+and a default 30-second timeout (maximum 120 seconds). Provider credentials are
+not passed to their environments. Child process groups are stopped when they finish.
 
-Each run allows 24 model turns by default (configurable up to 40), 64 tool calls,
+Each run allows 24 model turns by default (configurable up to 40), 64 actions,
 and 10 minutes total. File reads/writes are limited to 512 KiB; read results and
-each command output stream are capped at 32 KiB. A limit, provider error, or Stop
-ends the run without undoing changes already made. Review the expandable tool
-activity before continuing. There is no automatic commit, rollback, or background
-resume. Native tool history, including provider reasoning/signatures, is kept
+each process output stream are capped at 32 KiB. A limit, provider error, or Stop
+ends the run without undoing changes already made. Review the expandable action
+activity before continuing. There is no automatic rollback or background
+resume. Native action history, including provider reasoning/signatures, is kept
 in memory within a run; persisted follow-ups use the transcript and tool records.
 
 The harness uses native tool protocols for OpenAI Responses, Anthropic Messages,
 Gemini, Ollama, OpenRouter, and OpenAI-compatible services. A service/model that
-rejects tools reports an error; there is no parsing of executable commands from
+rejects tools reports an error; there is no parsing of executable instructions from
 ordinary assistant prose. See [harness protocol](docs/protocol.md) for limits,
 process ownership, and implementation details.
 
@@ -181,7 +186,7 @@ make test
 make check
 ```
 
-Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, tool parsing/history, file boundaries, atomic edits, command output/timeouts, and the real CLI/agent/harness against local deterministic providers. End-to-end coding tests cover all six adapters, interrupted tool streams, recovery, limits, and process/descendant cancellation. They do not download weights, require API keys, or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
+Tests cover stream framing, adapter payloads, model selection, provider categories, independent thread persistence, previous-chat recovery, persistence failures, local-model integrity and cancellation, action parsing/history, file boundaries, atomic changes, process output/timeouts, and the real CLI/agent/harness against local deterministic providers. The decision-harness check uses a local Jev-shaped endpoint and a dummy key to verify typed answers and cancellation. End-to-end action tests cover all six chat adapters, interrupted streams, recovery, limits, and child process cancellation. They do not download weights, require personal API keys, or contact paid services. Real provider credentials are required to validate account-specific model availability and usage limits.
 
 See [docs/protocol.md](docs/protocol.md) for the private app/agent protocol.
 

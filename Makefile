@@ -1,6 +1,8 @@
 .PHONY: setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote
 .DEFAULT_GOAL := build
 
+export MISTRALRS_METAL_PLATFORMS ?= macos
+
 setup:
 	./scripts/setup-worktree.sh
 
@@ -17,6 +19,7 @@ test-runtime:
 	cargo build --locked
 	python3 tests/integration.py
 	python3 tests/coding_integration.py
+	python3 tests/decision_integration.py
 	python3 tests/test_release_tasks.py
 
 test-swift:

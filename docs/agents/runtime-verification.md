@@ -1,8 +1,8 @@
 # Runtime verification
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
-locks. It needs full Xcode with Swift 6.3+, Rust 1.88+ with rustfmt and Clippy,
-CMake for llama.cpp, and Python 3. It does not install toolchains, change Git
+locks. It needs full Xcode with Swift 6.3+, Rust 1.94+ with rustfmt and Clippy,
+CMake for a native TLS dependency, and Python 3. It does not install toolchains, change Git
 branches, copy local credentials, build an app, or launch one. XcodeGen is needed only when regenerating
 `app/Fritz.xcodeproj` from `app/project.yml`.
 
@@ -28,15 +28,20 @@ cancellation, persistence, and agent shutdown without API keys.
 `tests/coding_integration.py` exercises native tool streams for all six adapters,
 real edits and commands, limits, and cancellation of child process groups.
 Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
-coding workflow against the bundled binaries.
+folder-action workflow against the bundled binaries.
 For native project-tool checks, `python3 tests/coding_provider.py` provides
 `coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
+`tests/decision_integration.py` exercises the separate decision harness against
+a local mock of Jev's typed API using a dummy key, including answer validation
+and pipe cancellation. No TypeSafe credential is needed.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
 `dist/FritzDebug.app` bundle without requiring a branch or open PR. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
-`Contents/Resources/fritz`, `Contents/Resources/fritz-harness`, Sparkle, and package resources. Both binaries are signed and verified.
+`Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
+`Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
+All three binaries are signed and verified.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.

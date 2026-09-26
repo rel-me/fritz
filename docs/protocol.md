@@ -13,9 +13,11 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, verified `installed` status |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
+| `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
+Jev connections have provider `jev`, model `jev-latest`, and no configurable endpoint. Providers have LLM or Decision model categories. Only LLM connections can be the default chat provider or be used by `chat`.
 
 Events are `delta` with `text`, `usage` with provider usage metadata, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
 
@@ -29,15 +31,15 @@ with the catalog's exact size and SHA-256 are atomically published and loaded.
 The `fritz` provider has no endpoint or API key. `models.list` returns its
 verified installed models. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
-through the same pipes as remote providers; cancellation also signals the
-blocking inference worker. Each request loads weights in its own harness
-process, with a fresh context. The harness releases Metal resources before
-exiting. Local usage events include a `truncated` flag when the 2,048-token
-output limit is reached; context is limited to 8,192 tokens.
+through the same pipes as remote providers. Each request loads weights in its
+own harness process; closing its pipe cancels the run. The local model is
+limited to 8,192 context tokens and 2,048 output tokens per turn.
 
-Fritz local models respond without tools, including in project threads.
-Remote providers use the shared model loop below, with tools when a project
-folder is attached.
+Fritz local models use the shared harness tool loop when a project folder is
+attached. The pinned GGUF runs in process through mistral.rs. Catalog models
+marked to disable thinking use reasoning effort off; tool choice is automatic.
+Structured calls and tool results remain
+in model-native history for the next turn. Without a project, no tools are sent.
 
 `fritz local-models serve` is an explicit, separate loopback API mode for
 installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
@@ -46,10 +48,24 @@ use this listener. The Local Models settings page owns only the API processes it
 starts and stops them on app exit; CLI-started listeners remain under CLI
 process control.
 
-## Harness and coding runs (protocol version 2)
+## Decision harness
+
+`fritz-decision-harness evaluate` accepts one private NDJSON line with a typed
+`request`, `backend`, and optional `apiKey`. It returns one terminal `result`,
+`error`, or `cancelled` event. The backend does not produce chat deltas or execute
+folder actions. Closing stdin cancels it. The [decision-harness guide](decision-harness.md)
+documents its contract, Jev adapter, local backend boundary, and how to pair a
+judgment with a separate conversational run.
+The agent's `decisions.evaluate` method supervises this child and returns its
+typed result under the request ID. For a saved Jev `connectionId`, the agent
+retrieves its key from Keychain and passes it to the child over the private
+pipe. Host integrations can still supply explicit backend input and an `apiKey`.
+Neither path returns the key.
+
+## Chat harness (protocol version 2)
 
 `chat` additionally accepts `projectPath` (an absolute existing directory) and
-`maxTurns` (1–40, default 24). There is no Chat/Code mode field. The app sends
+`maxTurns` (1–40, default 24). There is no separate assistant mode field. The app sends
 the directory belonging to the request's thread, not whichever project happens
 to be selected when a response arrives. The CLI resolves `--project` to an
 absolute path. Remote requests with a project advertise file and command tools;
@@ -61,7 +77,7 @@ service resolves the saved provider and key, then writes exactly one NDJSON
 line to its private stdin:
 
 ```json
-{"request":{"connectionId":"UUID","model":"model-id","messages":[{"role":"user","content":"Fix the test"}],"projectPath":"/path/to/project","maxTurns":24},"connection":{"id":"UUID","name":"Example","provider":"openai-compatible","baseUrl":"http://localhost:8000/v1","modelId":"model-id"},"apiKey":null}
+{"request":{"connectionId":"UUID","model":"model-id","messages":[{"role":"user","content":"Summarize my notes"}],"projectPath":"/path/to/notes","maxTurns":24},"connection":{"id":"UUID","name":"Example","provider":"openai-compatible","baseUrl":"http://localhost:8000/v1","modelId":"model-id"},"apiKey":null}
 ```
 
 `apiKey` is either null or a secret transmitted only over this pipe. Never put

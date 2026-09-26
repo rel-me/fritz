@@ -18,6 +18,7 @@ public struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
         providerLimit: Int = 5
     ) -> [Self] {
         var sections: [Self] = []
+        let models = models.filter { $0.category == .llm }
         let availableModelIDs = Set(models.map(\.id))
         let visibleRecentModels = Array(
             recentModels.lazy
@@ -60,6 +61,7 @@ public struct ChatModelPickerSection: Equatable, Identifiable, Sendable {
         providerOrder: [AIProviderKind]
     ) -> [AIProviderPreset] {
         var seen: Set<AIProviderPreset> = []
+        let models = models.filter { $0.category == .llm }
         return (providerOrder + AIProviderKind.allCases).flatMap { provider in
             models.filter { $0.provider == provider }.map(\.displayProvider)
         }.filter { seen.insert($0).inserted }

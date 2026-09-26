@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fritz — a coding app designed to use local decision models</title>
-  <meta name="description" content="Fritz is a coding app for macOS designed to use local decision models.">
+  <title>Fritz — a personal assistant for Mac</title>
+  <meta name="description" content="Fritz is a personal assistant for Mac with persistent conversations and a choice of local or remote models.">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#F3EFE7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#121011" media="(prefers-color-scheme: dark)">
@@ -14,12 +14,12 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Fritz">
   <meta property="og:title" content="Fritz">
-  <meta property="og:description" content="A coding app designed to use local decision models.">
+  <meta property="og:description" content="A personal assistant for Mac, with a choice of local or remote models.">
   <meta property="og:url" content="https://fritz.rel.me/">
   <meta property="og:image" content="https://fritz.rel.me/social.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="The Fritz raven beside the words: fritz, a coding app designed to use local decision models.">
+  <meta property="og:image:alt" content="The Fritz raven beside the words: fritz, a personal assistant for Mac.">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/styles.css">
   <script type="module" src="/site.mjs"></script>
@@ -48,7 +48,7 @@
     <section class="hero wire" aria-labelledby="hero-title">
       <div class="hero-inner">
         <div class="hero-copy">
-          <h1 id="hero-title">A coding app designed to use local decision models.</h1>
+          <h1 id="hero-title">A personal assistant for Mac.</h1>
           <div class="actions">
             <a class="button" href="/download">
               <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0-3.5-3.5M10 12l3.5-3.5M4 14.5v1A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -69,7 +69,7 @@
         <div class="window" data-play aria-hidden="true">
           <div class="window-bar">
             <span class="lights"><i></i><i></i><i></i></span>
-            <span class="window-title">Fix flaky cancel test</span>
+            <span class="window-title">Plan a quiet weekend</span>
             <span class="toolbar-icons">
               <svg viewBox="0 0 20 20"><rect x="5" y="5" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5v2M12 2.5v2M8 15.5v2M12 15.5v2M2.5 8h2M2.5 12h2M15.5 8h2M15.5 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
               <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -77,30 +77,27 @@
           </div>
           <div class="window-body">
             <div class="sidebar">
-              <p class="sidebar-project"><svg viewBox="0 0 20 20"><path d="M2.5 6A1.5 1.5 0 0 1 4 4.5h3.6l1.6 1.8H16A1.5 1.5 0 0 1 17.5 7.8v6.7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>fritz</p>
+              <p class="sidebar-project"><svg viewBox="0 0 20 20"><path d="M2.5 6A1.5 1.5 0 0 1 4 4.5h3.6l1.6 1.8H16A1.5 1.5 0 0 1 17.5 7.8v6.7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>weekend-notes</p>
               <ul>
-                <li class="is-selected">Fix flaky cancel test</li>
-                <li>Tidy provider errors</li>
-                <li>Explain the appcast</li>
+                <li class="is-selected">Plan a quiet weekend</li>
+                <li>Ideas for dinner</li>
+                <li>Questions for the vet</li>
               </ul>
               <p class="sidebar-project"><svg viewBox="0 0 20 20"><path d="M2.5 6A1.5 1.5 0 0 1 4 4.5h3.6l1.6 1.8H16A1.5 1.5 0 0 1 17.5 7.8v6.7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>field-notes</p>
               <ul>
-                <li>Summarize this week</li>
+                <li>Summarize my notes</li>
               </ul>
             </div>
             <div class="transcript">
-              <p class="bubble">The harness cancellation test fails about one run in ten. Find out why and fix it.</p>
+              <p class="bubble">Help me plan a relaxed Saturday using the notes in this folder.</p>
               <div class="activity">
                 <p class="activity-head">Tool activity</p>
                 <ol class="steps">
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l3 3v12h-9Z M11.5 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Read <code>tests/coding_integration.py</code></span></li>
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l3 3v12h-9Z M11.5 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Read <code>src/harness.rs</code></span></li>
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="M3.5 5.5 7 9l-3.5 3.5M9.5 14.5h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Ran <code>cargo test cancel</code></span><b class="status status--bad">1 failed</b></li>
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="m12.5 4 3.5 3.5-8.5 8.5H4v-3.5Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Edited <code>src/harness.rs</code></span><b class="status">+9 −3</b></li>
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="M3.5 5.5 7 9l-3.5 3.5M9.5 14.5h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Ran <code>cargo test cancel</code></span><b class="status status--ok">passed</b></li>
+                  <li class="step"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l3 3v12h-9Z M11.5 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Read <code>ideas.txt</code></span></li>
+                  <li class="step"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l3 3v12h-9Z M11.5 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Read <code>errands.txt</code></span></li>
                 </ol>
               </div>
-              <p class="reply">Stop could arrive before the command’s process group existed, so the signal went nowhere. The harness now waits for the group before signalling it, and the test passes on repeated runs.</p>
+              <p class="reply">Your notes mention a walk by the water and one errand at the market. You could take the walk in the morning, stop by the market on the way home, and leave the afternoon open.</p>
               <div class="composer">
                 <span class="composer-field">Ask a follow-up…</span>
                 <span class="composer-row">
@@ -111,7 +108,7 @@
             </div>
           </div>
         </div>
-        <figcaption class="visually-hidden">An example Fritz session: a project sidebar with threads, and a thread in which Fritz reads two files, runs a failing test, edits the code, and reruns the test successfully.</figcaption>
+        <figcaption class="visually-hidden">An example Fritz session: a folder sidebar with conversations, and a thread in which Fritz reads two notes and suggests a relaxed Saturday plan.</figcaption>
       </figure>
     </section>
 
@@ -146,7 +143,7 @@
           <h2 id="cli-title">CLI</h2>
           <p class="section-lede">Install <code>fritz</code> from Settings → General → Command Line.</p>
         </div>
-        <pre class="terminal" data-reveal><code><span class="prompt">$</span> fritz chat "Fix the failing test" --project .
+        <pre class="terminal" data-reveal><code><span class="prompt">$</span> fritz chat "Help me plan a quiet weekend"
 <span class="prompt">$</span> fritz local-models install qwen3-0.6b-q4_k_m
 <span class="prompt">$</span> fritz local-models serve</code></pre>
       </div>

@@ -105,47 +105,41 @@ public struct ProviderPickerContent<Value>: View {
       categoryFilters
       Divider()
 
-      if filteredProviders.isEmpty {
-        Text("No matching providers")
-          .foregroundStyle(.secondary)
-          .padding(24)
-      } else {
-        ScrollView {
-          VStack(spacing: 2) {
-            ForEach(filteredProviders) { provider in
-              Button {
-                onSelect(provider)
-              } label: {
-                HStack {
-                  Text(provider.name)
-                  if let badge = provider.badgeText {
-                    Text(badge)
-                      .font(.caption)
-                      .foregroundStyle(.secondary)
-                      .padding(.horizontal, 6)
-                      .padding(.vertical, 2)
-                      .background(.quaternary, in: Capsule())
-                  }
-                  Spacer()
-                  Image(systemName: "checkmark")
-                    .opacity(provider.id == selection.id ? 1 : 0)
-                    .accessibilityHidden(true)
+      ScrollView {
+        VStack(spacing: 2) {
+          ForEach(filteredProviders) { provider in
+            Button {
+              onSelect(provider)
+            } label: {
+              HStack {
+                Text(provider.name)
+                if let badge = provider.badgeText {
+                  Text(badge)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.quaternary, in: Capsule())
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                  hoveredProvider == provider.id ? Color.primary.opacity(0.08) : Color.clear,
-                  in: RoundedRectangle(cornerRadius: 6)
-                )
-                .contentShape(Rectangle())
+                Spacer()
+                Image(systemName: "checkmark")
+                  .opacity(provider.id == selection.id ? 1 : 0)
+                  .accessibilityHidden(true)
               }
-              .buttonStyle(FritzButtonStyle(.inline))
-              .onHover { hoveredProvider = $0 ? provider.id : nil }
-              .accessibilityAddTraits(provider.id == selection.id ? .isSelected : [])
+              .padding(.horizontal, 10)
+              .padding(.vertical, 7)
+              .background(
+                hoveredProvider == provider.id ? Color.primary.opacity(0.08) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6)
+              )
+              .contentShape(Rectangle())
             }
+            .buttonStyle(FritzButtonStyle(.inline))
+            .onHover { hoveredProvider = $0 ? provider.id : nil }
+            .accessibilityAddTraits(provider.id == selection.id ? .isSelected : [])
           }
-          .padding(6)
         }
+        .padding(6)
       }
     }
     .frame(width: 440, height: 420, alignment: .top)

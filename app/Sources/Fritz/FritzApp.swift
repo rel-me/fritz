@@ -112,14 +112,14 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var isRightPanelPresented = false
     @State private var isBottomPanelPresented = false
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $sidebarVisibility) {
-            ProjectsSidebar(workspace: state.workspace, newProject: { state.isCreatingProject = true })
+        NavigationSplitView(columnVisibility: .constant(.all)) {
+            ProjectsSidebar(workspace: state.workspace)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
@@ -145,16 +145,8 @@ private struct FritzWorkspaceView: View {
                             }
                             .background(FritzWindowStyle.contentBackground)
                         } else {
-                            ContentUnavailableView {
-                                Label("Start a project", systemImage: "folder.badge.plus")
-                            } description: {
-                                Text("Keep your coding conversations together, one project at a time.")
-                            } actions: {
-                                Button("New Project") { state.isCreatingProject = true }
-                                    .buttonStyle(FritzButtonStyle(.primary)).disabled(!state.workspace.canSave)
-                            }
+                            FritzWindowStyle.contentBackground
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(FritzWindowStyle.contentBackground)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -192,12 +184,17 @@ private struct FritzWorkspaceView: View {
                 Button("Model Providers", systemImage: "cpu") { openProviders() }
                     .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Model Providers")
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button("New Thread", systemImage: "square.and.pencil", action: state.newThread)
-                    .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
-                    .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
+            if #available(macOS 26.0, *) {
+                ToolbarItem(placement: .primaryAction) {
+                    newThreadToolbarButton
+                }
+                .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .primaryAction) {
+                    newThreadToolbarButton
+                }
             }
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button("Toggle Right Panel", systemImage: "sidebar.right") {
                     isRightPanelPresented.toggle()
                 }
@@ -205,8 +202,6 @@ private struct FritzWorkspaceView: View {
                 .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
                 .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
                 .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
-            }
-            ToolbarItem(placement: .primaryAction) {
                 Button("Toggle Bottom Panel", systemImage: "rectangle.bottomthird.inset.filled") {
                     isBottomPanelPresented.toggle()
                 }
@@ -220,6 +215,12 @@ private struct FritzWorkspaceView: View {
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+    }
+
+    private var newThreadToolbarButton: some View {
+        Button("New Thread", systemImage: "square.and.pencil", action: state.newThread)
+            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
+            .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
     }
 
     private func openProviders() {
@@ -245,12 +246,6 @@ private struct WorkspacePlaceholderPanel: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            Divider()
-
-            Text("This panel is a placeholder for future workspace tools.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(16)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

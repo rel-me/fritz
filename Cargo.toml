@@ -6,8 +6,8 @@ resolver = "3"
 name = "fritz"
 version = "0.1.1"
 edition = "2024"
-rust-version = "1.88"
-description = "Shared native AI infrastructure, coding harness, and Fritz command-line interface"
+rust-version = "1.94"
+description = "Shared native AI infrastructure, decision and chat harnesses, and Fritz command-line interface"
 license = "AGPL-3.0-only"
 repository = "https://github.com/rel-me/fritz"
 readme = "README.md"
@@ -37,7 +37,7 @@ tempfile = "3"
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"
 sha2 = { version = "0.10", features = ["asm"] }
-llama-cpp-2 = { version = "=0.1.156", default-features = false, features = ["metal"] }
+mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", rev = "4400935451da5e2dc7379a3f92fbbada66557f6c", features = ["metal"] }
 
 # Large model checksums must stay fast in development builds too.
 [profile.dev.package.sha2]

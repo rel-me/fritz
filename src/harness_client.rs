@@ -6,8 +6,51 @@ use crate::{
 };
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
+use std::os::fd::{AsRawFd, FromRawFd};
 use std::process::Stdio;
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
+
+/// Private harness stdin. Closing the supervising pipe cancels its run.
+pub struct PrivateStdin(tokio::io::unix::AsyncFd<std::fs::File>);
+
+impl PrivateStdin {
+    pub fn new() -> Result<Self> {
+        // SAFETY: fd 0 is valid and exclusively owned by this harness process.
+        let stdin = unsafe { std::fs::File::from_raw_fd(0) };
+        // SAFETY: F_GETFL/F_SETFL operate on the owned fd and retain no pointers.
+        let flags = unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_GETFL) };
+        if flags < 0
+            || unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) }
+                < 0
+        {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        Ok(Self(tokio::io::unix::AsyncFd::new(stdin)?))
+    }
+}
+
+impl AsyncRead for PrivateStdin {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        loop {
+            let mut guard = std::task::ready!(self.0.poll_read_ready(cx))?;
+            match guard.try_io(|inner| {
+                let mut fd = inner.get_ref();
+                std::io::Read::read(&mut fd, buf.initialize_unfilled())
+            }) {
+                Ok(Ok(n)) => {
+                    buf.advance(n);
+                    return std::task::Poll::Ready(Ok(()));
+                }
+                Ok(Err(e)) => return std::task::Poll::Ready(Err(e)),
+                Err(_) => continue,
+            }
+        }
+    }
+}
 
 pub async fn read_line(
     reader: &mut (impl AsyncBufRead + Unpin),
@@ -41,6 +84,9 @@ pub async fn read_line(
 
 pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
     let connection = config::find(Some(&request.connection_id))?;
+    if connection.provider.category() != config::ModelCategory::Llm {
+        bail!("Choose an LLM provider for chat.");
+    }
     let api_key = if connection.provider == config::ProviderKind::Fritz {
         None
     } else {

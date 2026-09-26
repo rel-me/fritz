@@ -10,26 +10,32 @@ relevant light/dark, empty, populated, loading, and error states. For changes to
 the following surfaces, include these behaviors:
 
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
-  sidebar visibility, + menu, New Project folder selection/cancel, and Settings
+  persistent sidebar without a toggle, + menu, New Project folder selection/cancel, and Settings
   opening with Command-comma. The toolbar opens the Model Providers page in Settings.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
-  should match the workspace surround in both modes, including with the sidebar hidden.
-  With the sidebar shown, preserve its rounded outline through the titlebar around
-  the traffic lights and sidebar toggle; it must not stop below a flat toolbar strip.
+  should match the workspace surround in both modes. Preserve the sidebar's rounded
+  outline through the titlebar around the traffic lights; it must not stop below
+  a flat toolbar strip.
   Compare the toolbar with the exposed padding around the rounded detail corner:
   the color must remain continuous in fullscreen as well as in a normal window.
-- **Projects and threads:** stable selection, rename, New Thread/Command-N,
-  independent transcripts and drafts, model settings, and launch restoration.
+- **Projects and threads:** blank sidebar and detail surfaces when no project or
+  thread exists, with creation available from the toolbar and menu. Check stable
+  selection, rename, New Thread/Command-N, independent transcripts and drafts,
+  model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
-  Shift-Return for a newline, Escape to stop, Markdown/code rendering, scrolling,
-  error feedback, and switching threads while a response streams.
+  Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
+  error feedback, and switching threads while a response streams. A new thread
+  shows only the composer, without an empty conversation message.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
-  selected page; shared title-free unified toolbar, native traffic lights, and
-  rounded inset detail surface in light/dark appearance. General appearance,
+  selected page; shared title-free unified toolbar, native traffic lights, a
+  persistent sidebar without a toggle, and a rounded detail surface that begins
+  below the toolbar in light/dark appearance. General appearance,
   update channel, CLI install feedback, Model Providers selection, Local Models
-  process controls, Service status, and Debug page navigation.
-- **Providers:** category filters, add/edit/cancel, field labels, discovery and
-  refresh, default/manual model choices, validation, and connection errors.
+  blank and populated lists, download and process controls, Service status, and
+  Debug page navigation.
+- **Providers:** combined LLM and decision provider list, add/edit/cancel, field
+  labels, discovery and refresh, default/manual model choices, validation, and
+  connection errors.
 
 Check keyboard focus and command targets when moving between chat, popovers,
 and Providers. Exercise accessibility or reduced-motion/transparency settings

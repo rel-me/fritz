@@ -174,13 +174,6 @@ public struct ModelPickerPopover<Value>: View {
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
       .padding(.top, 4)
-      .overlay {
-        if visibleModels.isEmpty {
-          Text("No results")
-            .font(.body)
-            .foregroundStyle(.secondary)
-        }
-      }
     }
     .frame(width: 440, height: 380)
     .background(style.background)

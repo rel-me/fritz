@@ -53,6 +53,7 @@ if [ -d "$app_bundle" ]; then rm -rf "$app_bundle"; fi
 ditto "$xcode_bundle" "$app_bundle"
 cp "target/$configuration/fritz" "$app_bundle/Contents/Resources/fritz"
 cp "target/$configuration/fritz-harness" "$app_bundle/Contents/Resources/fritz-harness"
+cp "target/$configuration/fritz-decision-harness" "$app_bundle/Contents/Resources/fritz-decision-harness"
 package_checkouts="$PWD/dist/DerivedData/SourcePackages/checkouts"
 mkdir -p "$app_bundle/Contents/Resources/Licenses"
 cp LICENSE "$app_bundle/Contents/Resources/Licenses/Fritz-AGPL-3.0.txt"
@@ -87,6 +88,8 @@ codesign --force "${sign_options[@]}" --identifier dev.fritz.agent \
   --requirements '=designated => identifier "dev.fritz.agent"' "$app_bundle/Contents/Resources/fritz"
 codesign --force "${sign_options[@]}" --identifier dev.fritz.harness \
   "$app_bundle/Contents/Resources/fritz-harness"
+codesign --force "${sign_options[@]}" --identifier dev.fritz.decision-harness \
+  "$app_bundle/Contents/Resources/fritz-decision-harness"
 codesign --force "${sign_options[@]}" --identifier "$bundle_id" \
   "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"

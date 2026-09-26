@@ -1,6 +1,7 @@
 import Foundation
 
 public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
+    public var category: AIModelCategory { provider.category }
     public enum Source: Codable, Equatable, Sendable {
         case builtIn
         case configured
@@ -167,6 +168,7 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         limit: Int
     ) -> [Self] {
         guard limit > 0 else { return [] }
+        let options = options.filter { $0.category == .llm }
 
         let selectedModel = selectedModelID.flatMap { selectedModelID in
             options.first { $0.id == selectedModelID }
@@ -216,4 +218,3 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         return recommendations
     }
 }
-

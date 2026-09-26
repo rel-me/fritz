@@ -36,47 +36,73 @@ struct FritzSettingsView: View {
     @Bindable var state: FritzState
     @ObservedObject var updater: AppUpdater
     @State private var editor: ProviderEditorSelection?
+    @State private var showsDownload = false
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: selection) {
-                ForEach(FritzSettingsTab.allCases) { tab in
-                    Label(tab.title, systemImage: tab.systemImage).tag(tab)
+        GeometryReader { geometry in
+            NavigationSplitView(columnVisibility: .constant(.all)) {
+                List(selection: selection) {
+                    ForEach(FritzSettingsTab.allCases) { tab in
+                        Label(tab.title, systemImage: tab.systemImage).tag(tab)
+                    }
+                }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
+                .background(FritzWindowStyle.workspaceBackground)
+                .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
+                .toolbar(removing: .sidebarToggle)
+            } detail: {
+                Group {
+                    switch state.settingsTab {
+                    case .general:
+                        FritzGeneralSettingsView(updater: updater, settings: state.settings)
+                    case .providers:
+                        ProvidersView(store: state.providers, editor: $editor)
+                    case .localModels:
+                        LocalModelsView(store: state.localModels,
+                                        downloadModel: { showsDownload = true })
+                    case .service:
+                        FritzServiceSettingsView(agent: state.agent)
+                    case .debug:
+                        Text("Debug")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(24)
+                            .background(FritzWindowStyle.contentBackground)
+                    }
+                }
+                // Bound list-based pages to the window while reserving the bottom inset.
+                .frame(height: max(0, geometry.size.height - 8), alignment: .top)
+                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+                .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            }
+            .navigationSplitViewStyle(.prominentDetail)
+            // Keep a toolbar host so the unified titlebar retains the sidebar outline.
+            .toolbar {
+                if #available(macOS 26.0, *) {
+                    ToolbarItem(placement: .automatic) {
+                        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .automatic) {
+                        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                    }
                 }
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .background(FritzWindowStyle.workspaceBackground)
-            .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
-        } detail: {
-            Group {
-                switch state.settingsTab {
-                case .general:
-                    FritzGeneralSettingsView(updater: updater, settings: state.settings)
-                case .providers:
-                    ProvidersView(store: state.providers, editor: $editor,
-                                  openLocalModels: { state.selectSettings(.localModels) })
-                case .localModels:
-                    LocalModelsView(store: state.localModels,
-                                    openProviders: { state.selectSettings(.providers) })
-                case .service:
-                    FritzServiceSettingsView(agent: state.agent)
-                case .debug:
-                    Text("Debug")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(24)
-                        .background(FritzWindowStyle.contentBackground)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
-            .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .navigationSplitViewStyle(.prominentDetail)
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection, initialCategory: $0.category) }
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            Task {
+                await state.localModels.refresh()
+                await state.providers.refresh()
+            }
+        }) {
+            LocalModelDownloadSheet(agent: state.agent)
+        }
     }
 
     private var selection: Binding<FritzSettingsTab?> {

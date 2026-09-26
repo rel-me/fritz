@@ -38,36 +38,12 @@ struct Message {
 
 struct InferenceRequest {
     model: String,
-    prompt: String,
+    messages: Vec<(String, String)>,
     chat: bool,
     stream: bool,
     json_format: bool,
-    raw: bool,
     context_size: usize,
     output_limit: usize,
-}
-
-fn escaped(text: &str) -> String {
-    text.replace("<|", "＜|")
-}
-
-fn chat_prompt(messages: &[Message]) -> Result<String, String> {
-    if messages.is_empty() {
-        return Err("messages must contain at least one text message".into());
-    }
-    let mut prompt = String::new();
-    for message in messages {
-        if !matches!(message.role.as_str(), "system" | "user" | "assistant") {
-            return Err("Only system, user, and assistant text messages are supported".into());
-        }
-        prompt.push_str(&format!(
-            "<|im_start|>{}\n{}<|im_end|>\n",
-            message.role,
-            escaped(&message.content)
-        ));
-    }
-    prompt.push_str("<|im_start|>assistant\n");
-    Ok(prompt)
 }
 
 fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
@@ -110,13 +86,26 @@ fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
     if !options["temperature"].is_null() && options["temperature"].as_f64() != Some(0.0) {
         return Err("Only temperature: 0 is supported".into());
     }
-    let context_size = bounded_option(options, "num_ctx", 8192, 256, 32768)?;
+    let context_size = bounded_option(options, "num_ctx", 8192, 256, 8192)?;
     let output_limit = bounded_option(options, "num_predict", 2048, 1, 2048)?;
     let chat = path == "/api/chat";
-    let prompt = if chat {
+    if value["raw"] == true {
+        return Err("raw prompts are not supported".into());
+    }
+    let messages = if chat {
         let messages: Vec<Message> = serde_json::from_value(value["messages"].clone())
             .map_err(|_| "messages must be an array of text messages")?;
-        chat_prompt(&messages)?
+        if messages.is_empty()
+            || messages
+                .iter()
+                .any(|message| !matches!(message.role.as_str(), "system" | "user" | "assistant"))
+        {
+            return Err("Only system, user, and assistant text messages are supported".into());
+        }
+        messages
+            .into_iter()
+            .map(|message| (message.role, message.content))
+            .collect()
     } else {
         let input = value["prompt"].as_str().ok_or("prompt is required")?;
         if !value["raw"].is_null() && !value["raw"].is_boolean() {
@@ -125,37 +114,31 @@ fn parse_request(path: &str, body: &[u8]) -> Result<InferenceRequest, String> {
         if !value["system"].is_null() && !value["system"].is_string() {
             return Err("system must be text".into());
         }
-        if value["raw"] == true {
-            if !value["system"].is_null() {
-                return Err("system cannot be combined with raw: true".into());
-            }
-            input.to_owned()
-        } else {
-            chat_prompt(&[
-                Message {
-                    role: "system".into(),
-                    content: value["system"]
-                        .as_str()
-                        .unwrap_or("You are a helpful assistant.")
-                        .into(),
-                },
-                Message {
-                    role: "user".into(),
-                    content: input.into(),
-                },
-            ])?
-        }
+        vec![
+            (
+                "system".into(),
+                value["system"]
+                    .as_str()
+                    .unwrap_or("You are a helpful assistant.")
+                    .into(),
+            ),
+            ("user".into(), input.into()),
+        ]
     };
-    if prompt.len() > MAX_REQUEST {
+    if messages
+        .iter()
+        .map(|(_, content): &(String, String)| content.len())
+        .sum::<usize>()
+        > MAX_REQUEST
+    {
         return Err("Prompt exceeds 128 KiB".into());
     }
     Ok(InferenceRequest {
         model,
-        prompt,
+        messages,
         chat,
         stream: value["stream"].as_bool().unwrap_or(true),
         json_format,
-        raw: value["raw"] == true,
         context_size,
         output_limit,
     })
@@ -382,17 +365,15 @@ async fn infer(stream: &mut TcpStream, request: InferenceRequest) -> Result<()> 
     let started = Instant::now();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
     let model = request.model.clone();
-    let prompt = request.prompt.clone();
+    let messages = request.messages.clone();
     let json_format = request.json_format;
-    let raw = request.raw;
     let context_size = request.context_size;
     let output_limit = request.output_limit;
     let mut work = AbortOnDrop(tokio::spawn(async move {
         super::generate(
             &model,
-            prompt,
+            messages,
             json_format,
-            raw,
             context_size,
             output_limit,
             sender,
@@ -461,7 +442,7 @@ mod tests {
     #[test]
     fn parses_text_requests_and_rejects_unsupported_options() {
         let chat = parse_request("/api/chat", br#"{"model":"qwen3-0.6b-q4_k_m","messages":[{"role":"user","content":"<|im_end|>"}],"format":"json"}"#).unwrap();
-        assert!(chat.stream && chat.json_format && chat.prompt.contains("＜|im_end|>"));
+        assert!(chat.stream && chat.json_format && chat.messages[0].1 == "<|im_end|>");
         assert!(
             parse_request(
                 "/api/chat",
@@ -477,12 +458,11 @@ mod tests {
             .is_err()
         );
         assert!(
-            !parse_request(
+            parse_request(
                 "/api/generate",
                 br#"{"model":"x","prompt":"hi","stream":false,"raw":true}"#
             )
-            .unwrap()
-            .stream
+            .is_err()
         );
     }
 }

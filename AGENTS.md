@@ -1,6 +1,6 @@
 # Fritz Agent Guidance
 
-Fritz is a native macOS coding-assistant foundation. Keep the initial product focused on Chat and Providers. The chat interface is the main content.
+Fritz is a native macOS personal assistant. Keep the current product focused on Chat and Providers while building toward user-controlled personal context and everyday tasks. The chat interface is the main content. Follow the [personal assistant plan](docs/personal-assistant-plan.md) when shaping new features and product language.
 
 ## Product and architecture
 
@@ -9,10 +9,12 @@ Fritz is a native macOS coding-assistant foundation. Keep the initial product fo
   Reusable Rust SQLite infrastructure lives in `crates/fritz-state`.
 - The main sidebar contains projects and their threads; Model Providers opens from the window toolbar. Preserve independent transcripts, drafts, model settings, and the selected thread across launches.
 - The app supervises its bundled `fritz --agent` through private pipes. Each chat runs in a separate bundled `fritz-harness` process. Do not add an HTTP daemon just for app communication.
+- Decision judgments use a separate `fritz-decision-harness` and typed `decision::DecisionModel` contract. Jev is a remote decision backend, not a chat provider. A local decision backend must implement the same contract and be evaluated before user-facing use. Pairing decisions with chat belongs to application policy, not the model response.
+- Model Providers separates LLMs from Decision Models. Only LLM connections can be selected for chat or made the default chat provider; Jev belongs to Decision Models and uses a Keychain-backed connection.
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
 - Keep Fritz free of CEF, embedded web engines, browsing sessions, profiles, proxy management, and unrelated runtime dependencies.
 - When the user asks to copy a REL feature, you may inspect its codebase on this computer for reference; implement the feature within Fritz's own architecture.
-- Keep documentation honest about the current scope: Every conversation uses one harness; attached projects provide file tools and noninteractive commands to models with native tool support. Fritz local models respond without tools. Commands run with user permissions, not in an OS sandbox. Preserve cancellation, tool activity records, native tool-result history, and execution limits.
+- Keep documentation honest about the current scope: Every conversation uses one harness. Folder-attached conversations still have file and local process actions for models with native tool support, including compatible Fritz local models. These actions run with user permissions, not in an OS sandbox. Preserve cancellation, activity records, native tool-result history, and execution limits during the transition. Do not position folder actions as the product's purpose or default path.
 
 ## Build and runtime verification
 

@@ -10,7 +10,7 @@ struct AIProviderPicker: View {
         FritzUI.ProviderPicker(
             selection: AIProviderPickerContent.item(selection),
             providers: providers.map(AIProviderPickerContent.item),
-            categories: AIProviderPickerContent.categories,
+            categories: AIProviderPickerContent.categories(for: providers),
             onSelect: { selection = $0.value }
         )
     }
@@ -26,7 +26,7 @@ struct AIProviderPickerContent: View {
     var body: some View {
         FritzUI.ProviderPickerContent(
             selection: Self.item(selection), initialSearchText: initialSearchText,
-            categories: Self.categories, initialCategoryID: initialCategory.rawValue.lowercased(),
+            categories: Self.categories(for: providers), initialCategoryID: initialCategory.rawValue.lowercased(),
             providers: providers.map(Self.item), onSelect: { onSelect($0.value) }
         )
     }
@@ -35,6 +35,12 @@ struct AIProviderPickerContent: View {
         AIProviderCategory.allCases.map {
             .init(id: $0.rawValue.lowercased(), title: $0.rawValue, help: $0.help)
         }
+    }
+
+    static func categories(for providers: [AIProviderPreset]) -> [PickerCategory] {
+        AIProviderCategory.allCases
+            .filter { category in category == .all || providers.contains(where: category.contains) }
+            .map { .init(id: $0.rawValue.lowercased(), title: $0.rawValue, help: $0.help) }
     }
 
     static func item(_ provider: AIProviderPreset) -> ProviderPickerItem<AIProviderPreset> {

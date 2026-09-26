@@ -1,10 +1,23 @@
 import Foundation
 
+public enum AIModelCategory: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
+    case llm
+    case decision
+
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .llm: "LLMs"
+        case .decision: "Decision Models"
+        }
+    }
+}
+
 public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
     case openAI = "openai"
     case openAICompatible = "openai-compatible"
     case openRouter = "openrouter"
-    case anthropic, gemini, ollama, fritz
+    case anthropic, gemini, ollama, fritz, jev
     public var id: String { rawValue }
     public var name: String {
         switch self {
@@ -15,9 +28,11 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .gemini: "Google Gemini"
         case .ollama: "Ollama"
         case .fritz: "Fritz"
+        case .jev: "Jev"
         }
     }
     public var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && self != .fritz }
+    public var category: AIModelCategory { self == .jev ? .decision : .llm }
     public var systemImage: String {
         switch self {
         case .openAI: "sparkles"
@@ -27,6 +42,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .gemini: "diamond"
         case .ollama: "desktopcomputer"
         case .fritz: "cpu"
+        case .jev: "checkmark.seal"
         }
     }
     public var endpoint: String {
@@ -38,6 +54,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .gemini: "https://generativelanguage.googleapis.com/v1beta"
         case .ollama: "http://localhost:11434"
         case .fritz: ""
+        case .jev: "https://api.typesafe.ai/v1/systemone"
         }
     }
 }
@@ -63,6 +80,7 @@ public struct ProviderConnection: Codable, Equatable, Identifiable, Sendable {
     public var providerDisplayName: String {
         AIProviderPreset.matching(provider: provider, baseURL: baseURL).displayName
     }
+    public var category: AIModelCategory { provider.category }
 }
 
 public struct ProviderRegistry: Codable, Sendable {

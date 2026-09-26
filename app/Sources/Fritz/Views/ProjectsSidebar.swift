@@ -2,48 +2,49 @@ import SwiftUI
 
 struct ProjectsSidebar: View {
     @Bindable var workspace: WorkspaceStore
-    let newProject: () -> Void
     @State private var collapsedProjects: Set<UUID> = []
     @State private var renaming: RenameItem?
 
     var body: some View {
         List(selection: Binding(get: { workspace.selectedThreadID }, set: { workspace.select($0) })) {
-            Section("Projects") {
-                ForEach(workspace.projects) { project in
-                    DisclosureGroup(isExpanded: Binding(
-                        get: { !collapsedProjects.contains(project.id) },
-                        set: { if $0 { collapsedProjects.remove(project.id) } else { collapsedProjects.insert(project.id) } }
-                    )) {
-                        ForEach(project.threads) { thread in
-                            HStack(spacing: 7) {
-                                Label(thread.title, systemImage: "bubble.left")
-                                    .lineLimit(1).truncationMode(.tail)
-                                Spacer(minLength: 0)
-                            }
-                            .tag(thread.id)
-                            .help(thread.title)
-                            .contextMenu {
-                                Button("Rename Thread", systemImage: "pencil") {
-                                    renaming = RenameItem(id: thread.id, title: thread.title, isProject: false)
+            if !workspace.projects.isEmpty {
+                Section("Projects") {
+                    ForEach(workspace.projects) { project in
+                        DisclosureGroup(isExpanded: Binding(
+                            get: { !collapsedProjects.contains(project.id) },
+                            set: { if $0 { collapsedProjects.remove(project.id) } else { collapsedProjects.insert(project.id) } }
+                        )) {
+                            ForEach(project.threads) { thread in
+                                HStack(spacing: 7) {
+                                    Label(thread.title, systemImage: "bubble.left")
+                                        .lineLimit(1).truncationMode(.tail)
+                                    Spacer(minLength: 0)
                                 }
-                                Button("New Thread", systemImage: "square.and.pencil") { workspace.createThread(in: project.id) }
+                                .tag(thread.id)
+                                .help(thread.title)
+                                .contextMenu {
+                                    Button("Rename Thread", systemImage: "pencil") {
+                                        renaming = RenameItem(id: thread.id, title: thread.title, isProject: false)
+                                    }
+                                    Button("New Thread", systemImage: "square.and.pencil") { workspace.createThread(in: project.id) }
+                                }
                             }
+                        } label: {
+                            Label(project.name, systemImage: "folder")
+                                .lineLimit(1).help(project.directory ?? project.name)
                         }
-                    } label: {
-                        Label(project.name, systemImage: "folder")
-                            .lineLimit(1).help(project.directory ?? project.name)
-                    }
-                    .contextMenu {
-                        Button("New Thread", systemImage: "square.and.pencil") {
-                            collapsedProjects.remove(project.id)
-                            workspace.createThread(in: project.id)
-                        }
-                        Button("Rename Project", systemImage: "pencil") {
-                            renaming = RenameItem(id: project.id, title: project.name, isProject: true)
-                        }
-                        if let directory = project.directory {
-                            Button("Show in Finder", systemImage: "folder") {
-                                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: directory)])
+                        .contextMenu {
+                            Button("New Thread", systemImage: "square.and.pencil") {
+                                collapsedProjects.remove(project.id)
+                                workspace.createThread(in: project.id)
+                            }
+                            Button("Rename Project", systemImage: "pencil") {
+                                renaming = RenameItem(id: project.id, title: project.name, isProject: true)
+                            }
+                            if let directory = project.directory {
+                                Button("Show in Finder", systemImage: "folder") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: directory)])
+                                }
                             }
                         }
                     }
@@ -51,15 +52,6 @@ struct ProjectsSidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .overlay {
-            if workspace.projects.isEmpty {
-                VStack(spacing: 10) {
-                    Text("Your projects and threads appear here.")
-                        .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                    Button("New Project", action: newProject)
-                }.padding(20)
-            }
-        }
         .onChange(of: workspace.selectedProject?.id) { _, id in if let id { collapsedProjects.remove(id) } }
         .sheet(item: $renaming) { item in
             RenameItemSheet(item: item) { name in
