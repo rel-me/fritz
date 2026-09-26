@@ -24,10 +24,6 @@ enum ChatVisualStyle {
             : Color.primary.opacity(0.14)
     }
 
-    static var hairline: Color {
-        Color(nsColor: .separatorColor).opacity(0.72)
-    }
-
     static var subtleFill: Color {
         Color.primary.opacity(0.055)
     }
