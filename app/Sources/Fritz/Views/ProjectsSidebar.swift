@@ -101,8 +101,10 @@ struct NewProjectSheet: View {
                 TextField("Name", text: $name, prompt: Text("Project name"))
                 LabeledContent("Folder") {
                     HStack {
-                        Text(directory?.abbreviatedPath ?? "Choose a project folder")
-                            .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        if let directory {
+                            Text(directory.abbreviatedPath)
+                                .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
                         Button("Choose…", action: chooseFolder)
                     }
                 }
