@@ -20,7 +20,8 @@ def main():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     endpoint = f"http://127.0.0.1:{server.server_address[1]}/v1"
     with tempfile.TemporaryDirectory(prefix="fritz-test-") as directory:
-        env = dict(os.environ, FRITZ_DATA_DIR=directory)
+        keychain_service = f"dev.fritz.provider-credentials.test-{uuid.uuid4()}"
+        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_KEYCHAIN_SERVICE=keychain_service)
 
         def cli(*args, success=True):
             result = subprocess.run([str(EXECUTABLE), *args], text=True, capture_output=True, env=env, timeout=15)
@@ -73,6 +74,39 @@ def main():
         health = send("health")
         event = receive()
         assert event["id"] == health and event["result"]["name"] == "fritz"
+        # Imported configurations may omit keys, but malformed batches write nothing.
+        imported = dict(id=str(uuid.uuid4()), name="TypeSafe", provider="jev", modelId="jev-latest")
+        invalid = dict(imported, id=str(uuid.uuid4()), baseUrl="https://example.com")
+        send("providers.import", {"providers": [{"connection": imported}, {"connection": invalid}]})
+        assert receive()["type"] == "error"
+        send("providers.list")
+        assert len(receive()["result"]["connections"]) == 1
+        send("providers.import", {"providers": [{"connection": imported}]})
+        registry = receive()["result"]
+        assert len(registry["connections"]) == 2
+        assert registry["defaultConnectionId"] == connection["id"]
+        send("models.list", {"connectionId": imported["id"]})
+        assert "Add an API key" in receive()["message"]
+        send("providers.default", {"id": imported["id"]})
+        assert receive()["type"] == "error"
+        send("providers.remove", {"id": imported["id"]})
+        assert len(receive()["result"]["connections"]) == 1
+        # Import keys stay in Keychain, survive keyless overwrites, and cannot be
+        # carried to a changed endpoint by passing a whitespace-only replacement.
+        keyed = dict(connection, id=str(uuid.uuid4()), name="Import credential fixture")
+        send("providers.import", {"providers": [{"connection": keyed, "apiKey": "synthetic-import-key"}]})
+        assert "synthetic-import-key" not in json.dumps(receive())
+        send("providers.import", {"providers": [{"connection": dict(keyed, modelId="other")}]})
+        assert receive()["type"] == "result"
+        saved_key = subprocess.run(["security", "find-generic-password", "-s", keychain_service,
+                                    "-a", keyed["id"], "-w"], capture_output=True, text=True, check=True)
+        assert saved_key.stdout.strip() == "synthetic-import-key"
+        send("providers.import", {"providers": [{"connection": dict(keyed, baseUrl="http://localhost:1/v1"), "apiKey": "  "}]})
+        assert "Enter a key again" in receive()["message"]
+        with sqlite3.connect(Path(directory) / "providers.sqlite") as database:
+            assert all("synthetic-import-key" not in row[0] for row in database.execute("SELECT payload FROM providers"))
+        send("providers.remove", {"id": keyed["id"]})
+        assert len(receive()["result"]["connections"]) == 1
         local_list = send("localModels.list", {"modelId": native_id})
         event = receive()
         assert event["id"] == local_list and event["result"]["models"][0]["installed"] is False

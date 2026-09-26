@@ -1,6 +1,7 @@
 import Fritz
 import Foundation
 import Observation
+import Security
 
 @MainActor @Observable final class ProviderStore {
     private(set) var registry = ProviderRegistry()
@@ -83,6 +84,50 @@ import Observation
         if !key.isEmpty { params["apiKey"] = key }
         registry = try await agent.request("providers.save", params: params)
         await refresh()
+    }
+
+    func importProviders(_ text: String, policy: ExistingProviderImportPolicy) async throws {
+        let configurations = try ProviderConfigurationTransfer.decode(text)
+        let current: ProviderRegistry = try await agent.request("providers.list")
+        let items = try ProviderConfigurationTransfer.plan(configurations, existing: current.connections, policy: policy)
+        do {
+            registry = try await agent.request("providers.import", params: ["providers": try items.map { try $0.jsonObject() }])
+        } catch {
+            // A Keychain/storage failure can occur after earlier entries were saved.
+            await refresh()
+            throw error
+        }
+        await refresh()
+    }
+
+    func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String {
+        let configurations = try connections.map { connection in
+            ProviderConfigurationTransfer.Configuration(connection, apiKey: includeKeys ? try exportKey(for: connection) : nil)
+        }
+        return try ProviderConfigurationTransfer.export(configurations)
+    }
+
+    /// Only an explicit key-inclusive export reads credentials in the UI process.
+    /// The agent protocol continues to return metadata only.
+    private func exportKey(for connection: ProviderConnection) throws -> String? {
+        guard connection.provider != .fritz else { return nil }
+        let service = Bundle.main.object(forInfoDictionaryKey: "FritzKeychainService") as? String
+            ?? "dev.fritz.provider-credentials"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: connection.id.uuidString.lowercased(),
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = result as? Data,
+              let key = String(data: data, encoding: .utf8) else {
+            throw ProviderConfigurationTransfer.TransferError(message: "Could not read a provider key from Keychain (\(status)).")
+        }
+        return key
     }
     func remove(_ connection: ProviderConnection) async {
         do { registry = try await agent.request("providers.remove", params: ["id": connection.id.uuidString]); await refresh() }

@@ -10,12 +10,25 @@ struct ProviderEditorSelection: Identifiable {
 struct ProvidersView: View {
     @Bindable var store: ProviderStore
     @Binding var editor: ProviderEditorSelection?
-    @State private var selectedID: UUID?
+    @State private var selectedIDs: Set<UUID> = []
     @State private var deleting: ProviderConnection?
+    @State private var isImporting = false
+    @State private var showsExportOptions = false
+    @State private var exportConnections: [ProviderConnection] = []
+    @State private var textExport: ProviderTextExport?
 
     var body: some View {
         VStack(spacing: 0) {
             FritzManagementHeader("Model Providers") {
+                Menu {
+                    Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
+                    Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
+                        .disabled(selectedIDs.isEmpty)
+                } label: {
+                    Label("Import and Export", systemImage: "ellipsis.circle")
+                }
+                .labelStyle(.iconOnly).menuIndicator(.hidden)
+                .help("Import and Export")
                 Button("Add Provider", systemImage: "plus") {
                     editor = ProviderEditorSelection()
                 }
@@ -24,7 +37,7 @@ struct ProvidersView: View {
                 .help("Add Provider")
             }
 
-            Table(store.connections, selection: $selectedID) {
+            Table(store.connections, selection: $selectedIDs) {
                 TableColumn("Name") { connection in
                     HStack(spacing: 6) {
                         Text(connection.providerDisplayName).lineLimit(1).truncationMode(.tail)
@@ -56,7 +69,7 @@ struct ProvidersView: View {
             }
             .fritzListSurface()
             .contextMenu(forSelectionType: UUID.self) { ids in
-                if let connection = store.connections.first(where: { ids.contains($0.id) }) {
+                if ids.count == 1, let connection = store.connections.first(where: { ids.contains($0.id) }) {
                     Button("Edit Provider", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
                     if connection.category == .llm {
                         Button("Make Default", systemImage: "checkmark.circle") { Task { await store.makeDefault(connection) } }
@@ -65,8 +78,11 @@ struct ProvidersView: View {
                     Divider()
                     Button("Delete Provider", role: .destructive) { deleting = connection }
                 }
+                if !ids.isEmpty {
+                    Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(ids) }
+                }
             } primaryAction: { ids in
-                if let connection = store.connections.first(where: { ids.contains($0.id) }) {
+                if ids.count == 1, let connection = store.connections.first(where: { ids.contains($0.id) }) {
                     editor = ProviderEditorSelection(connection: connection)
                 }
             }
@@ -76,6 +92,16 @@ struct ProvidersView: View {
             }
         }
         .background(FritzWindowStyle.workspaceBackground)
+        .sheet(isPresented: $isImporting) { ProviderTransferSheet(store: store) }
+        .confirmationDialog("Export Providers", isPresented: $showsExportOptions) {
+            Button("Export Without Keys") { exportProviders(includeKeys: false) }
+            Button("Export Including API Keys") { exportProviders(includeKeys: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Included API keys will be readable in the exported JSON.")
+        }
+        .sheet(item: $textExport) { exported in ProviderTransferSheet(store: store, exported: exported) }
+        .onChange(of: store.connections) { _, connections in selectedIDs.formIntersection(connections.map(\.id)) }
         .confirmationDialog("Delete this provider?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             if let deleting {
                 Button("Delete \(deleting.providerDisplayName)", role: .destructive) { Task { await store.remove(deleting) }; self.deleting = nil }
@@ -90,7 +116,21 @@ struct ProvidersView: View {
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(color.opacity(0.12), in: Capsule()).fixedSize()
     }
-    private var selectedConnection: ProviderConnection? { store.connections.first { $0.id == selectedID } }
+    private var selectedConnection: ProviderConnection? {
+        selectedIDs.count == 1 ? store.connections.first { selectedIDs.contains($0.id) } : nil
+    }
+
+    private func prepareExport(_ ids: Set<UUID>) {
+        exportConnections = store.connections.filter { ids.contains($0.id) }
+        if !exportConnections.isEmpty { showsExportOptions = true }
+    }
+
+    private func exportProviders(includeKeys: Bool) {
+        do {
+            let text = try store.exportProviders(exportConnections, includeKeys: includeKeys)
+            textExport = ProviderTextExport(text: text, includesKeys: includeKeys)
+        } catch { store.error = error.localizedDescription }
+    }
 }
 
 struct ProviderEditor: View {
@@ -125,7 +165,7 @@ struct ProviderEditor: View {
         _category = State(initialValue: category)
         _id = State(initialValue: existing?.id ?? UUID())
         _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID))
-        let baseName = category == .decision ? "Jev" : "OpenAI"
+        let baseName = category == .decision ? "TypeSafe" : "OpenAI"
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
             initialName = "\(baseName) \(suffix)"; suffix += 1
@@ -307,7 +347,7 @@ struct ProviderEditor: View {
         let current = endpoint.isEmpty ? preset.provider.endpoint : endpoint
         return old.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == current.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
-    private var keyPrompt: String { keepsSavedKey ? "Saved in Keychain" : "Enter API key" }
+    private var keyPrompt: String { keepsSavedKey ? "Leave blank to keep a saved key" : "Enter API key" }
     private var canSave: Bool {
         !isSaving && (!managesLocalModels || nativeModel.state == .installed)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
