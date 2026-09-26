@@ -3,7 +3,6 @@
 use crate::{
     config::{Connection, ProviderKind},
     provider::{self, ChatRequest},
-    tools,
 };
 use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
@@ -12,11 +11,8 @@ use std::{
     sync::Mutex,
 };
 
-pub struct Call {
-    pub id: String,
-    pub name: String,
-    pub arguments: String,
-}
+pub use fritz_harness::ToolCall as Call;
+use fritz_harness::{ToolDefinition, ToolResult};
 
 pub struct Session {
     pub history: Vec<Value>,
@@ -50,9 +46,25 @@ impl Session {
             }
             _ => history[0]["content"] = json!(system),
         }
-        if request.project_path.is_some() {
-            let defs = tools::definitions();
-            base["tools"] = match kind {
+        if kind == ProviderKind::Ollama {
+            base["options"] = json!({"num_predict":8192});
+        }
+        Ok(Self {
+            history,
+            kind,
+            suffix,
+            base,
+        })
+    }
+
+    pub fn set_tools(&mut self, definitions: &[ToolDefinition]) -> Result<()> {
+        self.base.as_object_mut().unwrap().remove("tools");
+        if !definitions.is_empty() {
+            let defs = definitions
+                .iter()
+                .map(serde_json::to_value)
+                .collect::<Result<Vec<_>, _>>()?;
+            self.base["tools"] = match self.kind {
             ProviderKind::Openai => json!(defs.iter().map(|d| json!({"type":"function","name":d["name"],"description":d["description"],"parameters":d["parameters"],"strict":false})).collect::<Vec<_>>()),
             ProviderKind::Anthropic => json!(defs.iter().map(|d| json!({"name":d["name"],"description":d["description"],"input_schema":d["parameters"]})).collect::<Vec<_>>()),
             ProviderKind::Gemini => json!([{"functionDeclarations":defs.iter().map(|d| {
@@ -63,15 +75,7 @@ impl Session {
             _ => json!(defs.iter().map(|d| json!({"type":"function","function":d})).collect::<Vec<_>>()),
         };
         }
-        if kind == ProviderKind::Ollama {
-            base["options"] = json!({"num_predict":8192});
-        }
-        Ok(Self {
-            history,
-            kind,
-            suffix,
-            base,
-        })
+        Ok(())
     }
 
     pub async fn turn(
@@ -110,18 +114,22 @@ impl Session {
         self.history.extend(items);
         Ok(calls)
     }
-    pub fn results(&mut self, results: &[(Call, Value, bool)]) {
+    pub fn results(&mut self, results: &[(Call, ToolResult)]) -> Result<()> {
+        if results.iter().any(|(_, result)| !result.images.is_empty()) {
+            bail!("This native provider adapter does not support image tool results.");
+        }
         match self.kind {
-            ProviderKind::Openai => self.history.extend(results.iter().map(|(c,v,_)| json!({"type":"function_call_output","call_id":c.id,"output":v.to_string()}))),
-            ProviderKind::Anthropic => self.history.push(json!({"role":"user","content":results.iter().map(|(c,v,e)| json!({"type":"tool_result","tool_use_id":c.id,"content":v.to_string(),"is_error":e})).collect::<Vec<_>>()})),
-            ProviderKind::Gemini => self.history.push(json!({"role":"user","parts":results.iter().map(|(c,v,_)| {
-                let mut response = json!({"name":c.name,"response":v});
+            ProviderKind::Openai => self.history.extend(results.iter().map(|(c,r)| json!({"type":"function_call_output","call_id":c.id,"output":r.value.to_string()}))),
+            ProviderKind::Anthropic => self.history.push(json!({"role":"user","content":results.iter().map(|(c,r)| json!({"type":"tool_result","tool_use_id":c.id,"content":r.value.to_string(),"is_error":r.failed})).collect::<Vec<_>>()})),
+            ProviderKind::Gemini => self.history.push(json!({"role":"user","parts":results.iter().map(|(c,r)| {
+                let mut response = json!({"name":c.name,"response":r.value});
                 if !c.id.starts_with("fritz-") { response["id"] = json!(c.id); }
                 json!({"functionResponse":response})
             }).collect::<Vec<_>>()})),
-            ProviderKind::Ollama => self.history.extend(results.iter().map(|(c,v,_)| json!({"role":"tool","tool_name":c.name,"content":v.to_string()}))),
-            _ => self.history.extend(results.iter().map(|(c,v,_)| json!({"role":"tool","tool_call_id":c.id,"content":v.to_string()}))),
+            ProviderKind::Ollama => self.history.extend(results.iter().map(|(c,r)| json!({"role":"tool","tool_name":c.name,"content":r.value.to_string()}))),
+            _ => self.history.extend(results.iter().map(|(c,r)| json!({"role":"tool","tool_call_id":c.id,"content":r.value.to_string()}))),
         }
+        Ok(())
     }
 }
 

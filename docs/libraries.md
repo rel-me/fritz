@@ -232,6 +232,51 @@ REL must reconcile protocol and model-catalog differences during its later
 migration; this change does not assert drop-in compatibility for either entire
 application. There is no CEF or browser dependency in Fritz.
 
+## Host-owned harness tools
+
+Use the independent `fritz-harness` crate when embedding execution without the
+Fritz app, provider registry, Keychain defaults or native Metal inference:
+
+```toml
+fritz-harness = { git = "https://github.com/rel-me/fritz", rev = "<commit-sha>" }
+# Existing Rig hosts enable `features = ["rig"]` (Rig 0.42).
+```
+
+The default crate has no installed tools, app state, provider networking or
+native inference dependency. A host implements `Host` (current tool definitions
+and execution) and `Model` (one provider-native turn and result history), then
+calls `run` with explicit model-turn, tool-call and deadline limits. Tools are
+refreshed before each turn. The entire call batch is validated against that
+turn's advertised tools, unique call IDs and remaining budgets before any call
+executes. Tool-specific authorization and argument validation belong to the
+host. Expected tool failures are `ToolResult { failed: true, .. }`; an `Err`
+stops execution. Dropping the run or reaching its deadline drops in-flight work.
+Hosts must make spawned work cancellation-safe; the library spawns no tasks.
+
+Fritz's application uses this engine with its own `WorkspaceHost`. The full
+`fritz` crate additionally exposes `harness::run_with_host(input, instructions,
+host, emit)` for its existing native provider adapters, including its local text
+model. This path does not install folder tools or read project guidance. It
+retains Fritz's 40-turn maximum, 64-tool budget and ten-minute deadline. These
+native adapters currently accept JSON tool results and explicitly reject image
+results; they do not silently turn image bytes into model-facing text.
+
+The optional `rig` module drives an existing `AgentRunner` with host-registered
+`Tool` implementations and `AgentHook` policy. `rig::run` reports completion
+accounting before advancing; `rig::run_with_progress` also forwards host-defined
+progress and drops the run if the host transport fails. Rig preserves typed
+text/image tool results, native history, active-tool validation and per-turn
+request patches. Hosts retain their provider adapters, cancellation ownership,
+conversation persistence and execution budgets. A closed progress channel does
+not spin or cancel an otherwise valid run.
+
+These are explicit native-provider and Rig integrations, not an automatic
+fallback between provider stacks. Only reusable contracts and execution live
+here. Downstream applications compile their private tools, prompts and policies
+in their own repositories and pass them at runtime; Fritz has no dependency on
+those applications or their tools. Pin the crate's Git revision independently
+of any Swift products.
+
 ## License and verification
 
 Project-authored app and library code is AGPL-3.0-only. See [LICENSE](../LICENSE)

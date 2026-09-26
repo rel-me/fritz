@@ -15,7 +15,7 @@ run dev-open: build
 test: test-runtime test-swift
 
 test-runtime:
-	cargo test --workspace --locked
+	cargo test --workspace --all-features --locked
 	cargo build --locked
 	python3 tests/integration.py
 	python3 tests/coding_integration.py
@@ -31,7 +31,7 @@ check-ui-snapshots:
 
 check:
 	cargo fmt --all --check
-	cargo clippy --workspace --locked --all-targets -- -D warnings
+	cargo clippy --workspace --all-features --locked --all-targets -- -D warnings
 
 install-cli:
 	@CONFIGURATION=release $(MAKE) --no-print-directory build

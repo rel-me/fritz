@@ -3,7 +3,7 @@ pub mod inference;
 pub mod models;
 pub mod ollama;
 
-use crate::{harness::Call, provider::ChatRequest, tools};
+use crate::{harness::Call, provider::ChatRequest};
 use anyhow::{Context, Result, bail};
 use mistralrs::{
     Function, ReasoningEffort, RequestBuilder, Response, TextMessageRole, Tool, ToolCallResponse,
@@ -51,28 +51,24 @@ impl Session {
 
     pub(crate) async fn turn(
         &mut self,
-        has_project: bool,
+        definitions: &[fritz_harness::ToolDefinition],
         emit: &(impl Fn(Value) + Sync),
     ) -> Result<Vec<Call>> {
         let mut request = self.messages.clone().set_sampler_max_len(2048);
         if models::manifest(self.engine.model_id())?.disable_thinking {
             request = request.with_reasoning_effort(ReasoningEffort::Off);
         }
-        if has_project {
-            let definitions = tools::definitions();
+        if !definitions.is_empty() {
             let functions = definitions
-                .into_iter()
+                .iter()
                 .map(|definition| {
                     Ok(Tool {
                         tp: ToolType::Function,
                         function: Function {
-                            name: definition["name"]
-                                .as_str()
-                                .context("Tool is missing its name")?
-                                .to_owned(),
-                            description: definition["description"].as_str().map(str::to_owned),
+                            name: definition.name.clone(),
+                            description: Some(definition.description.clone()),
                             parameters: Some(serde_json::from_value(
-                                definition["parameters"].clone(),
+                                definition.parameters.clone(),
                             )?),
                             strict: Some(false),
                         },
@@ -153,15 +149,22 @@ impl Session {
             .collect())
     }
 
-    pub(crate) fn results(&mut self, results: &[(Call, Value, bool)]) {
+    pub(crate) fn results(&mut self, results: &[(Call, fritz_harness::ToolResult)]) -> Result<()> {
+        if results.iter().any(|(_, result)| !result.images.is_empty()) {
+            bail!("The local text model does not support image tool results.");
+        }
         self.messages = self.messages.clone().add_message_with_tool_call(
             TextMessageRole::Assistant,
             std::mem::take(&mut self.pending_text),
             std::mem::take(&mut self.pending),
         );
-        for (call, value, _) in results {
-            self.messages = self.messages.clone().add_tool_message(value, &call.id);
+        for (call, result) in results {
+            self.messages = self
+                .messages
+                .clone()
+                .add_tool_message(&result.value, &call.id);
         }
+        Ok(())
     }
 }
 
