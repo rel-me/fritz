@@ -22,11 +22,13 @@ struct ProvidersView: View {
         VStack(spacing: 0) {
             FritzManagementHeader("Model Providers") {
                 transferMenu
+                    .controlSize(.large)
                 Button("Add Provider", systemImage: "plus") {
                     editor = ProviderEditorSelection()
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
+                .controlSize(.large)
                 .help("Add Provider")
             }
 

@@ -69,13 +69,15 @@ struct WindowNewItemMenu: View {
     let createProject: () -> Void
     let createThread: () -> Void
     let createProvider: () -> Void
+    let createLocalModel: () -> Void
 
     var body: some View {
         Menu {
             Button("New Project", action: createProject)
             Button("New Thread", action: createThread).disabled(!canCreateThread)
             Divider()
-            Button("New Provider", action: createProvider)
+            Button("New Model Provider", action: createProvider)
+            Button("New Local Model", action: createLocalModel)
         } label: {
             Label("New", systemImage: "plus")
         }

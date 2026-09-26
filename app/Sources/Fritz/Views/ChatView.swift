@@ -55,7 +55,14 @@ struct ChatView: View {
             Button("Cancel", role: .cancel) {}
         } message: { Text("The current conversation will be removed from this Mac.") }
         .onExitCommand(perform: store.stop)
-        .onAppear { isFocused = true; synchronizeModel() }
+        .defaultFocus($isFocused, true)
+        .task {
+            // Let the previous thread release its field before focusing this one.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            isFocused = true
+        }
+        .onAppear(perform: synchronizeModel)
         .onDisappear { store.savePreferences() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
@@ -146,24 +153,5 @@ struct ChatView: View {
         guard providers.hasLoadedModels, !store.isResponding else { return }
         if let selected = store.selectedModel, providers.models.contains(where: { $0.id == selected.id }) { return }
         store.selectedModel = providers.defaultModel
-    }
-}
-
-// REL's native input border, including increased-contrast treatment.
-struct ChatInputSurfaceBorder: ViewModifier {
-    let cornerRadius: CGFloat
-    var isFocused = false
-    @Environment(\.colorSchemeContrast) private var contrast
-
-    func body(content: Content) -> some View {
-        content.overlay {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(
-                    isFocused ? Color.accentColor : Color(nsColor: .separatorColor),
-                    lineWidth: isFocused || contrast == .increased ? 1.5 : 0.5
-                )
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
     }
 }

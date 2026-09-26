@@ -116,10 +116,6 @@ struct ChatComposer: View {
             .buttonStyle(FritzButtonStyle(.inline))
             .accessibilityHidden(true)
         }
-        .modifier(ChatInputSurfaceBorder(
-            cornerRadius: ChatVisualStyle.composerCornerRadius,
-            isFocused: isFocused.wrappedValue
-        ))
         .shadow(
             color: ChatVisualStyle.composerShadow(for: colorScheme),
             radius: ChatVisualStyle.composerShadowRadius,
