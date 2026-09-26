@@ -30,7 +30,7 @@ For shared UI visual regression checks, run `make check-ui-snapshots`. See
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -38,6 +38,16 @@ make dev-open
 ```
 
 `make dev-open` builds and opens `dist/FritzDebug.app`. A hash of the worktree path gives it a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
+
+Build storage lives under `~/Builds/Fritz` by default. Main and worktrees reuse
+Cargo outputs and Swift/Xcode package caches; SwiftPM scratch directories and
+Xcode DerivedData have separate subdirectories per checkout. Make commands
+serialize access to shared storage through tests and app staging. Set
+`FRITZ_BUILD_ROOT=/absolute/path` to use a different location. Existing checkout-local
+build folders are left untouched and can be removed once no old builds are using
+them. Use `python3 scripts/build-cache.py COMMAND ...` for direct Cargo commands or
+integration scripts that need the same paths and lock. See
+[build storage details](docs/agents/runtime-verification.md#build-storage).
 
 ## Updates
 

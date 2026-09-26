@@ -25,12 +25,12 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-          # Preserve this runner checkout's incremental build outputs.
+          # Build storage lives outside the checkout.
           clean: false
-      - name: Clean sources while keeping build outputs
+      - name: Clean sources
         run: |
           git reset --hard HEAD
-          git clean -ffdx -e /target/ -e /.build/ -e /app/.build/ -e /dist/.ci-toolchain
+          git clean -ffdx
       - name: Locate local build tools
         run: |
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
@@ -52,14 +52,10 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
-      - name: Invalidate local build outputs when toolchains change
+      - name: Select shared build storage for this toolchain
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
-          if [[ ! -f dist/.ci-toolchain || "$(cat dist/.ci-toolchain)" != "$fingerprint" ]]; then
-            rm -rf target .build app/.build
-            mkdir -p dist
-            echo "$fingerprint" > dist/.ci-toolchain
-          fi
+          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/$fingerprint" >> "$GITHUB_ENV"
       - name: Check toolchains
         run: |
           xcodebuild -version

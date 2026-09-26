@@ -83,7 +83,9 @@ def main() -> int:
     # Verify the signed archive before changing its channel. The signature covers
     # archive bytes, so promotion does not sign or rebuild the DMG.
     _, signature = validated_item(ET.parse(appcast), archive, version, build, prefix)
-    tool = root / "dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
+    derived_data = subprocess.check_output(
+        [sys.executable, str(root / "scripts/build-cache.py"), "--derived-data"], text=True).strip()
+    tool = Path(derived_data) / "SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
     account = os.environ.get("FRITZ_SPARKLE_KEY_ACCOUNT", "fritz")
     subprocess.run([str(tool), "--account", account, "--verify", str(archive), signature], check=True)
     subprocess.run(["xcrun", "stapler", "validate", str(archive)], check=True)

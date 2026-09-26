@@ -27,7 +27,7 @@ Fritz is a native macOS personal assistant. Keep the current product focused on 
 - Use `FRITZ_DATA_DIR` with an isolated directory and `tests/mock_provider.py` for end-to-end verification. Do not use personal provider credentials for automated checks. The override isolates data files, not the Keychain namespace or UserDefaults.
 - For model-quality comparisons or decision-backend qualification, follow [model evaluation](docs/agents/model-evaluation.md). Mock-provider checks establish runtime behavior, not model quality; live evaluations are separate, explicitly requested work.
 - Operate only on processes verified to belong to this checkout and test run. Never use broad process-name killing, interact with another checkout's app, or test an installed app in `/Applications`. Optimized local builds use `CONFIGURATION=release make build`; installation and distribution require a task that requests them.
-- Keep `target`, `app/.build`, `dist/DerivedData`, staged apps, and runtime data local to the checkout. Do not seed them from another worktree or copy another app's local environment files.
+- Use the Make targets or `python3 scripts/build-cache.py COMMAND ...` for builds and tests. Build storage lives in `~/Builds/Fritz` (override with `FRITZ_BUILD_ROOT`): Cargo outputs and package caches are shared; SwiftPM scratch directories and Xcode DerivedData are keyed by checkout path. The wrapper locks shared storage through compilation, tests, and staging. Keep staged apps and runtime data local to the checkout. Do not copy another app's local environment files.
 
 ## Native UI and documentation
 

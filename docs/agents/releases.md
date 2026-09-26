@@ -12,7 +12,7 @@ generated with the pinned Sparkle `generate_keys --account fritz` tool and stays
 in this macOS user's Keychain. To inspect the public key on this machine:
 
 ```sh
-dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys \
+"$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys" \
   --account fritz -p
 ```
 

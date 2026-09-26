@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd -P "$(dirname "$0")/.."
+if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
+  exec python3 scripts/build-cache.py "$PWD/scripts/setup-worktree.sh" "$@"
+fi
 
 if [[ "$(uname -s)" != Darwin ]]; then
   echo "Fritz development requires macOS and full Xcode (Swift 6.3+)." >&2
@@ -18,13 +21,13 @@ cargo --version
 cargo fmt --version
 cargo clippy --version
 
-# Resolve the committed versions into checkout-local build directories. Never
-# copy another checkout's credentials, app data, targets, or DerivedData.
+# Resolve committed versions into ~/Builds/Fritz (or FRITZ_BUILD_ROOT).
 cargo fetch --locked
-swift package --force-resolved-versions resolve
-swift package --package-path app --force-resolved-versions resolve
+swift package --scratch-path "$FRITZ_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --force-resolved-versions resolve
+swift package --package-path app --scratch-path "$FRITZ_APP_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --force-resolved-versions resolve
 xcodebuild -resolvePackageDependencies \
   -project app/Fritz.xcodeproj -scheme Fritz \
-  -derivedDataPath dist/DerivedData \
+  -derivedDataPath "$FRITZ_DERIVED_DATA" \
+  -packageCachePath "$FRITZ_XCODE_CACHE" \
   -onlyUsePackageVersionsFromResolvedFile
 echo "Fritz dependencies are ready. Run make dev-open to build and launch."

@@ -90,13 +90,54 @@ The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
 The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-The Mini retains `target`, `.build`, and `app/.build` in its
-own CI checkout between runs. Checkout resets tracked files and removes all
-other untracked files; runtime data and staged app bundles are not retained.
-An Apple/Rust/CMake toolchain fingerprint invalidates those build directories
-when the installed toolchains change. There is no remote cache transfer, and no
-build outputs are copied from another checkout. Delete the retained directories
-and `dist/.ci-toolchain` in that runner checkout to force a cold build.
+The Mini uses `~/Builds/Fritz/ci/<toolchain-fingerprint>` across CI runs. The
+fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
+change selects fresh storage. Source cleanup does not touch this directory.
+There is no remote cache transfer. Old toolchain directories can be removed when
+no build is using them.
+
+## Build storage
+
+Make targets enter `scripts/build-cache.py`, which defaults to `~/Builds/Fritz`.
+`FRITZ_BUILD_ROOT` overrides the root (including for direct script calls and
+release tools). The layout is:
+
+- `cargo/`: shared Rust debug/release outputs and incremental dependencies.
+- `swift-packages/` and `xcode-packages/`: shared package download caches.
+- `worktrees/<path-hash>/swift`, `swift-app`, and `DerivedData`: SwiftPM and Xcode
+  build state for one physical checkout path. These databases contain absolute
+  source paths and are not reused as writable build state by other worktrees.
+- `.lock`: an advisory lock held across the entire command, including tests and
+  staging. A competing worktree waits; `make -j2 test` can still run its Rust and
+  Swift groups concurrently inside the lock.
+
+Cargo decides which artifacts remain fresh using its normal fingerprints;
+sharing storage does not guarantee every compilation is reusable. Swift/Xcode
+reuse downloaded packages across worktrees, while compiled app products remain
+per checkout. Finished app bundles and update archives stay in `dist/`; runtime
+data and credentials are unaffected. Opening the project directly in Xcode uses
+Xcode's own locations; use `make build` for this layout and complete app staging.
+
+Existing `target`, `.build`, `app/.build`, and `dist/DerivedData` directories are
+not migrated or deleted. After old builds stop, they can be removed manually.
+To reclaim the new storage, stop all Fritz build commands and remove the desired
+cache directories; preserve `.lock` so waiting processes never lock different
+files. Removing a worktree does not automatically remove its build storage.
+
+For direct commands, enter the wrapper rather than accessing shared Cargo output
+without the lock:
+
+```sh
+python3 scripts/build-cache.py cargo build --locked
+python3 scripts/build-cache.py python3 tests/integration.py
+```
+
+The wrapper exports `CARGO_TARGET_DIR`, `FRITZ_TEST_BIN_DIR`,
+`FRITZ_SWIFT_BUILD`, `FRITZ_APP_SWIFT_BUILD`, `FRITZ_SWIFT_CACHE`,
+`FRITZ_DERIVED_DATA`, and `FRITZ_XCODE_CACHE`. Make configures the Swift and Xcode
+commands with these paths. Plain `cargo`/`swift` commands outside the wrapper
+continue using their normal defaults. To get the resolved DerivedData path
+without building, use `python3 scripts/build-cache.py --derived-data`.
 
 ## Isolated UI and CLI verification
 
@@ -152,14 +193,15 @@ during generation. It is deliberately separate from `make test`.
 
 When debugging, verify a PID's executable path belongs to the staged bundle
 before attaching or terminating it. Do not use `killall`/`pkill` by app name.
-Keep build outputs and test data in this checkout; never share writable target,
-DerivedData, app bundle, or SwiftPM build directories between worktrees.
+Keep staged bundles and test data in this checkout. Use the build wrapper when
+consuming shared Cargo outputs; do not bypass its lock or share SwiftPM scratch
+directories or Xcode DerivedData between worktrees.
 
 ## Shared libraries
 
 The root `Package.swift` publishes `Fritz`, `FritzState` and `FritzUpdates`; the app package
-and Xcode target consume them. Run `swift test` for public-library tests and
-`swift test --package-path app` for application tests. The model catalog lives
+and Xcode target consume them. Run `make test-swift` for public-library and application tests using the
+configured build storage. The model catalog lives
 in `Sources/Fritz/LocalModels.json` and is consumed by both Swift and Rust.
 The staged Xcode app must include the Fritz resource bundle as well as Sparkle
 and Textual resources. See [the library guide](../libraries.md).

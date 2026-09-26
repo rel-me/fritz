@@ -14,7 +14,7 @@ if [[ "$prefix" != https://* || "$homepage" != https://* ]]; then
   echo "error: FRITZ_UPDATE_DOWNLOAD_URL_PREFIX and FRITZ_HOMEPAGE_URL must be HTTPS URLs" >&2
   exit 1
 fi
-tool="dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast"
+tool="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast"
 test -x "$tool" || { echo "error: pinned Sparkle generate_appcast was not resolved" >&2; exit 1; }
 test -d dist/updates || { echo "error: create a signed update archive first" >&2; exit 1; }
 version="$(plutil -extract CFBundleShortVersionString raw dist/Fritz.app/Contents/Info.plist)"
