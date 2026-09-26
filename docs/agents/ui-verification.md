@@ -18,11 +18,14 @@ the following surfaces, include these behaviors:
   a flat toolbar strip.
   Compare the toolbar with the exposed padding around the rounded detail corner:
   the color must remain continuous in fullscreen as well as in a normal window.
-- **Projects and threads:** stable selection, rename, New Thread/Command-N,
-  independent transcripts and drafts, model settings, and launch restoration.
+- **Projects and threads:** blank sidebar and detail surfaces when no project or
+  thread exists, with creation available from the toolbar and menu. Check stable
+  selection, rename, New Thread/Command-N, independent transcripts and drafts,
+  model settings, and launch restoration.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
-  error feedback, and switching threads while a response streams.
+  error feedback, and switching threads while a response streams. A new thread
+  shows only the composer, without an empty conversation message.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
   selected page; shared title-free unified toolbar, native traffic lights, a
   persistent sidebar without a toggle, and a rounded detail surface that begins

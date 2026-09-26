@@ -11,27 +11,7 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.messages.isEmpty {
-                VStack(spacing: 14) {
-                    Image("FritzMark")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 82, height: 66)
-                        .accessibilityHidden(true)
-                    Text("How can I help?")
-                        .font(.system(size: 26, weight: .medium))
-                    Text(providers.connections.isEmpty
-                         ? "Add a provider to start a conversation with Fritz."
-                         : "Ask a question, plan your day, or explore an idea.")
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                transcript
-            }
+            transcript
 
             VStack(spacing: 10) {
                 if let error = store.error ?? store.agent.startupError {

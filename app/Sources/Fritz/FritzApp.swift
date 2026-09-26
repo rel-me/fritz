@@ -117,7 +117,7 @@ private struct FritzWorkspaceView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
-            ProjectsSidebar(workspace: state.workspace, newProject: { state.isCreatingProject = true })
+            ProjectsSidebar(workspace: state.workspace)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
@@ -145,16 +145,8 @@ private struct FritzWorkspaceView: View {
                             }
                             .background(FritzWindowStyle.contentBackground)
                         } else {
-                            ContentUnavailableView {
-                                Label("Start a conversation", systemImage: "folder.badge.plus")
-                            } description: {
-                                Text("Choose a folder to group related conversations. Fritz can use its contents when you ask.")
-                            } actions: {
-                                Button("New Project") { state.isCreatingProject = true }
-                                    .buttonStyle(FritzButtonStyle(.primary)).disabled(!state.workspace.canSave)
-                            }
+                            FritzWindowStyle.contentBackground
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(FritzWindowStyle.contentBackground)
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -254,12 +246,6 @@ private struct WorkspacePlaceholderPanel: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            Divider()
-
-            Text("This panel is a placeholder for future workspace tools.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(16)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

@@ -23,7 +23,7 @@ Keep Decision Models and LLMs as distinct model categories. Jev is a remote Deci
 
 | Phase | Product work | Done when |
 | --- | --- | --- |
-| 1. Personal chat foundation | Make conversations the primary navigation; replace folder-first setup with a simple first-chat flow; add clear empty states and examples for everyday tasks. Keep provider choice and local conversational models. | A new user can start and resume a useful conversation without choosing a folder or configuring an action first. |
+| 1. Personal chat foundation | Make conversations the primary navigation; replace folder-first setup with a simple first-chat flow. Keep blank project and chat surfaces free of onboarding copy while leaving New and chat controls accessible. Keep provider choice and local conversational models. | A new user can start and resume a useful conversation without choosing a folder or configuring an action first. |
 | 2. Personal context | Add a small, user-controlled profile for preferences and facts; connect one personal source in read-only mode, starting with calendar or notes; provide source attribution, access status, and deletion controls. | Fritz can answer a question using an authorized source, show where the answer came from, and stop using that source after revocation. |
 | 3. Helpful actions | Add scoped actions such as creating a reminder or preparing a calendar event or message. Show the exact proposed change and require confirmation before writing or sending. Keep a visible action history. | A user can complete one everyday task from chat and inspect or undo it where the service allows. |
 | 4. Follow-through | Add opt-in recurring check-ins and reminders, with notification controls and clear failure states. | Fritz can follow up at the chosen time without duplicating an action or silently continuing after access is lost. |
@@ -31,7 +31,7 @@ Keep Decision Models and LLMs as distinct model categories. Jev is a remote Deci
 
 ## First release slice
 
-Ship phases 1 and a narrow part of 2 before expanding actions: a welcoming chat, dependable conversation history, a visible choice of local or remote model, a small editable profile, and one read-only personal source. Test with concrete tasks such as “What is on my calendar tomorrow?”, “Summarize these notes,” and “Remember that I prefer morning appointments.” The first two require source attribution; the last requires explicit save and delete controls.
+Ship phases 1 and a narrow part of 2 before expanding actions: a focused chat, dependable conversation history, a visible choice of local or remote model, a small editable profile, and one read-only personal source. Test with concrete tasks such as “What is on my calendar tomorrow?”, “Summarize these notes,” and “Remember that I prefer morning appointments.” The first two require source attribution; the last requires explicit save and delete controls.
 
 Measure whether people can finish these tasks, whether answers cite the right source, and whether they understand what is stored or sent to a provider. Use task completion and correction rates, not message count, as the primary signal.
 
