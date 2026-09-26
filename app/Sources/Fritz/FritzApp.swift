@@ -14,6 +14,7 @@ import SwiftUI
     }
     var isCreatingProject = false
     var editor: ProviderEditorSelection?
+    var showsLocalModelDownload = false
 
     init() {
         let agent = AgentClient()
@@ -30,6 +31,10 @@ import SwiftUI
     }
     func selectSettings(_ tab: FritzSettingsTab) {
         settings.selectedTab = tab.rawValue
+    }
+    func newLocalModel() {
+        selectSettings(.localModels)
+        showsLocalModelDownload = true
     }
 }
 
@@ -89,6 +94,9 @@ import SwiftUI
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Thread") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
+                Divider()
+                Button("New Model Provider") { state.editor = ProviderEditorSelection(); openWindow(id: "main") }
+                Button("New Local Model") { state.newLocalModel(); openSettings() }
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
@@ -178,7 +186,8 @@ private struct FritzWorkspaceView: View {
                 WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,
                                   createProject: { state.isCreatingProject = true },
                                   createThread: state.newThread,
-                                  createProvider: { state.editor = ProviderEditorSelection() })
+                                  createProvider: { state.editor = ProviderEditorSelection() },
+                                  createLocalModel: { state.newLocalModel(); openSettings() })
             }
             ToolbarItem(placement: .principal) {
                 Button("Model Providers", systemImage: "cpu") { openProviders() }
