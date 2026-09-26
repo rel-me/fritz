@@ -8,6 +8,7 @@ struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
     var content: String
     var isComplete = true
     var tools: [ChatToolActivity]?
+    var elapsedTime: TimeInterval?
 
     var contextContent: String {
         let records = (tools ?? []).map { tool in
@@ -47,6 +48,7 @@ struct ChatPreferences: Codable {
     let projectPath: String?
     private(set) var activity: String?
     let agent: AgentClient
+    @ObservationIgnored private var responseStartedAt: Date?
     @ObservationIgnored private var requestID: String?
     @ObservationIgnored private var responseTask: Task<Void, Never>?
     @ObservationIgnored var onFirstPrompt: ((String) -> Void)?
@@ -94,6 +96,7 @@ struct ChatPreferences: Codable {
         let assistantID = UUID()
         messages.append(ChatMessage(id: assistantID, role: "assistant", content: "", isComplete: false))
         let id = UUID().uuidString
+        responseStartedAt = Date()
         requestID = id; isResponding = true
         persist()
         var params: [String: Any] = ["connectionId": connectionID.uuidString, "model": model.modelID, "messages": context]
@@ -131,6 +134,7 @@ struct ChatPreferences: Codable {
                 self.error = error.localizedDescription
             }
             guard requestID == id else { return }
+            finishTiming()
             isResponding = false; requestID = nil; responseTask = nil; activity = nil
             messages.removeAll { $0.id == assistantID && $0.content.isEmpty && ($0.tools ?? []).isEmpty }
             persist()
@@ -139,12 +143,21 @@ struct ChatPreferences: Codable {
 
     func stop() {
         guard let id = requestID else { return }
+        finishTiming()
         requestID = nil
         responseTask?.cancel(); responseTask = nil
         agent.cancel(id)
         isResponding = false; activity = nil
         messages.removeAll { $0.role == "assistant" && $0.content.isEmpty && ($0.tools ?? []).isEmpty }
         persist()
+    }
+
+    private func finishTiming() {
+        if let responseStartedAt, let index = messages.indices.last,
+           messages[index].role == "assistant" {
+            messages[index].elapsedTime = max(0, Date().timeIntervalSince(responseStartedAt))
+        }
+        responseStartedAt = nil
     }
 
     func clear() {

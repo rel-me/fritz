@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ChatVisualStyle {
-    static let contentMaxWidth: CGFloat = 780
+    static let contentMaxWidth: CGFloat = 720
     static let horizontalPadding: CGFloat = 24
     static let transcriptSpacing: CGFloat = 28
     static let composerCornerRadius = FritzWindowStyle.cornerRadius
@@ -22,6 +22,10 @@ enum ChatVisualStyle {
         colorScheme == .dark
             ? Color(.sRGB, white: 65.0 / 255.0, opacity: 1)
             : Color.primary.opacity(0.14)
+    }
+
+    static var hairline: Color {
+        Color(nsColor: .separatorColor).opacity(0.72)
     }
 
     static var subtleFill: Color {

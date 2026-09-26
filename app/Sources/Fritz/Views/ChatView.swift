@@ -8,30 +8,17 @@ struct ChatView: View {
     let addProvider: () -> Void
     @FocusState private var isFocused: Bool
     @State private var confirmsReset = false
+    @State private var composerHeight: CGFloat = 0
+    @State private var scrollState = ChatScrollState()
+    @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
+    @State private var isScrollingTranscript = false
+    private static let transcriptBottomID = "chat-transcript-bottom"
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             transcript
 
-            VStack(spacing: 10) {
-                if let error = store.error ?? store.agent.startupError {
-                    HStack(alignment: .top) {
-                        Label(error, systemImage: "exclamationmark.circle")
-                            .foregroundStyle(.orange).textSelection(.enabled)
-                        Spacer()
-                        if !store.agent.isRunning {
-                            Button("Restart") { store.agent.restart(); Task { await providers.refresh() } }
-                        } else {
-                            Button("Dismiss", systemImage: "xmark") { store.error = nil }.labelStyle(.iconOnly)
-                        }
-                    }
-                    .font(.callout)
-                }
-                if let tokens = store.responseTokens {
-                    Text("\(tokens.formatted()) tokens reported")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
+            VStack(alignment: .trailing, spacing: 8) {
                 ChatComposer(
                     draft: $store.draft,
                     placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
@@ -57,9 +44,10 @@ struct ChatView: View {
                 )
             }
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
-            .padding(.horizontal, 24)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
+            .padding(.horizontal, 6)
             .padding(.top, 12)
-            .padding(.bottom, 24)
+            .padding(.bottom, 6)
         }
         .background(ChatVisualStyle.pageBackground)
         .confirmationDialog("Clear this thread?", isPresented: $confirmsReset) {
@@ -84,60 +72,81 @@ struct ChatView: View {
     }
 
     private var transcript: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
-                    ForEach(store.messages) { message in
-                        let isActive = store.isResponding && message.id == store.messages.last?.id
-                        VStack(alignment: .leading, spacing: 8) {
-                            if message.role == "user" {
-                                Text(message.content)
-                                    .textSelection(.enabled)
-                                    .padding(.horizontal, 16).padding(.vertical, 12)
-                                    .background(ChatVisualStyle.subtleFill, in: RoundedRectangle(cornerRadius: 16))
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
-                            } else {
-                                if let tools = message.tools, !tools.isEmpty {
-                                    DisclosureGroup("\(tools.count) tool action\(tools.count == 1 ? "" : "s")") {
-                                        ForEach(tools) { tool in
-                                            DisclosureGroup {
-                                                Text(tool.arguments).font(.caption.monospaced()).textSelection(.enabled)
-                                                if let result = tool.result {
-                                                    Text(result).font(.caption.monospaced()).textSelection(.enabled)
-                                                }
-                                            } label: {
-                                                Label(tool.summary, systemImage: tool.success == true ? "checkmark.circle" : tool.success == false ? "exclamationmark.circle" : isActive ? "ellipsis.circle" : "stop.circle")
-                                                    .font(.callout).lineLimit(2)
-                                            }
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(ChatVisualStyle.subtleFill, in: RoundedRectangle(cornerRadius: 10))
-                                }
-                                if !message.content.isEmpty { ChatAssistantMessage(content: message.content) }
-                                if !message.isComplete && !isActive {
-                                    Text("Response interrupted").font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .id(message.id)
-                    }
-                    if store.isResponding {
-                        HStack(spacing: 8) {
-                            ProgressView().controlSize(.small)
-                            Text(store.activity ?? "Fritz is working…").font(.callout).foregroundStyle(.secondary)
-                        }
-                    }
-                    Color.clear.frame(height: 1).id("bottom")
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+                ForEach(store.messages) { message in
+                    ChatMessageRow(
+                        message: message,
+                        isActive: store.isResponding && message.id == store.messages.last?.id,
+                        activity: store.activity
+                    )
+                    .id(message.id.uuidString)
                 }
-                .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
-                .frame(maxWidth: .infinity)
-                .padding(24)
+                if let error = store.error ?? store.agent.startupError {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ChatErrorMessage(content: error)
+                        if !store.agent.isRunning {
+                            Button("Restart") { store.agent.restart(); Task { await providers.refresh() } }
+                        } else {
+                            Button("Dismiss") { store.error = nil }
+                        }
+                    }
+                }
+                Color.clear
+                    .frame(height: max(1, composerHeight + 8))
+                    .id(Self.transcriptBottomID)
             }
-            .defaultScrollAnchor(.bottom)
-            .onChange(of: store.activity) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
-            .onChange(of: store.messages.last?.content) { _, _ in proxy.scrollTo("bottom", anchor: .bottom) }
+            .scrollTargetLayout()
+            .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, ChatVisualStyle.horizontalPadding)
+            .padding(.top, 28)
         }
+        .defaultScrollAnchor(.bottom, for: .initialOffset)
+        .defaultScrollAnchor(scrollState.followsLatest ? .bottom : nil, for: .sizeChanges)
+        .scrollPosition($scrollPosition)
+        .onChange(of: store.messages) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.activity) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.error) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.agent.startupError) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: composerHeight) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.isResponding) { _, responding in
+            if responding { scrollState = ChatScrollState() }
+            scrollToLatestIfFollowing()
+        }
+        .onScrollPhaseChange { _, phase in
+            isScrollingTranscript = phase == .interacting || phase == .decelerating
+        }
+        .onScrollGeometryChange(for: ChatScrollState.Geometry.self) { geometry in
+            ChatScrollState.Geometry(
+                contentHeight: geometry.contentSize.height,
+                viewportHeight: geometry.containerSize.height,
+                visibleBottom: geometry.visibleRect.maxY
+            )
+        } action: { _, new in
+            scrollState.update(to: new, isUserScrolling: isScrollingTranscript)
+        }
+        .overlay(alignment: .bottom) {
+            if !scrollState.followsLatest {
+                Button {
+                    scrollState = ChatScrollState()
+                    scrollPosition.scrollTo(id: Self.transcriptBottomID, anchor: .bottom)
+                } label: {
+                    Label("Jump", systemImage: "arrow.down")
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(.primary)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(FritzButtonStyle(.floating))
+                .padding(.bottom, composerHeight + 24)
+            }
+        }
+    }
+
+    private func scrollToLatestIfFollowing() {
+        guard scrollState.followsLatest, !isScrollingTranscript else { return }
+        scrollPosition.scrollTo(id: Self.transcriptBottomID, anchor: .bottom)
     }
 
     private func synchronizeModel() {

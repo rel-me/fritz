@@ -120,6 +120,21 @@ import FritzUpdates
         XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("edited hello.txt") == true)
     }
 
+    func testConversationBeforeWorkTimingStillLoadsAndKeepsToolDetails() throws {
+        let legacy = Data(#"{"id":"00000000-0000-0000-0000-000000000001","role":"assistant","content":"Done","isComplete":true,"tools":[{"id":"call","name":"read_file","summary":"notes.txt","arguments":"{}","result":"Notes","success":true}]}"#.utf8)
+        var message = try JSONDecoder().decode(ChatMessage.self, from: legacy)
+        XCTAssertNil(message.elapsedTime)
+        let database = AppDatabase(directory: try directory())
+        let thread = ProjectThread()
+        try database.saveWorkspace(WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id))
+        message.elapsedTime = 12.5
+        try database.save(messages: [message], preferences: ChatPreferences(draft: "", effort: .medium, speed: .standard), for: thread.id)
+        let restored = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
+        XCTAssertEqual(restored.messages.first?.elapsedTime, 12.5)
+        XCTAssertEqual(restored.messages.first?.tools?.first?.result, "Notes")
+        XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("Notes") == true)
+    }
+
     func testSettingsAndRecentsAreIsolatedAndSurviveRestart() throws {
         let root = try directory()
         let database = AppDatabase(directory: root)
