@@ -20,20 +20,12 @@ struct ProvidersView: View {
     var body: some View {
         VStack(spacing: 0) {
             FritzManagementHeader("Model Providers") {
-                Menu {
-                    Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
-                    Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
-                        .disabled(selectedIDs.isEmpty)
-                } label: {
-                    Label("Import and Export", systemImage: "ellipsis.circle")
-                }
-                .labelStyle(.iconOnly).menuIndicator(.hidden)
-                .help("Import and Export")
+                transferMenu
                 Button("Add Provider", systemImage: "plus") {
                     editor = ProviderEditorSelection()
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(FritzButtonStyle(.floatingPrimary))
+                .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
                 .help("Add Provider")
             }
 
@@ -109,6 +101,26 @@ struct ProvidersView: View {
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("This removes the connection and its saved key from Fritz.") }
         .buttonStyle(FritzButtonStyle())
+    }
+
+    @ViewBuilder private var transferMenu: some View {
+        if #available(macOS 26.0, *) {
+            transferMenuContent.buttonStyle(.glass).buttonBorderShape(.circle)
+        } else {
+            transferMenuContent
+        }
+    }
+
+    private var transferMenuContent: some View {
+        Menu {
+            Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
+            Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
+                .disabled(selectedIDs.isEmpty)
+        } label: {
+            Label("Import and Export", systemImage: "ellipsis")
+        }
+        .labelStyle(.iconOnly).menuIndicator(.hidden)
+        .help("Import and Export")
     }
 
     private func chip(_ title: String, color: Color = .secondary) -> some View {
