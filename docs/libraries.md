@@ -254,6 +254,7 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
   inventory and native multi-selection. Hosts attach selection context menus,
   deletion commands, export and edit callbacks.
 - `ModelProviderEditor` supplies sheet layout, license, cancel and save actions.
+  Its optional saving state shows progress and disables both footer actions.
   `ProviderConnectionSection` supplies endpoint and secure/revealed credential
   fields, model discovery feedback and the default-provider toggle. Hosts supply
   field copy, credential-reveal policy and provider-specific sections.
@@ -275,3 +276,11 @@ selection/editor fields as bindings. Supply host colors and heading/feedback
 content to preserve branding without coupling the library to an app schema.
 REL's management snapshots cover its adapters and their existing loading,
 empty, populated, download, error and appearance states.
+
+FritzApp uses `ModelProvidersTable`, `ModelProviderEditor`, and the shared
+`LocalModelInstallState`. It retains its grouped download table with category
+and family filters. The general download browser includes both chat and decision
+catalogs; a provider's download sheet stays scoped to that provider's category.
+The selected model determines which private agent installer receives the request.
+Decision models are used on demand through their harness, not as persistent chat
+server sessions in Local Models.

@@ -3,16 +3,18 @@ import SwiftUI
 public struct ModelProviderItem<ID: Hashable>: Identifiable {
   public let id: ID
   public let name: String
+  public let nameHelp: String?
   public let warning: String?
   public let isLocal: Bool
   public let isDefault: Bool
   public let models: String?
 
   public init(
-    id: ID, name: String, warning: String?, isLocal: Bool, isDefault: Bool, models: String?
+    id: ID, name: String, warning: String?, isLocal: Bool, isDefault: Bool, models: String?, nameHelp: String? = nil
   ) {
     self.id = id
     self.name = name
+    self.nameHelp = nameHelp
     self.warning = warning
     self.isLocal = isLocal
     self.isDefault = isDefault
@@ -44,6 +46,7 @@ public struct ModelProvidersTable<ID: Hashable>: View {
           Text(profile.name)
             .lineLimit(1)
             .truncationMode(.tail)
+            .help(profile.nameHelp ?? profile.name)
           if let warning = profile.warning {
             Button {
               edit(profile.id)
@@ -53,6 +56,8 @@ public struct ModelProvidersTable<ID: Hashable>: View {
             .buttonStyle(FritzButtonStyle(.inline))
             .help(warning)
             .accessibilityLabel("\(profile.name): \(warning)")
+          } else if isLoading {
+            providerChip("Loading", color: .secondary)
           } else {
             providerChip("Ready", color: .green)
           }
@@ -64,7 +69,7 @@ public struct ModelProvidersTable<ID: Hashable>: View {
           }
         }
       }
-      .width(min: 240, max: .infinity)
+      .width(min: 260, ideal: 340, max: .infinity)
 
       TableColumn("Models") { profile in
         if let names = profile.models {
@@ -77,7 +82,7 @@ public struct ModelProvidersTable<ID: Hashable>: View {
             .foregroundStyle(.secondary)
         }
       }
-      .width(min: 70, max: .infinity)
+      .width(min: 100, max: .infinity)
     }
   }
 

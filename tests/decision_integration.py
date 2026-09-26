@@ -30,6 +30,7 @@ class DecisionEndpoint(BaseHTTPRequestHandler):
                 "confidence": 0.8,
             },
             "time_sensitive": {"type": "noul", "noul": 0.3},
+            "priority": {"type": "score", "score": 0.3, "legend": {"0": {"urgency": "low"}, "1": {"urgency": "high"}}, "probabilities": {"0": 0.7, "1": 0.3}, "confidence": 0.4},
         }
         if request["state"].get("invalid"):
             answers["intent"]["probabilities"] = {"reminder": 0.2, "other": 0.2}
@@ -54,6 +55,7 @@ def decision_input(endpoint, state=None, key="test-key"):
                 "intent": {"type": "choice", "instructions": "What is requested?",
                            "criteria": {"reminder": "A reminder", "other": "Something else"}},
                 "time_sensitive": {"type": "noul", "instructions": "Is this urgent?"},
+                "priority": {"type": "score", "instructions": "How urgent?", "criteria": [{"urgency": "low"}, {"urgency": "high"}]},
             },
         },
         "backend": {"kind": "jev", "endpoint": endpoint},
@@ -101,7 +103,36 @@ def evaluate_via_agent(endpoint):
         return next(event for event in events if event["id"] == "decision-1")
 
 
+def local_provider_boundaries():
+    with tempfile.TemporaryDirectory(prefix="fritz-local-decision-") as data:
+        env = dict(os.environ, FRITZ_DATA_DIR=data)
+        def cli(*args, ok=True, input=None):
+            result = subprocess.run([str(BIN.with_name("fritz")), *args], env=env,
+                                    input=input, capture_output=True, text=True, timeout=20)
+            assert (result.returncode == 0) == ok, (args, result.stdout, result.stderr)
+            return result
+        catalog = json.loads(cli("decision-models", "list").stdout)["models"]
+        model = catalog[0]["id"]
+        assert catalog and not any(item["installed"] for item in catalog)
+        registry = json.loads(cli("add-provider", "--name", "Local decision", "--provider", "ollaya", "--model", model).stdout)
+        connection = registry["connections"][0]["id"]
+        assert registry["defaultConnectionId"] is None
+        assert json.loads(cli("models", "--connection", connection).stdout) == []
+        assert "LLM" in cli("default-provider", connection, ok=False).stderr
+        assert "LLM" in cli("chat", "Hello", "--connection", connection, ok=False).stderr
+        request = decision_input("unused")["request"]
+        request["model"] = model
+        assert "not installed" in cli("decide", "--connection", connection, input=json.dumps(request), ok=False).stderr
+        request["model"] = "../../outside"
+        assert "Unknown local decision model" in cli("decide", "--connection", connection, input=json.dumps(request), ok=False).stderr
+        cli("add-provider", "--name", "Invalid endpoint", "--provider", "ollaya", "--base-url", "https://example.com", ok=False)
+        cli("add-provider", "--name", "Invalid key", "--provider", "ollaya", "--api-key-stdin", input="synthetic-key", ok=False)
+        assert not (Path(data) / "DecisionModels").exists(), "Listing/evaluation must never download weights"
+        print("PASS: local decision discovery, explicit-install requirement, missing model, native provider validation, chat/default exclusion")
+
+
 def main():
+    local_provider_boundaries()
     server = ThreadingHTTPServer(("127.0.0.1", 0), DecisionEndpoint)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -111,6 +142,7 @@ def main():
         assert result["type"] == "result", result
         assert result["result"]["answers"]["intent"]["choice"] == "reminder"
         assert result["result"]["model"] == "jev-1.13.0"
+        assert result["result"]["answers"]["priority"]["legend"]["1"] == {"urgency": "high"}
         assert DecisionEndpoint.requests[-1]["questions"]["time_sensitive"]["type"] == "noul"
         agent_result = evaluate_via_agent(endpoint)
         assert agent_result["id"] == "decision-1" and agent_result["type"] == "result", agent_result

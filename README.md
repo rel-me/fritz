@@ -61,8 +61,9 @@ In **Settings → Local Models**, click the download button to choose and downlo
 a Fritz model from a selectable list with Name, Type, Size / Status, and Hardware
 Requirements columns. Use the type (LLM or Decision) and model-family capsules
 to combine filters; click a selected capsule to remove it, or All to reset.
-The downloadable catalog currently contains LLMs; Jev is a
-remote Decision Model. The sheet shows the selected model’s license, download
+The downloadable catalog contains LLMs and experimental Laya decision models;
+Jev remains a remote Decision Model. Provider-specific download sheets show only
+that provider’s model category. The sheet shows the selected model’s license, download
 progress, and installation status. Cancel stops the download; Retry starts a fresh
 attempt. Once the model is installed, add or edit a **Fritz** provider in
 **Settings → Model Providers** and select it.
@@ -130,7 +131,7 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `crates/fritz-state/`: independent Rust SQLite state library, also re-exported by `fritz::state`.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.
 - `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native action loop, and action history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
-- `src/bin/fritz-decision-harness.rs`, `src/decision.rs`, `src/decision_client.rs`: a separate typed-judgment runtime and Jev adapter. The host supplies the credential over a private pipe; neither decision code nor chat code treats Jev as a conversational provider.
+- `src/bin/fritz-decision-harness.rs`, `src/decision.rs`, `src/decision_client.rs`: a separate typed-judgment runtime with Jev and native Ollaya adapters. The host supplies Jev’s credential over a private pipe; local decisions need no key, and neither backend is a conversational provider.
 - `src/tools.rs`: current folder actions, including listing, reading, creating, and changing files, plus noninteractive local processes. Stop cancels the harness request and terminates child process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
 - `~/Library/Application Support/Fritz/Data/providers.sqlite`: non-secret provider records and the default connection, owned by Rust. Concurrent CLI/agent updates use SQLite transactions.
 - `~/Library/Application Support/Fritz/Data/workspace.sqlite`: projects, threads, ordered messages and tool activity, drafts, model choices, selection, appearance, update channel, settings page and model recents, owned by the native app.
@@ -144,7 +145,24 @@ The app has no embedded web engine or browser runtime. Its Rust runtime handles 
 
 ## Decision models
 
-Under **Settings → Model Providers**, click **+**, choose **Decision Models**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. A shared backend interface is ready for a native local decision model, but none is bundled yet. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
+Under **Settings → Model Providers**, click **+**, choose **Decision Models**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested and every file is checked before loading. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
+
+The CLI uses the same provider and harness:
+
+```sh
+fritz decision-models list
+fritz decision-models install laya-en
+fritz add-provider --name 'Local decisions' --provider ollaya --model laya-en
+fritz decide --connection 'Local decisions' request.json
+```
+
+`request.json` contains `model`, `state`, and typed `questions`, for example:
+
+```json
+{"model":"laya-en","state":{"message":"Remind me tomorrow to call Sam"},"questions":{"reminder":{"type":"noul","instructions":"Is the user asking to create a reminder?"}}}
+```
+
+Use `-` (the default filename) to read JSON from stdin. The model is loaded for each request; expect seconds of cold-start latency. The initial reminder-routing quality gate did **not** pass; use this experimental backend for explicit evaluation, not automatic reminder actions. See the [evaluation results](docs/agents/local-decision-evaluation.md) before designing a policy around its probabilities. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
 
 Use the **Import and Export** menu beside **+** to paste a provider configuration or export selected providers as JSON. Command-click to select multiple providers. Import accepts version 1 Fritz and REL provider exports for supported services; REL-only settings such as pairings and maximum turns are not imported. **Skip** leaves matching services alone; **Overwrite** updates a single matching connection while preserving its identity and saved key when the endpoint is unchanged. Ambiguous matches require removing duplicates first. Imports without keys show **Needs Setup** until a key is added. Export offers **Without Keys** or **Including API Keys**; included keys are readable in the copied JSON. The default chat provider preference and downloaded model files are not exported.
 

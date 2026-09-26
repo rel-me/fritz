@@ -17,7 +17,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
     case openAI = "openai"
     case openAICompatible = "openai-compatible"
     case openRouter = "openrouter"
-    case anthropic, gemini, ollama, fritz, jev
+    case anthropic, gemini, ollama, fritz, jev, ollaya
     public var id: String { rawValue }
     public var name: String {
         switch self {
@@ -29,10 +29,12 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .ollama: "Ollama"
         case .fritz: "Fritz"
         case .jev: "TypeSafe"
+        case .ollaya: "Ollaya"
         }
     }
-    public var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && self != .fritz }
-    public var category: AIModelCategory { self == .jev ? .decision : .llm }
+    public var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && !isNative }
+    public var isNative: Bool { self == .fritz || self == .ollaya }
+    public var category: AIModelCategory { self == .jev || self == .ollaya ? .decision : .llm }
     public var systemImage: String {
         switch self {
         case .openAI: "sparkles"
@@ -41,7 +43,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .anthropic: "text.bubble"
         case .gemini: "diamond"
         case .ollama: "desktopcomputer"
-        case .fritz: "cpu"
+        case .fritz, .ollaya: "cpu"
         case .jev: "checkmark.seal"
         }
     }
@@ -53,7 +55,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .anthropic: "https://api.anthropic.com/v1"
         case .gemini: "https://generativelanguage.googleapis.com/v1beta"
         case .ollama: "http://localhost:11434"
-        case .fritz: ""
+        case .fritz, .ollaya: ""
         case .jev: "https://api.typesafe.ai/v1/systemone"
         }
     }

@@ -2,27 +2,14 @@ import Fritz
 import FritzUI
 import SwiftUI
 
-enum NativeModelInstallState: Equatable, Sendable {
-    case available
-    case checking
-    case downloading(downloaded: UInt64, total: UInt64)
-    case installed
-    case failed(String)
-
-    var isBusy: Bool {
-        switch self {
-        case .checking, .downloading: true
-        case .available, .installed, .failed: false
-        }
-    }
-}
+typealias NativeModelInstallState = LocalModelInstallState
 
 struct NativeModelFilters: Equatable {
     var category: AIModelCategory?
     var family: String?
 
-    var models: [NativeModelDescriptor] {
-        NativeModelDescriptor.catalog.filter {
+    func models(in catalog: [NativeModelDescriptor]) -> [NativeModelDescriptor] {
+        catalog.filter {
             (category == nil || $0.category == category) && (family == nil || $0.family == family)
         }
     }
@@ -35,9 +22,12 @@ struct NativeLocalModelSection: View {
     @Binding var modelID: String
     let state: NativeModelInstallState
     let hardware: LocalModelHardware
+    let catalog: [NativeModelDescriptor]
+
+    private var filteredModels: [NativeModelDescriptor] { filters.models(in: catalog) }
 
     private var model: NativeModelDescriptor {
-        NativeModelDescriptor.catalog.first { $0.id == modelID }!
+        catalog.first { $0.id == modelID }!
     }
 
     private var selection: Binding<String?> {
@@ -51,7 +41,7 @@ struct NativeLocalModelSection: View {
         VStack(spacing: 0) {
             filterCapsules
             Divider()
-            Table(filters.models, selection: selection) {
+            Table(filteredModels, selection: selection) {
                 TableColumn("Name") { model in
                     Text(model.name).lineLimit(1).help(model.name)
                 }
@@ -82,20 +72,18 @@ struct NativeLocalModelSection: View {
             .accessibilityLabel("Downloadable models")
             .accessibilityIdentifier("native-model-list")
             .overlay {
-                if filters.models.isEmpty {
+                if filteredModels.isEmpty {
                     ContentUnavailableView {
                         Label("No matching models", systemImage: "line.3.horizontal.decrease")
                     } description: {
-                        Text(filters.category == .decision
-                             ? "No Decision models are currently available to download."
-                             : "Choose another filter to see available models.")
+                        Text("Choose another filter to see available models.")
                     } actions: {
                         Button("Clear Filters") { filters = NativeModelFilters() }
                     }
                 }
             }
 
-            if filters.models.contains(where: { $0.id == modelID }) {
+            if filteredModels.contains(where: { $0.id == modelID }) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("\(model.name) · \(hardware.summary)")
                     if hardware.memoryGB < model.memoryGB {
@@ -143,7 +131,7 @@ struct NativeLocalModelSection: View {
                     }
                 }
                 Divider().frame(height: 18).padding(.horizontal, 4)
-                ForEach(Array(Set(NativeModelDescriptor.catalog.map(\.family))).sorted(), id: \.self) { family in
+                ForEach(Array(Set(catalog.map(\.family))).sorted(), id: \.self) { family in
                     filterCapsule(family, id: family, selected: filters.family == family) {
                         filters.family = filters.family == family ? nil : family
                     }

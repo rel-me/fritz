@@ -6,8 +6,8 @@ struct LocalModelDownloadSheet: View {
     @State private var model: NativeLocalModel
     @State private var filters = NativeModelFilters()
 
-    init(agent: AgentClient, modelID: String? = nil) {
-        _model = State(initialValue: NativeLocalModel(agent: agent, modelID: modelID))
+    init(agent: AgentClient, modelID: String? = nil, category: AIModelCategory? = nil) {
+        _model = State(initialValue: NativeLocalModel(agent: agent, modelID: modelID, category: category))
     }
 
     var body: some View {
@@ -17,7 +17,7 @@ struct LocalModelDownloadSheet: View {
             NativeLocalModelSection(filters: $filters, modelID: Binding(
                 get: { model.selectedModelID },
                 set: { model.select($0) }
-            ), state: model.state, hardware: .current)
+            ), state: model.state, hardware: .current, catalog: model.catalog)
             Divider()
             HStack(spacing: 8) {
                 if hasVisibleSelection {
@@ -45,14 +45,14 @@ struct LocalModelDownloadSheet: View {
         .task { model.refresh() }
         .onDisappear { model.cancel() }
         .onChange(of: filters) { _, newFilters in
-            if !hasVisibleSelection, let first = newFilters.models.first {
+            if !hasVisibleSelection, let first = newFilters.models(in: model.catalog).first {
                 model.select(first.id)
             }
         }
     }
 
     private var hasVisibleSelection: Bool {
-        filters.models.contains { $0.id == model.selectedModelID }
+        filters.models(in: model.catalog).contains { $0.id == model.selectedModelID }
     }
 
     private var downloadTitle: String {

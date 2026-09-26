@@ -87,7 +87,7 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
     if connection.provider.category() != config::ModelCategory::Llm {
         bail!("Choose an LLM provider for chat.");
     }
-    let api_key = if connection.provider == config::ProviderKind::Fritz {
+    let api_key = if connection.provider.is_native() {
         None
     } else {
         provider::credential(&connection, None)?

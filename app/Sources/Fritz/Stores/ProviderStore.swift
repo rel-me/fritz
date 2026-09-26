@@ -61,15 +61,15 @@ import Security
                     if connection.category == .llm {
                         nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
                     }
-                    if connection.provider == .fritz, response.models.isEmpty {
-                        nextErrors[connection.id] = "No local models are installed. Download a model in Local Models."
+                    if connection.provider.isNative, response.models.isEmpty {
+                        nextErrors[connection.id] = "No local models are installed. Edit this provider to download a model."
                     }
                 } catch {
                     guard refreshID == revision else { return }
                     nextErrors[connection.id] = error.localizedDescription
                 }
                 // A manually configured model supports endpoints that have no catalog API.
-                if connection.category == .llm, connection.provider != .fritz, !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
+                if connection.category == .llm, !connection.provider.isNative, !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
                     nextModels.append(ChatModelOption(connection: connection))
                 }
             }
@@ -110,7 +110,7 @@ import Security
     /// Only an explicit key-inclusive export reads credentials in the UI process.
     /// The agent protocol continues to return metadata only.
     private func exportKey(for connection: ProviderConnection) throws -> String? {
-        guard connection.provider != .fritz else { return nil }
+        guard !connection.provider.isNative else { return nil }
         let service = Bundle.main.object(forInfoDictionaryKey: "FritzKeychainService") as? String
             ?? "dev.fritz.provider-credentials"
         let query: [String: Any] = [

@@ -23,7 +23,7 @@ let package = Package(
         .testTarget(name: "FritzUITests", dependencies: ["FritzUI"], path: "tests/FritzUITests"),
         .target(name: "FritzState", linkerSettings: [.linkedLibrary("sqlite3")]),
         .testTarget(name: "FritzStateTests", dependencies: ["FritzState"], path: "tests/FritzStateTests"),
-        .target(name: "Fritz", resources: [.copy("LocalModels.json")]),
+        .target(name: "Fritz", resources: [.copy("LocalModels.json"), .copy("DecisionModels.json")]),
         .target(name: "FritzUpdates", dependencies: [
             .product(name: "Sparkle", package: "Sparkle"),
         ]),

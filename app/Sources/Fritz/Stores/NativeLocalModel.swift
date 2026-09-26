@@ -5,22 +5,26 @@ import Observation
 /// Downloads share the app's private agent transport and are cancelled with the sheet.
 @MainActor @Observable final class NativeLocalModel {
     static let defaultModelID = "qwen2.5-1.5b-instruct-q4_k_m"
+    var category: AIModelCategory { selectedModel.category }
+    let catalog: [NativeModelDescriptor]
     private(set) var selectedModelID: String
     private(set) var state: NativeModelInstallState = .available
     var selectedModel: NativeModelDescriptor {
-        NativeModelDescriptor.catalog.first { $0.id == selectedModelID }!
+        catalog.first { $0.id == selectedModelID }!
     }
     @ObservationIgnored private let agent: AgentClient
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var requestID: String?
 
-    init(agent: AgentClient, modelID: String? = nil) {
+    init(agent: AgentClient, modelID: String? = nil, category: AIModelCategory? = nil) {
+        catalog = (NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog)
+            .filter { category == nil || $0.category == category }
         self.agent = agent
-        selectedModelID = NativeModelDescriptor.catalog.first { $0.id == modelID }?.id ?? Self.defaultModelID
+        selectedModelID = catalog.first { $0.id == modelID }?.id ?? (category == .decision ? catalog[0].id : Self.defaultModelID)
     }
 
     func select(_ id: String) {
-        guard id != selectedModelID, NativeModelDescriptor.catalog.contains(where: { $0.id == id }) else { return }
+        guard id != selectedModelID, catalog.contains(where: { $0.id == id }) else { return }
         cancel()
         selectedModelID = id
         refresh()
@@ -41,7 +45,8 @@ import Observation
         let id = UUID().uuidString
         let modelID = selectedModelID
         requestID = id
-        let events = agent.stream(method: install ? "localModels.install" : "localModels.list",
+        let prefix = category == .decision ? "decisionModels" : "localModels"
+        let events = agent.stream(method: "\(prefix).\(install ? "install" : "list")",
                                   params: ["modelId": modelID], id: id)
         task = Task { [weak self] in
             var completed = false

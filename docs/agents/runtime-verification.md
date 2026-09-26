@@ -37,7 +37,17 @@ For native project-tool checks, `python3 tests/coding_provider.py` provides
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
 `tests/decision_integration.py` exercises the separate decision harness against
 a local mock of Jev's typed API using a dummy key, including answer validation
-and pipe cancellation. No TypeSafe credential is needed.
+and pipe cancellation. No TypeSafe credential is needed. The same suite checks Ollaya provider separation
+and missing-model behavior without downloading weights. After explicitly installing
+Laya into an isolated `FRITZ_DATA_DIR`, run:
+
+```sh
+python3 tests/local_decision_inference.py --data-dir "$fritz_test_data" --bin-dir dist/Fritz.app/Contents/Resources
+```
+
+This opt-in check evaluates a fixed English reminder-intent set, all three answer
+types, structured score legends, context rejection, and cancellation while native
+model loading/inference is active. It never downloads models or uses remote keys.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
 `dist/FritzDebug.app` bundle without requiring a branch or open PR. Use

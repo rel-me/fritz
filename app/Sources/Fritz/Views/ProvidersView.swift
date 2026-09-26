@@ -1,4 +1,5 @@
 import Fritz
+import FritzUI
 import SwiftUI
 
 struct ProviderEditorSelection: Identifiable {
@@ -29,35 +30,10 @@ struct ProvidersView: View {
                 .help("Add Provider")
             }
 
-            Table(store.connections, selection: $selectedIDs) {
-                TableColumn("Name") { connection in
-                    HStack(spacing: 6) {
-                        Text(connection.providerDisplayName).lineLimit(1).truncationMode(.tail)
-                            .help(connection.name)
-                        if let warning = store.discoveryErrors[connection.id] {
-                            Button { editor = ProviderEditorSelection(connection: connection) } label: {
-                                chip("Needs Setup", color: .orange)
-                            }
-                            .buttonStyle(FritzButtonStyle(.inline)).help(warning)
-                            .accessibilityLabel("\(connection.providerDisplayName): \(warning)")
-                        } else if store.isLoading {
-                            chip("Loading", color: .secondary)
-                        } else {
-                            chip("Ready", color: .green)
-                        }
-                        if [.fritz, .ollama].contains(connection.provider) { chip("Local") }
-                        if connection.id == store.registry.defaultConnectionId { chip("Default") }
-                    }
-                }.width(min: 260, ideal: 340, max: .infinity)
-                TableColumn("Models") { connection in
-                    if let models = store.catalog[connection.id] {
-                        let names = models.map(\.displayName).joined(separator: ", ")
-                        Text(names.isEmpty ? "No models" : names).lineLimit(1).truncationMode(.tail).help(names)
-                    } else {
-                        Text(store.isLoading ? "Loading…" : connection.modelID.isEmpty ? "—" : connection.modelID)
-                            .foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }.width(min: 100, max: .infinity)
+            ModelProvidersTable(providers: providerItems, selection: $selectedIDs, isLoading: store.isLoading) { id in
+                if let connection = store.connections.first(where: { $0.id == id }) {
+                    editor = ProviderEditorSelection(connection: connection)
+                }
             }
             .fritzListSurface()
             .contextMenu(forSelectionType: UUID.self) { ids in
@@ -123,10 +99,19 @@ struct ProvidersView: View {
         .help("Import and Export")
     }
 
-    private func chip(_ title: String, color: Color = .secondary) -> some View {
-        Text(title).font(.caption).foregroundStyle(color)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(color.opacity(0.12), in: Capsule()).fixedSize()
+    private var providerItems: [ModelProviderItem<UUID>] {
+        store.connections.map { connection in
+            let names = store.catalog[connection.id].map { models in
+                models.isEmpty ? "No models" : models.map(\.displayName).joined(separator: ", ")
+            } ?? (store.isLoading || connection.modelID.isEmpty ? nil : connection.modelID)
+            return ModelProviderItem(
+                id: connection.id, name: connection.providerDisplayName,
+                warning: store.discoveryErrors[connection.id],
+                isLocal: connection.provider.isNative || connection.provider == .ollama,
+                isDefault: connection.id == store.registry.defaultConnectionId,
+                models: names, nameHelp: connection.name
+            )
+        }
     }
     private var selectedConnection: ProviderConnection? {
         selectedIDs.count == 1 ? store.connections.first { selectedIDs.contains($0.id) } : nil
@@ -176,7 +161,7 @@ struct ProviderEditor: View {
         let category = existing?.category ?? initialCategory
         _category = State(initialValue: category)
         _id = State(initialValue: existing?.id ?? UUID())
-        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID))
+        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category))
         let baseName = category == .decision ? "TypeSafe" : "OpenAI"
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
@@ -192,9 +177,15 @@ struct ProviderEditor: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ModelProviderEditor(
+            primaryActionTitle: primaryActionTitle, canSave: canSave, isSaving: isSaving,
+            height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60),
+            contentBackground: FritzWindowStyle.contentBackground,
+            footerBackground: FritzWindowStyle.workspaceBackground,
+            cancel: { nativeModel.cancel(); dismiss() }, save: save
+        ) {
             FritzManagementHeader(existing == nil ? "New Provider" : "Edit Provider")
-            Divider()
+        } content: {
             Form {
                 if existing == nil {
                     Section {
@@ -213,19 +204,20 @@ struct ProviderEditor: View {
                             get: { nativeModel.selectedModelID },
                             set: { nativeModel.select($0) }
                         )) {
-                            ForEach(NativeModelDescriptor.catalog) { model in
+                            ForEach(nativeModel.catalog) { model in
                                 Text(model.name).tag(model.id)
                             }
                         }
                         Button("Download Model…") { showsDownload = true }
                     } footer: {
                         switch nativeModel.state {
-                        case .installed: Text("Installed and ready for chat.")
+                        case .installed: Text(category == .decision ? "Installed. This experimental model runs on this Mac when requested." : "Installed and ready for chat.")
                         case .checking: Text("Checking local model…")
-                        case .available, .downloading, .failed: Text("Download this model before adding it as a provider.")
+                        case .failed(let message): Text(message).foregroundStyle(.red)
+                        case .available, .downloading: Text("Download this model before adding it as a provider.")
                         }
                     }
-                    if store.registry.defaultConnectionId != nil {
+                    if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
                             Toggle("Use as Default Provider", isOn: $makeDefault)
                                 .disabled(existing?.id == store.registry.defaultConnectionId)
@@ -237,20 +229,7 @@ struct ProviderEditor: View {
                 }
             }
             .fritzSettingsFormStyle().disabled(isSaving)
-            Divider()
-            HStack(spacing: 8) {
-                if isSaving { ProgressView().controlSize(.small) }
-                Spacer()
-                Button("Cancel") { nativeModel.cancel(); dismiss() }.keyboardShortcut(.cancelAction).disabled(isSaving)
-                Button(primaryActionTitle, action: save)
-                    .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
-                    .disabled(!canSave)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 12)
-            .background(FritzWindowStyle.workspaceBackground)
         }
-        .frame(width: 600, height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60))
-        .background(FritzWindowStyle.contentBackground)
         .buttonStyle(FritzButtonStyle())
         .interactiveDismissDisabled(isSaving)
         .onChange(of: preset) { old, new in
@@ -264,11 +243,15 @@ struct ProviderEditor: View {
             preset = new == .decision ? .adapter(.jev) : .adapter(.openAI)
             makeDefault = new == .llm && store.registry.defaultConnectionId == nil
         }
-        .task(id: managesLocalModels) {
-            if managesLocalModels { nativeModel.refresh() } else { nativeModel.cancel() }
+        .task(id: preset.provider) {
+            nativeModel.cancel()
+            if nativeModel.category != category {
+                nativeModel = NativeLocalModel(agent: store.agent, category: category)
+            }
+            if managesLocalModels { nativeModel.refresh() }
         }
         .sheet(isPresented: $showsDownload, onDismiss: { nativeModel.refresh() }) {
-            LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID)
+            LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID, category: category)
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
@@ -361,7 +344,7 @@ struct ProviderEditor: View {
         }
     }
 
-    private var managesLocalModels: Bool { preset.provider == .fritz }
+    private var managesLocalModels: Bool { preset.provider.isNative }
     private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
@@ -382,7 +365,7 @@ struct ProviderEditor: View {
     private var connection: ProviderConnection {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
                            baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
-                           modelID: category == .decision ? "jev-latest" : managesLocalModels ? nativeModel.selectedModelID : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
+                           modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private func suggestedName(_ base: String) -> String {
         var candidate = base, count = 2

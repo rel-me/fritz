@@ -5,6 +5,7 @@ import SwiftUI
 public struct ModelProviderEditor<Header: View, Content: View>: View {
   let primaryActionTitle: String
   let canSave: Bool
+  let isSaving: Bool
   let licenseURL: URL?
   let width: CGFloat
   let height: CGFloat
@@ -16,13 +17,14 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
   let content: Content
 
   public init(
-    primaryActionTitle: String, canSave: Bool, licenseURL: URL? = nil,
+    primaryActionTitle: String, canSave: Bool, isSaving: Bool = false, licenseURL: URL? = nil,
     width: CGFloat = 600, height: CGFloat, contentBackground: Color, footerBackground: Color,
     cancel: @escaping () -> Void, save: @escaping () -> Void,
     @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Content
   ) {
     self.primaryActionTitle = primaryActionTitle
     self.canSave = canSave
+    self.isSaving = isSaving
     self.licenseURL = licenseURL
     self.width = width
     self.height = height
@@ -41,14 +43,16 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
       content
       Divider()
       HStack(spacing: 8) {
+        if isSaving { ProgressView().controlSize(.small) }
         if let licenseURL { Link("Model license", destination: licenseURL) }
         Spacer()
         Button("Cancel", action: cancel)
           .keyboardShortcut(.cancelAction)
+          .disabled(isSaving)
         Button(primaryActionTitle, action: save)
           .buttonStyle(FritzButtonStyle(.primary))
           .keyboardShortcut(.defaultAction)
-          .disabled(!canSave)
+          .disabled(!canSave || isSaving)
       }
       .padding(.horizontal, 20)
       .padding(.vertical, 12)

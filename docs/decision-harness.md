@@ -7,7 +7,23 @@ The `fritz-decision-harness` process uses the same private-pipe lifecycle as cha
 ## Backends
 
 - **Jev:** The bundled remote adapter calls TypeSafe's `POST /v1/systemone` with a bearer key. The key is supplied by the host for this request and is never written to the request log or registry. The default endpoint is TypeSafe's HTTPS API; an explicit loopback endpoint supports isolated tests.
-- **Local:** `decision::DecisionModel` is the backend contract for a native local model. It consumes the same validated `DecisionRequest` and returns the same validated `DecisionResponse`. No local decision-model weights or adapter are bundled yet. Fritz's Qwen GGUFs are conversational models and should not be labeled as calibrated decision models. Choose and evaluate a local decision model before exposing one in the app.
+- **Ollaya (local):** The bundled `ollaya-runner` and `ollaya-decision` crates implement `decision::DecisionModel` with Laya English on ONNX Runtime CPU. Both crates are pinned to commit `152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4`. `Sources/Fritz/DecisionModels.json` pins the fp32 graph, upstream weights, tokenizer, layout, calibration, and license by URL, size, and SHA-256. Weights are downloaded explicitly to `DecisionModels/<id>/<revision>` in Fritz's data directory and verified before every load. The revision identifies the Ollaya artifact recipe; the weights URL separately pins the author's commit. Ollaya's daemon, desktop app, registry service, and MLX backend are not used.
+
+Select **Ollaya** under **Decision Models**, download Laya English, and save the
+provider. The same operations are `fritz decision-models list`,
+`fritz decision-models install laya-en`, and `fritz decide --connection NAME FILE`.
+Inference has no network calls and needs no key. Models remain loaded only for
+one request. A dedicated native thread keeps the pipe/signal loop responsive;
+cancellation or the 120-second deadline flushes the terminal event and uses
+`_exit` to let the OS reclaim the process. This avoids racing ONNX global
+destructors against native loading/inference still running on the worker. Questions run one row at a time to bound attention memory.
+Laya English has a 512-token sequence budget shared by state and questions.
+State that does not fit is rejected instead of truncated; keep question instructions
+and option descriptions short because Ollaya applies its model-specific head budget.
+
+The first local release is an explicitly invoked backend. See
+[local decision evaluation](agents/local-decision-evaluation.md) for the measured
+scope and limitations; it is not automatically paired with chat.
 
 For a local adapter, pin the weights and their license, verify them before loading,
 keep inference inside the decision harness, and measure answer quality and
@@ -21,9 +37,7 @@ TypeSafe can be configured from **Model Providers → + → Decision Models**. F
 its key in the existing Keychain namespace and keeps its Jev (`jev-latest`)
 model out of chat selection. The agent's `decisions.evaluate` method can resolve
 that saved connection by `connectionId`, fetch its key, and run the decision
-harness. Decisions are not called automatically for every chat. A future local
-decision model belongs in the same category and must implement the typed backend
-contract before it is exposed in settings.
+harness. Decisions are not called automatically for every chat. Ollaya belongs to the same category and uses the same typed contract.
 
 ## Pairing with chat
 
@@ -36,4 +50,4 @@ For example, a future reminder workflow could ask whether a message requests a r
 
 ## Private protocol
 
-The decision input has `request` (`state`, `model`, `questions`), `backend` (`{"kind":"jev"}` with optional `endpoint`), and `apiKey`. The TypeSafe question and answer shapes are preserved. The harness emits exactly one of `{"type":"result","result":...}`, `{"type":"error","message":"..."}`, or `{"type":"cancelled"}`. A successful result includes the resolved model, named answers, and token usage when supplied by the backend. See [TypeSafe's API reference](https://docs.typesafe.ai/api) for Jev's current wire format.
+The decision input has `request` (`state`, `model`, `questions`), `backend` (`{"kind":"jev"}` with optional `endpoint`, or `{"kind":"ollaya"}`), and optional `apiKey` (Jev only). The TypeSafe question and answer shapes are preserved. The harness emits exactly one of `{"type":"result","result":...}`, `{"type":"error","message":"..."}`, or `{"type":"cancelled"}`. A successful result includes the resolved model, named answers, and token usage when supplied by the backend. See [TypeSafe's API reference](https://docs.typesafe.ai/api) for Jev's current wire format.
