@@ -182,6 +182,21 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
             .collect()
     }
 
+    fn unavailable_tool(&self, call: &Call) -> Result<ToolResult> {
+        if self.workspace.is_none() {
+            bail!("The model requested project tools without an attached project folder.");
+        }
+        let event_id = uuid::Uuid::new_v4().to_string();
+        let value = json!({"error":format!("Unknown tool: {}", call.name)});
+        (self.emit)(
+            json!({"type":"tool_start","toolCallId":event_id,"name":call.name,"summary":"Unavailable tool","details":tools::bounded(&call.arguments,8192)}),
+        );
+        (self.emit)(
+            json!({"type":"tool_end","toolCallId":event_id,"name":call.name,"success":false,"details":tools::bounded(&value.to_string(),tools::OUTPUT_LIMIT)}),
+        );
+        Ok(ToolResult::json(value, true))
+    }
+
     async fn execute(&self, call: &Call) -> Result<ToolResult> {
         let event_id = uuid::Uuid::new_v4().to_string();
         let args = serde_json::from_str::<Value>(&call.arguments);

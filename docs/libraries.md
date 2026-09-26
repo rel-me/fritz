@@ -248,7 +248,9 @@ and execution) and `Model` (one provider-native turn and result history), then
 calls `run` with explicit model-turn, tool-call and deadline limits. Tools are
 refreshed before each turn. The entire call batch is validated against that
 turn's advertised tools, unique call IDs and remaining budgets before any call
-executes. Tool-specific authorization and argument validation belong to the
+executes. Unavailable tools fail closed by default; a host can return an error
+result through `unavailable_tool` to allow correction. A mixed batch is skipped
+in full, and rejected calls consume the tool budget. Tool-specific authorization and argument validation belong to the
 host. Expected tool failures are `ToolResult { failed: true, .. }`; an `Err`
 stops execution. Dropping the run or reaching its deadline drops in-flight work.
 Hosts must make spawned work cancellation-safe; the library spawns no tasks.

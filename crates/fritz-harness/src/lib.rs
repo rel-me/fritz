@@ -66,6 +66,16 @@ pub trait Model {
 pub trait Host {
     fn tools(&self) -> Result<Vec<ToolDefinition>>;
     fn execute(&self, call: &ToolCall) -> impl Future<Output = Result<ToolResult>>;
+
+    /// By default, an unavailable tool stops the run. A host may return a
+    /// model-facing error to allow correction. This callback must not execute
+    /// the rejected tool. If any call is unavailable, the whole batch is skipped.
+    fn unavailable_tool(&self, call: &ToolCall) -> Result<ToolResult> {
+        bail!(
+            "The model requested an unavailable tool: {}. No tools in this batch were executed.",
+            call.name
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -114,15 +124,30 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
             }
             let mut ids = HashSet::new();
             for call in &turn.calls {
-                if !names.contains(call.name.as_str()) {
-                    bail!(
-                        "The model requested an unavailable tool: {}. No tools in this batch were executed.",
-                        call.name
-                    );
-                }
                 if call.id.is_empty() || !ids.insert(call.id.as_str()) {
                     bail!("Tool call IDs must be nonempty and unique within a turn.");
                 }
+            }
+            if turn
+                .calls
+                .iter()
+                .any(|call| !names.contains(call.name.as_str()))
+            {
+                tool_count += turn.calls.len();
+                let mut results = Vec::with_capacity(turn.calls.len());
+                for call in turn.calls {
+                    let result = if names.contains(call.name.as_str()) {
+                        ToolResult::json(
+                            serde_json::json!({"error":"This batch contained an unavailable tool. No tools were executed; retry with advertised tools only."}),
+                            true,
+                        )
+                    } else {
+                        host.unavailable_tool(&call)?
+                    };
+                    results.push((call, result));
+                }
+                model.results(results)?;
+                continue;
             }
             let mut results = Vec::with_capacity(turn.calls.len());
             for call in turn.calls {

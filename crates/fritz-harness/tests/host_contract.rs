@@ -136,6 +136,47 @@ async fn invalid_batches_and_exhausted_limits_never_partially_execute() {
 struct PendingHost {
     state: RefCell<&'static str>,
 }
+
+struct RecoveringHost(FixtureHost);
+impl Host for RecoveringHost {
+    fn tools(&self) -> Result<Vec<ToolDefinition>> {
+        self.0.tools()
+    }
+    async fn execute(&self, call: &ToolCall) -> Result<ToolResult> {
+        self.0.execute(call).await
+    }
+    fn unavailable_tool(&self, _: &ToolCall) -> Result<ToolResult> {
+        Ok(ToolResult::json(
+            json!({"error":"Use an advertised tool"}),
+            true,
+        ))
+    }
+}
+
+#[tokio::test]
+async fn recovery_skips_the_entire_invalid_batch_and_accepts_a_corrected_call() {
+    let host = RecoveringHost(FixtureHost::default());
+    let mut model = FixtureModel::new(vec![
+        vec![call("a", "prepare"), call("b", "hidden")],
+        vec![call("c", "prepare")],
+        vec![],
+    ]);
+    run(&mut model, &host, limits(3, 3)).await.unwrap();
+    assert_eq!(*host.0.executed.borrow(), vec!["prepare"]);
+    assert!(model.results[0].1.failed && model.results[1].1.failed);
+    assert_eq!(model.results[2].1.value, json!({"receipt":"c"}));
+
+    let host = RecoveringHost(FixtureHost::default());
+    let mut model = FixtureModel::new(vec![vec![call("a", "hidden")], vec![call("b", "prepare")]]);
+    assert!(
+        run(&mut model, &host, limits(3, 1))
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("1-tool limit")
+    );
+    assert!(host.0.executed.borrow().is_empty());
+}
 struct Active<'a>(&'a RefCell<&'static str>);
 impl Drop for Active<'_> {
     fn drop(&mut self) {
