@@ -28,6 +28,7 @@ test-runtime:
 	python3 tests/decision_integration.py
 	python3 tests/test_release_tasks.py
 	python3 tests/test_build_cache.py
+	python3 tests/test_dev_runtime.py
 
 test-swift:
 	swift test --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"

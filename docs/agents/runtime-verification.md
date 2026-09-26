@@ -50,7 +50,11 @@ types, structured score legends, context rejection, and cancellation while nativ
 model loading/inference is active. It never downloads models or uses remote keys.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
-`dist/FritzDebug.app` bundle without requiring a branch or open PR. Use
+`dist/FritzDebug{PR}.app` bundle named for the current branch's open PR number.
+On `main`, it stages `dist/FritzDebug.app` without a PR lookup. Other branches
+require an `origin` remote and authenticated GitHub CLI (`gh`) to resolve exactly
+one open PR. Push the branch and create its PR before building. Missing,
+ambiguous, or failed PR lookups and detached HEAD fail before compilation. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
