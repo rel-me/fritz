@@ -36,12 +36,18 @@ impl FixtureModel {
 }
 
 impl Model for FixtureModel {
+    fn conversation(&self) -> Vec<fritz_harness::message::Message> {
+        vec![fritz_harness::message::Message::user(
+            "Complete the host task",
+        )]
+    }
+
     async fn turn(&mut self, tools: &[ToolDefinition]) -> Result<Turn> {
         self.advertised
             .push(tools.iter().map(|tool| tool.name.clone()).collect());
         Ok(Turn {
             calls: self.turns.pop_front().expect("unexpected model call"),
-            has_text: true,
+            text: "Host response".into(),
         })
     }
 
