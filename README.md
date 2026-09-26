@@ -197,7 +197,8 @@ See [docs/protocol.md](docs/protocol.md) for the private app/agent protocol.
 The Codex environment in [.codex/environments/environment.toml](.codex/environments/environment.toml)
 provides worktree setup and Run Fritz, Build, Test, and Check actions.
 [AGENTS.md](AGENTS.md) documents the architecture and development rules.
-The repository includes five [native development skills](docs/agents/skills.md)
+The repository includes [development skills](docs/agents/skills.md)
 for SwiftUI implementation/review, macOS design, concurrency,
-and builds/AppKit. See [runtime verification](docs/agents/runtime-verification.md)
-and [UI verification](docs/agents/ui-verification.md) for local testing.
+builds/AppKit, and test audits. See [runtime verification](docs/agents/runtime-verification.md)
+and [UI verification](docs/agents/ui-verification.md) for local testing, and
+[model evaluation](docs/agents/model-evaluation.md) for model-quality comparisons.

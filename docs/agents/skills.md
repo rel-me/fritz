@@ -89,6 +89,8 @@ concurrency license, and interface assets above are retained.
 
 Entry points and project-specific references now describe Fritz's actual
 SwiftUI/AppKit scenes, stores, private-pipe agent, Make targets, and tests.
-UI verification is manual with the mock provider; Fritz does not yet have a
-visual snapshot suite. Generic upstream concurrency examples remain reference
-material, not instructions to expand the app's scope or change its toolchain.
+UI verification combines shared FritzUI snapshot comparisons with manual
+mock-provider workflows for app-specific behavior; see
+[UI verification](ui-verification.md) for coverage and commands. Generic upstream
+concurrency examples remain reference material, not instructions to expand the
+app's scope or change its toolchain.
