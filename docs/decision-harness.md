@@ -13,6 +13,9 @@ For a local adapter, pin the weights and their license, verify them before loadi
 keep inference inside the decision harness, and measure answer quality and
 probability calibration on Fritz's intended tasks. A threshold tuned for Jev
 does not automatically transfer to another model.
+Follow [model evaluation](agents/model-evaluation.md) when qualifying a backend
+or comparing policy thresholds; protocol validation alone does not establish
+judgment quality.
 
 TypeSafe can be configured from **Model Providers → + → Decision Models**. Fritz stores
 its key in the existing Keychain namespace and keeps its Jev (`jev-latest`)

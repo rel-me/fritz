@@ -12,8 +12,10 @@ Fritz is a native macOS personal assistant. Keep the current product focused on 
 - Decision judgments use a separate `fritz-decision-harness` and typed `decision::DecisionModel` contract. Jev is a remote decision backend, not a chat provider. A local decision backend must implement the same contract and be evaluated before user-facing use. Pairing decisions with chat belongs to application policy, not the model response.
 - Model Providers separates LLMs from Decision Models. Only LLM connections can be selected for chat or made the default chat provider; Jev belongs to Decision Models and uses a Keychain-backed connection.
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
+- Fix failures in the supported path and surface actionable errors. Do not add hidden bypasses, silent fallback implementations, or undocumented compatibility behavior. Keep intentional recovery bounded, documented, and within the user's selected provider and permissions.
 - Keep Fritz free of CEF, embedded web engines, browsing sessions, profiles, proxy management, and unrelated runtime dependencies.
 - When the user asks to copy a REL feature, you may inspect its codebase on this computer for reference; implement the feature within Fritz's own architecture.
+- REL's CEF and browser internals remain private to REL. Do not copy or describe them in Fritz code, documentation, fixtures, or PRs. Adapt only general guidance relevant to Fritz.
 - Keep documentation honest about the current scope: Every conversation uses one harness. Folder-attached conversations still have file and local process actions for models with native tool support, including compatible Fritz local models. These actions run with user permissions, not in an OS sandbox. Preserve cancellation, activity records, native tool-result history, and execution limits during the transition. Do not position folder actions as the product's purpose or default path.
 
 ## Build and runtime verification
@@ -23,6 +25,7 @@ Fritz is a native macOS personal assistant. Keep the current product focused on 
 - The checked-in Xcode project is generated from `app/project.yml` using XcodeGen. Update both when project structure changes. Preserve the declared platform and language settings and committed dependency locks.
 - For runtime, agent, or packaging changes, read [runtime verification](docs/agents/runtime-verification.md). Run `make test` and `make check`, then build the staged app and exercise the affected workflow. Documentation and skill-only changes do not require an app build.
 - Use `FRITZ_DATA_DIR` with an isolated directory and `tests/mock_provider.py` for end-to-end verification. Do not use personal provider credentials for automated checks. The override isolates data files, not the Keychain namespace or UserDefaults.
+- For model-quality comparisons or decision-backend qualification, follow [model evaluation](docs/agents/model-evaluation.md). Mock-provider checks establish runtime behavior, not model quality; live evaluations are separate, explicitly requested work.
 - Operate only on processes verified to belong to this checkout and test run. Never use broad process-name killing, interact with another checkout's app, or test an installed app in `/Applications`. Optimized local builds use `CONFIGURATION=release make build`; installation and distribution require a task that requests them.
 - Keep `target`, `app/.build`, `dist/DerivedData`, staged apps, and runtime data local to the checkout. Do not seed them from another worktree or copy another app's local environment files.
 
