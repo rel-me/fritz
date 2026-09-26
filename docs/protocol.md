@@ -7,6 +7,7 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `health` | `{}` | Agent name and version |
 | `providers.list` | `{}` | Registry |
 | `providers.save` | `connection`, optional `apiKey`, `makeDefault` | Updated registry |
+| `providers.import` | `providers`: array of `connection` and optional `apiKey` | Updated registry; permits missing keys |
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
@@ -17,7 +18,9 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
-Jev connections have provider `jev`, model `jev-latest`, and no configurable endpoint. Providers have LLM or Decision model categories. Only LLM connections can be the default chat provider or be used by `chat`.
+TypeSafe connections retain the wire identifier `jev` for compatibility, use model `jev-latest`, and have no configurable endpoint. Providers have LLM or Decision model categories. Only LLM connections can be the default chat provider or be used by `chat`.
+
+Provider import validates every connection before saving, then saves in order. A storage or Keychain failure reports how many entries were saved. Missing keys are allowed during import and discovery reports that setup is needed. Existing keys are preserved when omitted; changing an endpoint with a saved key requires a replacement key. Existing default selection is preserved; the first LLM becomes default if none exists. The UI resolves Skip/Overwrite by service, preserving existing IDs and connection names, and refuses ambiguous overwrites. Export is a UI operation: metadata is encoded as version 1 `fritz.provider` or `fritz.providers` JSON; the importer also accepts REL's corresponding envelopes. An explicit key-inclusive export reads Fritz's Keychain in the app process, never through an agent response.
 
 Events are `delta` with `text`, `usage` with provider usage metadata, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
 

@@ -95,6 +95,18 @@ fn save(
     api_key: Option<String>,
     make_default: bool,
 ) -> Result<config::Registry> {
+    save_provider(connection, api_key, make_default, true)
+}
+
+fn save_provider(
+    connection: Connection,
+    api_key: Option<String>,
+    make_default: bool,
+    requires_key: bool,
+) -> Result<config::Registry> {
+    let api_key = api_key
+        .map(|key| key.trim().to_owned())
+        .filter(|key| !key.is_empty());
     connection.validate()?;
     if make_default && connection.provider.category() != config::ModelCategory::Llm {
         bail!("Only an LLM provider can be the default chat provider.");
@@ -125,7 +137,10 @@ fn save(
         if let Some(key) = api_key {
             config::set_key(connection.id, key.trim())?;
         }
-        if connection.provider.requires_key() && config::key(connection.id)?.is_none() {
+        if requires_key
+            && connection.provider.requires_key()
+            && config::key(connection.id)?.is_none()
+        {
             bail!("This provider requires an API key.");
         }
         if make_default
@@ -157,6 +172,38 @@ fn save(
         }
         Ok(())
     })
+}
+
+fn import_providers(params: &Value) -> Result<config::Registry> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ImportItem {
+        connection: Connection,
+        api_key: Option<String>,
+    }
+    if serde_json::to_vec(params)?.len() > 1_048_576 {
+        bail!("The configuration must be no larger than 1 MB.");
+    }
+    let items: Vec<ImportItem> = serde_json::from_value(params["providers"].clone())
+        .map_err(|_| anyhow::anyhow!("Invalid provider import configuration."))?;
+    // Validate the entire payload before writing any connections or credentials.
+    for item in &items {
+        item.connection.validate()?;
+        if item.connection.provider == ProviderKind::Fritz
+            && item.api_key.as_deref().is_some_and(|key| !key.is_empty())
+        {
+            bail!("Fritz local models do not use an API key.");
+        }
+    }
+    let mut registry = config::load()?;
+    for (count, item) in items.into_iter().enumerate() {
+        registry = save_provider(item.connection, item.api_key, false, false).map_err(|error| {
+            anyhow::anyhow!(
+                "Imported {count} provider(s). Could not import the next provider: {error}"
+            )
+        })?;
+    }
+    Ok(registry)
 }
 
 fn remove(id: Uuid) -> Result<config::Registry> {
@@ -203,6 +250,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             Ok(json!({"modelId":id,"installed":true}))
         }
         "providers.list" => Ok(serde_json::to_value(config::load()?)?),
+        "providers.import" => Ok(serde_json::to_value(import_providers(params)?)?),
         "providers.save" => Ok(serde_json::to_value(save(
             serde_json::from_value(params["connection"].clone())?,
             params["apiKey"].as_str().map(str::to_string),

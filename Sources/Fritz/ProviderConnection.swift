@@ -28,7 +28,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .gemini: "Google Gemini"
         case .ollama: "Ollama"
         case .fritz: "Fritz"
-        case .jev: "Jev"
+        case .jev: "TypeSafe"
         }
     }
     public var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && self != .fritz }
