@@ -4,6 +4,7 @@ import SwiftUI
 struct LocalModelDownloadSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: NativeLocalModel
+    @State private var filters = NativeModelFilters()
 
     init(agent: AgentClient, modelID: String? = nil) {
         _model = State(initialValue: NativeLocalModel(agent: agent, modelID: modelID))
@@ -13,24 +14,26 @@ struct LocalModelDownloadSheet: View {
         VStack(spacing: 0) {
             FritzManagementHeader("Download Local Model")
             Divider()
-            NativeLocalModelSection(modelID: Binding(
+            NativeLocalModelSection(filters: $filters, modelID: Binding(
                 get: { model.selectedModelID },
                 set: { model.select($0) }
             ), state: model.state, hardware: .current)
             Divider()
             HStack(spacing: 8) {
-                Link("Model license", destination: model.selectedModel.licenseURL)
+                if hasVisibleSelection {
+                    Link("Model license", destination: model.selectedModel.licenseURL)
+                }
                 Spacer()
-                Button(model.state == .installed ? "Close" : "Cancel") {
+                Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
                     model.cancel()
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
-                if model.state != .installed {
-                    Button(downloadTitle) { model.install() }
+                if !hasVisibleSelection || model.state != .installed {
+                    Button(downloadTitle) { if hasVisibleSelection { model.install() } }
                         .buttonStyle(FritzButtonStyle(.primary))
                         .keyboardShortcut(.defaultAction)
-                        .disabled(model.state.isBusy)
+                        .disabled(!hasVisibleSelection || model.state.isBusy)
                 }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
@@ -41,10 +44,19 @@ struct LocalModelDownloadSheet: View {
         .buttonStyle(FritzButtonStyle())
         .task { model.refresh() }
         .onDisappear { model.cancel() }
+        .onChange(of: filters) { _, newFilters in
+            if !hasVisibleSelection, let first = newFilters.models.first {
+                model.select(first.id)
+            }
+        }
+    }
+
+    private var hasVisibleSelection: Bool {
+        filters.models.contains { $0.id == model.selectedModelID }
     }
 
     private var downloadTitle: String {
-        if case .failed = model.state { return "Retry Download" }
+        if hasVisibleSelection, case .failed = model.state { return "Retry Download" }
         return "Download"
     }
 }

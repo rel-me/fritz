@@ -4,6 +4,8 @@
     {
       "id": "apodex-1.1-mini-q4_k_m",
       "name": "Apodex 1.1 Mini 35B",
+      "family": "Apodex",
+      "category": "llm",
       "repository": "apodex/Apodex-1.1-mini-GGUF",
       "revision": "4ec155733ded2fa90b615bf50d20c59796cc5107",
       "file": "apodex1.1-35b-Q4_K_M-MTP.gguf",
@@ -18,6 +20,8 @@
     {
       "id": "qwopus3.8-27b-flash-q4_k_m",
       "name": "Qwopus3.8 27B Flash",
+      "family": "Qwopus",
+      "category": "llm",
       "repository": "Jackrong/Qwopus3.8-27B-Flash-GGUF",
       "revision": "9b90cd22b19276bc9e75c0e6d1665fa48619dd5b",
       "file": "Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf",
@@ -32,6 +36,8 @@
     {
       "id": "qwen3.8-27b-ud-q4_k_m",
       "name": "Qwen3.8 27B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3.8-27B-GGUF",
       "revision": "4ca720788d1e01f1bff70c033e0d0028fd02e502",
       "file": "Qwen3.8-27B-UD-Q4_K_M.gguf",
@@ -46,6 +52,8 @@
     {
       "id": "qwen3.8-9b-distill-q4_k_m",
       "name": "Qwen3.8 9B Distill",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "empero-ai/Qwen3.8-9B-Distill-GGUF",
       "revision": "760121cd70bb4c36b2b5ec58eb765e0df5987efe",
       "file": "Qwen3.8-9B-Q4_K_M.gguf",
@@ -60,6 +68,8 @@
     {
       "id": "qwen3.6-27b-q4_k_m",
       "name": "Qwen3.6 27B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3.6-27B-GGUF",
       "revision": "82d411acf4a06cfb8d9b073a5211bf410bfc29bf",
       "file": "Qwen3.6-27B-Q4_K_M.gguf",
@@ -74,6 +84,8 @@
     {
       "id": "qwen3.5-0.8b-q4_k_m",
       "name": "Qwen3.5 0.8B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3.5-0.8B-GGUF",
       "revision": "6ab461498e2023f6e3c1baea90a8f0fe38ab64d0",
       "file": "Qwen3.5-0.8B-Q4_K_M.gguf",
@@ -88,6 +100,8 @@
     {
       "id": "qwen3.5-2b-q4_k_m",
       "name": "Qwen3.5 2B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3.5-2B-GGUF",
       "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
       "file": "Qwen3.5-2B-Q4_K_M.gguf",
@@ -102,6 +116,8 @@
     {
       "id": "qwen3.5-4b-q4_k_m",
       "name": "Qwen3.5 4B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3.5-4B-GGUF",
       "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
       "file": "Qwen3.5-4B-Q4_K_M.gguf",
@@ -116,6 +132,8 @@
     {
       "id": "qwen3.5-9b-q4_k_m",
       "name": "Qwen3.5 9B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3.5-9B-GGUF",
       "revision": "3885219b6810b007914f3a7950a8d1b469d598a5",
       "file": "Qwen3.5-9B-Q4_K_M.gguf",
@@ -130,6 +148,8 @@
     {
       "id": "qwen3-0.6b-q4_k_m",
       "name": "Qwen3 0.6B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3-0.6B-GGUF",
       "revision": "50968a4468ef4233ed78cd7c3de230dd1d61a56b",
       "file": "Qwen3-0.6B-Q4_K_M.gguf",
@@ -144,6 +164,8 @@
     {
       "id": "qwen3-1.7b-q4_k_m",
       "name": "Qwen3 1.7B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "unsloth/Qwen3-1.7B-GGUF",
       "revision": "d7f544eead698dbd1f15126ef60b45a1e1933222",
       "file": "Qwen3-1.7B-Q4_K_M.gguf",
@@ -158,6 +180,8 @@
     {
       "id": "qwen3-4b-q4_k_m",
       "name": "Qwen3 4B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "Qwen/Qwen3-4B-GGUF",
       "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
       "file": "Qwen3-4B-Q4_K_M.gguf",
@@ -172,6 +196,8 @@
     {
       "id": "qwen3-8b-q4_k_m",
       "name": "Qwen3 8B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "Qwen/Qwen3-8B-GGUF",
       "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
       "file": "Qwen3-8B-Q4_K_M.gguf",
@@ -186,6 +212,8 @@
     {
       "id": "qwen3-14b-q4_k_m",
       "name": "Qwen3 14B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "Qwen/Qwen3-14B-GGUF",
       "revision": "530227a7d994db8eca5ab5ced2fb692b614357fd",
       "file": "Qwen3-14B-Q4_K_M.gguf",
@@ -200,6 +228,8 @@
     {
       "id": "qwen2.5-1.5b-instruct-q4_k_m",
       "name": "Qwen2.5 1.5B",
+      "family": "Qwen",
+      "category": "llm",
       "repository": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
       "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
       "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",

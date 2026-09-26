@@ -59,7 +59,9 @@ The composer includes model search, provider filtering, recent selections, and r
 
 In **Settings → Local Models**, click the download button to choose and download
 a Fritz model from a selectable list with Name, Type, Size / Status, and Hardware
-Requirements columns. The downloadable catalog currently contains LLMs; Jev is a
+Requirements columns. Use the type (LLM or Decision) and model-family capsules
+to combine filters; click a selected capsule to remove it, or All to reset.
+The downloadable catalog currently contains LLMs; Jev is a
 remote Decision Model. The sheet shows the selected model’s license, download
 progress, and installation status. Cancel stops the download; Retry starts a fresh
 attempt. Once the model is installed, add or edit a **Fritz** provider in
