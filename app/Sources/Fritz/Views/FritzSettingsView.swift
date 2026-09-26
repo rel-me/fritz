@@ -36,7 +36,6 @@ struct FritzSettingsView: View {
     @Bindable var state: FritzState
     @ObservedObject var updater: AppUpdater
     @State private var editor: ProviderEditorSelection?
-    @State private var showsDownload = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -60,7 +59,7 @@ struct FritzSettingsView: View {
                         ProvidersView(store: state.providers, editor: $editor)
                     case .localModels:
                         LocalModelsView(store: state.localModels,
-                                        downloadModel: { showsDownload = true })
+                                        downloadModel: { state.showsLocalModelDownload = true })
                     case .service:
                         FritzServiceSettingsView(agent: state.agent)
                     case .debug:
@@ -95,7 +94,7 @@ struct FritzSettingsView: View {
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
         .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection, initialCategory: $0.category) }
-        .sheet(isPresented: $showsDownload, onDismiss: {
+        .sheet(isPresented: $state.showsLocalModelDownload, onDismiss: {
             Task {
                 await state.localModels.refresh()
                 await state.providers.refresh()
