@@ -39,7 +39,7 @@ fi
 
 # Check credentials before spending time on the release build.
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
-key_tool="dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
+key_tool="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
 test -x "$key_tool" || { echo "error: run make setup to resolve Sparkle tools" >&2; exit 1; }
 public_key="$("$key_tool" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p)"
 [[ "$public_key" == "$FRITZ_SPARKLE_PUBLIC_ED_KEY" ]] || {

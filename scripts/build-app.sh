@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd -P "$(dirname "$0")/.."
+if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
+  exec python3 scripts/build-cache.py "$PWD/scripts/build-app.sh" "$@"
+fi
 
 configuration="${CONFIGURATION:-debug}"
 source scripts/release-config.sh
@@ -38,7 +41,8 @@ if [[ -n "$feed_url" || -n "$public_key" ]]; then
 fi
 
 xcodebuild -quiet -project app/Fritz.xcodeproj -scheme Fritz \
-  -configuration "$xcode_configuration" -derivedDataPath dist/DerivedData \
+  -configuration "$xcode_configuration" -derivedDataPath "$FRITZ_DERIVED_DATA" \
+  -packageCachePath "$FRITZ_XCODE_CACHE" \
   -destination "platform=macOS,arch=$(uname -m)" \
   -onlyUsePackageVersionsFromResolvedFile \
   FRITZ_PRODUCT_NAME="$app_name" PRODUCT_BUNDLE_IDENTIFIER="$bundle_id" \
@@ -46,15 +50,16 @@ xcodebuild -quiet -project app/Fritz.xcodeproj -scheme Fritz \
   CURRENT_PROJECT_VERSION="$FRITZ_BUILD_NUMBER" \
   CODE_SIGNING_ALLOWED=NO build
 
+mkdir -p dist
 app_bundle="$PWD/dist/$app_name.app"
-xcode_bundle="$PWD/dist/DerivedData/Build/Products/$xcode_configuration/$app_name.app"
+xcode_bundle="$FRITZ_DERIVED_DATA/Build/Products/$xcode_configuration/$app_name.app"
 test -d "$xcode_bundle" || { echo "error: missing $xcode_bundle" >&2; exit 1; }
 if [ -d "$app_bundle" ]; then rm -rf "$app_bundle"; fi
 ditto "$xcode_bundle" "$app_bundle"
-cp "target/$configuration/fritz" "$app_bundle/Contents/Resources/fritz"
-cp "target/$configuration/fritz-harness" "$app_bundle/Contents/Resources/fritz-harness"
-cp "target/$configuration/fritz-decision-harness" "$app_bundle/Contents/Resources/fritz-decision-harness"
-package_checkouts="$PWD/dist/DerivedData/SourcePackages/checkouts"
+cp "$CARGO_TARGET_DIR/$configuration/fritz" "$app_bundle/Contents/Resources/fritz"
+cp "$CARGO_TARGET_DIR/$configuration/fritz-harness" "$app_bundle/Contents/Resources/fritz-harness"
+cp "$CARGO_TARGET_DIR/$configuration/fritz-decision-harness" "$app_bundle/Contents/Resources/fritz-decision-harness"
+package_checkouts="$FRITZ_DERIVED_DATA/SourcePackages/checkouts"
 mkdir -p "$app_bundle/Contents/Resources/Licenses"
 cp LICENSE "$app_bundle/Contents/Resources/Licenses/Fritz-AGPL-3.0.txt"
 for dependency in textual swiftui-math swift-concurrency-extras; do

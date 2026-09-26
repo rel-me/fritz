@@ -12,7 +12,7 @@ from http.server import ThreadingHTTPServer
 from mock_provider import Provider
 
 ROOT = Path(__file__).resolve().parents[1]
-EXECUTABLE = ROOT / "target/debug/fritz"
+EXECUTABLE = Path(os.environ.get("FRITZ_TEST_BIN_DIR", ROOT / "target/debug")) / "fritz"
 
 
 class AuthenticatedProvider(Provider):

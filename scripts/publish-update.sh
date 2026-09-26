@@ -54,7 +54,7 @@ if not enclosure.get(f'{sparkle}edSignature'):
     raise SystemExit('appcast update is unsigned')
 PY
 
-sign_update="dist/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
+sign_update="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
 test -x "$sign_update" || { echo "error: pinned Sparkle sign_update is unavailable" >&2; exit 1; }
 actual_signature="$("$sign_update" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p "$archive")"
 expected_signature="$(python3 - "$appcast" <<'PY'
