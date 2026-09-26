@@ -40,7 +40,7 @@ struct FritzSettingsView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: .constant(.all)) {
                 List(selection: selection) {
                     ForEach(FritzSettingsTab.allCases) { tab in
                         Label(tab.title, systemImage: tab.systemImage).tag(tab)
@@ -50,6 +50,7 @@ struct FritzSettingsView: View {
                 .scrollContentBackground(.hidden)
                 .background(FritzWindowStyle.workspaceBackground)
                 .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
+                .toolbar(removing: .sidebarToggle)
             } detail: {
                 Group {
                     switch state.settingsTab {
@@ -70,12 +71,25 @@ struct FritzSettingsView: View {
                             .background(FritzWindowStyle.contentBackground)
                     }
                 }
-                // Settings can measure lists with an oversized ideal height; keep the detail inside the window.
-                .frame(height: max(0, geometry.size.height - 80))
+                // Bound list-based pages to the window while reserving the bottom inset.
+                .frame(height: max(0, geometry.size.height - 8), alignment: .top)
                 .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
                 .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             }
             .navigationSplitViewStyle(.prominentDetail)
+            // Keep a toolbar host so the unified titlebar retains the sidebar outline.
+            .toolbar {
+                if #available(macOS 26.0, *) {
+                    ToolbarItem(placement: .automatic) {
+                        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .automatic) {
+                        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                    }
+                }
+            }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .fritzWindowBackground()

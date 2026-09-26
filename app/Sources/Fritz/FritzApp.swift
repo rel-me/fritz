@@ -112,14 +112,14 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    @State private var sidebarVisibility: NavigationSplitViewVisibility = .all
     @State private var isRightPanelPresented = false
     @State private var isBottomPanelPresented = false
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $sidebarVisibility) {
+        NavigationSplitView(columnVisibility: .constant(.all)) {
             ProjectsSidebar(workspace: state.workspace, newProject: { state.isCreatingProject = true })
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {

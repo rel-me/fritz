@@ -10,12 +10,12 @@ relevant light/dark, empty, populated, loading, and error states. For changes to
 the following surfaces, include these behaviors:
 
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
-  sidebar visibility, + menu, New Project folder selection/cancel, and Settings
+  persistent sidebar without a toggle, + menu, New Project folder selection/cancel, and Settings
   opening with Command-comma. The toolbar opens the Model Providers page in Settings.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
-  should match the workspace surround in both modes, including with the sidebar hidden.
-  With the sidebar shown, preserve its rounded outline through the titlebar around
-  the traffic lights and sidebar toggle; it must not stop below a flat toolbar strip.
+  should match the workspace surround in both modes. Preserve the sidebar's rounded
+  outline through the titlebar around the traffic lights; it must not stop below
+  a flat toolbar strip.
   Compare the toolbar with the exposed padding around the rounded detail corner:
   the color must remain continuous in fullscreen as well as in a normal window.
 - **Projects and threads:** stable selection, rename, New Thread/Command-N,
@@ -24,8 +24,9 @@ the following surfaces, include these behaviors:
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
-  selected page; shared title-free unified toolbar, native traffic lights, and
-  rounded inset detail surface in light/dark appearance. General appearance,
+  selected page; shared title-free unified toolbar, native traffic lights, a
+  persistent sidebar without a toggle, and a rounded detail surface that begins
+  below the toolbar in light/dark appearance. General appearance,
   update channel, CLI install feedback, Model Providers selection, Local Models
   blank and populated lists, download and process controls, Service status, and
   Debug page navigation.
