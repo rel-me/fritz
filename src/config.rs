@@ -18,6 +18,7 @@ pub enum ProviderKind {
     Ollama,
     Fritz,
     Jev,
+    Ollaya,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -30,12 +31,18 @@ pub enum ModelCategory {
 impl ProviderKind {
     pub fn category(self) -> ModelCategory {
         match self {
-            Self::Jev => ModelCategory::Decision,
+            Self::Jev | Self::Ollaya => ModelCategory::Decision,
             _ => ModelCategory::Llm,
         }
     }
+    pub fn is_native(self) -> bool {
+        matches!(self, Self::Fritz | Self::Ollaya)
+    }
     pub fn requires_key(self) -> bool {
-        !matches!(self, Self::OpenaiCompatible | Self::Ollama | Self::Fritz)
+        !matches!(
+            self,
+            Self::OpenaiCompatible | Self::Ollama | Self::Fritz | Self::Ollaya
+        )
     }
     pub fn default_url(self) -> &'static str {
         match self {
@@ -45,7 +52,7 @@ impl ProviderKind {
             Self::Anthropic => "https://api.anthropic.com/v1",
             Self::Gemini => "https://generativelanguage.googleapis.com/v1beta",
             Self::Ollama => "http://localhost:11434",
-            Self::Fritz => "",
+            Self::Fritz | Self::Ollaya => "",
             Self::Jev => "https://api.typesafe.ai/v1/systemone",
         }
     }
@@ -75,12 +82,19 @@ impl Connection {
         if self.name.trim().is_empty() {
             bail!("Enter a provider connection name.");
         }
-        if self.provider == ProviderKind::Fritz {
+        if self.provider.is_native() {
             if !self.base_url().is_empty() {
                 bail!("Fritz runs models on this Mac and does not use an endpoint.");
             }
             if !self.model_id.is_empty() {
-                crate::local::models::manifest(&self.model_id)?;
+                match self.provider {
+                    ProviderKind::Ollaya => {
+                        crate::decision::local::manifest(&self.model_id)?;
+                    }
+                    _ => {
+                        crate::local::models::manifest(&self.model_id)?;
+                    }
+                }
             }
             return Ok(());
         }

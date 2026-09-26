@@ -14,6 +14,8 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, verified `installed` status |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
+| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog and verified installation status |
+| `decisionModels.install` | `modelId` | Explicit verified download, progress events, and installed result |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
@@ -57,7 +59,7 @@ process control.
 `request`, `backend`, and optional `apiKey`. It returns one terminal `result`,
 `error`, or `cancelled` event. The backend does not produce chat deltas or execute
 folder actions. Closing stdin cancels it. The [decision-harness guide](decision-harness.md)
-documents its contract, Jev adapter, local backend boundary, and how to pair a
+documents its contract, Jev adapter, Ollaya local backend, and how to pair a
 judgment with a separate conversational run.
 The agent's `decisions.evaluate` method supervises this child and returns its
 typed result under the request ID. For a saved Jev `connectionId`, the agent
@@ -132,3 +134,13 @@ Protocol references used for the adapters:
 [Gemini function calling](https://ai.google.dev/gemini-api/docs/function-calling),
 [OpenRouter reasoning preservation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens),
 and [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling).
+
+Local decision connections use provider `ollaya`, model `laya-en`, no endpoint,
+and no API key. A saved Ollaya `connectionId` selects the local harness backend;
+explicit host requests use `backend: {"kind":"ollaya"}` and omit `apiKey`.
+Downloads use the same `progress` shape as `localModels.install`, with byte counts
+aggregated across the model artifacts. Listing and evaluation never download files.
+The harness verifies all files, uses CPU inference, rejects truncated state, and
+returns a resolved `laya-en@<revision>` ID. Score legends preserve JSON criteria,
+including objects. All decision requests have a 120-second harness deadline;
+closing stdin or sending SIGTERM/SIGINT cancels native loading/inference too.

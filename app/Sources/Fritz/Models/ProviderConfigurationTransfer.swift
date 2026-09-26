@@ -42,7 +42,7 @@ enum ProviderConfigurationTransfer {
                 throw TransferError(message: "The base URL does not match the provider service.")
             }
             return ProviderConnection(name: service, provider: preset.provider, baseURL: baseURL,
-                                      modelID: modelID ?? (preset.category == .decision ? "jev-latest" : ""))
+                                      modelID: modelID ?? (preset.provider == .jev ? "jev-latest" : ""))
         }
     }
 

@@ -53,7 +53,7 @@ struct ProvidersView: View {
                         } else {
                             chip("Ready", color: .green)
                         }
-                        if [.fritz, .ollama].contains(connection.provider) { chip("Local") }
+                        if [.fritz, .ollama, .ollaya].contains(connection.provider) { chip("Local") }
                         if connection.id == store.registry.defaultConnectionId { chip("Default") }
                     }
                 }.width(min: 260, ideal: 340, max: .infinity)
@@ -164,7 +164,7 @@ struct ProviderEditor: View {
         let category = existing?.category ?? initialCategory
         _category = State(initialValue: category)
         _id = State(initialValue: existing?.id ?? UUID())
-        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID))
+        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category))
         let baseName = category == .decision ? "TypeSafe" : "OpenAI"
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
@@ -201,19 +201,20 @@ struct ProviderEditor: View {
                             get: { nativeModel.selectedModelID },
                             set: { nativeModel.select($0) }
                         )) {
-                            ForEach(NativeModelDescriptor.catalog) { model in
+                            ForEach(nativeModel.catalog) { model in
                                 Text(model.name).tag(model.id)
                             }
                         }
                         Button("Download Model…") { showsDownload = true }
                     } footer: {
                         switch nativeModel.state {
-                        case .installed: Text("Installed and ready for chat.")
+                        case .installed: Text(category == .decision ? "Installed. This experimental model runs on this Mac when requested." : "Installed and ready for chat.")
                         case .checking: Text("Checking local model…")
-                        case .available, .downloading, .failed: Text("Download this model before adding it as a provider.")
+                        case .failed(let message): Text(message).foregroundStyle(.red)
+                        case .available, .downloading: Text("Download this model before adding it as a provider.")
                         }
                     }
-                    if store.registry.defaultConnectionId != nil {
+                    if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
                             Toggle("Use as Default Provider", isOn: $makeDefault)
                                 .disabled(existing?.id == store.registry.defaultConnectionId)
@@ -252,11 +253,15 @@ struct ProviderEditor: View {
             preset = new == .decision ? .adapter(.jev) : .adapter(.openAI)
             makeDefault = new == .llm && store.registry.defaultConnectionId == nil
         }
-        .task(id: managesLocalModels) {
-            if managesLocalModels { nativeModel.refresh() } else { nativeModel.cancel() }
+        .task(id: preset.provider) {
+            nativeModel.cancel()
+            if nativeModel.category != category {
+                nativeModel = NativeLocalModel(agent: store.agent, category: category)
+            }
+            if managesLocalModels { nativeModel.refresh() }
         }
         .sheet(isPresented: $showsDownload, onDismiss: { nativeModel.refresh() }) {
-            LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID)
+            LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID, category: category)
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
@@ -337,7 +342,7 @@ struct ProviderEditor: View {
         }
     }
 
-    private var managesLocalModels: Bool { preset.provider == .fritz }
+    private var managesLocalModels: Bool { preset.provider.isNative }
     private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
@@ -358,7 +363,7 @@ struct ProviderEditor: View {
     private var connection: ProviderConnection {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
                            baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
-                           modelID: category == .decision ? "jev-latest" : managesLocalModels ? nativeModel.selectedModelID : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
+                           modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private func suggestedName(_ base: String) -> String {
         var candidate = base, count = 2

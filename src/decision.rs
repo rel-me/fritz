@@ -1,10 +1,12 @@
-//! Typed judgments shared by remote and future local decision models.
+//! Typed judgments shared by remote and local decision models.
 //! Decision models return values for application code; they do not generate chat replies.
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::BTreeMap, future::Future, pin::Pin, time::Duration};
+
+pub mod local;
 
 pub type DecisionFuture<'a> = Pin<Box<dyn Future<Output = Result<DecisionResponse>> + Send + 'a>>;
 
@@ -33,6 +35,7 @@ pub struct HarnessInput {
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum HarnessBackend {
     Jev { endpoint: Option<String> },
+    Ollaya,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -74,7 +77,7 @@ pub enum Answer {
     },
     Score {
         score: f64,
-        legend: BTreeMap<String, String>,
+        legend: BTreeMap<String, Value>,
         probabilities: BTreeMap<String, f64>,
         confidence: f64,
     },

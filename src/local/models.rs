@@ -53,11 +53,11 @@ fn cache_directory(data: &Path, pin: &Manifest) -> PathBuf {
     data.join("Models").join(&pin.id)
 }
 
-async fn verified(path: &Path, pin: &Manifest) -> bool {
+pub(crate) async fn verified(path: &Path, size: u64, sha256: &str) -> bool {
     let Ok(mut file) = tokio::fs::File::open(path).await else {
         return false;
     };
-    if file.metadata().await.map(|m| m.len()).ok() != Some(pin.size) {
+    if file.metadata().await.map(|m| m.len()).ok() != Some(size) {
         return false;
     }
     let mut hash = Sha256::new();
@@ -69,7 +69,7 @@ async fn verified(path: &Path, pin: &Manifest) -> bool {
             Err(_) => return false,
         }
     }
-    format!("{:x}", hash.finalize()) == pin.sha256
+    format!("{:x}", hash.finalize()) == sha256
 }
 
 pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
@@ -94,7 +94,7 @@ impl ModelStore {
     pub async fn installed_path(&self, model_id: &str) -> Result<PathBuf> {
         let pin = manifest(model_id)?;
         let path = cache_directory(&self.directory, pin).join(&pin.file);
-        if verified(&path, pin).await {
+        if verified(&path, pin.size, &pin.sha256).await {
             Ok(path)
         } else {
             Err(anyhow!(format!(
@@ -141,6 +141,17 @@ async fn download_to(
     pin: &Manifest,
     emit: &(impl Fn(Value) + Sync),
 ) -> Result<()> {
+    download_file(directory, url, &pin.file, pin.size, &pin.sha256, emit).await
+}
+
+pub(crate) async fn download_file(
+    directory: &Path,
+    url: &str,
+    filename: &str,
+    size: u64,
+    sha256: &str,
+    emit: &(impl Fn(Value) + Sync),
+) -> Result<()> {
     fs::create_dir_all(directory)?;
     let lock = OpenOptions::new()
         .create(true)
@@ -153,22 +164,23 @@ async fn download_to(
             "This model is being installed in another window. Retry when that download finishes.",
         )
     })?;
-    let destination = directory.join(&pin.file);
-    progress(emit, 0, pin.size, "checking");
-    if verified(&destination, pin).await {
-        progress(emit, pin.size, pin.size, "ready");
+    let destination = directory.join(filename);
+    progress(emit, 0, size, "checking");
+    if verified(&destination, size, sha256).await {
+        progress(emit, size, size, "ready");
         return Ok(());
     }
     let partial = Partial(directory.join("model.partial"));
     let mut file = File::create(&partial.0)?;
     let client = reqwest::Client::builder()
+        .user_agent(concat!("Fritz/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(30))
         .read_timeout(Duration::from_secs(60))
         .timeout(Duration::from_secs(1800))
         .https_only(!cfg!(test))
         .build()
         .map_err(|_| anyhow!("Cannot initialize model download."))?;
-    progress(emit, 0, pin.size, "downloading");
+    progress(emit, 0, size, "downloading");
     let mut response = client.get(url).send().await.map_err(|_| {
         anyhow!("Model download could not connect. Check your connection and retry.",)
     })?;
@@ -180,7 +192,7 @@ async fn download_to(
     }
     if response
         .content_length()
-        .is_some_and(|length| length != pin.size)
+        .is_some_and(|length| length != size)
     {
         return Err(anyhow!(
             "Model download has an unexpected size. No model was installed.",
@@ -195,18 +207,18 @@ async fn download_to(
         .map_err(|_| anyhow!("Model download was interrupted. Check your connection and retry.",))?
     {
         received = received.saturating_add(chunk.len() as u64);
-        if received > pin.size {
+        if received > size {
             return Err(anyhow!("Model download exceeded its expected size.",));
         }
         file.write_all(&chunk)?;
         hash.update(&chunk);
         if last.elapsed() >= Duration::from_millis(150) {
-            progress(emit, received, pin.size, "downloading");
+            progress(emit, received, size, "downloading");
             last = Instant::now();
         }
     }
-    progress(emit, received, pin.size, "checking");
-    if received != pin.size || format!("{:x}", hash.finalize()) != pin.sha256 {
+    progress(emit, received, size, "checking");
+    if received != size || format!("{:x}", hash.finalize()) != sha256 {
         return Err(anyhow!(
             "Model download failed size or SHA-256 verification. Retry to download a fresh copy.",
         ));
@@ -214,7 +226,7 @@ async fn download_to(
     file.sync_all()?;
     drop(file);
     fs::rename(&partial.0, destination)?;
-    progress(emit, pin.size, pin.size, "ready");
+    progress(emit, size, size, "ready");
     Ok(())
 }
 
@@ -243,7 +255,7 @@ impl ModelStore {
         let mut models = Vec::new();
         for pin in pins {
             let path = cache_directory(&self.directory, pin).join(&pin.file);
-            models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":verified(&path,pin).await}));
+            models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":verified(&path,pin.size,&pin.sha256).await}));
         }
         Ok(json!({"models":models}))
     }
@@ -297,7 +309,7 @@ mod tests {
             let (url, server) = fixture(data);
             download_to(&directory, &url, &pin, &|_| {}).await.unwrap();
             server.join().unwrap();
-            assert!(verified(&directory.join(&pin.file), &pin).await);
+            assert!(verified(&directory.join(&pin.file), pin.size, &pin.sha256).await);
         }
         assert!(
             temp.path()
@@ -397,7 +409,7 @@ mod tests {
         let (url, server) = fixture(data);
         download_to(temp.path(), &url, &pin, &|_| {}).await.unwrap();
         server.join().unwrap();
-        assert!(verified(&temp.path().join(&pin.file), &pin).await);
+        assert!(verified(&temp.path().join(&pin.file), pin.size, &pin.sha256).await);
     }
     #[tokio::test]
     async fn download_verifies_atomic_install_and_reuses_offline() {
@@ -422,7 +434,7 @@ mod tests {
         .await
         .unwrap();
         server.join().unwrap();
-        assert!(verified(&temp.path().join(&pin.file), &pin).await);
+        assert!(verified(&temp.path().join(&pin.file), pin.size, &pin.sha256).await);
         assert!(!temp.path().join("model.partial").exists());
         assert!(
             events
@@ -438,7 +450,7 @@ mod tests {
         let (url, server) = fixture(b"wrong weights");
         assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
         server.join().unwrap();
-        assert!(!verified(&temp.path().join(&pin.file), &pin).await);
+        assert!(!verified(&temp.path().join(&pin.file), pin.size, &pin.sha256).await);
         assert!(!temp.path().join("model.partial").exists());
         let lock = File::create(temp.path().join("download.lock")).unwrap();
         lock.lock_exclusive().unwrap();

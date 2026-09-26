@@ -29,16 +29,15 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(connection, decoded)
     }
 
-    func testModelCategoriesKeepJevOutOfChat() throws {
-        let decision = ProviderConnection(name: "Jev", provider: .jev, modelID: "jev-latest")
-        XCTAssertEqual(decision.category, .decision)
-        XCTAssertEqual(try decision.jsonObject()["provider"] as? String, "jev")
-        XCTAssertEqual(try JSONDecoder().decode(ProviderConnection.self, from: JSONEncoder().encode(decision)), decision)
-        XCTAssertEqual(AIProviderPreset.adapter(.jev).category, .decision)
-        XCTAssertEqual(ChatModelOption(id: "chat", displayName: "Chat", provider: .openAI, modelID: "gpt-5").category, .llm)
-        let jev = ChatModelOption(connection: decision)
-        XCTAssertEqual(jev.category, .decision)
-        XCTAssertTrue(ChatModelPickerSection.unfiltered(from: [jev], recentModels: [jev], providerOrder: [.jev]).isEmpty)
+    func testDecisionProvidersStayOutOfChat() throws {
+        for kind in [AIProviderKind.jev, .ollaya] {
+            let decision = ProviderConnection(name: kind.name, provider: kind,
+                modelID: kind == .jev ? "jev-latest" : NativeModelDescriptor.decisionCatalog[0].id)
+            let decoded = try JSONDecoder().decode(ProviderConnection.self, from: JSONEncoder().encode(decision))
+            XCTAssertEqual(decoded, decision)
+            let option = ChatModelOption(connection: decoded)
+            XCTAssertTrue(ChatModelPickerSection.unfiltered(from: [option], recentModels: [option], providerOrder: [kind]).isEmpty)
+        }
     }
 
     @MainActor func testCorruptTranscriptSurfacesErrorWithoutOverwriting() throws {

@@ -5,8 +5,8 @@ struct LocalModelDownloadSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: NativeLocalModel
 
-    init(agent: AgentClient, modelID: String? = nil) {
-        _model = State(initialValue: NativeLocalModel(agent: agent, modelID: modelID))
+    init(agent: AgentClient, modelID: String? = nil, category: AIModelCategory = .llm) {
+        _model = State(initialValue: NativeLocalModel(agent: agent, modelID: modelID, category: category))
     }
 
     var body: some View {
@@ -17,7 +17,7 @@ struct LocalModelDownloadSheet: View {
                 NativeLocalModelSection(modelID: Binding(
                     get: { model.selectedModelID },
                     set: { model.select($0) }
-                ), state: model.state, hardware: .current)
+                ), state: model.state, hardware: .current, catalog: model.catalog)
             }
             .fritzSettingsFormStyle()
             Divider()

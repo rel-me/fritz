@@ -114,7 +114,7 @@ pub(crate) async fn checked(request: RequestBuilder) -> Result<reqwest::Response
 
 pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
-    let key = if connection.provider == ProviderKind::Fritz {
+    let key = if connection.provider.is_native() {
         None
     } else {
         credential(connection, supplied_key)?
@@ -132,8 +132,14 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             display_name: "Jev".into(),
         }]);
     }
-    if connection.provider == ProviderKind::Fritz {
-        let inventory = crate::local::models::inventory().await?;
+    if connection.provider.is_native() {
+        let inventory = if connection.provider == ProviderKind::Ollaya {
+            crate::decision::local::ModelStore::new(crate::config::data_dir())
+                .inventory(None)
+                .await?
+        } else {
+            crate::local::models::inventory().await?
+        };
         return Ok(inventory["models"]
             .as_array()
             .unwrap()
@@ -213,8 +219,8 @@ pub(crate) fn payload(
     connection: &Connection,
     request: &ChatRequest,
 ) -> Result<(&'static str, Value)> {
-    if connection.provider == ProviderKind::Jev {
-        bail!("Jev is a decision model. Use decisions.evaluate instead of chat.");
+    if connection.provider.category() == crate::config::ModelCategory::Decision {
+        bail!("This is a decision model. Use decisions.evaluate instead of chat.");
     }
     if request.model.trim().is_empty() {
         bail!("Choose a model before sending.");

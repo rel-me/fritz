@@ -1,0 +1,50 @@
+{
+  "models": [
+    {
+      "id": "laya-en",
+      "name": "Laya English (Experimental)",
+      "size": 849926233,
+      "memory_gb": 8,
+      "license_url": "https://ollaya.dev/blobs/sha256-ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9",
+      "revision": "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4",
+      "files": [
+        {
+          "file": "model.onnx",
+          "url": "https://ollaya.dev/blobs/sha256-c54880e1ab520b5f99ef8417ed2a1f7ef19414e90e87681d1497b39147f8f97a",
+          "size": 3722668,
+          "sha256": "c54880e1ab520b5f99ef8417ed2a1f7ef19414e90e87681d1497b39147f8f97a"
+        },
+        {
+          "file": "sha256-891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+          "url": "https://huggingface.co/convaiinnovations/laya/resolve/aa8c91ca088ec597df95a0d1c76b3063cb2ae5e8/model.safetensors",
+          "size": 842609210,
+          "sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c"
+        },
+        {
+          "file": "tokenizer.json",
+          "url": "https://huggingface.co/convaiinnovations/laya/resolve/aa8c91ca088ec597df95a0d1c76b3063cb2ae5e8/tokenizer/tokenizer.json",
+          "size": 3583228,
+          "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+        },
+        {
+          "file": "decision.json",
+          "url": "https://ollaya.dev/blobs/sha256-b5bc5074b1b4a1e6e79a019ebfae09c44fc7c77eee4b91638e7cd76829291b3c",
+          "size": 478,
+          "sha256": "b5bc5074b1b4a1e6e79a019ebfae09c44fc7c77eee4b91638e7cd76829291b3c"
+        },
+        {
+          "file": "calibration.json",
+          "url": "https://ollaya.dev/blobs/sha256-a7af5a5fafb5b418420a63511194038faed0aade75af68d210144e67fd792426",
+          "size": 352,
+          "sha256": "a7af5a5fafb5b418420a63511194038faed0aade75af68d210144e67fd792426"
+        },
+        {
+          "file": "LICENSE",
+          "url": "https://ollaya.dev/blobs/sha256-ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9",
+          "size": 10297,
+          "sha256": "ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9"
+        }
+      ]
+    }
+  ]
+}

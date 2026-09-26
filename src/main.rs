@@ -29,6 +29,18 @@ enum Command {
         #[command(subcommand)]
         command: LocalModelCommand,
     },
+    /// Install or inspect local decision models (no daemon).
+    DecisionModels {
+        #[command(subcommand)]
+        command: DecisionModelCommand,
+    },
+    /// Evaluate typed decision questions from a JSON file, or stdin with "-".
+    Decide {
+        #[arg(long)]
+        connection: String,
+        #[arg(default_value = "-")]
+        request: String,
+    },
     /// List saved provider connections (never prints keys).
     Providers,
     /// Add a provider. Read a key from stdin with --api-key-stdin.
@@ -90,6 +102,12 @@ enum LocalModelCommand {
     },
 }
 
+#[derive(Subcommand)]
+enum DecisionModelCommand {
+    List { model: Option<String> },
+    Install { model: String },
+}
+
 fn save(
     connection: Connection,
     api_key: Option<String>,
@@ -111,9 +129,7 @@ fn save_provider(
     if make_default && connection.provider.category() != config::ModelCategory::Llm {
         bail!("Only an LLM provider can be the default chat provider.");
     }
-    if connection.provider == ProviderKind::Fritz
-        && api_key.as_deref().is_some_and(|key| !key.is_empty())
-    {
+    if connection.provider.is_native() && api_key.as_deref().is_some_and(|key| !key.is_empty()) {
         bail!("Fritz local models do not use an API key.");
     }
     config::update(|registry| {
@@ -124,7 +140,7 @@ fn save_provider(
         {
             bail!("A connection with that name already exists.");
         }
-        if connection.provider == ProviderKind::Fritz {
+        if connection.provider.is_native() {
             config::delete_key(connection.id)?;
         }
         if let Some(old) = registry.connections.iter().find(|c| c.id == connection.id)
@@ -189,7 +205,7 @@ fn import_providers(params: &Value) -> Result<config::Registry> {
     // Validate the entire payload before writing any connections or credentials.
     for item in &items {
         item.connection.validate()?;
-        if item.connection.provider == ProviderKind::Fritz
+        if item.connection.provider.is_native()
             && item.api_key.as_deref().is_some_and(|key| !key.is_empty())
         {
             bail!("Fritz local models do not use an API key.");
@@ -249,6 +265,20 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             local::models::download(id, &emit).await?;
             Ok(json!({"modelId":id,"installed":true}))
         }
+        "decisionModels.list" => {
+            decision::local::ModelStore::new(config::data_dir())
+                .inventory(params["modelId"].as_str())
+                .await
+        }
+        "decisionModels.install" => {
+            let id = params["modelId"]
+                .as_str()
+                .context("Choose a local decision model.")?;
+            decision::local::ModelStore::new(config::data_dir())
+                .download(id, &emit)
+                .await?;
+            Ok(json!({"modelId":id,"installed":true}))
+        }
         "providers.list" => Ok(serde_json::to_value(config::load()?)?),
         "providers.import" => Ok(serde_json::to_value(import_providers(params)?)?),
         "providers.save" => Ok(serde_json::to_value(save(
@@ -294,18 +324,28 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
                 .join("fritz-decision-harness");
             let input: decision::HarnessInput = if let Some(id) = params["connectionId"].as_str() {
                 let connection = config::find(Some(id))?;
-                if connection.provider != ProviderKind::Jev {
-                    bail!("Choose a decision-model connection.");
-                }
                 let request: decision::DecisionRequest =
                     serde_json::from_value(params["request"].clone())?;
-                if request.model != "jev-latest" {
-                    bail!("Jev currently supports the jev-latest model.");
-                }
+                let (backend, api_key) = match connection.provider {
+                    ProviderKind::Jev => {
+                        if request.model != "jev-latest" {
+                            bail!("Jev currently supports the jev-latest model.");
+                        }
+                        (
+                            decision::HarnessBackend::Jev { endpoint: None },
+                            config::key(connection.id)?,
+                        )
+                    }
+                    ProviderKind::Ollaya => {
+                        decision::local::manifest(&request.model)?;
+                        (decision::HarnessBackend::Ollaya, None)
+                    }
+                    _ => bail!("Choose a decision-model connection."),
+                };
                 decision::HarnessInput {
                     request,
-                    backend: decision::HarnessBackend::Jev { endpoint: None },
-                    api_key: config::key(connection.id)?,
+                    backend,
+                    api_key,
                 }
             } else {
                 serde_json::from_value(params.clone())?
@@ -432,6 +472,37 @@ async fn run() -> Result<()> {
             }
             LocalModelCommand::Serve { port, model } => local::ollama::serve(port, model).await?,
         },
+        Some(Command::DecisionModels { command }) => {
+            let store = decision::local::ModelStore::new(config::data_dir());
+            match command {
+                DecisionModelCommand::List { model } => println!(
+                    "{}",
+                    serde_json::to_string_pretty(&store.inventory(model.as_deref()).await?)?
+                ),
+                DecisionModelCommand::Install { model } => {
+                    store
+                        .download(&model, &|event| {
+                            println!("{event}");
+                            let _ = io::stdout().flush();
+                        })
+                        .await?
+                }
+            }
+        }
+        Some(Command::Decide {
+            connection,
+            request,
+        }) => {
+            let bytes = if request == "-" {
+                std::io::read_to_string(io::stdin())?
+            } else {
+                std::fs::read_to_string(request)?
+            };
+            let request: decision::DecisionRequest = serde_json::from_str(&bytes)?;
+            let result = dispatch(&Request { id: "cli-decision".into(), method: "decisions.evaluate".into(),
+                params: json!({"connectionId":config::find(Some(&connection))?.id,"request":request}) }, |_| {}).await?;
+            println!("{}", serde_json::to_string_pretty(&result)?);
+        }
         None => {
             use clap::CommandFactory;
             Cli::command().print_help()?;
@@ -467,7 +538,11 @@ async fn run() -> Result<()> {
             remove(config::find(Some(&connection))?.id)?;
         }
         Some(Command::DefaultProvider { connection }) => {
-            let id = config::find(Some(&connection))?.id;
+            let connection = config::find(Some(&connection))?;
+            if connection.provider.category() != config::ModelCategory::Llm {
+                bail!("Only an LLM provider can be the default chat provider.");
+            }
+            let id = connection.id;
             config::update(|registry| {
                 registry.default_connection_id = Some(id);
                 Ok(())

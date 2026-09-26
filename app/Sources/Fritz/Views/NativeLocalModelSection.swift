@@ -20,15 +20,16 @@ struct NativeLocalModelSection: View {
     @Binding var modelID: String
     let state: NativeModelInstallState
     let hardware: LocalModelHardware
+    var catalog: [NativeModelDescriptor] = NativeModelDescriptor.catalog
 
     private var model: NativeModelDescriptor {
-        NativeModelDescriptor.catalog.first { $0.id == modelID }!
+        catalog.first { $0.id == modelID }!
     }
 
     var body: some View {
         Section {
             Picker("Model", selection: $modelID) {
-                ForEach(NativeModelDescriptor.catalog) { model in
+                ForEach(catalog) { model in
                     Text(model.name).tag(model.id)
                 }
             }
