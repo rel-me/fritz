@@ -245,3 +245,33 @@ integration tests. The public API tests deliberately avoid `@testable` imports
 for library APIs, and Rust integration tests exercise the crate from outside its
 module boundary. `make check` runs formatting and Clippy. `make build` verifies
 the staged app, framework/resource packaging, Rust binaries and signatures.
+
+### Model management presentation
+
+`FritzUI` also provides host-driven management views:
+
+- `ModelProvidersTable` renders provider readiness, local/default badges, model
+  inventory and native multi-selection. Hosts attach selection context menus,
+  deletion commands, export and edit callbacks.
+- `ModelProviderEditor` supplies sheet layout, license, cancel and save actions.
+  `ProviderConnectionSection` supplies endpoint and secure/revealed credential
+  fields, model discovery feedback and the default-provider toggle. Hosts supply
+  field copy, credential-reveal policy and provider-specific sections.
+- `LocalModelSessionsView` renders empty and populated local process states;
+  `LocalModelSessionsList` is the collection-only variant. Each host supplies
+  stable IDs, display values, action availability and start/stop/restart callbacks.
+- `LocalModelInstallSection` accepts a catalog of `LocalModelInstallItem` values,
+  hardware values and `LocalModelInstallState`, including verification, download,
+  installed and error states. The selected catalog entry may be absent without
+  crashing the view.
+- `OllamaModelsView` presents connection recovery, model selection, progress,
+  cancellation and download/add actions, with host-provided recommendation and
+  error content.
+
+These views do not discover models, access Keychain, persist provider settings,
+install artifacts or launch processes. Hosts own their observable state and
+asynchronous task lifetime. Pass catalog and runtime snapshots as values and
+selection/editor fields as bindings. Supply host colors and heading/feedback
+content to preserve branding without coupling the library to an app schema.
+REL's management snapshots cover its adapters and their existing loading,
+empty, populated, download, error and appearance states.
