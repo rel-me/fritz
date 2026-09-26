@@ -20,20 +20,12 @@ struct ProvidersView: View {
     var body: some View {
         VStack(spacing: 0) {
             FritzManagementHeader("Model Providers") {
-                Menu {
-                    Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
-                    Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
-                        .disabled(selectedIDs.isEmpty)
-                } label: {
-                    Label("Import and Export", systemImage: "ellipsis.circle")
-                }
-                .labelStyle(.iconOnly).menuIndicator(.hidden)
-                .help("Import and Export")
+                transferMenu
                 Button("Add Provider", systemImage: "plus") {
                     editor = ProviderEditorSelection()
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(FritzButtonStyle(.floatingPrimary))
+                .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
                 .help("Add Provider")
             }
 
@@ -109,6 +101,26 @@ struct ProvidersView: View {
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("This removes the connection and its saved key from Fritz.") }
         .buttonStyle(FritzButtonStyle())
+    }
+
+    @ViewBuilder private var transferMenu: some View {
+        if #available(macOS 26.0, *) {
+            transferMenuContent.buttonStyle(.glass).buttonBorderShape(.circle)
+        } else {
+            transferMenuContent
+        }
+    }
+
+    private var transferMenuContent: some View {
+        Menu {
+            Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
+            Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
+                .disabled(selectedIDs.isEmpty)
+        } label: {
+            Label("Import and Export", systemImage: "ellipsis")
+        }
+        .labelStyle(.iconOnly).menuIndicator(.hidden)
+        .help("Import and Export")
     }
 
     private func chip(_ title: String, color: Color = .secondary) -> some View {
@@ -319,7 +331,7 @@ struct ProviderEditor: View {
         }
         if category == .llm {
             Section {
-                DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
+                if showsAdvanced {
                     TextField("Connection name", text: $name)
                     if !models.isEmpty {
                         Picker("Default model", selection: $modelID) {
@@ -330,6 +342,18 @@ struct ProviderEditor: View {
                     }
                     TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                 }
+            } header: {
+                Button {
+                    showsAdvanced.toggle()
+                } label: {
+                    Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FritzButtonStyle(.inline))
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
+                .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
             } footer: {
                 if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
                 if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }

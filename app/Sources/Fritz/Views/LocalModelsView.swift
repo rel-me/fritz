@@ -12,9 +12,9 @@ struct LocalModelsView: View {
     var body: some View {
         VStack(spacing: 0) {
             FritzManagementHeader("Local Models") {
-                Button("Download Models", systemImage: "arrow.down.circle", action: downloadModel)
+                Button("Download Models", systemImage: "arrow.down", action: downloadModel)
                     .labelStyle(.iconOnly)
-                    .buttonStyle(FritzButtonStyle(.floatingPrimary))
+                    .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
                     .help("Download Local Model")
             }
             List(installed) { model in
