@@ -1,4 +1,4 @@
-"""Exercise the real Fritz executable with no API credentials or remote requests."""
+"""Exercise the real Fritz executable with no personal credentials or remote requests."""
 import json
 import sqlite3
 import os
@@ -15,8 +15,20 @@ ROOT = Path(__file__).resolve().parents[1]
 EXECUTABLE = ROOT / "target/debug/fritz"
 
 
+class AuthenticatedProvider(Provider):
+    """Require the imported fixture key on a separate discovery endpoint."""
+
+    def do_GET(self):
+        if self.path == "/authenticated/v1/models":
+            if self.headers.get("Authorization") != "Bearer synthetic-import-key":
+                self.send_error(401)
+                return
+            self.path = "/v1/models"
+        super().do_GET()
+
+
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Provider)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), AuthenticatedProvider)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     endpoint = f"http://127.0.0.1:{server.server_address[1]}/v1"
     with tempfile.TemporaryDirectory(prefix="fritz-test-") as directory:
@@ -93,20 +105,30 @@ def main():
         assert len(receive()["result"]["connections"]) == 1
         # Import keys stay in Keychain, survive keyless overwrites, and cannot be
         # carried to a changed endpoint by passing a whitespace-only replacement.
-        keyed = dict(connection, id=str(uuid.uuid4()), name="Import credential fixture")
-        send("providers.import", {"providers": [{"connection": keyed, "apiKey": "synthetic-import-key"}]})
-        assert "synthetic-import-key" not in json.dumps(receive())
-        send("providers.import", {"providers": [{"connection": dict(keyed, modelId="other")}]})
-        assert receive()["type"] == "result"
-        saved_key = subprocess.run(["security", "find-generic-password", "-s", keychain_service,
-                                    "-a", keyed["id"], "-w"], capture_output=True, text=True, check=True)
-        assert saved_key.stdout.strip() == "synthetic-import-key"
-        send("providers.import", {"providers": [{"connection": dict(keyed, baseUrl="http://localhost:1/v1"), "apiKey": "  "}]})
-        assert "Enter a key again" in receive()["message"]
-        with sqlite3.connect(Path(directory) / "providers.sqlite") as database:
-            assert all("synthetic-import-key" not in row[0] for row in database.execute("SELECT payload FROM providers"))
-        send("providers.remove", {"id": keyed["id"]})
-        assert len(receive()["result"]["connections"]) == 1
+        keyed = dict(connection, id=str(uuid.uuid4()), name="Import credential fixture",
+                     baseUrl=endpoint.replace("/v1", "/authenticated/v1"))
+        # Prove the fixture rejects a missing credential before testing preservation.
+        send("models.list", {"connection": keyed})
+        assert "HTTP 401" in receive()["message"]
+        try:
+            send("providers.import", {"providers": [{"connection": keyed, "apiKey": "synthetic-import-key"}]})
+            event = receive()
+            assert "synthetic-import-key" not in json.dumps(event)
+            assert event["type"] == "result", event
+            send("providers.import", {"providers": [{"connection": dict(keyed, modelId="other")}]})
+            assert receive()["type"] == "result"
+            # A fresh CLI process must retrieve the persisted key and authenticate.
+            assert len(json.loads(cli("models", "--connection", keyed["id"]).stdout)) == 4
+            send("providers.import", {"providers": [{"connection": dict(keyed, baseUrl="http://localhost:1/v1"), "apiKey": "  "}]})
+            assert "Enter a key again" in receive()["message"]
+            with sqlite3.connect(Path(directory) / "providers.sqlite") as database:
+                assert all("synthetic-import-key" not in row[0] for row in database.execute("SELECT payload FROM providers"))
+        finally:
+            # Also clean up when a credential assertion fails.
+            saved = json.loads(cli("providers").stdout)["connections"]
+            if any(item["id"] == keyed["id"] for item in saved):
+                cli("remove-provider", keyed["id"])
+        assert len(json.loads(cli("providers").stdout)["connections"]) == 1
         local_list = send("localModels.list", {"modelId": native_id})
         event = receive()
         assert event["id"] == local_list and event["result"]["models"][0]["installed"] is False

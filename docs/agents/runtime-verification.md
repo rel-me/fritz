@@ -24,7 +24,10 @@ CONFIGURATION=release make build
 `make test` runs Rust tests, root Swift-library tests, app Swift tests, and the real CLI/agent integration
 harness. The harness starts `tests/mock_provider.py` on a free loopback port,
 creates temporary data, and checks discovery, streaming, provider errors,
-cancellation, persistence, and agent shutdown without API keys.
+cancellation, persistence, and agent shutdown without personal API keys.
+Provider-import credential checks store a synthetic key in a unique Fritz
+Keychain namespace, then verify that a fresh CLI process can authenticate to
+the local mock after a keyless overwrite. Local runs need an unlocked Keychain.
 `tests/coding_integration.py` exercises native tool streams for all six adapters,
 real edits and commands, limits, and cancellation of child process groups.
 Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
@@ -66,9 +69,12 @@ duplicate run. New commits cancel older runs for the same PR or branch.
 
 macOS checks run on the registered `fritz-mac-mini` runner using the labels
 `self-hosted`, `macOS`, `ARM64`, and `gabriel-ci`. It has one runner, so one job
-runs `make -j2 test` (Rust/runtime and Swift test groups concurrently), followed
-by `make check`. Tests compile the Rust and Swift code they exercise; CI does
-not build, stage, or sign a release app. Verify packaging and signing separately
+runs `python3 scripts/with-test-keychain.py make -j2 test` (Rust/runtime and Swift
+test groups concurrently), followed by `make check`. The wrapper gives the
+dedicated runner a temporary Keychain for synthetic credentials and restores its
+original default and search list on success, failure, or cancellation. It does
+not unlock the login Keychain. Tests compile the Rust and Swift code they
+exercise; CI does not build, stage, or sign a release app. Verify packaging and signing separately
 with `CONFIGURATION=release make build` when needed.
 The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
