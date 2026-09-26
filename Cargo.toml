@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/fritz-state"]
+members = ["crates/fritz-state", "crates/fritz-harness"]
 resolver = "3"
 
 [package]
@@ -25,6 +25,7 @@ ollaya-decision = { git = "https://github.com/ollaya-dev/ollaya", rev = "152ad20
 # coreml selects pyke's macOS runtime build; Fritz explicitly uses Device::Cpu.
 ollaya-runner = { git = "https://github.com/ollaya-dev/ollaya", rev = "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4", features = ["coreml"] }
 fritz-state = { path = "crates/fritz-state" }
+fritz-harness = { path = "crates/fritz-harness" }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 futures-util = "0.3"

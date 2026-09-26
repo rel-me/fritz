@@ -16,3 +16,6 @@ pub mod provider;
 pub mod tools;
 
 pub use fritz_state as state;
+
+/// Lightweight execution interfaces; also available as a standalone dependency.
+pub use fritz_harness as harness_core;
