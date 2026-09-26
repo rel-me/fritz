@@ -131,13 +131,6 @@ private struct FritzGeneralSettingsView: View {
                     .pickerStyle(.segmented)
                     .fixedSize()
                 }
-            } header: {
-                settingsTitle("General")
-            } footer: {
-                Text("System follows the appearance selected in macOS.")
-            }
-
-            Section {
                 LabeledContent("Update Channel") {
                     Picker("Update Channel", selection: $settings.updateChannel) {
                         ForEach(AppUpdateChannel.allCases) { option in
@@ -148,28 +141,17 @@ private struct FritzGeneralSettingsView: View {
                     .pickerStyle(.segmented)
                     .fixedSize()
                 }
-            } header: {
-                Text("Updates")
-            } footer: {
-                Text(updater.isConfigured
-                     ? "Beta includes preview releases. Dev also includes development builds."
-                     : "Updates are unavailable in this build. Beta includes preview releases; Dev also includes development builds.")
-            }
-
-            Section {
                 LabeledContent("Fritz Command Line") {
                     Button("Install Command Line") {
                         installResult = CommandLineInstaller().install()
                     }
                 }
             } header: {
-                Text("Command Line")
+                settingsTitle("General")
             } footer: {
                 if let installResult {
                     Label(installResult.message, systemImage: installResult.systemImage)
                         .textSelection(.enabled)
-                } else {
-                    Text("Installs a fritz symlink in a writable folder in PATH. Fritz must be installed in /Applications.")
                 }
             }
         }
