@@ -319,7 +319,7 @@ struct ProviderEditor: View {
         }
         if category == .llm {
             Section {
-                DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
+                if showsAdvanced {
                     TextField("Connection name", text: $name)
                     if !models.isEmpty {
                         Picker("Default model", selection: $modelID) {
@@ -330,6 +330,18 @@ struct ProviderEditor: View {
                     }
                     TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                 }
+            } header: {
+                Button {
+                    showsAdvanced.toggle()
+                } label: {
+                    Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FritzButtonStyle(.inline))
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
+                .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
             } footer: {
                 if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
                 if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }

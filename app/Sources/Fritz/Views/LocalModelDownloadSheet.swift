@@ -13,13 +13,10 @@ struct LocalModelDownloadSheet: View {
         VStack(spacing: 0) {
             FritzManagementHeader("Download Local Model")
             Divider()
-            Form {
-                NativeLocalModelSection(modelID: Binding(
-                    get: { model.selectedModelID },
-                    set: { model.select($0) }
-                ), state: model.state, hardware: .current)
-            }
-            .fritzSettingsFormStyle()
+            NativeLocalModelSection(modelID: Binding(
+                get: { model.selectedModelID },
+                set: { model.select($0) }
+            ), state: model.state, hardware: .current)
             Divider()
             HStack(spacing: 8) {
                 Link("Model license", destination: model.selectedModel.licenseURL)
@@ -39,7 +36,7 @@ struct LocalModelDownloadSheet: View {
             .padding(.horizontal, 20).padding(.vertical, 12)
             .background(FritzWindowStyle.workspaceBackground)
         }
-        .frame(width: 600, height: 300)
+        .frame(width: 840, height: 540)
         .background(FritzWindowStyle.contentBackground)
         .buttonStyle(FritzButtonStyle())
         .task { model.refresh() }
