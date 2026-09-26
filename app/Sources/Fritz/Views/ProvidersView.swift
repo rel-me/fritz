@@ -1,4 +1,5 @@
 import Fritz
+import FritzUI
 import SwiftUI
 
 struct ProviderEditorSelection: Identifiable {
@@ -20,52 +21,19 @@ struct ProvidersView: View {
     var body: some View {
         VStack(spacing: 0) {
             FritzManagementHeader("Model Providers") {
-                Menu {
-                    Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
-                    Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
-                        .disabled(selectedIDs.isEmpty)
-                } label: {
-                    Label("Import and Export", systemImage: "ellipsis.circle")
-                }
-                .labelStyle(.iconOnly).menuIndicator(.hidden)
-                .help("Import and Export")
+                transferMenu
                 Button("Add Provider", systemImage: "plus") {
                     editor = ProviderEditorSelection()
                 }
                 .labelStyle(.iconOnly)
-                .buttonStyle(FritzButtonStyle(.floatingPrimary))
+                .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
                 .help("Add Provider")
             }
 
-            Table(store.connections, selection: $selectedIDs) {
-                TableColumn("Name") { connection in
-                    HStack(spacing: 6) {
-                        Text(connection.providerDisplayName).lineLimit(1).truncationMode(.tail)
-                            .help(connection.name)
-                        if let warning = store.discoveryErrors[connection.id] {
-                            Button { editor = ProviderEditorSelection(connection: connection) } label: {
-                                chip("Needs Setup", color: .orange)
-                            }
-                            .buttonStyle(FritzButtonStyle(.inline)).help(warning)
-                            .accessibilityLabel("\(connection.providerDisplayName): \(warning)")
-                        } else if store.isLoading {
-                            chip("Loading", color: .secondary)
-                        } else {
-                            chip("Ready", color: .green)
-                        }
-                        if [.fritz, .ollama, .ollaya].contains(connection.provider) { chip("Local") }
-                        if connection.id == store.registry.defaultConnectionId { chip("Default") }
-                    }
-                }.width(min: 260, ideal: 340, max: .infinity)
-                TableColumn("Models") { connection in
-                    if let models = store.catalog[connection.id] {
-                        let names = models.map(\.displayName).joined(separator: ", ")
-                        Text(names.isEmpty ? "No models" : names).lineLimit(1).truncationMode(.tail).help(names)
-                    } else {
-                        Text(store.isLoading ? "Loading…" : connection.modelID.isEmpty ? "—" : connection.modelID)
-                            .foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }.width(min: 100, max: .infinity)
+            ModelProvidersTable(providers: providerItems, selection: $selectedIDs, isLoading: store.isLoading) { id in
+                if let connection = store.connections.first(where: { $0.id == id }) {
+                    editor = ProviderEditorSelection(connection: connection)
+                }
             }
             .fritzListSurface()
             .contextMenu(forSelectionType: UUID.self) { ids in
@@ -111,10 +79,39 @@ struct ProvidersView: View {
         .buttonStyle(FritzButtonStyle())
     }
 
-    private func chip(_ title: String, color: Color = .secondary) -> some View {
-        Text(title).font(.caption).foregroundStyle(color)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(color.opacity(0.12), in: Capsule()).fixedSize()
+    @ViewBuilder private var transferMenu: some View {
+        if #available(macOS 26.0, *) {
+            transferMenuContent.buttonStyle(.glass).buttonBorderShape(.circle)
+        } else {
+            transferMenuContent
+        }
+    }
+
+    private var transferMenuContent: some View {
+        Menu {
+            Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
+            Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
+                .disabled(selectedIDs.isEmpty)
+        } label: {
+            Label("Import and Export", systemImage: "ellipsis")
+        }
+        .labelStyle(.iconOnly).menuIndicator(.hidden)
+        .help("Import and Export")
+    }
+
+    private var providerItems: [ModelProviderItem<UUID>] {
+        store.connections.map { connection in
+            let names = store.catalog[connection.id].map { models in
+                models.isEmpty ? "No models" : models.map(\.displayName).joined(separator: ", ")
+            } ?? (store.isLoading || connection.modelID.isEmpty ? nil : connection.modelID)
+            return ModelProviderItem(
+                id: connection.id, name: connection.providerDisplayName,
+                warning: store.discoveryErrors[connection.id],
+                isLocal: connection.provider.isNative || connection.provider == .ollama,
+                isDefault: connection.id == store.registry.defaultConnectionId,
+                models: names, nameHelp: connection.name
+            )
+        }
     }
     private var selectedConnection: ProviderConnection? {
         selectedIDs.count == 1 ? store.connections.first { selectedIDs.contains($0.id) } : nil
@@ -180,9 +177,15 @@ struct ProviderEditor: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ModelProviderEditor(
+            primaryActionTitle: primaryActionTitle, canSave: canSave, isSaving: isSaving,
+            height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60),
+            contentBackground: FritzWindowStyle.contentBackground,
+            footerBackground: FritzWindowStyle.workspaceBackground,
+            cancel: { nativeModel.cancel(); dismiss() }, save: save
+        ) {
             FritzManagementHeader(existing == nil ? "New Provider" : "Edit Provider")
-            Divider()
+        } content: {
             Form {
                 if existing == nil {
                     Section {
@@ -226,20 +229,7 @@ struct ProviderEditor: View {
                 }
             }
             .fritzSettingsFormStyle().disabled(isSaving)
-            Divider()
-            HStack(spacing: 8) {
-                if isSaving { ProgressView().controlSize(.small) }
-                Spacer()
-                Button("Cancel") { nativeModel.cancel(); dismiss() }.keyboardShortcut(.cancelAction).disabled(isSaving)
-                Button(primaryActionTitle, action: save)
-                    .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
-                    .disabled(!canSave)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 12)
-            .background(FritzWindowStyle.workspaceBackground)
         }
-        .frame(width: 600, height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60))
-        .background(FritzWindowStyle.contentBackground)
         .buttonStyle(FritzButtonStyle())
         .interactiveDismissDisabled(isSaving)
         .onChange(of: preset) { old, new in
@@ -324,7 +314,7 @@ struct ProviderEditor: View {
         }
         if category == .llm {
             Section {
-                DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
+                if showsAdvanced {
                     TextField("Connection name", text: $name)
                     if !models.isEmpty {
                         Picker("Default model", selection: $modelID) {
@@ -335,6 +325,18 @@ struct ProviderEditor: View {
                     }
                     TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                 }
+            } header: {
+                Button {
+                    showsAdvanced.toggle()
+                } label: {
+                    Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FritzButtonStyle(.inline))
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
+                .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
             } footer: {
                 if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
                 if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }

@@ -67,8 +67,16 @@ size/license, download progress and cancellation, and a saved Ollaya connection.
 Ollaya was absent from the chat model picker. A saved connection returned a real
 typed judgment through the bundled `fritz decide` command. The staged decision
 harness also passed structured-output, context-limit, and all six native
-cancellation checks; its separate quality gate failed as shown above. Light
-appearance and a live network-error screen were not manually exercised.
+cancellation checks; its separate quality gate failed as shown above.
+
+After incorporating the shared management UI and grouped downloads from upstream,
+the staged app was checked in light and dark appearances. Shared provider-table
+multi-selection, double-click/context-menu editing, Save and Escape, the Advanced
+section, provider errors, and installed/missing Laya states worked. The general
+download browser switched between LLM and Decision catalogs, recovered from an
+empty filter, and started/cancelled a Laya download through the decision installer.
+Provider-specific sheets stayed category-scoped. The rebuilt CLI returned a real
+local judgment. A live download network-error screen was not manually exercised.
 
 ## Reproduce
 

@@ -29,20 +29,25 @@ public struct LocalModelHardware: Sendable {
 public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
+    public let family: String
+    public let category: AIModelCategory
     public let size: UInt64
     public let memoryGB: Int
     public let licenseURL: URL
 
-    public init(id: String, name: String, size: UInt64, memoryGB: Int, licenseURL: URL) {
+    public init(id: String, name: String, size: UInt64, memoryGB: Int, licenseURL: URL,
+                family: String = "Other", category: AIModelCategory = .llm) {
         self.id = id
         self.name = name
+        self.family = family
+        self.category = category
         self.size = size
         self.memoryGB = memoryGB
         self.licenseURL = licenseURL
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, size
+        case id, name, family, category, size
         case memoryGB = "memory_gb", licenseURL = "license_url"
     }
 

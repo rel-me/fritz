@@ -5,8 +5,8 @@ import Observation
 /// Downloads share the app's private agent transport and are cancelled with the sheet.
 @MainActor @Observable final class NativeLocalModel {
     static let defaultModelID = "qwen2.5-1.5b-instruct-q4_k_m"
-    let category: AIModelCategory
-    var catalog: [NativeModelDescriptor] { category == .decision ? NativeModelDescriptor.decisionCatalog : NativeModelDescriptor.catalog }
+    var category: AIModelCategory { selectedModel.category }
+    let catalog: [NativeModelDescriptor]
     private(set) var selectedModelID: String
     private(set) var state: NativeModelInstallState = .available
     var selectedModel: NativeModelDescriptor {
@@ -16,9 +16,9 @@ import Observation
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var requestID: String?
 
-    init(agent: AgentClient, modelID: String? = nil, category: AIModelCategory = .llm) {
-        self.category = category
-        let catalog = category == .decision ? NativeModelDescriptor.decisionCatalog : NativeModelDescriptor.catalog
+    init(agent: AgentClient, modelID: String? = nil, category: AIModelCategory? = nil) {
+        catalog = (NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog)
+            .filter { category == nil || $0.category == category }
         self.agent = agent
         selectedModelID = catalog.first { $0.id == modelID }?.id ?? (category == .decision ? catalog[0].id : Self.defaultModelID)
     }
