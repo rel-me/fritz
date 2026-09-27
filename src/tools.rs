@@ -31,9 +31,9 @@ pub fn definitions() -> Vec<Value> {
     let number = json!({"type":"integer","minimum":1});
     [
         ("list_files", "List one project directory, sorted by name. Use path '.' to list the attached folder. Use offset to page through large directories. Symlinks are labeled; .git is excluded.", json!({"path":path,"offset":{"type":"integer","minimum":0}}), json!(["path"])),
-        ("read_file", "Read a UTF-8 project file with line numbers. start_line is one-based; max_lines defaults to 200 (maximum 1000). Read files before editing; output and file size are bounded.", json!({"path":path,"start_line":number,"max_lines":number}), json!(["path"])),
+        ("read_file", "Read a UTF-8 project file with display-only line numbers. The 'N: ' prefixes are not file content; omit them when editing. start_line is one-based; max_lines defaults to 200 (maximum 1000). Read files before editing; output and file size are bounded.", json!({"path":path,"start_line":number,"max_lines":number}), json!(["path"])),
         ("create_file", "Create a new UTF-8 file without overwriting an existing file. The parent directory must exist; use run_command to create directories. Maximum 512 KiB.", json!({"path":path,"content":string}), json!(["path","content"])),
-        ("edit_file", "Atomically replace exactly one occurrence of old_text in an existing UTF-8 file. Read first and include enough context for a unique match. An empty or ambiguous old_text fails without writing.", json!({"path":path,"old_text":string,"new_text":string}), json!(["path","old_text","new_text"])),
+        ("edit_file", "Atomically replace exactly one occurrence of old_text in an existing UTF-8 file. Read first and include enough context for a unique match. Use literal file text without read_file's display-only line-number prefixes in old_text and new_text. An empty or ambiguous old_text fails without writing.", json!({"path":path,"old_text":string,"new_text":string}), json!(["path","old_text","new_text"])),
         ("run_command", "Run a noninteractive /bin/bash command in the project, with optional relative working directory. Commands run with the user's permissions, not in an OS sandbox. Use only for the user's task; do not access unrelated files or secrets. Timeout defaults to 30 seconds, maximum 120. Output is capped; background processes are terminated when the command finishes. No interactive stdin.", json!({"command":string,"working_directory":path,"timeout_seconds":{"type":"integer","minimum":1,"maximum":120}}), json!(["command"])),
     ].into_iter().map(|(name, description, properties, required)| json!({"name":name,"description":description,"parameters":{"type":"object","properties":properties,"required":required,"additionalProperties":false}})).collect()
 }
@@ -249,7 +249,7 @@ impl Workspace {
                 let before = self.read(&path)?;
                 if before.matches(&a.old_text).count() != 1 {
                     bail!(
-                        "old_text must match exactly once. Read the file again and include more context."
+                        "old_text must match exactly once. Use literal file text without read_file's display-only line numbers; read again and include more context."
                     );
                 }
                 let after = before.replacen(&a.old_text, &a.new_text, 1);
