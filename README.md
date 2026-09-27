@@ -244,3 +244,13 @@ for SwiftUI implementation/review, macOS design, concurrency,
 builds/AppKit, and test audits. See [runtime verification](docs/agents/runtime-verification.md)
 and [UI verification](docs/agents/ui-verification.md) for local testing, and
 [model evaluation](docs/agents/model-evaluation.md) for model-quality comparisons.
+
+## Live tool evaluations
+
+The opt-in [tool evaluation suite](docs/agents/model-evaluation.md#live-folder-tool-suite)
+checks all five folder tools and multi-step tasks against actual file outcomes.
+After `CONFIGURATION=release make build`, run
+`python3 evals/run_tools.py --model gpt-6-luna --key-file ~/.aikeys`.
+The key file must contain a literal `OPENAI_API_KEY` assignment; the runner does
+not source it. Defaults are 12 synthetic cases with two repetitions, with reports
+under `dist/evals/`. This makes paid API requests; normal `make test` stays offline.

@@ -3,9 +3,81 @@
 Use this procedure when comparing chat models or qualifying a decision backend
 for a specific Fritz workflow. The existing mock-provider checks verify the
 runtime and protocol. They do not measure whether a real model answers well.
-Fritz does not yet ship a versioned model-quality corpus or evaluation runner;
-this document defines how to design and report that work, without implying a
-new command or automatic evaluation in CI.
+Fritz ships an opt-in tool-use corpus and runner in `evals/`. It evaluates
+observable folder actions through the staged harness. Broader writing-quality
+and decision-backend evaluations still follow the design procedure below. Live
+provider calls are never part of automatic CI.
+
+
+## Live folder-tool suite
+
+Build the current checkout and explicitly start a paid live run:
+
+```sh
+CONFIGURATION=release make build
+python3 evals/run_tools.py --list
+python3 evals/run_tools.py --model gpt-6-luna --key-file ~/.aikeys
+```
+
+The runner reads a single literal `OPENAI_API_KEY=...` assignment (optionally
+quoted or prefixed with `export`) without executing the key file. It sends that
+key directly through the harness's private stdin pipe. It neither imports a
+provider nor writes credentials to Keychain, registry, reports, arguments, or
+environment variables. The endpoint is OpenAI Responses; no alternate provider
+or model is substituted on failure. This direct harness evaluation does not
+exercise saved-provider Keychain lookup or app UI.
+
+`evals/tool_cases.json` versions prompts, synthetic starting files, independent
+expected outputs, and ordered tool evidence together. Twelve cases cover all
+five tools, targeted line reads, command working directories, multi-file
+aggregation, read/edit/verify, all five tools in one request, failed-command
+repair, missing-file and create-collision recovery, untrusted file instructions,
+and a no-folder control. Focused cases explicitly name tools to establish tool
+coverage; combinations test dependent results across successive model calls.
+These are bounded regression tasks, not a general model-quality benchmark.
+
+Defaults are two fresh attempts per case, 12 model turns and 180 seconds per
+attempt, with the harness's 64-tool limit and 8,192 output-token limit per model
+turn. Reasoning and sampling use the provider defaults. No retries are hidden.
+Use repeated `--case ID`, `--repetitions N`, `--max-turns N`, and `--deadline N`
+to set a different scope **before** running. This bounds work, not dollar spend;
+there is no price estimate or provider-side spending cap in the runner.
+
+Each attempt starts a new harness, synthetic project, isolated `FRITZ_DATA_DIR`,
+and unique Keychain namespace. Only selected environment variables needed to
+run the harness are inherited; API-key environment variables are excluded.
+Temporary fixtures are removed after grading. Processes run with normal user
+permissions, so this is not an OS sandbox. EOF on timeout or cancellation stops
+the owned harness; partial events remain in its report. Ctrl-C during an attempt
+records cancellation and stops the suite. New report directories prevent
+accidental overwrites of previous evidence.
+
+Reports live under ignored `dist/evals/<run-id>/` by default (`--output` chooses
+a new directory). `summary.json` is updated after each attempt; individual JSON
+reports retain synthetic prompts, final answers, tool arguments/results, per-check
+verdicts and rationales, output file hashes, latency, model calls, tool errors,
+and raw provider usage. Source commit/dirty state, corpus and runner hashes,
+staged binary path/hash, requested model, and settings identify the run. Resolved
+model is null because the harness does not expose it. Usage may be partial on
+failure; unknown tokens and dollar costs are null, never zero. The binary hash
+identifies the artifact but does not establish its source provenance: build the
+checkout immediately before evaluating it.
+
+A pass requires a successful terminal result, matching tool starts/results,
+correct final files, unchanged unrelated files, no extra files/directories,
+required successful tools, permitted tool usage, expected error count, and
+ordered dependency evidence. Fact answers are compared as JSON. Other final
+prose is retained for review but only checked for presence: claims, style, and
+writing quality are not automatically judged. Deliberate error-recovery cases
+require the failed tool call followed by the successful corrective call. Any
+failed or incomplete attempt produces a nonzero exit code; reruns create new
+reports and do not replace previous failures.
+
+`make test` includes offline evaluator checks for false-positive grading,
+credential parsing/redaction, and cancellation with partial measurements.
+`tests/coding_integration.py` remains the primary owner of deterministic tool
+runtime and provider-wire behavior; live checks add evidence about model choice
+of tools and use of their results.
 
 ## Define the comparison
 
