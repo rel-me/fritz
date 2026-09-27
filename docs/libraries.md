@@ -395,3 +395,10 @@ messages, activity lists and tool details, completed-work disclosure, and start-
 and focus bindings, send/stop callbacks, model controls, options, Markdown content,
 copy behavior, work summaries, and activity views. These views never read provider
 configuration, start a harness, register tools, or access application persistence.
+
+## Shared integrations
+
+Integration libraries accept explicit host identity, transport, and command policy.
+They must not discover another app's process, credentials, or state. Service and
+RPC documentation URLs remain host-owned; shared library documentation describes
+only reusable contracts.
