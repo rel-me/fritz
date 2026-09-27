@@ -69,6 +69,12 @@ In **Settings → Model Providers**, click **+** to choose an LLM or decision pr
 
 The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. The message field receives focus when opening or switching threads, without a focus border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a thread, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Model Providers page directly. Chat Options can clear the current thread after confirmation. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
+Every conversation runs through Rig 0.42's agent runtime inside the bundled
+`fritz-harness` process. Fritz supplies the provider adapters, local inference,
+and application policy. Folder actions use Fritz's own tools registered with Rig;
+Rig does not supply the file and shell implementations. Their paths are relative
+to the attached folder, with `.` identifying its root.
+
 ## Download local models
 
 In **Settings → Local Models**, click the download button to choose and download
@@ -144,7 +150,7 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `app/`: `FritzApp` SwiftUI/AppKit executable with Textual for native Markdown rendering.
 - `crates/fritz-state/`: independent Rust SQLite state library, also re-exported by `fritz::state`.
 - `src/`: Rust provider adapters, catalog discovery, credential storage, registry, and CLI. The app supervises `fritz --agent` over private stdin/stdout pipes using request IDs and newline-delimited JSON.
-- `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, provider-native action loop, and action history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
+- `src/bin/fritz-harness.rs`, `src/harness.rs`, `src/harness/`: the separate per-request harness, Rig-driven agent runtime, and provider-native action history. The service resolves credentials and passes them to the harness through private stdin. The harness opens no listener and reads no Keychain items.
 - `src/bin/fritz-decision-harness.rs`, `src/decision.rs`, `src/decision_client.rs`: a separate typed-judgment runtime with Jev and native Ollaya adapters. The host supplies Jev’s credential over a private pipe; local decisions need no key, and neither backend is a conversational provider.
 - `src/tools.rs`: current folder actions, including listing, reading, creating, and changing files, plus noninteractive local processes. Stop cancels the harness request and terminates child process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
 - `~/Library/Application Support/Fritz/Data/providers.sqlite`: non-secret provider records and the default connection, owned by Rust. Concurrent CLI/agent updates use SQLite transactions.

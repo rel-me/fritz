@@ -105,12 +105,21 @@ one terminal `result`/`error`. New events are:
 `toolCallId` is unique within the UI transcript and distinct from provider call
 IDs. Failures become native tool results so the model can correct a call or
 inspect a failed command. Incomplete provider streams never dispatch tools.
-Calls run sequentially. The loop returns when a complete model turn contains
+Rig 0.42's `AgentRun` drives every chat, including chats without a folder and
+Fritz local models. Fritz supplies provider IO, preserves native reasoning and
+tool-result history, and enforces execution limits. Folder actions are registered
+in Rig's `ToolSet`; no additional built-in or MCP tools are enabled implicitly.
+Calls run sequentially. The run returns when a complete model turn contains
 text and no tool calls, or fails on its turn/tool/context/deadline limit.
 The final permitted model turn cannot dispatch further tool calls.
 
 Tool definitions: `list_files`, `read_file`, `create_file`, `edit_file`, and
 `run_command`. See `src/tools.rs` for typed arguments and runtime validation.
+File `path` and process `working_directory` arguments are relative to the
+attached folder; `.` identifies its root. Their model-facing schemas describe
+this requirement. Absolute paths, `..`, and `.git` are rejected with corrective
+feedback. Malformed argument JSON rejects the entire batch before execution;
+valid JSON with invalid arguments returns a tool error the model can correct.
 Runs permit at most 64 calls and 600 seconds. Provider payloads are capped
 at 2 MB, provider streams at 8 MB per turn, and private input lines at 3 MB.
 The tools enforce file and output limits documented in the README. Shells

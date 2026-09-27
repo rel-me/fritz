@@ -6,6 +6,7 @@ use std::{
     io::{Read, Write},
     path::{Component, Path, PathBuf},
     process::Stdio,
+    sync::Arc,
     time::Duration,
 };
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -26,13 +27,14 @@ pub fn bounded(text: &str, limit: usize) -> String {
 
 pub fn definitions() -> Vec<Value> {
     let string = json!({"type":"string"});
+    let path = json!({"type":"string","description":"Path relative to the attached project folder. Use '.' for the project root, or e.g. 'src/main.rs' for a file. Absolute paths, '..', and '.git' are not allowed."});
     let number = json!({"type":"integer","minimum":1});
     [
-        ("list_files", "List one project directory, sorted by name. Use offset to page through large directories. Symlinks are labeled; .git is excluded.", json!({"path":string,"offset":{"type":"integer","minimum":0}}), json!(["path"])),
-        ("read_file", "Read a UTF-8 project file with line numbers. start_line is one-based; max_lines defaults to 200 (maximum 1000). Read files before editing; output and file size are bounded.", json!({"path":string,"start_line":number,"max_lines":number}), json!(["path"])),
-        ("create_file", "Create a new UTF-8 file without overwriting an existing file. The parent directory must exist; use run_command to create directories. Maximum 512 KiB.", json!({"path":string,"content":string}), json!(["path","content"])),
-        ("edit_file", "Atomically replace exactly one occurrence of old_text in an existing UTF-8 file. Read first and include enough context for a unique match. An empty or ambiguous old_text fails without writing.", json!({"path":string,"old_text":string,"new_text":string}), json!(["path","old_text","new_text"])),
-        ("run_command", "Run a noninteractive /bin/bash command in the project, with optional relative working directory. Commands run with the user's permissions, not in an OS sandbox. Use only for the user's task; do not access unrelated files or secrets. Timeout defaults to 30 seconds, maximum 120. Output is capped; background processes are terminated when the command finishes. No interactive stdin.", json!({"command":string,"working_directory":string,"timeout_seconds":{"type":"integer","minimum":1,"maximum":120}}), json!(["command"])),
+        ("list_files", "List one project directory, sorted by name. Use path '.' to list the attached folder. Use offset to page through large directories. Symlinks are labeled; .git is excluded.", json!({"path":path,"offset":{"type":"integer","minimum":0}}), json!(["path"])),
+        ("read_file", "Read a UTF-8 project file with line numbers. start_line is one-based; max_lines defaults to 200 (maximum 1000). Read files before editing; output and file size are bounded.", json!({"path":path,"start_line":number,"max_lines":number}), json!(["path"])),
+        ("create_file", "Create a new UTF-8 file without overwriting an existing file. The parent directory must exist; use run_command to create directories. Maximum 512 KiB.", json!({"path":path,"content":string}), json!(["path","content"])),
+        ("edit_file", "Atomically replace exactly one occurrence of old_text in an existing UTF-8 file. Read first and include enough context for a unique match. An empty or ambiguous old_text fails without writing.", json!({"path":path,"old_text":string,"new_text":string}), json!(["path","old_text","new_text"])),
+        ("run_command", "Run a noninteractive /bin/bash command in the project, with optional relative working directory. Commands run with the user's permissions, not in an OS sandbox. Use only for the user's task; do not access unrelated files or secrets. Timeout defaults to 30 seconds, maximum 120. Output is capped; background processes are terminated when the command finishes. No interactive stdin.", json!({"command":string,"working_directory":path,"timeout_seconds":{"type":"integer","minimum":1,"maximum":120}}), json!(["command"])),
     ].into_iter().map(|(name, description, properties, required)| json!({"name":name,"description":description,"parameters":{"type":"object","properties":properties,"required":required,"additionalProperties":false}})).collect()
 }
 
@@ -40,6 +42,50 @@ pub struct Workspace {
     root: PathBuf,
 }
 impl Workspace {
+    /// Register Fritz's folder actions with Rig. Execution and filesystem policy
+    /// stay here; Rig handles argument decoding and canonical tool outcomes.
+    pub fn register(self: Arc<Self>) -> fritz_harness::tools::ToolSet {
+        use fritz_harness::tools::{DynamicTool, ToolExecutionError, ToolOutput, ToolSet};
+        ToolSet::from_dynamic_tools(
+            definitions()
+                .into_iter()
+                .map(|definition| {
+                    let workspace = self.clone();
+                    let name = definition["name"].as_str().unwrap().to_owned();
+                    DynamicTool::new(
+                        name.clone(),
+                        definition["description"].as_str().unwrap(),
+                        definition["parameters"].clone(),
+                        move |_, args| {
+                            let workspace = workspace.clone();
+                            let name = name.clone();
+                            Box::pin(async move {
+                                let value =
+                                    workspace.execute(&name, args).await.map_err(|error| {
+                                        ToolExecutionError::other(error.to_string())
+                                            .with_model_output(ToolOutput::json(
+                                                json!({"error":error.to_string()}),
+                                            ))
+                                    })?;
+                                let failed = name == "run_command"
+                                    && (value["timed_out"] == true
+                                        || value["exit_code"].as_i64() != Some(0));
+                                if failed {
+                                    Err(ToolExecutionError::other(
+                                        "The command did not complete successfully.",
+                                    )
+                                    .with_model_output(ToolOutput::json(value)))
+                                } else {
+                                    Ok(ToolOutput::json(value))
+                                }
+                            })
+                        },
+                    )
+                })
+                .collect(),
+        )
+    }
+
     pub fn new(path: &str) -> Result<Self> {
         if !Path::new(path).is_absolute() {
             bail!("Project path must be absolute.");
@@ -61,7 +107,10 @@ impl Workspace {
                 .components()
                 .any(|c| matches!(c, Component::ParentDir) || c.as_os_str() == ".git")
         {
-            bail!("Use a relative project path without '..' or '.git'.");
+            bail!(
+                "{}",
+                "Use a relative project path without '..' or '.git'. Use '.' for the attached project root (for example, list_files with {\"path\":\".\"})."
+            );
         }
         let joined = self.root.join(relative);
         let resolved = if create {

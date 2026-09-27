@@ -239,13 +239,14 @@ Fritz app, provider registry, Keychain defaults or native Metal inference:
 
 ```toml
 fritz-harness = { git = "https://github.com/rel-me/fritz", rev = "<commit-sha>" }
-# Existing Rig hosts enable `features = ["rig"]` (Rig 0.42).
+# Hosts using Rig's high-level AgentRunner also enable `features = ["rig"]`.
 ```
 
-The default crate has no installed tools, app state, provider networking or
-native inference dependency. A host implements `Host` (current tool definitions
-and execution) and `Model` (one provider-native turn and result history), then
-calls `run` with explicit model-turn, tool-call and deadline limits. Tools are
+Every `run` uses Rig 0.42's `AgentRun` state machine with Fritz's IO driver. The default crate has no installed tools, app
+state, configured provider client or native inference dependency. A host implements
+`Host` (current tool definitions and execution) and `Model` (initial canonical
+conversation, one provider-native turn with its text, and native result history),
+then calls `run` with explicit model-turn, tool-call and deadline limits. Tools are
 refreshed before each turn. The entire call batch is validated against that
 turn's advertised tools, unique call IDs and remaining budgets before any call
 executes. Unavailable tools fail closed by default; a host can return an error
@@ -255,16 +256,32 @@ host. Expected tool failures are `ToolResult { failed: true, .. }`; an `Err`
 stops execution. Dropping the run or reaching its deadline drops in-flight work.
 Hosts must make spawned work cancellation-safe; the library spawns no tasks.
 
-Fritz's application uses this engine with its own `WorkspaceHost`. The full
-`fritz` crate additionally exposes `harness::run_with_host(input, instructions,
+Rig decides whether to request another model turn, dispatch tools, resolve an
+unavailable call, or finish. Fritz's driver retains batch budgets, unique-call-ID
+policy, deadlines, and the requirement to leave a model turn for tool results.
+`Model::conversation` supplies the initial Rig messages; `Turn::text` supplies
+the actual assistant text. The native adapter retains provider-specific hidden
+reasoning and signatures, and `Model::results` appends native tool receipts.
+The driver does not serialize or persist Rig run state.
+
+Fritz's application registers its five folder tools as Rig `DynamicTool`s in a
+`ToolSet`, observed by its `WorkspaceHost`. The crate re-exports Rig's tool
+authoring and registry API as `fritz_harness::tools`, and message types as
+`fritz_harness::message`. Hosts can register their own `Tool`, `PortableTool`,
+or `DynamicTool` implementations, or Rig's built-in tools, and expose the
+registry through `Host`. Rig 0.42 bundles `ThinkTool`, an echo tool for reasoning;
+it does not supply Fritz's file or process actions. Fritz does not register
+`ThinkTool` by default. MCP integration is not enabled by this migration.
+
+The full `fritz` crate additionally exposes `harness::run_with_host(input, instructions,
 host, emit)` for its existing native provider adapters, including its local text
 model. This path does not install folder tools or read project guidance. It
 retains Fritz's 40-turn maximum, 64-tool budget and ten-minute deadline. These
 native adapters currently accept JSON tool results and explicitly reject image
 results; they do not silently turn image bytes into model-facing text.
 
-The optional `rig` module drives an existing `AgentRunner` with host-registered
-`Tool` implementations and `AgentHook` policy. `rig::run` reports completion
+The optional `rig` module additionally drives an existing `AgentRunner` with
+host-registered `Tool` implementations and `AgentHook` policy. `rig::run` reports completion
 accounting before advancing; `rig::run_with_progress` also forwards host-defined
 progress and drops the run if the host transport fails. Rig preserves typed
 text/image tool results, native history, active-tool validation and per-turn
@@ -272,9 +289,10 @@ request patches. Hosts retain their provider adapters, cancellation ownership,
 conversation persistence and execution budgets. A closed progress channel does
 not spin or cancel an otherwise valid run.
 
-These are explicit native-provider and Rig integrations, not an automatic
-fallback between provider stacks. Only reusable contracts and execution live
-here. Downstream applications compile their private tools, prompts and policies
+Both integrations use Rig. The native-provider path drives `AgentRun` directly;
+the high-level path drives an already configured `AgentRunner`, including its
+hooks. They do not automatically switch provider stacks. Only reusable contracts
+and execution live here. Downstream applications compile their private tools, prompts and policies
 in their own repositories and pass them at runtime; Fritz has no dependency on
 those applications or their tools. Pin the crate's Git revision independently
 of any Swift products.
