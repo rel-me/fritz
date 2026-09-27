@@ -21,7 +21,13 @@ the following surfaces, include these behaviors:
 - **Projects and threads:** blank sidebar and detail surfaces when no project or
   thread exists, with creation available from the toolbar and menu. Check stable
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
-  model settings, and launch restoration.
+  model settings, and launch restoration. Check Bonsplit tab selection from the
+  strip and sidebar, hover close controls, context-menu close, drag reordering,
+  compact/overflow selection, Control-Tab / Control-Shift-Tab, Command-Shift-W,
+  and reopening a closed conversation. Close the last tab and verify a blank
+  detail surface without deleting the sidebar conversation. Restart to verify
+  open-tab order and selection. The toolbar exposes only the right panel; check
+  its toggle at minimum window width. Tab commands must be disabled in Settings.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams. A new thread

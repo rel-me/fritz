@@ -48,6 +48,7 @@ import SwiftUI
 
 @main struct FritzApp: App {
     @NSApplicationDelegateAdaptor(FritzAppDelegate.self) private var delegate
+    @FocusedValue(\.workspaceTabs) private var focusedTabs
     @State private var state = FritzState.shared
     @StateObject private var updater = AppUpdater(updateChannel: AppUpdateChannel(rawValue: FritzState.shared.settings.updateChannel) ?? .release)
     @Environment(\.openWindow) private var openWindow
@@ -100,6 +101,16 @@ import SwiftUI
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
+                Button("Next Tab") { focusedTabs?.controller.selectNextTab() }
+                    .keyboardShortcut(.tab, modifiers: [.control])
+                    .disabled((focusedTabs?.orderedThreadIDs.count ?? 0) < 2)
+                Button("Previous Tab") { focusedTabs?.controller.selectPreviousTab() }
+                    .keyboardShortcut(.tab, modifiers: [.control, .shift])
+                    .disabled((focusedTabs?.orderedThreadIDs.count ?? 0) < 2)
+                Button("Close Tab") { focusedTabs?.closeSelectedTab() }
+                    .keyboardShortcut("w", modifiers: [.command, .shift])
+                    .disabled(focusedTabs?.selectedThreadID == nil)
+                Divider()
                 Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
@@ -121,7 +132,6 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var isRightPanelPresented = false
-    @State private var isBottomPanelPresented = false
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -129,51 +139,22 @@ private struct FritzWorkspaceView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        if let error = state.workspace.error {
-                            Label(error, systemImage: "exclamationmark.triangle")
-                                .foregroundStyle(.orange).textSelection(.enabled).padding(12)
-                        }
-                        if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
-                            VStack(spacing: 0) {
-                                HStack(spacing: 8) {
-                                    Text(state.workspace.selectedProject?.name ?? "").foregroundStyle(.secondary)
-                                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                                    Text(thread.title).lineLimit(1).truncationMode(.tail)
-                                    Spacer()
-                                }
-                                .font(.callout)
-                                .padding(.horizontal, 20).padding(.vertical, 14)
-                                ChatView(store: chat, providers: state.providers,
-                                         openProviders: { openProviders() },
-                                         addProvider: { state.editor = ProviderEditorSelection() })
-                                    .id(thread.id)
-                            }
-                            .background(FritzWindowStyle.contentBackground)
-                        } else {
-                            FritzWindowStyle.contentBackground
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    if let error = state.workspace.error {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    if isRightPanelPresented {
-                        Rectangle().fill(.separator).frame(width: 0.5)
-                        WorkspacePlaceholderPanel(title: "Right Panel", systemImage: "sidebar.right") {
-                            isRightPanelPresented = false
-                        }
-                        .frame(width: 260)
-                    }
+                    WorkspaceChatTabsView(state: state, openProviders: openProviders)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if isBottomPanelPresented {
-                    Rectangle().fill(.separator).frame(height: 0.5)
-                    WorkspacePlaceholderPanel(title: "Bottom Panel", systemImage: "rectangle.bottomthird.inset.filled") {
-                        isBottomPanelPresented = false
+                if isRightPanelPresented {
+                    Rectangle().fill(.separator).frame(width: 0.5)
+                    WorkspacePlaceholderPanel(title: "Right Panel", systemImage: "sidebar.right") {
+                        isRightPanelPresented = false
                     }
-                    .frame(height: 190)
+                    .frame(width: 260)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
@@ -211,16 +192,10 @@ private struct FritzWorkspaceView: View {
                 .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
                 .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
                 .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
-                Button("Toggle Bottom Panel", systemImage: "rectangle.bottomthird.inset.filled") {
-                    isBottomPanelPresented.toggle()
-                }
-                .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar))
-                .foregroundStyle(isBottomPanelPresented ? Color.accentColor : .secondary)
-                .help(isBottomPanelPresented ? "Hide Bottom Panel" : "Show Bottom Panel")
-                .accessibilityValue(isBottomPanelPresented ? "Shown" : "Hidden")
             }
         }
         .fritzWindowBackground()
+        .focusedSceneValue(\.workspaceTabs, state.workspace.tabs)
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }

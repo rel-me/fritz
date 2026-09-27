@@ -47,6 +47,37 @@ import FritzUpdates
         XCTAssertEqual(restored.selectedChat?.selectedModel?.id, "model-a")
     }
 
+    func testTabsSelectCloseAndReopenSavedConversations() throws {
+        let root = try directory()
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        let project = try workspace.createProject(name: "Example", directory: root)
+        let first = try XCTUnwrap(workspace.selectedThreadID)
+        workspace.selectedChat?.draft = "Keep this draft"
+        workspace.createThread(in: project)
+        let second = try XCTUnwrap(workspace.selectedThreadID)
+        workspace.renameThread(first, to: "First conversation")
+        let tabs = workspace.tabs
+        let firstTab = try XCTUnwrap(tabs.controller.allTabIds.first)
+        XCTAssertEqual(tabs.controller.tab(firstTab)?.title, "First conversation")
+        tabs.controller.selectTab(firstTab)
+        XCTAssertEqual(workspace.selectedThreadID, first)
+        XCTAssertEqual(workspace.selectedChat?.draft, "Keep this draft")
+        tabs.closeSelectedTab()
+        XCTAssertEqual(workspace.selectedThreadID, second)
+        XCTAssertEqual(workspace.projects.first?.threads.count, 2)
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        XCTAssertEqual(restored.tabs.orderedThreadIDs, [second])
+        restored.select(first)
+        XCTAssertEqual(restored.tabs.orderedThreadIDs, [second, first])
+        XCTAssertEqual(restored.selectedChat?.draft, "Keep this draft")
+        restored.tabs.closeSelectedTab()
+        restored.tabs.closeSelectedTab()
+        let closed = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        XCTAssertNil(closed.selectedThreadID)
+        XCTAssertTrue(closed.tabs.orderedThreadIDs.isEmpty)
+        XCTAssertEqual(closed.projects.first?.threads.count, 2)
+    }
+
     func testLegacyStateIsIgnored() throws {
         let root = try directory()
         for name in ["chat.json", "workspace.json", "providers.json"] {

@@ -9,6 +9,15 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 Fritz currently groups conversations under folders in the sidebar. Folder-attached conversations can access and change files and run local processes with your macOS permissions when the selected model supports actions. Choose only folders you trust. This workflow is scheduled for replacement with narrower, permission-based personal sources.
 
+## Chat tabs
+
+Conversations open in reusable Bonsplit tabs with drag reordering and an overflow
+menu. Closing a tab leaves its conversation in the project sidebar; selecting it
+there reopens it. Open tabs, their order and the selected conversation restore on
+launch. Control-Tab and Control-Shift-Tab switch tabs; Command-Shift-W closes the
+selected tab. The toolbar toggles the right panel. There is no bottom panel.
+See [the library guide](docs/libraries.md#tabs-and-split-panes) to reuse the tab UI.
+
 ## Open source and shared libraries
 
 Fritz's app and shared libraries are licensed under **AGPL-3.0-only**. See
@@ -18,7 +27,8 @@ vendored material and model weights retain their respective licenses.
 
 The repository root is a Swift package exposing **Fritz** (provider/model
 metadata, private-pipe transport, appearance and CLI installation),
-**FritzUI** (shared model/provider pickers and native button styles), and
+**FritzUI** (shared model/provider pickers and native button styles),
+**Bonsplit** (reusable tab strips and split panes with REL’s customization), and
 **FritzUpdates** (Sparkle lifecycle and update policy). The **fritz** Rust library
 exposes provider networking, host-scoped registry/Keychain/model storage, native
 inference and the current folder actions. The app's executable module is **FritzApp**; the
