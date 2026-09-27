@@ -8,7 +8,9 @@ if [[ -z "$branch" ]]; then
   exit 1
 fi
 app_name="FritzDebug"
-if [[ "$branch" != main ]]; then
+git_directory="$(git -C "$root" rev-parse --absolute-git-dir)"
+common_directory="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)"
+if [[ "$git_directory" != "$common_directory" && "$branch" != main ]]; then
   if ! remote="$(git -C "$root" remote get-url origin 2>/dev/null)"; then
     echo "error: FritzDebug requires an origin remote to resolve the branch's open PR" >&2
     exit 1
