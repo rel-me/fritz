@@ -25,6 +25,27 @@ final class SharedControlSnapshots: XCTestCase {
         }
     }
 
+    func testChatTranscript() throws {
+        let view = VStack(alignment: .leading, spacing: 20) {
+            ChatUserMessage(content: "Summarize the selected notes.")
+            ChatAssistantMessage(copy: { true }) {
+                Text("The notes cover three upcoming milestones.")
+            }
+            ChatCompletedWorkDisclosure(summary: "Worked for 2 seconds", hasActivities: false) {
+                EmptyView()
+            }
+            ChatActivityRow(activities: [
+                .init(id: "1", title: "Read notes", detail: "notes.txt", status: .completed),
+                .init(id: "2", title: "Compare dates", status: .running),
+                .init(id: "3", title: "Check attachment", status: .failed),
+                .init(id: "4", title: "Save summary", status: .interrupted)
+            ], showsHeading: false) { _ in EmptyView() }
+            ChatErrorMessage(content: "The provider is unavailable. Try again.")
+            ChatStatusMessage(content: "Response interrupted")
+        }.padding(24)
+        try snapshot(view, name: "chat-transcript", size: .init(width: 620, height: 570))
+    }
+
     func testModelPickerPopulated() throws {
         try snapshot(modelPicker(models: Array(models.prefix(3)), recent: [models[0], models[1]]),
                      name: "model-populated", size: .init(width: 440, height: 380))
