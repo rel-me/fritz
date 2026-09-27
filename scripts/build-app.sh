@@ -61,6 +61,7 @@ cp "$CARGO_TARGET_DIR/$configuration/fritz-harness" "$app_bundle/Contents/Resour
 cp "$CARGO_TARGET_DIR/$configuration/fritz-decision-harness" "$app_bundle/Contents/Resources/fritz-decision-harness"
 package_checkouts="$FRITZ_DERIVED_DATA/SourcePackages/checkouts"
 mkdir -p "$app_bundle/Contents/Resources/Licenses"
+cp Packages/Bonsplit/LICENSE "$app_bundle/Contents/Resources/Licenses/Bonsplit.txt"
 cp LICENSE "$app_bundle/Contents/Resources/Licenses/Fritz-AGPL-3.0.txt"
 for dependency in textual swiftui-math swift-concurrency-extras; do
   cp "$package_checkouts/$dependency/LICENSE" "$app_bundle/Contents/Resources/Licenses/$dependency.txt"

@@ -6,7 +6,7 @@ struct ProjectsSidebar: View {
     @State private var renaming: RenameItem?
 
     var body: some View {
-        List(selection: Binding(get: { workspace.selectedThreadID }, set: { workspace.select($0) })) {
+        List(selection: Binding(get: { workspace.selectedThreadID }, set: { if let id = $0 { workspace.select(id) } })) {
             if !workspace.projects.isEmpty {
                 Section("Projects") {
                     ForEach(workspace.projects) { project in

@@ -28,6 +28,8 @@ targets:
         buildPhase: resources
     dependencies:
       - package: Fritz
+        product: Bonsplit
+      - package: Fritz
         product: Fritz
       - package: Fritz
         product: FritzUI

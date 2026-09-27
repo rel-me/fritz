@@ -105,6 +105,45 @@ Supply every filter category shown by the provider picker, including `.all`.
 Model/provider lists remain in host order before the documented grouping or
 alphabetical provider search. The library never starts processes or reads settings.
 
+## Tabs and split panes
+
+The root package also exports `Bonsplit`, the self-contained MIT-licensed package
+in `Packages/Bonsplit`. It includes the REL tab customization: rounded selected
+tab shoulders, adaptive strip/content/hover colors, reserved close targets,
+passive AppKit hover tracking, compact tabs, selected-tab-preserving overflow,
+drag reordering, context menus, split panes and `BonsplitNewTabButton`.
+See the package's `REL_PATCHES.md` for provenance and Fritz adaptations.
+
+```swift
+import Bonsplit
+
+// Retain the controller in the host's state owner.
+let tabs = BonsplitController(configuration: .singlePane)
+BonsplitView(controller: tabs) { tab, pane in
+    Text(tab.title) // Supply the host's content here.
+} emptyPane: { _ in
+    Color.clear
+}
+```
+
+`BonsplitConfiguration` controls closing, reordering, splitting, content lifetime,
+new-tab position and appearance. `BonsplitTabStyle` exports the shared palette,
+geometry and title-based width calculation. `BonsplitTabBar` supplies the complete
+standalone strip, including its content-sized layout, new-tab button, and context
+menu builder, when a host owns content presentation separately. Use a single-pane
+controller for that strip. Hosts supply tab content and context
+menus, keep a strong reference to their delegate, map transient `TabID`s to domain
+identities, and own persistence and new-tab actions. The default controller starts
+with a Welcome tab; hosts can close it before restoring their own records.
+The library reads no settings and starts no processes.
+
+Fritz uses one chat tab strip, with splitting disabled, and a separate right
+panel. Open conversation IDs and their order live in the app's SQLite settings;
+the existing workspace record owns the selected conversation. Closing a tab
+preserves the conversation, transcript, draft and model settings. Selecting its
+sidebar row opens it again. Control-Tab / Control-Shift-Tab switch tabs, and
+Command-Shift-W closes the selected tab. The app's bottom panel has been removed.
+
 ## SQLite state
 
 `FritzState.StateDatabase` takes an explicit file URL, ordered SQL migration
