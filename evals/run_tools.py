@@ -43,7 +43,7 @@ def read_key(path):
 
 def load_cases(path):
     corpus = json.loads(path.read_text())
-    if corpus["version"] != 1 or not corpus["cases"]:
+    if corpus["version"] != 2 or not corpus["cases"]:
         raise ValueError("Unsupported or empty corpus")
     ids = set()
     for case in corpus["cases"]:

@@ -8,7 +8,6 @@ observable folder actions through the staged harness. Broader writing-quality
 and decision-backend evaluations still follow the design procedure below. Live
 provider calls are never part of automatic CI.
 
-
 ## Live folder-tool suite
 
 Build the current checkout and explicitly start a paid live run:
@@ -34,7 +33,10 @@ aggregation, read/edit/verify, all five tools in one request, failed-command
 repair, missing-file and create-collision recovery, untrusted file instructions,
 and a no-folder control. Focused cases explicitly name tools to establish tool
 coverage; combinations test dependent results across successive model calls.
-These are bounded regression tasks, not a general model-quality benchmark.
+Read-only inspection is allowed unless the prompt excludes it; extra harmless
+listing is not a failure. Unexpected tool errors still fail the strict rubric even
+if the model later recovers and achieves the task. These are bounded regression
+tasks, not a general model-quality benchmark.
 
 Defaults are two fresh attempts per case, 12 model turns and 180 seconds per
 attempt, with the harness's 64-tool limit and 8,192 output-token limit per model

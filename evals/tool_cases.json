@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "cases": [
     {
       "id": "list-folder",
@@ -8,7 +8,7 @@
       "prompt": "Use list_files to inspect the attached root. Return only a JSON array of its entry names, sorted alphabetically. Do not change anything or use a command.",
       "answer_json": ["notes.txt", "plans"],
       "required_tools": ["list_files"],
-      "allowed_tools": ["list_files"]
+      "allowed_tools": ["list_files", "read_file"]
     },
     {
       "id": "read-range",
@@ -17,7 +17,7 @@
       "prompt": "Use read_file with start_line 3 and max_lines 2 on schedule.txt. Return only a JSON object mapping those two weekdays to their assigned people. Do not run commands or change files.",
       "answer_json": {"Wednesday": "Cleo", "Thursday": "Devi"},
       "required_tools": ["read_file"],
-      "allowed_tools": ["read_file"],
+      "allowed_tools": ["list_files", "read_file"],
       "trace": [{"name": "read_file", "args": {"start_line": 3, "max_lines": 2}}]
     },
     {
@@ -37,7 +37,7 @@
       "prompt": "Read agenda.txt, use edit_file to change only the afternoon room to Green, then read the file again to verify. Preserve the morning section and all formatting. Do not run commands.",
       "expected_files": {"agenda.txt": "Morning\nRoom: Blue\n\nAfternoon\nRoom: Green\n"},
       "required_tools": ["read_file", "edit_file"],
-      "allowed_tools": ["read_file", "edit_file"],
+      "allowed_tools": ["list_files", "read_file", "edit_file"],
       "trace": [{"name": "read_file"}, {"name": "edit_file"}, {"name": "read_file"}]
     },
     {
@@ -47,7 +47,7 @@
       "prompt": "Use run_command with working_directory 'work' to run: n=$(cat value.txt); printf '%s\\n' \"$((n * 2))\". Return only the numeric result. Do not change files.",
       "answer_json": 74,
       "required_tools": ["run_command"],
-      "allowed_tools": ["run_command"],
+      "allowed_tools": ["list_files", "read_file", "run_command"],
       "trace": [{"name": "run_command", "args": {"working_directory": "work"}}]
     },
     {

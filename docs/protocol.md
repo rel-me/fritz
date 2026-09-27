@@ -115,6 +115,8 @@ The final permitted model turn cannot dispatch further tool calls.
 
 Tool definitions: `list_files`, `read_file`, `create_file`, `edit_file`, and
 `run_command`. See `src/tools.rs` for typed arguments and runtime validation.
+`read_file` displays `N: ` line-number prefixes. These prefixes are metadata,
+not file content; `edit_file` expects literal text without those prefixes.
 File `path` and process `working_directory` arguments are relative to the
 attached folder; `.` identifies its root. Their model-facing schemas describe
 this requirement. Absolute paths, `..`, and `.git` are rejected with corrective
