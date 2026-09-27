@@ -79,7 +79,8 @@ reports and do not replace previous failures.
 credential parsing/redaction, and cancellation with partial measurements.
 `tests/coding_integration.py` remains the primary owner of deterministic tool
 runtime and provider-wire behavior; live checks add evidence about model choice
-of tools and use of their results.
+of tools and use of their results. See the [recorded gpt-6-luna evaluation](../../evals/results/2026-09-27-gpt-6-luna.md)
+for the initial baseline, follow-up, and per-attempt measurements.
 
 ## Define the comparison
 
