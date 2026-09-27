@@ -121,7 +121,6 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var isRightPanelPresented = false
-    @State private var rightPanelTabs = WorkspaceRightPanel.makeController()
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -150,9 +149,9 @@ private struct FritzWorkspaceView: View {
                                      addProvider: { state.editor = ProviderEditorSelection() })
                                 .id(thread.id)
                         }
-                        .background(FritzWindowStyle.contentBackground)
+                        .background(FritzWindowStyle.workspaceBackground)
                     } else {
-                        FritzWindowStyle.contentBackground
+                        FritzWindowStyle.workspaceBackground
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
@@ -160,7 +159,7 @@ private struct FritzWorkspaceView: View {
 
                 if isRightPanelPresented {
                     Rectangle().fill(.separator).frame(width: 0.5)
-                    WorkspaceRightPanel(controller: rightPanelTabs) {
+                    WorkspaceRightPanel {
                         isRightPanelPresented = false
                     }
                     .frame(width: 260)

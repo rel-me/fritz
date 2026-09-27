@@ -21,12 +21,10 @@ the following surfaces, include these behaviors:
 - **Projects and threads:** blank sidebar and detail surfaces when no project or
   thread exists, with creation available from the toolbar and menu. Check stable
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
-  model settings, and launch restoration. Main chat has no tab strip. In the right
-  panel, check Bonsplit tab creation, selection, hover/context-menu close,
-  compression/overflow, and drag reordering. Hiding and reopening the panel must
-  preserve its tabs without changing the selected conversation. Closing all panel
-  tabs leaves blank panel content and preserves chat. Check the panel toggle at
-  minimum window width; there is no bottom panel or chat-tab keyboard commands.
+  model settings, and launch restoration. Main chat has no tab strip. Check that
+  the right panel opens without tabs, closes from its button, and can be hidden
+  and reopened without changing the selected conversation. Check the panel toggle
+  at minimum window width; there is no bottom panel or chat-tab keyboard commands.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams. A new thread

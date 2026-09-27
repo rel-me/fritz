@@ -8,7 +8,7 @@ enum ChatVisualStyle {
     static let composerShadowRadius: CGFloat = 6
     static let composerShadowY: CGFloat = 2
 
-    static let pageBackgroundNSColor = FritzWindowStyle.contentBackgroundNSColor
+    static let pageBackgroundNSColor = FritzWindowStyle.workspaceBackgroundNSColor
     static let pageBackground = Color(nsColor: pageBackgroundNSColor)
     static let composerBackground = Color(nsColor: .textBackgroundColor)
 
