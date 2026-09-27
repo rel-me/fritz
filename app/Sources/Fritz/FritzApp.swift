@@ -150,9 +150,9 @@ private struct FritzWorkspaceView: View {
                                      addProvider: { state.editor = ProviderEditorSelection() })
                                 .id(thread.id)
                         }
-                        .background(FritzWindowStyle.contentBackground)
+                        .background(FritzWindowStyle.workspaceBackground)
                     } else {
-                        FritzWindowStyle.contentBackground
+                        FritzWindowStyle.workspaceBackground
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
