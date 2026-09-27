@@ -6,7 +6,6 @@ import Observation
     private(set) var document = WorkspaceDocument()
     var error: String?
     private(set) var canSave = true
-    @ObservationIgnored lazy var tabs = WorkspaceTabs(workspace: self)
     let database: AppDatabase
     @ObservationIgnored private let agent: AgentClient
     @ObservationIgnored private var chats: [UUID: ChatStore] = [:]
@@ -42,7 +41,7 @@ import Observation
     }
 
     func select(_ id: UUID?) {
-        guard id == nil || projects.contains(where: { $0.threads.contains(where: { $0.id == id }) }) else { return }
+        guard let id, projects.contains(where: { $0.threads.contains(where: { $0.id == id }) }) else { return }
         selectedChat?.savePreferences()
         var next = document
         next.selectedThreadID = id
@@ -124,6 +123,5 @@ import Observation
         try database.saveWorkspace(next)
         document = next
         error = nil
-        tabs.synchronize()
     }
 }

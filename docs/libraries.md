@@ -137,12 +137,11 @@ identities, and own persistence and new-tab actions. The default controller star
 with a Welcome tab; hosts can close it before restoring their own records.
 The library reads no settings and starts no processes.
 
-Fritz uses one chat tab strip, with splitting disabled, and a separate right
-panel. Open conversation IDs and their order live in the app's SQLite settings;
-the existing workspace record owns the selected conversation. Closing a tab
-preserves the conversation, transcript, draft and model settings. Selecting its
-sidebar row opens it again. Control-Tab / Control-Shift-Tab switch tabs, and
-Command-Shift-W closes the selected tab. The app's bottom panel has been removed.
+Fritz uses the standalone tab strip only in the right panel, with splitting
+disabled. The panel currently hosts blank tabs; its controller belongs to the
+workspace view so hiding it preserves tabs for that window session. Panel tabs
+do not select or persist conversations. The main chat retains its project/thread
+header and sidebar navigation, and there is no bottom panel.
 
 ## SQLite state
 

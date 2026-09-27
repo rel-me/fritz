@@ -48,7 +48,6 @@ import SwiftUI
 
 @main struct FritzApp: App {
     @NSApplicationDelegateAdaptor(FritzAppDelegate.self) private var delegate
-    @FocusedValue(\.workspaceTabs) private var focusedTabs
     @State private var state = FritzState.shared
     @StateObject private var updater = AppUpdater(updateChannel: AppUpdateChannel(rawValue: FritzState.shared.settings.updateChannel) ?? .release)
     @Environment(\.openWindow) private var openWindow
@@ -101,16 +100,6 @@ import SwiftUI
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
-                Button("Next Tab") { focusedTabs?.controller.selectNextTab() }
-                    .keyboardShortcut(.tab, modifiers: [.control])
-                    .disabled((focusedTabs?.orderedThreadIDs.count ?? 0) < 2)
-                Button("Previous Tab") { focusedTabs?.controller.selectPreviousTab() }
-                    .keyboardShortcut(.tab, modifiers: [.control, .shift])
-                    .disabled((focusedTabs?.orderedThreadIDs.count ?? 0) < 2)
-                Button("Close Tab") { focusedTabs?.closeSelectedTab() }
-                    .keyboardShortcut("w", modifiers: [.command, .shift])
-                    .disabled(focusedTabs?.selectedThreadID == nil)
-                Divider()
                 Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
@@ -132,6 +121,7 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var isRightPanelPresented = false
+    @State private var rightPanelTabs = WorkspaceRightPanel.makeController()
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -145,13 +135,32 @@ private struct FritzWorkspaceView: View {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                     }
-                    WorkspaceChatTabsView(state: state, openProviders: openProviders)
+                    if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
+                        VStack(spacing: 0) {
+                            HStack(spacing: 8) {
+                                Text(state.workspace.selectedProject?.name ?? "").foregroundStyle(.secondary)
+                                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                                Text(thread.title).lineLimit(1).truncationMode(.tail)
+                                Spacer()
+                            }
+                            .font(.callout)
+                            .padding(.horizontal, 20).padding(.vertical, 14)
+                            ChatView(store: chat, providers: state.providers,
+                                     openProviders: openProviders,
+                                     addProvider: { state.editor = ProviderEditorSelection() })
+                                .id(thread.id)
+                        }
+                        .background(FritzWindowStyle.contentBackground)
+                    } else {
+                        FritzWindowStyle.contentBackground
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if isRightPanelPresented {
                     Rectangle().fill(.separator).frame(width: 0.5)
-                    WorkspacePlaceholderPanel(title: "Right Panel", systemImage: "sidebar.right") {
+                    WorkspaceRightPanel(controller: rightPanelTabs) {
                         isRightPanelPresented = false
                     }
                     .frame(width: 260)
@@ -195,7 +204,6 @@ private struct FritzWorkspaceView: View {
             }
         }
         .fritzWindowBackground()
-        .focusedSceneValue(\.workspaceTabs, state.workspace.tabs)
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
@@ -210,29 +218,5 @@ private struct FritzWorkspaceView: View {
     private func openProviders() {
         state.selectSettings(.providers)
         openSettings()
-    }
-}
-
-private struct WorkspacePlaceholderPanel: View {
-    let title: String
-    let systemImage: String
-    let close: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Label(title, systemImage: systemImage)
-                    .font(.headline)
-                Spacer()
-                Button("Close \(title)", systemImage: "xmark", action: close)
-                    .modifier(FritzPanelIconControl())
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(FritzWindowStyle.contentBackground)
     }
 }

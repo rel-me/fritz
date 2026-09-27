@@ -9,13 +9,13 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 Fritz currently groups conversations under folders in the sidebar. Folder-attached conversations can access and change files and run local processes with your macOS permissions when the selected model supports actions. Choose only folders you trust. This workflow is scheduled for replacement with narrower, permission-based personal sources.
 
-## Chat tabs
+## Right panel tabs
 
-Conversations open in reusable Bonsplit tabs with drag reordering and an overflow
-menu. Closing a tab leaves its conversation in the project sidebar; selecting it
-there reopens it. Open tabs, their order and the selected conversation restore on
-launch. Control-Tab and Control-Shift-Tab switch tabs; Command-Shift-W closes the
-selected tab. The toolbar toggles the right panel. There is no bottom panel.
+The toolbar toggles a right panel with reusable Bonsplit tabs. Its tabs currently
+have blank content; the + button adds a tab and the tab context menu closes it.
+Tab state remains while hiding and reopening the panel during the current window
+session. Conversations stay in the main chat area and are selected from the
+project sidebar. There is no bottom panel.
 See [the library guide](docs/libraries.md#tabs-and-split-panes) to reuse the tab UI.
 
 ## Open source and shared libraries
