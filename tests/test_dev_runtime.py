@@ -1,4 +1,4 @@
-"""Exercise Debug app naming with real Git branches and controlled PR responses."""
+"""Exercise Debug app naming with real Git branches and no GitHub setup."""
 
 import os
 from pathlib import Path
@@ -24,11 +24,7 @@ class DevRuntimeTests(unittest.TestCase):
                  "commit", "--allow-empty", "-m", "Initial")
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        gh = self.bin / "gh"
-        gh.write_text('#!/bin/bash\nprintf "%s" "$TEST_PR_RESPONSE"\nexit "$TEST_PR_STATUS"\n')
-        gh.chmod(0o755)
-        self.environment = dict(os.environ, PATH=f"{self.bin}:/usr/bin:/bin",
-                                TEST_PR_RESPONSE="", TEST_PR_STATUS="0")
+        self.environment = dict(os.environ, PATH=f"{self.bin}:/usr/bin:/bin")
 
     def git(self, *args):
         subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True)
@@ -37,45 +33,21 @@ class DevRuntimeTests(unittest.TestCase):
         return subprocess.run(["/bin/bash", str(self.script), "--print"],
                               env=self.environment, capture_output=True, text=True)
 
-    def test_main_needs_neither_github_cli_nor_origin(self):
-        (self.bin / "gh").unlink()
+    def test_main_uses_plain_debug_name(self):
         result = self.resolve()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("app_name=FritzDebug\n", result.stdout)
 
-    def test_feature_branch_requires_one_resolved_open_pr(self):
+    def test_feature_and_detached_head_share_checkout_name_without_pr(self):
         self.git("switch", "-c", "feature")
-        self.git("remote", "add", "origin", "https://github.com/example/fritz.git")
-        for response, status, expected in [
-            ("42\n", "0", "app_name=FritzDebug42\n"),
-            ("", "0", "requires an open PR"),
-            ("42\n43\n", "0", "expected exactly one open PR"),
-            ("invalid", "0", "expected exactly one open PR"),
-            ("0", "0", "expected exactly one open PR"),
-            ("42", "1", "could not resolve the open PR"),
-        ]:
-            with self.subTest(response=response, status=status):
-                self.environment.update(TEST_PR_RESPONSE=response, TEST_PR_STATUS=status)
-                result = self.resolve()
-                if expected.startswith("app_name="):
-                    self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertIn(expected, result.stdout)
-                else:
-                    self.assertNotEqual(result.returncode, 0)
-                    self.assertIn(expected, result.stderr)
+        feature = self.resolve()
+        self.assertEqual(feature.returncode, 0, feature.stderr)
+        self.assertRegex(feature.stdout, r"(?m)^app_name=FritzDebug[0-9a-f]{8}$")
 
-        (self.bin / "gh").unlink()
-        result = self.resolve()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires GitHub CLI", result.stderr)
-        self.git("remote", "remove", "origin")
-        result = self.resolve()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires an origin remote", result.stderr)
         self.git("checkout", "--detach")
-        result = self.resolve()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires a branch", result.stderr)
+        detached = self.resolve()
+        self.assertEqual(detached.returncode, 0, detached.stderr)
+        self.assertEqual(detached.stdout, feature.stdout)
 
 
 if __name__ == "__main__":
