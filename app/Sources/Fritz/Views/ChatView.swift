@@ -1,3 +1,4 @@
+import FritzUI
 import Fritz
 import SwiftUI
 

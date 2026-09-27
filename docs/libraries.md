@@ -353,7 +353,7 @@ server sessions in Local Models.
 ### Shared chat presentation
 
 `FritzUI` owns the native composer, assistant-message actions, user/error/status
-messages, completed-work disclosure, and start-screen layout. Hosts supply draft
+messages, activity lists and tool details, completed-work disclosure, and start-screen layout. Hosts supply draft
 and focus bindings, send/stop callbacks, model controls, options, Markdown content,
 copy behavior, work summaries, and activity views. These views never read provider
 configuration, start a harness, register tools, or access application persistence.

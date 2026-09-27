@@ -1,3 +1,4 @@
+import FritzUI
 import SwiftUI
 
 // REL's selectable code-block presentation, limited to Fritz's tool records.
@@ -6,22 +7,11 @@ struct ChatToolDetails: View {
     let isActive: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(activity.name).font(.headline)
-                Text(activity.summary).foregroundStyle(.secondary).textSelection(.enabled)
-                Text(activity.status(isActive: isActive).rawValue).font(.caption)
-                Text("Arguments").font(.subheadline.weight(.semibold))
-                ChatToolCodeBlock(text: activity.arguments)
-                if let result = activity.result {
-                    Text("Result").font(.subheadline.weight(.semibold))
-                    ChatToolCodeBlock(text: result)
-                }
-            }
-            .padding(16)
+        FritzUI.ChatToolDetails(title: activity.name, detail: activity.summary,
+            status: activity.status(isActive: isActive).rawValue,
+            arguments: activity.arguments, result: activity.result) { text in
+            ChatToolCodeBlock(text: text)
         }
-        .frame(width: 480)
-        .frame(maxHeight: 560)
     }
 }
 
@@ -50,6 +40,17 @@ enum ChatActivityStatus: String {
     case completed = "Completed"
     case failed = "Failed"
     case interrupted = "Interrupted"
+}
+
+extension ChatActivityStatus {
+    var presentation: FritzUI.ChatActivityStatus {
+        switch self {
+        case .running: .running
+        case .completed: .completed
+        case .failed: .failed
+        case .interrupted: .interrupted
+        }
+    }
 }
 
 extension ChatToolActivity {
