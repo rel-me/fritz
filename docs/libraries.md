@@ -349,3 +349,11 @@ catalogs; a provider's download sheet stays scoped to that provider's category.
 The selected model determines which private agent installer receives the request.
 Decision models are used on demand through their harness, not as persistent chat
 server sessions in Local Models.
+
+### Shared chat presentation
+
+`FritzUI` owns the native composer, assistant-message actions, user/error/status
+messages, completed-work disclosure, and start-screen layout. Hosts supply draft
+and focus bindings, send/stop callbacks, model controls, options, Markdown content,
+copy behavior, work summaries, and activity views. These views never read provider
+configuration, start a harness, register tools, or access application persistence.
