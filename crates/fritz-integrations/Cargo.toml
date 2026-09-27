@@ -1,0 +1,34 @@
+[package]
+name = "fritz-integrations"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+license = "AGPL-3.0-only"
+description = "Host-owned WhatsApp and remote-access integration services"
+
+[features]
+default = ["remote-access", "whatsapp"]
+remote-access = ["dep:base64", "dep:getrandom", "dep:rustls", "dep:rustls-pemfile", "dep:sha2", "dep:url"]
+whatsapp = ["dep:whatsapp-rust", "dep:tokio", "dep:async-trait", "dep:async-lock", "dep:bytes", "dep:hashbrown", "dep:serde_cbor", "dep:security-framework", "dep:security-framework-sys"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+base64 = { version = "0.21", optional = true }
+getrandom = { version = "0.2", optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+rustls-pemfile = { version = "2", optional = true }
+sha2 = { version = "0.10", optional = true }
+url = { version = "2.5", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+whatsapp-rust = { git = "https://github.com/oxidezap/whatsapp-rust", rev = "3a08e84e8d7a462f6f87eb98d28fe1ce889a653a", default-features = false, features = ["tokio-runtime", "tokio-transport", "tokio-native", "ureq-client"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync"], optional = true }
+async-trait = { version = "0.1", optional = true }
+async-lock = { version = "3", optional = true }
+bytes = { version = "1", features = ["serde"], optional = true }
+hashbrown = { version = "0.17", features = ["serde"], optional = true }
+serde_cbor = { version = "0.11", optional = true }
+security-framework = { version = "=2.9.2", optional = true }
+security-framework-sys = { version = "2", optional = true }

@@ -402,3 +402,48 @@ Integration libraries accept explicit host identity, transport, and command poli
 They must not discover another app's process, credentials, or state. Service and
 RPC documentation URLs remain host-owned; shared library documentation describes
 only reusable contracts.
+
+`Fritz` exports `IntegrationClient`, `IntegrationTransport`, the WhatsApp and
+remote-access wire models, `WhatsAppRemoteWorker`, and `MCPConnection`.
+`FritzUI` exports `MCPSettingsView`, `WhatsAppSettingsView`,
+`RemoteAccessSettingsView`, and `ServiceSettingsView`. The UI uses an explicit
+client, product copy, settings-key prefix, and background color. Hosts retain
+window ownership and their existing settings preferences.
+
+`IntegrationTransport.integrationRequest` receives a relative operation path,
+HTTP-style method, and optional JSON body. It must authenticate the caller,
+validate its own RPC success/error envelope, and return only the JSON success
+payload. This supports a host's local HTTP API or private agent pipes without
+introducing another daemon. Cancellation propagates through the transport.
+`WhatsAppRemoteWorker` runs one claimed command at a time, invalidates execution
+when status or authorization changes, and never retries uncertain replies.
+The host supplies command execution, conversation invalidation, and reply sizing.
+
+`MCPConnection` takes the adapter executable, server name, client environment,
+process environment, status tool, client name, and asynchronous preflight. The
+preflight must check the selected host runtime before launching the adapter.
+Configuration export escapes paths through JSON encoding; connection tests use
+bounded polling and terminate their adapter when cancelled or finished. The
+status tool must return a structured success payload with `status: "ok"`.
+Application tool catalogs and executable entry points stay with their host.
+
+The standalone Rust crate `fritz-integrations` exports two feature-gated services:
+
+- `whatsapp::WhatsAppService` owns linked-device networking, QR expiry, group
+  selection, secure persistence, enable/disable/removal, outbound messages, and
+  the owner-only command inbox. `Config` explicitly selects the Keychain service,
+  linked-device app name, reply label, and slash-command prefix. The macOS Keychain snapshot
+  commits before in-memory keys advance. No credentials enter Swift or SQLite.
+- `remote::RemoteAccessService` owns the HTTPS listener, bounded request parsing,
+  same-origin checks, single-use pairing, expiring device cookies, revocation,
+  job admission and idempotency. `Identity` selects an isolated `__Host-` cookie
+  and request header. `RemoteHost` provides static assets, validates permitted
+  commands, executes them, and allowlists read operations. The library never
+  discovers a local endpoint or forwards arbitrary URLs, paths, or credentials.
+
+Services are owned instances, not process-global singletons. Management requests
+must arrive over the host's authenticated local control channel. The remote
+listener remains opt-in and lasts only for the service lifetime. Pairing expires
+after five minutes, device access after seven days; revocation rejects new work
+but cannot undo a command already executing. See
+[integration services](integrations.md) for the transport and security contracts.
