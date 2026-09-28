@@ -1,4 +1,5 @@
 import Fritz
+import FritzUI
 import SwiftUI
 
 struct LocalModelsView: View {
@@ -11,42 +12,30 @@ struct LocalModelsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FritzManagementHeader("Local Models") {
+            ModelManagementHeader("Local Models", background: FritzWindowStyle.workspaceBackground) {
                 Button("Download Models", systemImage: "arrow.down", action: downloadModel)
                     .labelStyle(.iconOnly)
                     .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
                     .help("Download Local Model")
             }
-            List(installed) { model in
+            LocalModelsList(models: installed.map { model in
                 let session = store.sessions[model.id] ?? .init()
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(model.name).font(.headline)
-                        Text(model.id).font(.caption).foregroundStyle(.secondary)
+                return LocalModelListItem(
+                    id: model.id, name: model.name, modelID: model.id,
+                    status: statusName(session.status), isRunning: session.status == .running,
+                    processID: session.processID, detail: session.address, errorMessage: session.error
+                )
+            }) { modelID in
+                HStack(spacing: 6) {
+                    let status = store.sessions[modelID]?.status ?? .stopped
+                    if status == .running || status == .starting {
+                        Button("Stop") { store.stop(modelID) }
+                        Button("Restart") { store.restart(modelID) }
+                    } else {
+                        Button("Start") { store.start(modelID) }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Label(statusName(session.status), systemImage: session.status == .running ? "circle.fill" : "circle")
-                            .foregroundStyle(session.status == .running ? .green : .secondary)
-                        if let pid = session.processID { Text("PID \(pid)").font(.caption).foregroundStyle(.secondary) }
-                        if let address = session.address { Text(address).font(.caption).textSelection(.enabled) }
-                        if let error = session.error { Text(error).font(.caption).foregroundStyle(.red).lineLimit(2).help(error) }
-                    }
-                    .frame(width: 190, alignment: .leading)
-                    HStack(spacing: 6) {
-                        if session.status == .running || session.status == .starting {
-                            Button("Stop") { store.stop(model.id) }
-                            Button("Restart") { store.restart(model.id) }
-                        } else {
-                            Button("Start") { store.start(model.id) }
-                        }
-                    }
-                    .buttonStyle(FritzButtonStyle(.inline))
-                    .frame(width: 125, alignment: .trailing)
                 }
-                .padding(.vertical, 6)
             }
-            .listStyle(.plain)
             .fritzListSurface()
             if let error = store.error {
                 Label(error, systemImage: "exclamationmark.triangle")

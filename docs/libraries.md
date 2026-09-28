@@ -350,6 +350,8 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
 
 `FritzUI` also provides host-driven management views:
 
+- `ModelManagementHeader` gives provider and local-model pages the same heading
+  and action layout while accepting the host's workspace color and actions.
 - `ModelProvidersTable` renders provider readiness, local/default badges, model
   inventory and native multi-selection. Hosts attach selection context menus,
   deletion commands, export and edit callbacks.
@@ -358,9 +360,10 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
   `ProviderConnectionSection` supplies endpoint and secure/revealed credential
   fields, model discovery feedback and the default-provider toggle. Hosts supply
   field copy, credential-reveal policy and provider-specific sections.
-- `LocalModelSessionsView` renders empty and populated local process states;
-  `LocalModelSessionsList` is the collection-only variant. Each host supplies
-  stable IDs, display values, action availability and start/stop/restart callbacks.
+- `LocalModelsList` renders installed-model rows with runtime status and
+  host-provided controls. `LocalModelSessionsView` renders empty and populated
+  local process states; `LocalModelSessionsList` is the collection-only variant.
+  Each host supplies stable IDs, display values and process callbacks.
 - `LocalModelInstallSection` accepts a catalog of `LocalModelInstallItem` values,
   hardware values and `LocalModelInstallState`, including verification, download,
   installed and error states. The selected catalog entry may be absent without
@@ -377,10 +380,11 @@ content to preserve branding without coupling the library to an app schema.
 REL's management snapshots cover its adapters and their existing loading,
 empty, populated, download, error and appearance states.
 
-FritzApp uses `ModelProvidersTable`, `ModelProviderEditor`, and the shared
-`LocalModelInstallState`. It retains its grouped download table with category
-and family filters. The general download browser includes both chat and decision
-catalogs; a provider's download sheet stays scoped to that provider's category.
+FritzApp uses `ModelManagementHeader`, `ModelProvidersTable`, `LocalModelsList`,
+`ModelProviderEditor`, and the shared `LocalModelInstallState`. It retains its
+grouped download table with category and family filters. The general download
+browser includes both chat and decision catalogs; a provider's download sheet
+stays scoped to that provider's category.
 The selected model determines which private agent installer receives the request.
 Decision models are used on demand through their harness, not as persistent chat
 server sessions in Local Models.
