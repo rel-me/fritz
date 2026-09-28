@@ -70,7 +70,10 @@ public struct ModelPickerPopover<Value>: View {
       .fixedSize(horizontal: false, vertical: true)
 
       ModelProviderFlowLayout(spacing: 6) {
-        ForEach(ModelPickerData<Value>.providers(from: models, providerOrder: modelProviders)) {
+        ForEach(
+          ModelPickerData<Value>.providers(
+            from: models, providerOrder: modelProviders, selectedModelID: selectedModelID)
+        ) {
           provider in
           let filterID = provider.id
           let isSelected = selectedProvider == provider
