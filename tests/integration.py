@@ -49,6 +49,10 @@ def main():
         assert "Unknown Fritz local model" in cli("local-models", "install", "../../outside", success=False).stderr
         native_id = local_models[-1]["id"]
         cli("add-provider", "--name", "Fritz", "--provider", "fritz", "--model", native_id)
+        assert "already exists" in cli("add-provider", "--name", "Same local model", "--provider", "fritz", "--model", native_id, success=False).stderr
+        other_native_id = local_models[-2]["id"]
+        cli("add-provider", "--name", "Other local model", "--provider", "fritz", "--model", other_native_id)
+        cli("remove-provider", "Other local model")
         assert json.loads(cli("models", "--connection", "Fritz").stdout) == []
         assert "not installed" in cli("chat", "Hi", "--connection", "Fritz", success=False).stderr
         assert "not installed" in cli("chat", "Hi", "--connection", "Fritz", "--project", directory, success=False).stderr
@@ -56,6 +60,9 @@ def main():
         assert "does not use an endpoint" in cli("add-provider", "--name", "Invalid", "--provider", "fritz", "--base-url", endpoint, success=False).stderr
         cli("remove-provider", "Fritz")
         registry = json.loads(cli("add-provider", "--name", "Test", "--provider", "openai-compatible", "--base-url", endpoint, "--model", "fritz-test", "--default").stdout)
+        assert "already exists" in cli("add-provider", "--name", "Same endpoint", "--provider", "openai-compatible", "--base-url", endpoint + "/", "--model", "other", success=False).stderr
+        cli("add-provider", "--name", "Other endpoint", "--provider", "openai-compatible", "--base-url", endpoint + "/other")
+        cli("remove-provider", "Other endpoint")
         connection = registry["connections"][0]
         assert registry["defaultConnectionId"] == connection["id"]
         assert len(json.loads(cli("models").stdout)) == 4

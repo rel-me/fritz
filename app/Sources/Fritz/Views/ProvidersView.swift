@@ -181,7 +181,7 @@ struct ProviderEditor: View {
     var body: some View {
         ModelProviderEditor(
             primaryActionTitle: primaryActionTitle, canSave: canSave, isSaving: isSaving,
-            height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60),
+            height: (managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60)) + (duplicateConnection == nil ? 0 : 44),
             contentBackground: FritzWindowStyle.contentBackground,
             footerBackground: FritzWindowStyle.workspaceBackground,
             cancel: { nativeModel.cancel(); dismiss() }, save: save
@@ -217,6 +217,10 @@ struct ProviderEditor: View {
                         case .checking: Text("Checking local model…")
                         case .failed(let message): Text(message).foregroundStyle(.red)
                         case .available, .downloading: Text("Download this model before adding it as a provider.")
+                        }
+                        if let duplicateConnection {
+                            Text("This local model is already added as \(duplicateConnection.name). Edit that provider instead.")
+                                .foregroundStyle(.red)
                         }
                     }
                     if category == .llm && store.registry.defaultConnectionId != nil {
@@ -303,6 +307,10 @@ struct ProviderEditor: View {
                     .disabled(existing?.id == store.registry.defaultConnectionId)
             }
         } footer: {
+            if let duplicateConnection {
+                Text("This provider and endpoint are already added as \(duplicateConnection.name). Edit that provider instead.")
+                    .foregroundStyle(.red)
+            }
             if category == .decision {
                 Text("Jev evaluates typed questions through TypeSafe. The key is stored in Keychain; decisions are not sent to chat automatically.")
             }
@@ -358,7 +366,7 @@ struct ProviderEditor: View {
     }
     private var keyPrompt: String { keepsSavedKey ? "Leave blank to keep a saved key" : "Enter API key" }
     private var canSave: Bool {
-        !isSaving && (!managesLocalModels || nativeModel.state == .installed)
+        !isSaving && duplicateConnection == nil && (!managesLocalModels || nativeModel.state == .installed)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
             && (preset.provider != .openAICompatible || !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -368,6 +376,17 @@ struct ProviderEditor: View {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
                            baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
                            modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    private var duplicateConnection: ProviderConnection? {
+        let candidate = connection
+        return store.connections.first { saved in
+            guard saved.id != candidate.id, saved.provider == candidate.provider else { return false }
+            if candidate.provider.isNative { return saved.modelID == candidate.modelID }
+            let savedEndpoint = saved.baseURL?.isEmpty == false ? saved.baseURL! : saved.provider.endpoint
+            let candidateEndpoint = candidate.baseURL?.isEmpty == false ? candidate.baseURL! : candidate.provider.endpoint
+            return savedEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                == candidateEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
     }
     private func suggestedName(_ base: String) -> String {
         var candidate = base, count = 2
