@@ -20,7 +20,7 @@ struct ProvidersView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FritzManagementHeader("Model Providers") {
+            ModelManagementHeader("Model Providers", background: FritzWindowStyle.workspaceBackground) {
                 transferMenu
                     .controlSize(.large)
                 Button("Add Provider", systemImage: "plus") {
