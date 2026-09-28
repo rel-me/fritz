@@ -43,7 +43,7 @@ make setup     # check tools and resolve committed dependency versions
 make dev-open
 ```
 
-`make dev-open` builds and opens `dist/FritzDebug.app` on `main`. Other branches and detached checkouts use `dist/FritzDebug{checkout hash}.app`, with a stable name for each checkout and no GitHub or PR requirement. The checkout-path hash also gives the app a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
+`make dev-open` builds and opens `dist/FritzDebug.app` on `main`. A branch with a PR uses `dist/FritzDebug{PR number}.app` when GitHub CLI can resolve it; branches without a resolvable PR and detached checkouts use `dist/FritzDebug{checkout hash}.app`. The checkout-path hash still gives each Debug app a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
 
 Build storage lives under `~/Builds/Fritz` by default. Main and worktrees reuse
 Cargo outputs and Swift/Xcode package caches; SwiftPM scratch directories and

@@ -49,6 +49,20 @@ class DevRuntimeTests(unittest.TestCase):
         self.assertEqual(detached.returncode, 0, detached.stderr)
         self.assertEqual(detached.stdout, feature.stdout)
 
+    def test_feature_with_pr_uses_number_for_name_and_keeps_checkout_isolation(self):
+        self.git("switch", "-c", "feature")
+        without_pr = self.resolve()
+        gh = self.bin / "gh"
+        gh.write_text("#!/bin/sh\nprintf '51\\n'\n")
+        gh.chmod(0o755)
+
+        with_pr = self.resolve()
+        self.assertEqual(with_pr.returncode, 0, with_pr.stderr)
+        self.assertIn("app_name=FritzDebug51\n", with_pr.stdout)
+        for prefix in ("bundle_id=", "data_directory=", "keychain_service="):
+            self.assertEqual(next(line for line in with_pr.stdout.splitlines() if line.startswith(prefix)),
+                             next(line for line in without_pr.stdout.splitlines() if line.startswith(prefix)))
+
 
 if __name__ == "__main__":
     unittest.main()

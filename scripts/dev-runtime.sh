@@ -7,6 +7,12 @@ path_hash="$(printf '%s' "$root" | shasum -a 256 | awk '{print substr($1, 1, 8)}
 app_name="FritzDebug"
 if [[ "$branch" != main ]]; then
   app_name="FritzDebug$path_hash"
+  if [[ -n "$branch" ]] && command -v gh >/dev/null 2>&1; then
+    pr_number="$(cd "$root" && GH_PROMPT_DISABLED=1 gh pr view --json number --jq .number 2>/dev/null || true)"
+    if [[ "$pr_number" =~ ^[1-9][0-9]*$ ]]; then
+      app_name="FritzDebug$pr_number"
+    fi
+  fi
 fi
 bundle_id="dev.fritz.FrizDebug.$path_hash"
 data_directory="$HOME/Library/Application Support/FritzDebug-$path_hash/Data"
