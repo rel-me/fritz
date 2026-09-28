@@ -93,7 +93,7 @@ struct FritzSettingsView: View {
         }
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection, initialCategory: $0.category) }
+        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
         .sheet(isPresented: $state.showsLocalModelDownload, onDismiss: {
             Task {
                 await state.localModels.refresh()

@@ -171,6 +171,9 @@ import FritzUpdates
     }
 
     func testProviderCategoriesDistinguishCustomEndpointsAndHostedPresets() {
+        XCTAssertTrue(AIProviderCategory.system1.contains(.adapter(.jev)))
+        XCTAssertTrue(AIProviderCategory.system1.contains(.adapter(.ollaya)))
+        XCTAssertFalse(AIProviderCategory.system1.contains(.adapter(.openAI)))
         XCTAssertTrue(AIProviderCategory.local.contains(.adapter(.ollama)))
         XCTAssertFalse(AIProviderCategory.remote.contains(.adapter(.ollama)))
         XCTAssertTrue(AIProviderCategory.hosted.contains(.fireworks))
