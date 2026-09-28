@@ -200,7 +200,7 @@ private struct ChatModelPicker: View {
             }
         }
         .frame(width: 440)
-        .background(ChatVisualStyle.composerBackground)
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
 }
@@ -240,7 +240,7 @@ struct ChatModelPickerPopover: View {
             selectModel: { selectModel($0.value) }, configureModels: configureModels,
             recommendationLimit: 8, initialSearchText: initialSearchText
         )
-        .fritzPickerStyle(PickerStyle(background: ChatVisualStyle.composerBackground))
+        .fritzPickerStyle(PickerStyle(background: Color(nsColor: .textBackgroundColor)))
     }
 
     static func item(_ model: ChatModelOption) -> ModelPickerItem<ChatModelOption> {
