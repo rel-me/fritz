@@ -11,13 +11,19 @@ public struct ModelPickerSection<Value>: Identifiable {
 }
 
 public enum ModelPickerData<Value> {
-  public static func providers(from models: [ModelPickerItem<Value>], providerOrder: [String])
-    -> [PickerProvider]
-  {
+  public static func providers(
+    from models: [ModelPickerItem<Value>], providerOrder: [String], selectedModelID: String? = nil
+  ) -> [PickerProvider] {
     var seen = Set<String>()
-    return (providerOrder + models.map { $0.displayProvider.groupID }).flatMap { group in
+    var providers = (providerOrder + models.map { $0.displayProvider.groupID }).flatMap { group in
       models.filter { $0.displayProvider.groupID == group }.map(\.displayProvider)
     }.filter { seen.insert($0.id).inserted }
+    if let selectedProvider = models.first(where: { $0.id == selectedModelID })?.displayProvider,
+      let index = providers.firstIndex(where: { $0.id == selectedProvider.id })
+    {
+      providers.insert(providers.remove(at: index), at: 0)
+    }
+    return providers
   }
 
   public static func sections(
@@ -32,7 +38,9 @@ public enum ModelPickerData<Value> {
         available.contains($0.id) && $0.id != selectedModelID
       }.prefix(max(0, recentLimit)))
     if !recent.isEmpty { sections.append(.init(id: .recent, title: "Recent", models: recent)) }
-    for provider in providers(from: models, providerOrder: providerOrder) {
+    for provider in providers(
+      from: models, providerOrder: providerOrder, selectedModelID: selectedModelID
+    ) {
       let visible = Array(
         models.filter { $0.displayProvider.id == provider.id && $0.isRecommended }.prefix(
           max(0, providerLimit)))
