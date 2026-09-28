@@ -5,7 +5,6 @@ import SwiftUI
 struct ProviderEditorSelection: Identifiable {
     let id = UUID()
     var connection: ProviderConnection? = nil
-    var category: AIModelCategory = .llm
 }
 
 struct ProvidersView: View {
@@ -22,13 +21,13 @@ struct ProvidersView: View {
         VStack(spacing: 0) {
             ModelManagementHeader("Model Providers", background: FritzWindowStyle.workspaceBackground) {
                 transferMenu
-                    .controlSize(.large)
+                    .controlSize(.extraLarge)
                 Button("Add Provider", systemImage: "plus") {
                     editor = ProviderEditorSelection()
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-                .controlSize(.large)
+                .controlSize(.extraLarge)
                 .help("Add Provider")
             }
 
@@ -139,7 +138,6 @@ struct ProviderEditor: View {
     @State private var id: UUID
     @State private var name: String
     @State private var preset: AIProviderPreset
-    @State private var category: AIModelCategory
     @State private var endpoint: String
     @State private var apiKey = ""
     @State private var isAPIKeyVisible = false
@@ -158,10 +156,9 @@ struct ProviderEditor: View {
     @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
-    init(store: ProviderStore, existing: ProviderConnection?, initialCategory: AIModelCategory = .llm) {
+    init(store: ProviderStore, existing: ProviderConnection?) {
         self.store = store; self.existing = existing
-        let category = existing?.category ?? initialCategory
-        _category = State(initialValue: category)
+        let category = existing?.category ?? .llm
         _id = State(initialValue: existing?.id ?? UUID())
         _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category))
         let baseName = category == .decision ? "TypeSafe" : "OpenAI"
@@ -181,7 +178,7 @@ struct ProviderEditor: View {
     var body: some View {
         ModelProviderEditor(
             primaryActionTitle: primaryActionTitle, canSave: canSave, isSaving: isSaving,
-            height: managesLocalModels ? 340 + (store.connections.isEmpty ? 0 : 40) : category == .decision ? 430 : 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32) + (discoveryError == nil ? 0 : 60),
+            height: editorHeight,
             contentBackground: FritzWindowStyle.contentBackground,
             footerBackground: FritzWindowStyle.workspaceBackground,
             cancel: { nativeModel.cancel(); dismiss() }, save: save
@@ -189,16 +186,8 @@ struct ProviderEditor: View {
             FritzManagementHeader(existing == nil ? "New Provider" : "Edit Provider")
         } content: {
             Form {
-                if existing == nil {
-                    Section {
-                        Picker("Model category", selection: $category) {
-                            ForEach(AIModelCategory.allCases) { option in Text(option.title).tag(option) }
-                        }
-                    }
-                }
                 Section {
-                    AIProviderPicker(selection: $preset,
-                                     providers: AIProviderPreset.allCases.filter { $0.category == category })
+                    AIProviderPicker(selection: $preset)
                 }.disabled(nativeModel.state.isBusy)
                 if managesLocalModels {
                     Section {
@@ -218,6 +207,10 @@ struct ProviderEditor: View {
                         case .failed(let message): Text(message).foregroundStyle(.red)
                         case .available, .downloading: Text("Download this model before adding it as a provider.")
                         }
+                        if let duplicateConnection {
+                            Text("This local model is already added as \(duplicateConnection.name). Edit that provider instead.")
+                                .foregroundStyle(.red)
+                        }
                     }
                     if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
@@ -236,14 +229,13 @@ struct ProviderEditor: View {
         .interactiveDismissDisabled(isSaving)
         .onChange(of: preset) { old, new in
             nativeModel.cancel()
+            if old.category != new.category {
+                makeDefault = new.category == .llm && store.registry.defaultConnectionId == nil
+            }
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.category == .decision ? "jev-latest" : ""
             models = []; error = nil; discoveryFinished = false; refreshID = 0
-        }
-        .onChange(of: category) { _, new in
-            preset = new == .decision ? .adapter(.jev) : .adapter(.openAI)
-            makeDefault = new == .llm && store.registry.defaultConnectionId == nil
         }
         .task(id: preset.provider) {
             nativeModel.cancel()
@@ -303,6 +295,10 @@ struct ProviderEditor: View {
                     .disabled(existing?.id == store.registry.defaultConnectionId)
             }
         } footer: {
+            if let duplicateConnection {
+                Text("This provider and endpoint are already added as \(duplicateConnection.name). Edit that provider instead.")
+                    .foregroundStyle(.red)
+            }
             if category == .decision {
                 Text("Jev evaluates typed questions through TypeSafe. The key is stored in Keychain; decisions are not sent to chat automatically.")
             }
@@ -346,7 +342,20 @@ struct ProviderEditor: View {
         }
     }
 
+    private var category: AIModelCategory { preset.category }
     private var managesLocalModels: Bool { preset.provider.isNative }
+    private var editorHeight: CGFloat {
+        let base: CGFloat
+        if managesLocalModels {
+            base = 340 + (store.connections.isEmpty ? 0 : 40)
+        } else if category == .decision {
+            base = 430
+        } else {
+            base = 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32)
+                + (discoveryError == nil ? 0 : 60)
+        }
+        return base - (existing == nil ? 32 : 0) + (duplicateConnection == nil ? 0 : 44)
+    }
     private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
@@ -358,7 +367,8 @@ struct ProviderEditor: View {
     }
     private var keyPrompt: String { keepsSavedKey ? "Leave blank to keep a saved key" : "Enter API key" }
     private var canSave: Bool {
-        !isSaving && (!managesLocalModels || nativeModel.state == .installed)
+        !isSaving && duplicateConnection == nil
+            && (!managesLocalModels || nativeModel.category == category && nativeModel.state == .installed)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
             && (preset.provider != .openAICompatible || !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -368,6 +378,17 @@ struct ProviderEditor: View {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
                            baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
                            modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    private var duplicateConnection: ProviderConnection? {
+        let candidate = connection
+        return store.connections.first { saved in
+            guard saved.id != candidate.id, saved.provider == candidate.provider else { return false }
+            if candidate.provider.isNative { return saved.modelID == candidate.modelID }
+            let savedEndpoint = saved.baseURL?.isEmpty == false ? saved.baseURL! : saved.provider.endpoint
+            let candidateEndpoint = candidate.baseURL?.isEmpty == false ? candidate.baseURL! : candidate.provider.endpoint
+            return savedEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                == candidateEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
     }
     private func suggestedName(_ base: String) -> String {
         var candidate = base, count = 2

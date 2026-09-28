@@ -69,7 +69,7 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      ModelProviderFlowLayout(spacing: 6) {
+      PickerFilterFlowLayout(spacing: 6) {
         ForEach(
           ModelPickerData<Value>.providers(
             from: models, providerOrder: modelProviders, selectedModelID: selectedModelID)
@@ -218,7 +218,7 @@ public struct ModelPickerPopover<Value>: View {
   }
 }
 
-private struct ModelProviderFlowLayout: Layout {
+struct PickerFilterFlowLayout: Layout {
   let spacing: CGFloat
 
   func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

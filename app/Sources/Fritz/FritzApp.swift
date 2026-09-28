@@ -39,6 +39,33 @@ import SwiftUI
 }
 
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowDidBecomeKey(_:)),
+            name: NSWindow.didBecomeKeyNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowWillBeginSheet(_:)),
+            name: NSWindow.willBeginSheetNotification, object: nil
+        )
+        for window in NSApp.windows {
+            window.preventsApplicationTerminationWhenModal = false
+        }
+    }
+
+    @objc private func windowDidBecomeKey(_ notification: Notification) {
+        (notification.object as? NSWindow)?.preventsApplicationTerminationWhenModal = false
+    }
+
+    @objc private func windowWillBeginSheet(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        window.preventsApplicationTerminationWhenModal = false
+        // The sheet is attached after this notification is sent.
+        DispatchQueue.main.async {
+            window.attachedSheet?.preventsApplicationTerminationWhenModal = false
+        }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         FritzState.shared.workspace.shutdown()
         FritzState.shared.localModels.stopAll()

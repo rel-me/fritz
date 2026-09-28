@@ -42,6 +42,9 @@ root content. Use the unified toolbar with no window title, native traffic
 lights and dragging, and rounded inset detail surfaces with the shared palette.
 Keep native system dialogs native. Let the `Settings` scene own the Settings
 menu item and Command-comma; do not register a duplicate command.
+No window or sheet may prevent the app from quitting. Keep the app-menu Quit
+command and Command-Q available while dialogs, sheets, downloads, or saves are
+open; cancel in-flight work and complete normal shutdown when the user quits.
 
 Reserve list/table/grouped Form rows for controls, actions, and records. Keep
 labels with their controls; put headings, helper text, validation, and status in

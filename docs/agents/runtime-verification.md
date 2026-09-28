@@ -50,9 +50,11 @@ types, structured score legends, context rejection, and cancellation while nativ
 model loading/inference is active. It never downloads models or uses remote keys.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
-`dist/FritzDebug.app` bundle on `main`. Other branches and detached checkouts
-use `dist/FritzDebug{checkout hash}.app`, where the checkout-path hash keeps
-the name stable without GitHub access or an open PR. Use
+`dist/FritzDebug.app` bundle on `main`. A branch with a PR uses
+`dist/FritzDebug{PR number}.app` when GitHub CLI can resolve it. Branches
+without a resolvable PR and detached checkouts use `dist/FritzDebug{checkout hash}.app`.
+The checkout-path hash continues to isolate the bundle ID, data directory,
+Keychain service, and UserDefaults domain. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.

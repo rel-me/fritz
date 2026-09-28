@@ -16,6 +16,7 @@ struct LocalModelsView: View {
                 Button("Download Models", systemImage: "arrow.down", action: downloadModel)
                     .labelStyle(.iconOnly)
                     .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
+                    .controlSize(.extraLarge)
                     .help("Download Local Model")
             }
             LocalModelsList(models: installed.map { model in

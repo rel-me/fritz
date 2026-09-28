@@ -114,8 +114,12 @@ final class SharedControlSnapshots: XCTestCase {
     }
 
     private var categories: [PickerCategory] {
-        [.all, .init(id: "local", title: "Local", help: "Local providers"),
-         .init(id: "remote", title: "Remote", help: "Remote providers")]
+        [.all, .init(id: "system1", title: "System1", help: "Decision models"),
+         .init(id: "local", title: "Local", help: "Local providers"),
+         .init(id: "remote", title: "Remote", help: "Remote providers"),
+         .init(id: "frontier", title: "Frontier", help: "Frontier providers"),
+         .init(id: "hosted", title: "Hosted", help: "Hosted providers"),
+         .init(id: "custom", title: "Custom", help: "Custom endpoints")]
     }
 
     private var providerItems: [ProviderPickerItem<String>] {
