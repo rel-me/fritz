@@ -44,6 +44,10 @@ Check keyboard focus and command targets when moving between chat, popovers,
 and Providers. Exercise accessibility or reduced-motion/transparency settings
 when the changed behavior depends on them. Capture before/after screenshots
 when they help review a visual change, using synthetic text and no credentials.
+With an app-owned sheet open (including New Provider), verify that Command-Q,
+the app-menu Quit item, and a system Quit request terminate the staged app
+without first dismissing the sheet. Repeat while the sheet has keyboard focus
+or cancellable work is in progress when those states are affected.
 
 ## Shared UI snapshots
 
