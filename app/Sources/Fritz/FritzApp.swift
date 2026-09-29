@@ -147,6 +147,7 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
 
     var body: some View {
@@ -162,19 +163,25 @@ private struct FritzWorkspaceView: View {
                             .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                     }
                     if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
-                        VStack(spacing: 0) {
-                            HStack(spacing: 8) {
-                                Text(state.workspace.selectedProject?.name ?? "").foregroundStyle(.secondary)
-                                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                                Text(thread.title).lineLimit(1).truncationMode(.tail)
-                                Spacer()
+                        let chatView = ChatView(store: chat, providers: state.providers,
+                                                openProviders: openProviders,
+                                                addProvider: { state.editor = ProviderEditorSelection() })
+                            .id(thread.id)
+                        Group {
+                            if #available(macOS 26.0, *) {
+                                chatView
+                                    .safeAreaBar(edge: .top, spacing: 0) {
+                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                                   threadTitle: thread.title)
+                                    }
+                                    .scrollEdgeEffectStyle(.soft, for: .top)
+                            } else {
+                                chatView
+                                    .safeAreaInset(edge: .top, spacing: 0) {
+                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                                   threadTitle: thread.title)
+                                    }
                             }
-                            .font(.callout)
-                            .padding(.horizontal, 20).padding(.vertical, 14)
-                            ChatView(store: chat, providers: state.providers,
-                                     openProviders: openProviders,
-                                     addProvider: { state.editor = ProviderEditorSelection() })
-                                .id(thread.id)
                         }
                         .background(FritzWindowStyle.workspaceBackground)
                     } else {
@@ -233,6 +240,22 @@ private struct FritzWorkspaceView: View {
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+    }
+
+    private func chatHeader(projectName: String, threadTitle: String) -> some View {
+        HStack(spacing: 8) {
+            Text(projectName).foregroundStyle(.secondary)
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            Text(threadTitle).lineLimit(1).truncationMode(.tail)
+            Spacer()
+        }
+        .font(.callout)
+        .padding(.horizontal, 20).padding(.vertical, 14)
+        .background {
+            if !reduceTransparency, #unavailable(macOS 26.0) {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
     }
 
     private var newThreadToolbarButton: some View {
