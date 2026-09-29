@@ -26,7 +26,7 @@ struct ProjectsSidebar: View {
                                     Button("Rename Thread", systemImage: "pencil") {
                                         renaming = RenameItem(id: thread.id, title: thread.title, isProject: false)
                                     }
-                                    Button("New Thread", systemImage: "square.and.pencil") { workspace.createThread(in: project.id) }
+                                    Button("New Chat", systemImage: "square.and.pencil") { workspace.createThread(in: project.id) }
                                 }
                             }
                         } label: {
@@ -34,7 +34,7 @@ struct ProjectsSidebar: View {
                                 .lineLimit(1).help(project.directory ?? project.name)
                         }
                         .contextMenu {
-                            Button("New Thread", systemImage: "square.and.pencil") {
+                            Button("New Chat", systemImage: "square.and.pencil") {
                                 collapsedProjects.remove(project.id)
                                 workspace.createThread(in: project.id)
                             }

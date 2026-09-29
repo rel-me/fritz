@@ -1,13 +1,12 @@
 import SwiftUI
 
-public struct ChatComposer<Options: View, Models: View>: View {
+public struct ChatComposer<Models: View>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Binding var draft: String
     let placeholder: String
     let canSend: Bool
     let isResponding: Bool
     let isFocused: FocusState<Bool>.Binding
-    private let options: () -> Options
     private let models: () -> Models
     private let background: Color
     private let cornerRadius: CGFloat
@@ -18,7 +17,6 @@ public struct ChatComposer<Options: View, Models: View>: View {
                 isResponding: Bool, isFocused: FocusState<Bool>.Binding,
                 background: Color = Color(nsColor: .textBackgroundColor), cornerRadius: CGFloat = 12,
                 send: @escaping () -> Void, stop: @escaping () -> Void,
-                @ViewBuilder options: @escaping () -> Options,
                 @ViewBuilder models: @escaping () -> Models) {
         self._draft = draft
         self.placeholder = placeholder
@@ -29,7 +27,6 @@ public struct ChatComposer<Options: View, Models: View>: View {
         self.cornerRadius = cornerRadius
         self.send = send
         self.stop = stop
-        self.options = options
         self.models = models
     }
 
@@ -66,15 +63,6 @@ public struct ChatComposer<Options: View, Models: View>: View {
             .padding(.bottom, 6)
 
             HStack(spacing: 6) {
-                Menu("Chat Options", systemImage: "ellipsis.circle") {
-                    options()
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .modifier(FritzPanelIconControl())
-                .accessibilityIdentifier("chat-options")
-                .help("Chat Options")
-
                 Spacer(minLength: 6)
 
                 models()
@@ -133,4 +121,3 @@ public struct ChatComposer<Options: View, Models: View>: View {
         isFocused.wrappedValue = true
     }
 }
-

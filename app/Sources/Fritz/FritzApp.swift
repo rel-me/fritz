@@ -120,7 +120,7 @@ import SwiftUI
             CommandGroup(replacing: .newItem) {
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("New Thread") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
+                Button("New Chat") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
                 Divider()
                 Button("New Model Provider") { state.editor = ProviderEditorSelection(); openWindow(id: "main") }
                 Button("New Local Model") { state.newLocalModel(); openSettings() }
@@ -259,8 +259,8 @@ private struct FritzWorkspaceView: View {
     }
 
     private var newThreadToolbarButton: some View {
-        Button("New Thread", systemImage: "square.and.pencil", action: state.newThread)
-            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
+        Button("New Chat", systemImage: "square.and.pencil", action: state.newThread)
+            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Chat (⌘N)")
             .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
     }
 

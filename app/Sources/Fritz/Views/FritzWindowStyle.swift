@@ -66,7 +66,7 @@ struct WindowNewItemMenu: View {
     var body: some View {
         Menu {
             Button("New Project", action: createProject)
-            Button("New Thread", action: createThread).disabled(!canCreateThread)
+            Button("New Chat", action: createThread).disabled(!canCreateThread)
             Divider()
             Button("New Model Provider", action: createProvider)
             Button("New Local Model", action: createLocalModel)

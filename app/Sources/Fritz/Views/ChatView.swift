@@ -8,7 +8,6 @@ struct ChatView: View {
     let openProviders: () -> Void
     let addProvider: () -> Void
     @FocusState private var isFocused: Bool
-    @State private var confirmsReset = false
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
     @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
@@ -39,7 +38,6 @@ struct ChatView: View {
                     selectSpeed: { store.speed = $0 },
                     configureModels: openProviders,
                     addProvider: addProvider,
-                    resetChat: { confirmsReset = true },
                     send: { if let model = store.selectedModel { providers.record(model) }; store.send() },
                     stop: store.stop
                 )
@@ -51,10 +49,6 @@ struct ChatView: View {
             .padding(.bottom, 6)
         }
         .background(ChatVisualStyle.pageBackground)
-        .confirmationDialog("Clear this thread?", isPresented: $confirmsReset) {
-            Button("Clear Conversation", role: .destructive) { store.clear(); isFocused = true }
-            Button("Cancel", role: .cancel) {}
-        } message: { Text("The current conversation will be removed from this Mac.") }
         .onExitCommand(perform: store.stop)
         .defaultFocus($isFocused, true)
         .task {
