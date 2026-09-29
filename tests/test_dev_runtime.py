@@ -20,6 +20,7 @@ class DevRuntimeTests(unittest.TestCase):
         self.script.parent.mkdir()
         shutil.copyfile(SCRIPT, self.script)
         self.git("init", "-b", "main")
+        self.git("add", "scripts/dev-runtime.sh")
         self.git("-c", "user.name=Test", "-c", "user.email=test@example.com",
                  "commit", "--allow-empty", "-m", "Initial")
         self.bin = self.root / "bin"
@@ -33,13 +34,35 @@ class DevRuntimeTests(unittest.TestCase):
         return subprocess.run(["/bin/bash", str(self.script), "--print"],
                               env=self.environment, capture_output=True, text=True)
 
-    def test_main_uses_plain_debug_name(self):
+    def use_linked_worktree(self, branch):
+        linked = self.root / "linked checkout"
+        self.git("worktree", "add", str(linked), branch)
+        self.root = linked
+        self.script = self.root / "scripts/dev-runtime.sh"
+
+    def test_primary_checkout_uses_plain_name_without_github_setup(self):
+        for branch in ["main", "feature"]:
+            with self.subTest(branch=branch):
+                self.git("checkout", "-B", branch)
+                result = self.resolve()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("app_name=FritzDebug\n", result.stdout)
+
+        self.git("checkout", "--detach")
+        detached = self.resolve()
+        self.assertEqual(detached.returncode, 0, detached.stderr)
+        self.assertRegex(detached.stdout, r"(?m)^app_name=FritzDebug[0-9a-f]{8}$")
+
+    def test_linked_main_uses_plain_debug_name(self):
+        self.git("switch", "-c", "feature")
+        self.use_linked_worktree("main")
         result = self.resolve()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("app_name=FritzDebug\n", result.stdout)
 
     def test_feature_and_detached_head_share_checkout_name_without_pr(self):
-        self.git("switch", "-c", "feature")
+        self.git("branch", "feature")
+        self.use_linked_worktree("feature")
         feature = self.resolve()
         self.assertEqual(feature.returncode, 0, feature.stderr)
         self.assertRegex(feature.stdout, r"(?m)^app_name=FritzDebug[0-9a-f]{8}$")
@@ -50,7 +73,8 @@ class DevRuntimeTests(unittest.TestCase):
         self.assertEqual(detached.stdout, feature.stdout)
 
     def test_feature_with_pr_uses_number_for_name_and_keeps_checkout_isolation(self):
-        self.git("switch", "-c", "feature")
+        self.git("branch", "feature")
+        self.use_linked_worktree("feature")
         without_pr = self.resolve()
         gh = self.bin / "gh"
         gh.write_text("#!/bin/sh\nprintf '51\\n'\n")
