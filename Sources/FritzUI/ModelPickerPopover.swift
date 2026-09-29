@@ -120,14 +120,14 @@ public struct ModelPickerPopover<Value>: View {
         }
 
         Button(action: configureModels) {
-          Text("Open Models")
+          Image(systemName: "cpu")
             .font(.callout)
             .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(.tint, in: Capsule())
+            .frame(width: 28, height: 28)
+            .background(.tint, in: Circle())
         }
         .buttonStyle(FritzButtonStyle(.inline))
+        .accessibilityLabel("Open Models")
         .help("Open Model Providers")
       }
       .padding(.horizontal, 12)
