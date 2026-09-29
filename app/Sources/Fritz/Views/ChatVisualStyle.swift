@@ -10,12 +10,6 @@ enum ChatVisualStyle {
 
     static let pageBackgroundNSColor = FritzWindowStyle.workspaceBackgroundNSColor
     static let pageBackground = Color(nsColor: pageBackgroundNSColor)
-    static let composerBackground = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(srgbRed: 69.0 / 255.0, green: 69.0 / 255.0, blue: 69.0 / 255.0, alpha: 1)
-            : .textBackgroundColor
-    })
-
     static func composerShadow(for colorScheme: ColorScheme) -> Color {
         Color.black.opacity(colorScheme == .dark ? 0.12 : 0.04)
     }

@@ -15,7 +15,12 @@ public struct ChatComposer<Models: View>: View {
 
     public init(draft: Binding<String>, placeholder: String, canSend: Bool,
                 isResponding: Bool, isFocused: FocusState<Bool>.Binding,
-                background: Color = Color(nsColor: .textBackgroundColor), cornerRadius: CGFloat = 12,
+                background: Color = Color(nsColor: NSColor(name: nil) { appearance in
+                    appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                        ? NSColor(srgbRed: 69.0 / 255.0, green: 69.0 / 255.0,
+                                  blue: 69.0 / 255.0, alpha: 1)
+                        : .textBackgroundColor
+                }), cornerRadius: CGFloat = 12,
                 send: @escaping () -> Void, stop: @escaping () -> Void,
                 @ViewBuilder models: @escaping () -> Models) {
         self._draft = draft
