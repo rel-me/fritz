@@ -372,7 +372,7 @@ struct ProviderEditor: View {
         let current = endpoint.isEmpty ? preset.provider.endpoint : endpoint
         return old.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == current.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
-    private var keyPrompt: String { keepsSavedKey ? "Leave blank to keep a saved key" : "Enter API key" }
+    private var keyPrompt: String { keepsSavedKey ? "**********" : "Enter API key" }
     private var canSave: Bool {
         !isSaving && duplicateConnection == nil
             && (!managesLocalModels || nativeModel.category == category && nativeModel.state == .installed)
