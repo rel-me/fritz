@@ -22,7 +22,6 @@ struct ChatComposer: View {
     let selectSpeed: (ChatSpeed) -> Void
     let configureModels: () -> Void
     let addProvider: () -> Void
-    let resetChat: () -> Void
     let send: () -> Void
     let stop: () -> Void
 
@@ -34,8 +33,6 @@ struct ChatComposer: View {
             cornerRadius: ChatVisualStyle.composerCornerRadius,
             send: send, stop: stop
         ) {
-            Button("Reset Chat", systemImage: "arrow.counterclockwise", action: resetChat)
-        } models: {
             ChatModelPicker(
                 models: models,
                 recentModels: recentModels,

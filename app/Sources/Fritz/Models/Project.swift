@@ -3,7 +3,7 @@ import Foundation
 
 struct ProjectThread: Codable, Identifiable, Equatable {
     var id = UUID()
-    var title = "New Thread"
+    var title = "New Chat"
     var createdAt = Date()
     var titleIsAutomatic = true
 }
