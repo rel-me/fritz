@@ -391,6 +391,10 @@ server sessions in Local Models.
 
 ### Shared chat presentation
 
+`ChatProviderSetupButton(action:)` provides the composer's “Add Provider” action.
+Place it in `ChatComposer`'s accessory builder when a provider needs configuration;
+the host owns the setup flow and decides when to show the action.
+
 `FritzUI` owns the native composer, assistant-message actions, user/error/status
 messages, activity lists and tool details, completed-work disclosure, and start-screen layout. Hosts supply draft
 and focus bindings, send/stop callbacks, model controls, options, Markdown content,

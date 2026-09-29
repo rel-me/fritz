@@ -122,16 +122,8 @@ private struct ChatModelPicker: View {
                     .foregroundStyle(.secondary)
             }
         } else {
-            providerSetupButton
-                .buttonStyle(FritzButtonStyle())
+            FritzUI.ChatProviderSetupButton(action: addProvider)
         }
-    }
-
-    private var providerSetupButton: some View {
-        Button("Add Provider", action: addProvider)
-            .font(.body)
-            .controlSize(.regular)
-            .help("Add Provider")
     }
 
     private var configurationTitle: Text {
