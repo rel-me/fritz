@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/fritz-state", "crates/fritz-harness"]
+members = ["crates/fritz-integrations", "crates/fritz-state", "crates/fritz-harness"]
 resolver = "3"
 
 [package]

@@ -78,6 +78,14 @@ impl Connection {
             .unwrap_or(self.provider.default_url())
             .trim_end_matches('/')
     }
+    pub fn has_same_target(&self, other: &Self) -> bool {
+        self.provider == other.provider
+            && if self.provider.is_native() {
+                self.model_id == other.model_id
+            } else {
+                self.base_url() == other.base_url()
+            }
+    }
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             bail!("Enter a provider connection name.");

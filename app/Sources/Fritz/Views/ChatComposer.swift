@@ -22,7 +22,6 @@ struct ChatComposer: View {
     let selectSpeed: (ChatSpeed) -> Void
     let configureModels: () -> Void
     let addProvider: () -> Void
-    let resetChat: () -> Void
     let send: () -> Void
     let stop: () -> Void
 
@@ -34,8 +33,6 @@ struct ChatComposer: View {
             cornerRadius: ChatVisualStyle.composerCornerRadius,
             send: send, stop: stop
         ) {
-            Button("Reset Chat", systemImage: "arrow.counterclockwise", action: resetChat)
-        } models: {
             ChatModelPicker(
                 models: models,
                 recentModels: recentModels,
@@ -200,7 +197,7 @@ private struct ChatModelPicker: View {
             }
         }
         .frame(width: 440)
-        .background(ChatVisualStyle.composerBackground)
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
 }
@@ -240,7 +237,7 @@ struct ChatModelPickerPopover: View {
             selectModel: { selectModel($0.value) }, configureModels: configureModels,
             recommendationLimit: 8, initialSearchText: initialSearchText
         )
-        .fritzPickerStyle(PickerStyle(background: ChatVisualStyle.composerBackground))
+        .fritzPickerStyle(PickerStyle(background: Color(nsColor: .textBackgroundColor)))
     }
 
     static func item(_ model: ChatModelOption) -> ModelPickerItem<ChatModelOption> {

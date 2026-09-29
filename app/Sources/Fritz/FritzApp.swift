@@ -39,6 +39,33 @@ import SwiftUI
 }
 
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowDidBecomeKey(_:)),
+            name: NSWindow.didBecomeKeyNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowWillBeginSheet(_:)),
+            name: NSWindow.willBeginSheetNotification, object: nil
+        )
+        for window in NSApp.windows {
+            window.preventsApplicationTerminationWhenModal = false
+        }
+    }
+
+    @objc private func windowDidBecomeKey(_ notification: Notification) {
+        (notification.object as? NSWindow)?.preventsApplicationTerminationWhenModal = false
+    }
+
+    @objc private func windowWillBeginSheet(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        window.preventsApplicationTerminationWhenModal = false
+        // The sheet is attached after this notification is sent.
+        DispatchQueue.main.async {
+            window.attachedSheet?.preventsApplicationTerminationWhenModal = false
+        }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         FritzState.shared.workspace.shutdown()
         FritzState.shared.localModels.stopAll()
@@ -93,7 +120,7 @@ import SwiftUI
             CommandGroup(replacing: .newItem) {
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("New Thread") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
+                Button("New Chat") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
                 Divider()
                 Button("New Model Provider") { state.editor = ProviderEditorSelection(); openWindow(id: "main") }
                 Button("New Local Model") { state.newLocalModel(); openSettings() }
@@ -120,8 +147,8 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
-    @State private var rightPanelTabs = WorkspaceRightPanel.makeController()
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -136,23 +163,29 @@ private struct FritzWorkspaceView: View {
                             .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                     }
                     if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
-                        VStack(spacing: 0) {
-                            HStack(spacing: 8) {
-                                Text(state.workspace.selectedProject?.name ?? "").foregroundStyle(.secondary)
-                                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
-                                Text(thread.title).lineLimit(1).truncationMode(.tail)
-                                Spacer()
+                        let chatView = ChatView(store: chat, providers: state.providers,
+                                                openProviders: openProviders,
+                                                addProvider: { state.editor = ProviderEditorSelection() })
+                            .id(thread.id)
+                        Group {
+                            if #available(macOS 26.0, *) {
+                                chatView
+                                    .safeAreaBar(edge: .top, spacing: 0) {
+                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                                   threadTitle: thread.title)
+                                    }
+                                    .scrollEdgeEffectStyle(.soft, for: .top)
+                            } else {
+                                chatView
+                                    .safeAreaInset(edge: .top, spacing: 0) {
+                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                                   threadTitle: thread.title)
+                                    }
                             }
-                            .font(.callout)
-                            .padding(.horizontal, 20).padding(.vertical, 14)
-                            ChatView(store: chat, providers: state.providers,
-                                     openProviders: openProviders,
-                                     addProvider: { state.editor = ProviderEditorSelection() })
-                                .id(thread.id)
                         }
-                        .background(FritzWindowStyle.contentBackground)
+                        .background(FritzWindowStyle.workspaceBackground)
                     } else {
-                        FritzWindowStyle.contentBackground
+                        FritzWindowStyle.workspaceBackground
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
@@ -160,7 +193,7 @@ private struct FritzWorkspaceView: View {
 
                 if isRightPanelPresented {
                     Rectangle().fill(.separator).frame(width: 0.5)
-                    WorkspaceRightPanel(controller: rightPanelTabs) {
+                    WorkspaceRightPanel {
                         isRightPanelPresented = false
                     }
                     .frame(width: 260)
@@ -209,9 +242,25 @@ private struct FritzWorkspaceView: View {
         .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
     }
 
+    private func chatHeader(projectName: String, threadTitle: String) -> some View {
+        HStack(spacing: 8) {
+            Text(projectName).foregroundStyle(.secondary)
+            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            Text(threadTitle).lineLimit(1).truncationMode(.tail)
+            Spacer()
+        }
+        .font(.callout)
+        .padding(.horizontal, 20).padding(.vertical, 14)
+        .background {
+            if !reduceTransparency, #unavailable(macOS 26.0) {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
+    }
+
     private var newThreadToolbarButton: some View {
-        Button("New Thread", systemImage: "square.and.pencil", action: state.newThread)
-            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Thread (⌘N)")
+        Button("New Chat", systemImage: "square.and.pencil", action: state.newThread)
+            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Chat (⌘N)")
             .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
     }
 

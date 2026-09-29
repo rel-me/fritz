@@ -69,8 +69,11 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      ModelProviderFlowLayout(spacing: 6) {
-        ForEach(ModelPickerData<Value>.providers(from: models, providerOrder: modelProviders)) {
+      PickerFilterFlowLayout(spacing: 6) {
+        ForEach(
+          ModelPickerData<Value>.providers(
+            from: models, providerOrder: modelProviders, selectedModelID: selectedModelID)
+        ) {
           provider in
           let filterID = provider.id
           let isSelected = selectedProvider == provider
@@ -117,14 +120,14 @@ public struct ModelPickerPopover<Value>: View {
         }
 
         Button(action: configureModels) {
-          Text("Open Models")
+          Image(systemName: "cpu")
             .font(.callout)
             .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(.tint, in: Capsule())
+            .frame(width: 28, height: 28)
+            .background(.tint, in: Circle())
         }
         .buttonStyle(FritzButtonStyle(.inline))
+        .accessibilityLabel("Open Models")
         .help("Open Model Providers")
       }
       .padding(.horizontal, 12)
@@ -215,7 +218,7 @@ public struct ModelPickerPopover<Value>: View {
   }
 }
 
-private struct ModelProviderFlowLayout: Layout {
+struct PickerFilterFlowLayout: Layout {
   let spacing: CGFloat
 
   func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {

@@ -137,11 +137,8 @@ identities, and own persistence and new-tab actions. The default controller star
 with a Welcome tab; hosts can close it before restoring their own records.
 The library reads no settings and starts no processes.
 
-Fritz uses the standalone tab strip only in the right panel, with splitting
-disabled. The panel currently hosts blank tabs; its controller belongs to the
-workspace view so hiding it preserves tabs for that window session. Panel tabs
-do not select or persist conversations. The main chat retains its project/thread
-header and sidebar navigation, and there is no bottom panel.
+Fritz's app currently has no tab strip. The main chat retains its project/thread
+header and sidebar navigation, and the right panel is blank.
 
 ## SQLite state
 
@@ -353,6 +350,8 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
 
 `FritzUI` also provides host-driven management views:
 
+- `ModelManagementHeader` gives provider and local-model pages the same heading
+  and action layout while accepting the host's workspace color and actions.
 - `ModelProvidersTable` renders provider readiness, local/default badges, model
   inventory and native multi-selection. Hosts attach selection context menus,
   deletion commands, export and edit callbacks.
@@ -361,9 +360,10 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
   `ProviderConnectionSection` supplies endpoint and secure/revealed credential
   fields, model discovery feedback and the default-provider toggle. Hosts supply
   field copy, credential-reveal policy and provider-specific sections.
-- `LocalModelSessionsView` renders empty and populated local process states;
-  `LocalModelSessionsList` is the collection-only variant. Each host supplies
-  stable IDs, display values, action availability and start/stop/restart callbacks.
+- `LocalModelsList` renders installed-model rows with runtime status and
+  host-provided controls. `LocalModelSessionsView` renders empty and populated
+  local process states; `LocalModelSessionsList` is the collection-only variant.
+  Each host supplies stable IDs, display values and process callbacks.
 - `LocalModelInstallSection` accepts a catalog of `LocalModelInstallItem` values,
   hardware values and `LocalModelInstallState`, including verification, download,
   installed and error states. The selected catalog entry may be absent without
@@ -380,10 +380,11 @@ content to preserve branding without coupling the library to an app schema.
 REL's management snapshots cover its adapters and their existing loading,
 empty, populated, download, error and appearance states.
 
-FritzApp uses `ModelProvidersTable`, `ModelProviderEditor`, and the shared
-`LocalModelInstallState`. It retains its grouped download table with category
-and family filters. The general download browser includes both chat and decision
-catalogs; a provider's download sheet stays scoped to that provider's category.
+FritzApp uses `ModelManagementHeader`, `ModelProvidersTable`, `LocalModelsList`,
+`ModelProviderEditor`, and the shared `LocalModelInstallState`. It retains its
+grouped download table with category and family filters. The general download
+browser includes both chat and decision catalogs; a provider's download sheet
+stays scoped to that provider's category.
 The selected model determines which private agent installer receives the request.
 Decision models are used on demand through their harness, not as persistent chat
 server sessions in Local Models.
@@ -395,3 +396,55 @@ messages, activity lists and tool details, completed-work disclosure, and start-
 and focus bindings, send/stop callbacks, model controls, options, Markdown content,
 copy behavior, work summaries, and activity views. These views never read provider
 configuration, start a harness, register tools, or access application persistence.
+
+## Shared integrations
+
+Integration libraries accept explicit host identity, transport, and command policy.
+They must not discover another app's process, credentials, or state. Service and
+RPC documentation URLs remain host-owned; shared library documentation describes
+only reusable contracts.
+
+`Fritz` exports `IntegrationClient`, `IntegrationTransport`, the WhatsApp and
+remote-access wire models, `WhatsAppRemoteWorker`, and `MCPConnection`.
+`FritzUI` exports `MCPSettingsView`, `WhatsAppSettingsView`,
+`RemoteAccessSettingsView`, and `ServiceSettingsView`. The UI uses an explicit
+client, product copy, settings-key prefix, and background color. Hosts retain
+window ownership and their existing settings preferences.
+
+`IntegrationTransport.integrationRequest` receives a relative operation path,
+HTTP-style method, and optional JSON body. It must authenticate the caller,
+validate its own RPC success/error envelope, and return only the JSON success
+payload. This supports a host's local HTTP API or private agent pipes without
+introducing another daemon. Cancellation propagates through the transport.
+`WhatsAppRemoteWorker` runs one claimed command at a time, invalidates execution
+when status or authorization changes, and never retries uncertain replies.
+The host supplies command execution, conversation invalidation, and reply sizing.
+
+`MCPConnection` takes the adapter executable, server name, client environment,
+process environment, status tool, client name, and asynchronous preflight. The
+preflight must check the selected host runtime before launching the adapter.
+Configuration export escapes paths through JSON encoding; connection tests use
+bounded polling and terminate their adapter when cancelled or finished. The
+status tool must return a structured success payload with `status: "ok"`.
+Application tool catalogs and executable entry points stay with their host.
+
+The standalone Rust crate `fritz-integrations` exports two feature-gated services:
+
+- `whatsapp::WhatsAppService` owns linked-device networking, QR expiry, group
+  selection, secure persistence, enable/disable/removal, outbound messages, and
+  the owner-only command inbox. `Config` explicitly selects the Keychain service,
+  linked-device app name, reply label, and slash-command prefix. The macOS Keychain snapshot
+  commits before in-memory keys advance. No credentials enter Swift or SQLite.
+- `remote::RemoteAccessService` owns the HTTPS listener, bounded request parsing,
+  same-origin checks, single-use pairing, expiring device cookies, revocation,
+  job admission and idempotency. `Identity` selects an isolated `__Host-` cookie
+  and request header. `RemoteHost` provides static assets, validates permitted
+  commands, executes them, and allowlists read operations. The library never
+  discovers a local endpoint or forwards arbitrary URLs, paths, or credentials.
+
+Services are owned instances, not process-global singletons. Management requests
+must arrive over the host's authenticated local control channel. The remote
+listener remains opt-in and lasts only for the service lifetime. Pairing expires
+after five minutes, device access after seven days; revocation rejects new work
+but cannot undo a command already executing. See
+[integration services](integrations.md) for the transport and security contracts.

@@ -9,7 +9,7 @@ The `fritz-decision-harness` process uses the same private-pipe lifecycle as cha
 - **Jev:** The bundled remote adapter calls TypeSafe's `POST /v1/systemone` with a bearer key. The key is supplied by the host for this request and is never written to the request log or registry. The default endpoint is TypeSafe's HTTPS API; an explicit loopback endpoint supports isolated tests.
 - **Ollaya (local):** The bundled `ollaya-runner` and `ollaya-decision` crates implement `decision::DecisionModel` with Laya English on ONNX Runtime CPU. Both crates are pinned to commit `152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4`. `Sources/Fritz/DecisionModels.json` pins the fp32 graph, upstream weights, tokenizer, layout, calibration, and license by URL, size, and SHA-256. Weights are downloaded explicitly to `DecisionModels/<id>/<revision>` in Fritz's data directory and verified before every load. The revision identifies the Ollaya artifact recipe; the weights URL separately pins the author's commit. Ollaya's daemon, desktop app, registry service, and MLX backend are not used.
 
-Select **Ollaya** under **Decision Models**, download Laya English, and save the
+Select **Ollaya** from the **System1** filter in **Provider**, download Laya English, and save the
 provider. The same operations are `fritz decision-models list`,
 `fritz decision-models install laya-en`, and `fritz decide --connection NAME FILE`.
 Inference has no network calls and needs no key. Models remain loaded only for
@@ -33,7 +33,7 @@ Follow [model evaluation](agents/model-evaluation.md) when qualifying a backend
 or comparing policy thresholds; protocol validation alone does not establish
 judgment quality.
 
-TypeSafe can be configured from **Model Providers → + → Decision Models**. Fritz stores
+TypeSafe can be configured from **Model Providers → + → Provider → System1**. Fritz stores
 its key in the existing Keychain namespace and keeps its Jev (`jev-latest`)
 model out of chat selection. The agent's `decisions.evaluate` method can resolve
 that saved connection by `connectionId`, fetch its key, and run the decision

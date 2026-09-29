@@ -9,14 +9,10 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 Fritz currently groups conversations under folders in the sidebar. Folder-attached conversations can access and change files and run local processes with your macOS permissions when the selected model supports actions. Choose only folders you trust. This workflow is scheduled for replacement with narrower, permission-based personal sources.
 
-## Right panel tabs
+## Right panel
 
-The toolbar toggles a right panel with reusable Bonsplit tabs. Its tabs currently
-have blank content; the + button adds a tab and the tab context menu closes it.
-Tab state remains while hiding and reopening the panel during the current window
-session. Conversations stay in the main chat area and are selected from the
-project sidebar. There is no bottom panel.
-See [the library guide](docs/libraries.md#tabs-and-split-panes) to reuse the tab UI.
+The toolbar toggles a blank right panel. Conversations stay in the main chat
+area and are selected from the project sidebar. There is no bottom panel.
 
 ## Open source and shared libraries
 
@@ -47,7 +43,7 @@ make setup     # check tools and resolve committed dependency versions
 make dev-open
 ```
 
-`make dev-open` builds and opens `dist/FritzDebug.app` in the primary repository checkout, regardless of branch name, or on `main` in a linked worktree. Neither case needs a PR lookup. Feature branches in linked worktrees use the current branch's open PR number (for example, `dist/FritzDebug42.app`). They require GitHub CLI (`gh`), authentication with `gh auth login`, an `origin` remote, and exactly one open PR; push the branch and create its PR before building. Debug builds fail before compilation when a required PR cannot be resolved or HEAD is detached. A hash of the checkout path gives the app a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
+`make dev-open` builds and opens `dist/FritzDebug.app` in the primary repository checkout on any branch, or on `main` in a linked worktree, without a PR lookup. Other linked branches use `dist/FritzDebug{PR number}.app` when GitHub CLI can resolve a PR; linked branches without a resolvable PR and all detached checkouts use `dist/FritzDebug{checkout hash}.app`. The checkout-path hash still gives each Debug app a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
 
 Build storage lives under `~/Builds/Fritz` by default. Main and worktrees reuse
 Cargo outputs and Swift/Xcode package caches; SwiftPM scratch directories and
@@ -69,15 +65,15 @@ The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkl
 
 The native Xcode project is `app/Fritz.xcodeproj`; its source specification is `app/project.yml`. Regenerate project structure with `xcodegen generate --spec app/project.yml`. Use the Makefile to stage the complete app with its Rust agent. `app/Package.swift` supports fast Swift builds and unit tests.
 
-Use **+ → New Project** to choose an existing folder and create its first thread. The current app uses “Project” for a folder group; this is a temporary part of its navigation. Use **New Thread** or ⌘N for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
+Use **+ → New Project** to choose an existing folder and create its first thread. The current app uses “Project” for a folder group; this is a temporary part of its navigation. Use **New Chat** from the + or File menu, or press ⌘N, for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.
 
 Chat uses REL’s native conversation layout: a floating composer, compact live tool activity, and a “Worked for…” summary above each completed answer. Expand the summary to review all tool calls, then click a call to inspect its arguments and result. Interrupted responses retain their work with an interrupted status. Older tool records without timing show “Work details.” Scroll up to read without being pulled down by incoming text; **Jump** returns to the latest response.
 
 The **+** and **File** menus also offer **New Model Provider** to add a connection and **New Local Model** to open the download chooser in Settings.
 
-In **Settings → Model Providers**, click **+** to choose an LLM or decision provider. Search or use the Local / Remote / Frontier / Hosted / Custom filters to find a provider, then enter its API key if needed. The list shows both model categories together; open a provider from the list to edit it. Models load automatically, and the provider editor can retry discovery. Click the **Advanced** section header to show or hide connection naming and default/manual model choices. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
+In **Settings → Model Providers**, click **+** and choose any LLM or decision provider from **Provider**. Search or use the System1 / Local / Remote / Frontier / Hosted / Custom filters; System1 shows TypeSafe and Ollaya decision models. Enter an API key if needed. The list shows both model categories together; open a provider from the list to edit it. A provider and endpoint can be added once; Fritz and Ollaya connections are unique per local model. Models load automatically, and the provider editor can retry discovery. Click **Show Models** on the Models row to browse and search the discovered models; recently selected models from that provider appear first. Click the **Advanced** section header to show or hide connection naming and default/manual model choices. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
 
-The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. The message field receives focus when opening or switching threads, without a focus border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a thread, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Model Providers page directly. Chat Options can clear the current thread after confirmation. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
+The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. The selected model’s provider appears first in the provider filters and provider sections. Recent stays above the provider sections and shows up to five available models, excluding the current selection; Fritz remembers the last eight distinct selections. The message field receives focus when opening or switching threads, without a focus border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a chat, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Model Providers page directly. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
 Every conversation runs through Rig 0.42's agent runtime inside the bundled
 `fritz-harness` process. Fritz supplies the provider adapters, local inference,
@@ -175,7 +171,7 @@ The app has no embedded web engine or browser runtime. Its Rust runtime handles 
 
 ## Decision models
 
-Under **Settings → Model Providers**, click **+**, choose **Decision Models**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested and every file is checked before loading. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
+Under **Settings → Model Providers**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested and every file is checked before loading. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
 
 The CLI uses the same provider and harness:
 

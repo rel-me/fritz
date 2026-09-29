@@ -50,13 +50,13 @@ types, structured score legends, context rejection, and cancellation while nativ
 model loading/inference is active. It never downloads models or uses remote keys.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
-`dist/FritzDebug{PR}.app` bundle named for the current branch's open PR number.
-In the primary repository checkout (regardless of branch name), or on `main`
-in a linked worktree, it stages `dist/FritzDebug.app` without a PR lookup.
-Feature branches in linked worktrees require an `origin` remote and
-authenticated GitHub CLI (`gh`) to resolve exactly one open PR. Push the branch
-and create its PR before building. Missing, ambiguous, or failed required PR
-lookups and detached HEAD fail before compilation. Use
+`dist/FritzDebug.app` bundle in the primary repository checkout on any branch,
+or on `main` in a linked worktree, without a PR lookup. Other linked branches use
+`dist/FritzDebug{PR number}.app` when GitHub CLI can resolve a PR. Linked branches
+without a resolvable PR and all detached checkouts use
+`dist/FritzDebug{checkout hash}.app`.
+The checkout-path hash continues to isolate the bundle ID, data directory,
+Keychain service, and UserDefaults domain. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
@@ -174,7 +174,7 @@ instance and stop the mock server with Ctrl-C in its terminal.
 `FRITZ_DATA_DIR` isolates provider metadata, projects, threads, and drafts for
 the Release app. It does **not** isolate its Keychain service
 `dev.fritz.provider-credentials`, macOS/Sparkle-managed window and update-engine preferences. Use newly created, keyless mock connections for Release app tests.
-PR Debug apps use a worktree-specific bundle ID, data directory, Keychain
+Debug apps use a worktree-specific bundle ID, data directory, Keychain
 service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR` and
 `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug identity outside the app.
 

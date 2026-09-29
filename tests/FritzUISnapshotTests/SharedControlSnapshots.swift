@@ -70,6 +70,42 @@ final class SharedControlSnapshots: XCTestCase {
                      size: .init(width: 440, height: 380))
     }
 
+    func testModelProvidersList() throws {
+        let view = VStack(spacing: 0) {
+            ModelManagementHeader("Model Providers", background: Color(nsColor: .windowBackgroundColor)) {
+                Button("Add Provider", systemImage: "plus") {}
+            }
+            ModelProvidersTable(providers: [
+                .init(id: "openai", name: "OpenAI", warning: nil, isLocal: false,
+                      isDefault: true, models: "Example Model, Second Model"),
+                .init(id: "local", name: "Local", warning: "Download a model", isLocal: true,
+                      isDefault: false, models: "Local Model")
+            ], selection: .constant([]), isLoading: false) { _ in }
+            .scrollContentBackground(.hidden)
+            .alternatingRowBackgrounds(.disabled)
+        }
+        try snapshot(view, name: "model-providers-list", size: .init(width: 760, height: 300))
+    }
+
+    func testLocalModelsList() throws {
+        let view = VStack(spacing: 0) {
+            ModelManagementHeader("Local Models", background: Color(nsColor: .windowBackgroundColor)) {
+                Button("Download Models", systemImage: "arrow.down") {}
+            }
+            LocalModelsList(models: [
+                .init(id: "small", name: "Small Model", modelID: "small-q4", status: "Running",
+                      isRunning: true, processID: 4231, detail: "Browser chat"),
+                .init(id: "large", name: "Large Model", modelID: "large-q4", status: "Failed",
+                      isRunning: false, errorMessage: "Could not load model")
+            ]) { id in
+                Button(id == "small" ? "Stop" : "Start") {}
+            }
+            .scrollContentBackground(.hidden)
+            .alternatingRowBackgrounds(.disabled)
+        }
+        try snapshot(view, name: "local-models-list", size: .init(width: 760, height: 300))
+    }
+
     private func modelPicker(models: [ModelPickerItem<String>], recent: [ModelPickerItem<String>] = [],
                              query: String = "") -> some View {
         ModelPickerPopover(models: models, recentModels: recent,
@@ -78,8 +114,12 @@ final class SharedControlSnapshots: XCTestCase {
     }
 
     private var categories: [PickerCategory] {
-        [.all, .init(id: "local", title: "Local", help: "Local providers"),
-         .init(id: "remote", title: "Remote", help: "Remote providers")]
+        [.all, .init(id: "system1", title: "System1", help: "Decision models"),
+         .init(id: "local", title: "Local", help: "Local providers"),
+         .init(id: "remote", title: "Remote", help: "Remote providers"),
+         .init(id: "frontier", title: "Frontier", help: "Frontier providers"),
+         .init(id: "hosted", title: "Hosted", help: "Hosted providers"),
+         .init(id: "custom", title: "Custom", help: "Custom endpoints")]
     }
 
     private var providerItems: [ProviderPickerItem<String>] {

@@ -140,6 +140,22 @@ fn save_provider(
         {
             bail!("A connection with that name already exists.");
         }
+        if let Some(existing) = registry
+            .connections
+            .iter()
+            .find(|c| c.id != connection.id && c.has_same_target(&connection))
+        {
+            if connection.provider.is_native() {
+                bail!(
+                    "This local model already exists as {}. Edit that provider instead.",
+                    existing.name
+                );
+            }
+            bail!(
+                "This provider and endpoint already exists as {}. Edit that provider instead.",
+                existing.name
+            );
+        }
         if connection.provider.is_native() {
             config::delete_key(connection.id)?;
         }
