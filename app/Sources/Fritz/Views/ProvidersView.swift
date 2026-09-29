@@ -150,6 +150,7 @@ struct ProviderEditor: View {
     @State private var discoveryError: String?
     @State private var discoveryFinished = false
     @State private var showsAdvanced = false
+    @State private var showsModels = false
     @State private var refreshID = 0
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: NativeLocalModel
@@ -236,6 +237,7 @@ struct ProviderEditor: View {
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.category == .decision ? "jev-latest" : ""
             models = []; error = nil; discoveryFinished = false; refreshID = 0
+            showsModels = false
         }
         .task(id: preset.provider) {
             nativeModel.cancel()
@@ -283,6 +285,11 @@ struct ProviderEditor: View {
                 LabeledContent("Models") {
                     HStack(spacing: 8) {
                         Text(isDiscovering ? "Loading…" : "\(models.count) available").foregroundStyle(.secondary)
+                        Button("Show Models") { showsModels = true }
+                            .disabled(models.isEmpty)
+                            .popover(isPresented: $showsModels) {
+                                ProviderModelsPopover(models: models, recentModelIDs: store.recentIDs, connectionID: id)
+                            }
                         Button("Refresh Models", systemImage: "arrow.clockwise") { refreshID += 1 }
                             .labelStyle(.iconOnly).frame(width: 24, height: 20).help("Refresh Models")
                             .disabled(isDiscovering).opacity(isDiscovering ? 0 : 1)
@@ -401,6 +408,7 @@ struct ProviderEditor: View {
         guard !managesLocalModels && category == .llm else { return }
         let token = UUID()
         activeDiscoveryID = token
+        showsModels = false
         isDiscovering = false; discoveryError = nil; discoveryFinished = false; models = []
         guard !preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey else {
             if refreshID > 0 { discoveryError = "Enter an API key, then refresh." }; return
@@ -435,6 +443,93 @@ struct ProviderEditor: View {
                 apiKey = ""; dismiss()
             } catch is CancellationError {
             } catch { self.error = error.localizedDescription }
+        }
+    }
+}
+
+private struct ProviderModelsPopover: View {
+    let models: [DiscoveredAIModel]
+    let recentModelIDs: [String]
+    let connectionID: UUID
+    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                TextField("Search models", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .focused($isSearchFocused)
+            }
+            .padding(12)
+
+            Divider()
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    if !recentModels.isEmpty {
+                        section("Recent", models: recentModels)
+                    }
+                    if !otherModels.isEmpty {
+                        section(recentModels.isEmpty ? "Models" : "Other Models", models: otherModels)
+                    }
+                    if recentModels.isEmpty && otherModels.isEmpty {
+                        Text("No matching models")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(.top, 40)
+                    }
+                }
+                .padding(12)
+            }
+        }
+        .frame(width: 420, height: 360)
+        .background(FritzWindowStyle.contentBackground)
+        .onAppear { isSearchFocused = true }
+    }
+
+    private var filteredModels: [DiscoveredAIModel] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return models }
+        return models.filter {
+            $0.displayName.localizedCaseInsensitiveContains(query) || $0.id.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    private var recentModels: [DiscoveredAIModel] {
+        let prefix = "connection:\(connectionID.uuidString):"
+        return recentModelIDs.compactMap { recentID in
+            guard recentID.hasPrefix(prefix) else { return nil }
+            let modelID = String(recentID.dropFirst(prefix.count))
+            return filteredModels.first { $0.id == modelID }
+        }
+    }
+
+    private var otherModels: [DiscoveredAIModel] {
+        let recentIDs = Set(recentModels.map(\.id))
+        return filteredModels.filter { !recentIDs.contains($0.id) }
+    }
+
+    private func section(_ title: String, models: [DiscoveredAIModel]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(models) { model in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.displayName)
+                    if model.id != model.displayName {
+                        Text(model.id).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .textSelection(.enabled)
+                .accessibilityElement(children: .combine)
+            }
         }
     }
 }
