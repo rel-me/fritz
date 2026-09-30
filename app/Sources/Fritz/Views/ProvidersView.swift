@@ -9,6 +9,7 @@ struct ProviderEditorSelection: Identifiable {
 
 struct ProvidersView: View {
     @Bindable var store: ProviderStore
+    @Bindable var localModels: LocalModelRuntimeStore
     @Binding var editor: ProviderEditorSelection?
     @State private var selectedIDs: Set<UUID> = []
     @State private var deleting: ProviderConnection?
@@ -19,7 +20,7 @@ struct ProvidersView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ModelManagementHeader("Model Providers", background: FritzWindowStyle.workspaceBackground) {
+            ModelManagementHeader("Models", background: FritzWindowStyle.workspaceBackground) {
                 transferMenu
                     .controlSize(.extraLarge)
                 Button("Add Provider", systemImage: "plus") {
@@ -73,7 +74,12 @@ struct ProvidersView: View {
         .onChange(of: store.connections) { _, connections in selectedIDs.formIntersection(connections.map(\.id)) }
         .confirmationDialog("Delete this provider?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             if let deleting {
-                Button("Delete \(deleting.providerDisplayName)", role: .destructive) { Task { await store.remove(deleting) }; self.deleting = nil }
+                Button("Delete \(deleting.providerDisplayName)", role: .destructive) { Task {
+                    await store.remove(deleting)
+                    if deleting.provider == .fritz, !store.connections.contains(where: { $0.id == deleting.id }) {
+                        localModels.stop(deleting.modelID)
+                    }
+                }; self.deleting = nil }
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("This removes the connection and its saved key from Fritz.") }
@@ -133,6 +139,7 @@ struct ProvidersView: View {
 
 struct ProviderEditor: View {
     let store: ProviderStore
+    @Bindable var localModels: LocalModelRuntimeStore
     let existing: ProviderConnection?
     @Environment(\.dismiss) private var dismiss
     @State private var id: UUID
@@ -157,8 +164,8 @@ struct ProviderEditor: View {
     @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
-    init(store: ProviderStore, existing: ProviderConnection?) {
-        self.store = store; self.existing = existing
+    init(store: ProviderStore, localModels: LocalModelRuntimeStore, existing: ProviderConnection?) {
+        self.store = store; self.localModels = localModels; self.existing = existing
         let category = existing?.category ?? .llm
         _id = State(initialValue: existing?.id ?? UUID())
         _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category))
@@ -213,6 +220,9 @@ struct ProviderEditor: View {
                                 .foregroundStyle(.red)
                         }
                     }
+                    if managesLocalAPI {
+                        localRuntimeSection
+                    }
                     if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
                             Toggle("Use as Default Provider", isOn: $makeDefault)
@@ -245,12 +255,56 @@ struct ProviderEditor: View {
                 nativeModel = NativeLocalModel(agent: store.agent, category: category)
             }
             if managesLocalModels { nativeModel.refresh() }
+            if preset.provider == .fritz { await localModels.refresh() }
         }
-        .sheet(isPresented: $showsDownload, onDismiss: { nativeModel.refresh() }) {
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            nativeModel.refresh()
+            Task { await localModels.refresh() }
+        }) {
             LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID, category: category)
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
+    }
+
+    private var localSession: LocalModelRuntimeStore.Session {
+        localModels.sessions[nativeModel.selectedModelID] ?? .init()
+    }
+
+    private var managesLocalAPI: Bool {
+        preset.provider == .fritz && existing?.provider == .fritz
+            && existing?.modelID == nativeModel.selectedModelID
+    }
+
+    private var localRuntimeSection: some View {
+        Section {
+            LabeledContent("Local API") {
+                HStack(spacing: 8) {
+                    if localSession.status == .running || localSession.status == .starting {
+                        Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
+                        Button("Restart") { localModels.restart(nativeModel.selectedModelID) }
+                    } else {
+                        Button("Start") { localModels.start(nativeModel.selectedModelID) }
+                            .disabled(nativeModel.state != .installed || localModels.isLoading
+                                      || !localModels.installedIDs.contains(nativeModel.selectedModelID))
+                    }
+                }
+            }
+        } footer: {
+            HStack(spacing: 6) {
+                if localSession.status == .starting { ProgressView().controlSize(.small) }
+                Text(localSession.status.title)
+                    .foregroundStyle(localSession.status == .running ? .green : .secondary)
+                if let processID = localSession.processID {
+                    Text("· PID \(processID)").monospacedDigit()
+                }
+            }
+            if let address = localSession.address { Text(address).textSelection(.enabled) }
+            Text("Starts only when you click Start. Fritz stops this API when it quits. Chat loads the model when you send a message and uses a separate process.")
+            if let error = localSession.error ?? localModels.error {
+                Text(error).foregroundStyle(.red).textSelection(.enabled)
+            }
+        }
     }
 
     @ViewBuilder private var remoteSections: some View {
@@ -355,6 +409,7 @@ struct ProviderEditor: View {
         let base: CGFloat
         if managesLocalModels {
             base = 340 + (store.connections.isEmpty ? 0 : 40)
+                + (managesLocalAPI ? 170 : 0)
         } else if category == .decision {
             base = 430
         } else {
@@ -438,7 +493,12 @@ struct ProviderEditor: View {
         saveTask = Task {
             defer { isSaving = false; saveTask = nil }
             do {
-                try await store.save(connection, key: apiKey, makeDefault: makeDefault)
+                let saved = connection
+                try await store.save(saved, key: apiKey, makeDefault: makeDefault)
+                if let existing, existing.provider == .fritz,
+                   saved.provider != .fritz || saved.modelID != existing.modelID {
+                    localModels.stop(existing.modelID)
+                }
                 try Task.checkCancellation()
                 apiKey = ""; dismiss()
             } catch is CancellationError {

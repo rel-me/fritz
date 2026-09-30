@@ -50,8 +50,8 @@ in model-native history for the next turn. Without a project, no tools are sent.
 `fritz local-models serve` is an explicit, separate loopback API mode for
 installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
 `/api/generate` routes. The app's private agent and chat harness pipes do not
-use this listener. The Local Models settings page owns only the API processes it
-starts and stops them on app exit; CLI-started listeners remain under CLI
+use this listener. The Models settings editor starts API processes only on an explicit Start
+action. The app owns these processes and stops them on app exit; CLI-started listeners remain under CLI
 process control.
 
 ## Decision harness

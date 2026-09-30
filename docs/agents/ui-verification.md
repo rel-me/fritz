@@ -11,7 +11,7 @@ the following surfaces, include these behaviors:
 
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
   persistent sidebar without a toggle, + menu, New Project folder selection/cancel, and Settings
-  opening with Command-comma. The toolbar opens the Model Providers page in Settings.
+  opening with Command-comma. The toolbar opens the Models page in Settings.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
   should match the workspace surround in both modes. Preserve the sidebar's rounded
   outline through the titlebar around the traffic lights; it must not stop below
@@ -33,8 +33,9 @@ the following surfaces, include these behaviors:
   selected page; shared title-free unified toolbar, native traffic lights, a
   persistent sidebar without a toggle, and a rounded detail surface that begins
   below the toolbar in light/dark appearance. General appearance,
-  update channel, CLI install feedback, Model Providers selection, Local Models
-  blank and populated lists, download and process controls, Service status, and
+  update channel, CLI install feedback, Models selection, blank and populated model
+  lists, local-model download and editor process controls (stopped by default, start/stop/restart, PID, address,
+  errors, and quit cleanup), Service status, and
   Debug page navigation.
 - **Providers:** combined LLM and decision provider list, add/edit/cancel, field
   labels, discovery and refresh, default/manual model choices, validation, and

@@ -68,7 +68,7 @@ struct WindowNewItemMenu: View {
             Button("New Project", action: createProject)
             Button("New Chat", action: createThread).disabled(!canCreateThread)
             Divider()
-            Button("New Model Provider", action: createProvider)
+            Button("New Model", action: createProvider)
             Button("New Local Model", action: createLocalModel)
         } label: {
             Label("New", systemImage: "plus")

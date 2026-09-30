@@ -128,7 +128,7 @@ public struct ModelPickerPopover<Value>: View {
         }
         .buttonStyle(FritzButtonStyle(.inline))
         .accessibilityLabel("Open Models")
-        .help("Open Model Providers")
+        .help("Open Models")
       }
       .padding(.horizontal, 12)
       .padding(.bottom, 8)

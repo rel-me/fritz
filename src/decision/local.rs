@@ -76,7 +76,7 @@ impl ModelStore {
         let pin = manifest(id)?;
         if !self.is_installed(pin).await {
             bail!(
-                "{} is not installed or failed verification. Download it in Model Providers → Decision Models → Ollaya, or run `fritz decision-models install {id}`.",
+                "{} is not installed or failed verification. Download it in Models → + → Provider → Ollaya, or run `fritz decision-models install {id}`.",
                 pin.name
             );
         }

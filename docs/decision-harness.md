@@ -33,7 +33,7 @@ Follow [model evaluation](agents/model-evaluation.md) when qualifying a backend
 or comparing policy thresholds; protocol validation alone does not establish
 judgment quality.
 
-TypeSafe can be configured from **Model Providers → + → Provider → System1**. Fritz stores
+TypeSafe can be configured from **Models → + → Provider → System1**. Fritz stores
 its key in the existing Keychain namespace and keeps its Jev (`jev-latest`)
 model out of chat selection. The agent's `decisions.evaluate` method can resolve
 that saved connection by `connectionId`, fetch its key, and run the decision

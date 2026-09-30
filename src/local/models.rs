@@ -98,7 +98,7 @@ impl ModelStore {
             Ok(path)
         } else {
             Err(anyhow!(format!(
-                "{} is not installed. Open Providers → New Provider → Local → Fritz to download and install it.",
+                "{} is not installed. Open Models → + → Provider → Local → Fritz to download and install it.",
                 pin.name
             )))
         }

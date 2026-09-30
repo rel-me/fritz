@@ -6,7 +6,18 @@ import Observation
 /// owned by their threads and are not affected by these controls.
 @MainActor @Observable final class LocalModelRuntimeStore {
     struct Session {
-        enum Status { case stopped, starting, running, failed }
+        enum Status {
+            case stopped, starting, running, failed
+
+            var title: String {
+                switch self {
+                case .stopped: "Stopped"
+                case .starting: "Starting"
+                case .running: "Running"
+                case .failed: "Failed"
+                }
+            }
+        }
         var status: Status = .stopped
         var processID: Int32?
         var address: String?
