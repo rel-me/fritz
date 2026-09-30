@@ -12,6 +12,7 @@ import unittest
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/build-cache.py"
+ROOT = SCRIPT.parent.parent
 
 
 class BuildCacheTests(unittest.TestCase):
@@ -25,6 +26,9 @@ class BuildCacheTests(unittest.TestCase):
             script = self.root / name / "scripts/build-cache.py"
             script.parent.mkdir(parents=True)
             shutil.copyfile(SCRIPT, script)
+            shutil.copyfile(ROOT / "Makefile", script.parent.parent / "Makefile")
+            shutil.copyfile(ROOT / "scripts/setup-worktree.sh", script.parent / "setup-worktree.sh")
+            (script.parent / "setup-worktree.sh").chmod(0o755)
             self.scripts.append(script)
 
     def command(self, index, *args):
@@ -82,6 +86,51 @@ class BuildCacheTests(unittest.TestCase):
             first.communicate(timeout=10)
             if second is not None:
                 second.communicate(timeout=10)
+
+    @unittest.skipUnless(sys.platform == "darwin", "worktree setup requires macOS")
+    def test_setup_waits_for_its_checkout_but_not_another_worktrees_build(self):
+        # Toolchain work is outside this lock-routing test; run the real Make
+        # and setup entry points with successful dependency-tool commands.
+        tools = self.root / "tools"
+        tools.mkdir()
+        for name in ("cargo", "swift", "xcodebuild", "cmake"):
+            tool = tools / name
+            tool.write_text("#!/bin/sh\nexit 0\n")
+            tool.chmod(0o755)
+        environment = dict(self.environment, PATH=f"{tools}{os.pathsep}{os.environ['PATH']}")
+        started = self.root / "build-started"
+        release = self.root / "build-release"
+        build = subprocess.Popen(self.command(0, sys.executable, "-c",
+            "import pathlib, sys, time; pathlib.Path(sys.argv[1]).touch(); "
+            "\nwhile not pathlib.Path(sys.argv[2]).exists(): time.sleep(0.02)",
+            str(started), str(release)), env=environment,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        setups = []
+        try:
+            deadline = time.monotonic() + 10
+            while not started.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            self.assertTrue(started.exists(), "build never started")
+            for script in self.scripts:
+                setups.append(subprocess.Popen(["make", "--no-print-directory", "setup"],
+                    cwd=script.parent.parent, env=environment,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+            with self.assertRaises(subprocess.TimeoutExpired):
+                setups[0].communicate(timeout=0.3)
+            stdout, stderr = setups[1].communicate(timeout=5)
+            self.assertEqual(setups[1].returncode, 0, stderr.decode())
+            self.assertIn(b"Fritz dependencies are ready", stdout)
+            self.assertIsNone(build.poll(), "setup must complete while the other build is active")
+            release.touch()
+            build.communicate(timeout=10)
+            stdout, stderr = setups[0].communicate(timeout=10)
+            self.assertEqual(setups[0].returncode, 0, stderr.decode())
+            self.assertIn(b"Fritz dependencies are ready", stdout)
+        finally:
+            release.touch()
+            build.communicate(timeout=10)
+            for setup in setups:
+                setup.communicate(timeout=10)
 
 
 if __name__ == "__main__":

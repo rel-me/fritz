@@ -47,8 +47,10 @@ make dev-open
 
 Build storage lives under `~/Builds/Fritz` by default. Main and worktrees reuse
 Cargo outputs and Swift/Xcode package caches; SwiftPM scratch directories and
-Xcode DerivedData have separate subdirectories per checkout. Make commands
-serialize access to shared storage through tests and app staging. Set
+Xcode DerivedData have separate subdirectories per checkout. Builds and tests
+serialize access to shared compiled outputs through tests and app staging.
+`make setup` locks only its checkout, so another worktree's build does not delay
+dependency setup. Package managers still coordinate their download caches. Set
 `FRITZ_BUILD_ROOT=/absolute/path` to use a different location. Existing checkout-local
 build folders are left untouched and can be removed once no old builds are using
 them. Use `python3 scripts/build-cache.py COMMAND ...` for direct Cargo commands or

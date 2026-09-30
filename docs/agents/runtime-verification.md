@@ -114,8 +114,14 @@ release tools). The layout is:
   build state for one physical checkout path. These databases contain absolute
   source paths and are not reused as writable build state by other worktrees.
 - `.lock`: an advisory lock held across the entire command, including tests and
-  staging. A competing worktree waits; `make -j2 test` can still run its Rust and
-  Swift groups concurrently inside the lock.
+  staging, for builds and tests. A competing build or test waits; `make -j2 test`
+  can still run its Rust and Swift groups concurrently inside the lock.
+- `worktrees/<path-hash>/.lock`: a checkout lock taken before the shared lock.
+  Setup holds only this lock, so it can resolve dependencies while another
+  worktree builds or tests. Setup and builds in the same checkout serialize
+  access to SwiftPM scratch directories and Xcode DerivedData. Cargo, SwiftPM,
+  and Xcode coordinate their own package download caches, so dependency fetches
+  may still wait on those tools' locks.
 
 Cargo decides which artifacts remain fresh using its normal fingerprints;
 sharing storage does not guarantee every compilation is reusable. Swift/Xcode
@@ -127,8 +133,9 @@ Xcode's own locations; use `make build` for this layout and complete app staging
 Existing `target`, `.build`, `app/.build`, and `dist/DerivedData` directories are
 not migrated or deleted. After old builds stop, they can be removed manually.
 To reclaim the new storage, stop all Fritz build commands and remove the desired
-cache directories; preserve `.lock` so waiting processes never lock different
-files. Removing a worktree does not automatically remove its build storage.
+cache directories; preserve the root and checkout `.lock` files so waiting
+processes never lock different files. Removing a worktree does not automatically
+remove its build storage.
 
 For direct commands, enter the wrapper rather than accessing shared Cargo output
 without the lock:
@@ -144,6 +151,9 @@ The wrapper exports `CARGO_TARGET_DIR`, `FRITZ_TEST_BIN_DIR`,
 commands with these paths. Plain `cargo`/`swift` commands outside the wrapper
 continue using their normal defaults. To get the resolved DerivedData path
 without building, use `python3 scripts/build-cache.py --derived-data`.
+The setup script uses `--setup` to configure these same paths with only the
+checkout lock; reserve that mode for dependency resolution without compilation
+or consumption of shared build outputs.
 
 ## Isolated UI and CLI verification
 

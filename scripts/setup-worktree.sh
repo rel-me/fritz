@@ -2,7 +2,7 @@
 set -euo pipefail
 cd -P "$(dirname "$0")/.."
 if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
-  exec python3 scripts/build-cache.py "$PWD/scripts/setup-worktree.sh" "$@"
+  exec python3 scripts/build-cache.py --setup "$PWD/scripts/setup-worktree.sh" "$@"
 fi
 
 if [[ "$(uname -s)" != Darwin ]]; then
