@@ -26,7 +26,7 @@ SwiftPM resources using their normal Xcode/SwiftPM build integration.
 | --- | --- |
 | `Fritz` | Provider connections and registry wire models, endpoint presets/categories, discovered models, model capabilities and picker grouping, pinned local-model descriptors and hardware information, appearance, CLI symlink installation, private-pipe agent client |
 | `FritzState` | Host-owned SQLite connections, bound values, transactions, ordered migrations and schema validation; no app models, Sparkle or inference dependency |
-| `FritzUpdates` | Sparkle configuration validation, updater lifecycle and required-update state, release/beta/dev channels, Check for Updates command |
+| `FritzUpdates` | Sparkle configuration validation, updater lifecycle and required-update state, release/beta/staging channels, Check for Updates command |
 | `FritzApp` | Executable module: scenes, project/thread persistence, observable app stores, settings and chat UI, app-specific process configuration |
 
 The visible application and bundle remain **Fritz** and `Fritz.app`. The Xcode

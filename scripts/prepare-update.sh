@@ -5,8 +5,8 @@ export FRITZ_DISTRIBUTION=1
 source scripts/release-config.sh
 channel="${1:-}"
 case "$channel" in
-  release|beta|dev) ;;
-  *) echo "error: use make appcast CHANNEL=release, beta, or dev" >&2; exit 64 ;;
+  release|beta|staging) ;;
+  *) echo "error: use make appcast CHANNEL=release, beta, or staging" >&2; exit 64 ;;
 esac
 prefix="${FRITZ_UPDATE_DOWNLOAD_URL_PREFIX:-}"
 homepage="${FRITZ_HOMEPAGE_URL:-}"

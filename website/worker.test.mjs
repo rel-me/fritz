@@ -78,13 +78,13 @@ test("download redirects to the newest Release archive", async () => {
 });
 
 test("download falls back to the newest Beta archive before any Release", async () => {
-  const response = await download(appcast(item("0.1.1", 2, "beta"), item("0.1.2", 3, "beta"), item("0.2.0", 5, "dev")));
+  const response = await download(appcast(item("0.1.1", 2, "beta"), item("0.1.2", 3, "beta"), item("0.2.0", 5, "staging")));
   assert.equal(response.status, 302);
   assert.equal(response.headers.get("location"), "/updates/Fritz-0.1.2.dmg");
 });
 
-test("download ignores Dev builds and unexpected archive URLs", async () => {
-  assert.equal((await download(appcast(item("0.2.0", 5, "dev")))).status, 404);
+test("download ignores Staging builds and unexpected archive URLs", async () => {
+  assert.equal((await download(appcast(item("0.2.0", 5, "staging")))).status, 404);
   const foreign = item("0.1.1", 2).replace("/updates/Fritz-0.1.1.dmg", "/files/Fritz-0.1.1.dmg");
   assert.equal((await download(appcast(foreign))).status, 404);
   assert.equal((await download({ UPDATES: bucket({}) })).status, 404);

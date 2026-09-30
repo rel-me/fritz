@@ -1,4 +1,4 @@
-.PHONY: setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote
+.PHONY: setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
 export MISTRALRS_METAL_PLATFORMS ?= macos
@@ -8,7 +8,7 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote:
+build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
 	+@python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 else
 
@@ -54,11 +54,11 @@ update-archive:
 appcast:
 	@./scripts/prepare-update.sh "$(CHANNEL)"
 
-beta:
-	@./scripts/beta-release.sh
+beta staging:
+	@./scripts/prerelease.sh "$@"
 
-publish-beta:
-	@./scripts/publish-update.sh beta
+publish-beta publish-staging:
+	@./scripts/publish-update.sh "$(patsubst publish-%,%,$@)"
 
 promote:
 	@./scripts/promote-release.sh

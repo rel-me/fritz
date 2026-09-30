@@ -16,6 +16,11 @@ import FritzUpdates
         do {
             appearance = try database.setting("appearance") ?? AppAppearance.system.rawValue
             updateChannel = try database.setting("updateChannel") ?? AppUpdateChannel.release.rawValue
+            // Preserve the selected channel when upgrading from the Dev name.
+            if updateChannel == "dev" {
+                updateChannel = AppUpdateChannel.staging.rawValue
+                try database.set(updateChannel, for: "updateChannel")
+            }
             selectedTab = try database.setting("settingsTab") ?? FritzSettingsTab.general.rawValue
         } catch {
             canSave = false

@@ -160,6 +160,18 @@ import FritzUpdates
         XCTAssertEqual(LocalModelRuntimeStore(agent: AgentClient(), database: AppDatabase(directory: try directory())).policy(for: "model-a"), .firstUse)
     }
 
+    func testDevUpdateChannelMigratesToStaging() throws {
+        let root = try directory()
+        let database = AppDatabase(directory: root)
+        try database.set("dev", for: "updateChannel")
+
+        let settings = AppSettings(database: database)
+        XCTAssertNil(settings.error)
+        XCTAssertEqual(settings.updateChannel, "staging")
+        XCTAssertEqual(try database.setting("updateChannel"), "staging")
+        XCTAssertEqual(AppSettings(database: AppDatabase(directory: root)).updateChannel, "staging")
+    }
+
     func testRemovingThreadsCascadesTheirHistoryAndPreferences() throws {
         let database = AppDatabase(directory: try directory())
         let thread = ProjectThread()

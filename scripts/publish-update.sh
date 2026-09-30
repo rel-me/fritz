@@ -6,8 +6,8 @@ source scripts/release-config.sh
 
 channel="${1:-}"
 case "$channel" in
-  beta|release) ;;
-  *) echo "error: publish-update.sh requires beta or release" >&2; exit 64 ;;
+  beta|staging|release) ;;
+  *) echo "error: publish-update.sh requires beta, staging, or release" >&2; exit 64 ;;
 esac
 
 test -d dist/Fritz.app || { echo "error: missing dist/Fritz.app" >&2; exit 1; }
@@ -87,7 +87,7 @@ fi
 (
   cd website
   npx --no-install wrangler deploy
-  if [[ "$channel" == beta ]]; then
+  if [[ "$channel" != release ]]; then
     npx --no-install wrangler r2 object put \
       "fritz-updates/updates/Fritz-$version.dmg" --remote \
       --file="../$archive" --content-type=application/x-apple-diskimage \

@@ -66,7 +66,7 @@ final class AppUpdaterTests: XCTestCase {
     func testUpdateChannelsMapToSparkleChannels() {
         XCTAssertEqual(AppUpdateChannel.release.allowedSparkleChannels, [])
         XCTAssertEqual(AppUpdateChannel.beta.allowedSparkleChannels, ["beta"])
-        XCTAssertEqual(AppUpdateChannel.dev.allowedSparkleChannels, ["beta", "dev"])
+        XCTAssertEqual(AppUpdateChannel.staging.allowedSparkleChannels, ["beta", "staging"])
     }
 
     @MainActor
