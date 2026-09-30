@@ -41,6 +41,38 @@ redirects to the newest Release DMG in the appcast, or the newest Beta before a
 Release exists; the page reads the same appcast to label the version. The raven,
 favicon, touch icon, and social card come from `design/branding/export.py`.
 
+The homepage always uses the dark app screenshot, independent of the page's
+color scheme. The app images are real 2× window captures from this checkout's
+staged Release app. Regenerate both appearances on a logged-in Mac:
+
+```sh
+npm --prefix website run screenshot
+# Reuse a current staged build:
+python3 scripts/capture-website.py --skip-build
+```
+
+The script launches `dist/Fritz.app` with a temporary `FRITZ_DATA_DIR` and an
+empty model directory, lets the app initialize its database, then seeds only
+that fresh workspace with synthetic project/thread names. It adds a keyless
+loopback fixture provider through the bundled CLI, enters a prompt and sends it
+through the app's Accessibility controls, waits for the completed reply to be
+persisted, and enters a follow-up draft. It captures the native window in light
+and dark appearance with ScreenCaptureKit, including the real toolbar and
+sidebar. The copy is a fixed example, not a live model-quality claim. No folder
+is attached to the captured chat.
+
+The default window is 1120 × 740 points; `--width` and `--height` change it.
+Use a display with enough space for that window at position (40, 60). Images
+are saved to `website/public/fritz-light.png` and `fritz-dark.png`; if you change
+the dimensions, update the homepage image's width and height attributes to the
+reported pixel size. The caller needs Accessibility permission for System Events
+and Screen Recording permission for the capture helper. Grant these in macOS
+System Settings if capture reports a permission error, then rerun. The script
+refuses to reuse an already-running instance of this checkout's Release app and
+quits only the instance it launched. Temporary chat/provider data is removed on
+exit. `FRITZ_DATA_DIR` does not isolate Release UserDefaults or the Keychain, but
+this capture uses no keys; macOS may retain the app's window geometry.
+
 `make beta`, `make publish-beta`, and `make promote` deploy the current page
 with the Worker. Run `npm --prefix website test` after editing it. To preview
 locally, seed the local bucket and start Wrangler; nothing is uploaded:
