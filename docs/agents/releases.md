@@ -41,8 +41,9 @@ redirects to the newest Release DMG in the appcast, or the newest Beta before a
 Release exists; the page reads the same appcast to label the version. The raven,
 favicon, touch icon, and social card come from `design/branding/export.py`.
 
-The app images are real 2× window captures from this checkout's staged Release
-app. Regenerate both appearances on a logged-in Mac:
+The homepage always uses the dark app screenshot, independent of the page's
+color scheme. The app images are real 2× window captures from this checkout's
+staged Release app. Regenerate both appearances on a logged-in Mac:
 
 ```sh
 npm --prefix website run screenshot
