@@ -96,7 +96,7 @@ struct NativeLocalModelSection: View {
                     case .available:
                         EmptyView()
                     case .checking:
-                        ProgressView("Verifying model…").controlSize(.small)
+                        ProgressView("Checking model…").controlSize(.small)
                     case .installed:
                         Label("Installed", systemImage: "checkmark.circle")
                     case let .downloading(downloaded, total):

@@ -212,9 +212,9 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `config::RegistryStore` | Supply a data directory; updates are atomic SQLite transactions. No credentials are serialized. |
 | `config::CredentialStore` | Supply a Keychain service name owned by the host. No Keychain migration happens automatically. |
 | `provider::discover_with_key` | Supply a connection and credential explicitly. Remote discovery does not consult Fritz's registry or Keychain. |
-| `local::models::ModelStore` | Supply the host data directory. Inventory verifies existing weights; only `download` downloads. |
+| `local::models::ModelStore` | Supply the host Models directory. Inventory checks file presence; only `download` downloads and verifies new files. |
 | `local::models::{catalog, manifest}` | Read the shared, revision/size/SHA-256-pinned model catalog. |
-| `local::inference::Engine` | Use `installed_in` with the host's ModelStore; it verifies pinned weights before lazy mistral.rs loading. |
+| `local::inference::Engine` | Use `installed_in` with the host's ModelStore; it resolves present local files before lazy mistral.rs loading. |
 | `harness::run` | Supply the connection, chat request and credential in memory. Fritz owns its conversation and action policy. |
 | `harness_client::chat_with_input` | Supply a bundled harness executable and explicit input; transport is private pipes. Dropping the future closes stdin for cancellation. |
 | `decision::{DecisionModel, DecisionRequest, DecisionResponse}` | Evaluate typed Choice, Score, and Noul questions through a backend-neutral contract. A local model can implement the trait. |
@@ -230,7 +230,7 @@ use fritz::local::models::ModelStore;
 async fn inventory() -> anyhow::Result<()> {
     let providers = RegistryStore::new("/path/to/host/data");
     let registry = providers.load()?;
-    let models = ModelStore::new("/path/to/host/data");
+    let models = ModelStore::new("/path/to/host/Models");
     let inventory = models.inventory().await?;
     Ok(())
 }
@@ -243,7 +243,7 @@ through the Fritz harness also retain the default Fritz model cache. Hosts
 requiring independent storage should use `ModelStore` and `Engine::installed_in`
 directly, not mutate process-wide environment variables to switch stores.
 
-Each engine owns its mistral.rs model and lazily loads the verified local GGUF.
+Each engine owns its mistral.rs model and lazily loads the present local GGUF. Invalid files surface native loader errors.
 The harness owns model turns and drops the model before exit. Neither inventory
 nor engine construction downloads a model.
 

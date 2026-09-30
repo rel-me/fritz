@@ -60,6 +60,10 @@ import Observation
         if let dataDirectory = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
             environment["FRITZ_DATA_DIR"] = NSString(string: dataDirectory).expandingTildeInPath
         }
+        if environment["FRITZ_MODELS_DIR"] == nil,
+           let directory = Bundle.main.object(forInfoDictionaryKey: "FritzModelsDirectory") as? String {
+            environment["FRITZ_MODELS_DIR"] = NSString(string: directory).expandingTildeInPath
+        }
         process.environment = environment
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice

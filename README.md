@@ -100,7 +100,17 @@ Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run inside the per-chat Rust harness using
 mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
 models or sending a chat never starts a download. Weights live under
-`~/Library/Application Support/Fritz/Data/Models/` (or `FRITZ_DATA_DIR/Models`).
+`~/Library/Application Support/Fritz/Data/Models/` in the regular app. All Debug apps
+share `/Library/Application Support/Fritz/Data/Models/`, while their provider and
+conversation databases remain separate. This system-wide directory must exist
+with write access for your account; Fritz reports a storage error if it cannot
+create or write it. `FRITZ_MODELS_DIR` explicitly overrides model storage for tests
+or CLI use. Chat GGUFs and decision artifacts are flat files in the same Models
+directory. A model is installed when its required files are present, regardless
+of size, checksum, or optional metadata. Decision configuration uses the matching
+model filename with a `.json` extension (for example, `laya-en.onnx` and
+`laya-en.json`). New downloads still validate size and SHA-256 before atomic
+publication. Older model directories are not read or migrated.
 The native runtime's licenses ship in the app; each model's license is linked in
 the download sheet. Memory recommendations are estimates. Local chat supports an 8,192-token
 context and up to 2,048 output tokens per model turn.
@@ -165,15 +175,15 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `~/Library/Application Support/Fritz/Data/workspace.sqlite`: projects, threads, ordered messages and tool activity, drafts, model choices, selection, appearance, update channel, settings page and model recents, owned by the native app.
 - SQLite connections use WAL, foreign keys, bounded lock waits, private file permissions, schema validation and atomic versioned migrations. A corrupt or newer database produces an error; it is never silently reset.
 - Legacy JSON files and old application preferences are ignored. There is no import or backwards compatibility. Existing files are left on disk but are no longer read or written.
-- Provider secrets remain in Fritz’s Keychain namespace; they are never stored in SQLite. Local model weights remain in `Data/Models`.
-- `FRITZ_DATA_DIR` overrides both databases and model storage for isolated development and tests. It does not change the Keychain namespace or macOS/Sparkle-managed preferences.
+- Provider secrets remain in Fritz’s Keychain namespace; they are never stored in SQLite. Chat and decision model files share Models; Debug apps use the system-wide directory described above.
+- `FRITZ_DATA_DIR` overrides databases and the default regular-app/CLI model root (`FRITZ_DATA_DIR/Models`). Debug apps use the shared system model root. Set `FRITZ_MODELS_DIR` to override model storage independently, including isolated Debug app tests. Neither override changes the Keychain namespace or macOS/Sparkle-managed preferences.
 - Interrupted prose is omitted from future context unless it has tool records; the next turn then receives the activity and an interruption notice so it can inspect current state before retrying.
 
 The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and the current folder actions.
 
 ## Decision models
 
-Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested and every file is checked before loading. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
+Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
 
 The CLI uses the same provider and harness:
 

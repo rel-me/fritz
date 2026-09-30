@@ -8,6 +8,10 @@ extension AgentClient {
         if let directory = bundle.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
             environment["FRITZ_DATA_DIR"] = NSString(string: directory).expandingTildeInPath
         }
+        if environment["FRITZ_MODELS_DIR"] == nil,
+           let directory = bundle.object(forInfoDictionaryKey: "FritzModelsDirectory") as? String {
+            environment["FRITZ_MODELS_DIR"] = NSString(string: directory).expandingTildeInPath
+        }
         if let service = bundle.object(forInfoDictionaryKey: "FritzKeychainService") as? String,
            !service.isEmpty {
             environment["FRITZ_KEYCHAIN_SERVICE"] = service

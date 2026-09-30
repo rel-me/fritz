@@ -11,10 +11,10 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
-| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, verified `installed` status |
+| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
-| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog and verified installation status |
+| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog and file-presence installation status |
 | `decisionModels.install` | `modelId` | Explicit verified download, progress events, and installed result |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
@@ -35,7 +35,7 @@ leave a bounded partial file; the next explicit install replaces it. Only files
 with the catalog's exact size and SHA-256 are atomically published and loaded.
 
 The `fritz` provider has no endpoint or API key. `models.list` returns its
-verified installed models. Listing, saving a connection, and chatting never
+present model files. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
 through the same pipes as remote providers. Each request loads weights in its
 own harness process; closing its pipe cancels the run. The local model is
@@ -152,7 +152,8 @@ and no API key. A saved Ollaya `connectionId` selects the local harness backend;
 explicit host requests use `backend: {"kind":"ollaya"}` and omit `apiKey`.
 Downloads use the same `progress` shape as `localModels.install`, with byte counts
 aggregated across the model artifacts. Listing and evaluation never download files.
-The harness verifies all files, uses CPU inference, rejects truncated state, and
+The harness requires the model artifacts to be present in the shared Models
+directory, uses CPU inference, rejects truncated state, and
 returns a resolved `laya-en@<revision>` ID. Score legends preserve JSON criteria,
 including objects. All decision requests have a 120-second harness deadline;
 closing stdin or sending SIGTERM/SIGINT cancels native loading/inference too.

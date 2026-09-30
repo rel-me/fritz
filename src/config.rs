@@ -164,6 +164,13 @@ pub fn data_dir() -> PathBuf {
         })
 }
 
+/// Model weights can be shared independently from provider and conversation data.
+pub fn models_dir() -> PathBuf {
+    std::env::var_os("FRITZ_MODELS_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| data_dir().join("Models"))
+}
+
 pub fn load() -> Result<Registry> {
     load_from(&data_dir())
 }

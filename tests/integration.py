@@ -33,7 +33,7 @@ def main():
     endpoint = f"http://127.0.0.1:{server.server_address[1]}/v1"
     with tempfile.TemporaryDirectory(prefix="fritz-test-") as directory:
         keychain_service = f"dev.fritz.provider-credentials.test-{uuid.uuid4()}"
-        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_KEYCHAIN_SERVICE=keychain_service)
+        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_MODELS_DIR=str(Path(directory) / "Models"), FRITZ_KEYCHAIN_SERVICE=keychain_service)
 
         def cli(*args, success=True):
             result = subprocess.run([str(EXECUTABLE), *args], text=True, capture_output=True, env=env, timeout=15)
