@@ -83,6 +83,12 @@ after the local archive and appcast have been prepared. Test the Beta update cha
 running `make promote`. Promotion changes the appcast channel and uploads it;
 the DMG is not rebuilt or uploaded again.
 
+After promotion, `make beta` cannot reuse that Release artifact. Increase both
+the app version and build number for the next beta; DMG URLs contain the app
+version and are immutable. Increasing only the build number still collides
+with the existing DMG. To retry publication of an already promoted Release,
+use `make promote`.
+
 Release defaults in `scripts/release-config.sh` can be overridden through
 `FRITZ_VERSION`, `FRITZ_BUILD_NUMBER`, `FRITZ_CODE_SIGN_IDENTITY`,
 `FRITZ_NOTARY_PROFILE`, `FRITZ_SPARKLE_FEED_URL`,
