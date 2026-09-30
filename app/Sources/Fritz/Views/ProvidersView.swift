@@ -242,8 +242,18 @@ struct ProviderEditor: View {
                         if nativeModel.state == .installed, let url = nativeModel.installedURL {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Installed at")
-                                Text(url.path).textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
+                                HStack(spacing: 6) {
+                                    Text(url.path).textSelection(.enabled)
+                                        .lineLimit(1).truncationMode(.middle)
+                                    Button("Copy Path", systemImage: "doc.on.doc") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(url.path, forType: .string)
+                                    }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(FritzButtonStyle(.inline))
+                                    .help("Copy Path")
+                                    .fixedSize()
+                                }
                             }
                             .padding(.top, 6)
                         }
@@ -331,7 +341,7 @@ struct ProviderEditor: View {
                 Text(localSession.status.title)
                     .foregroundStyle(localSession.status == .running ? .green : .secondary)
                 if let processID = localSession.processID {
-                    Text("· PID \(processID)").monospacedDigit()
+                    Text("· PID \(String(processID))").monospacedDigit()
                 }
             }
             if let address = localModels.service.address { Text(address).textSelection(.enabled) }
