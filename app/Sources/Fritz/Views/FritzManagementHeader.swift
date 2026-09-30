@@ -45,10 +45,10 @@ extension FritzManagementHeader where Actions == EmptyView {
 
 // Apply at the Form itself so standalone settings and embedded pages agree.
 extension View {
-    func fritzSettingsFormStyle() -> some View {
+    func fritzSettingsFormStyle(background: Color = FritzWindowStyle.contentBackground) -> some View {
         formStyle(.grouped)
             .contentMargins(.vertical, 0, for: .scrollContent)
             .scrollContentBackground(.hidden)
-            .background(FritzWindowStyle.contentBackground)
+            .background(background)
     }
 }
