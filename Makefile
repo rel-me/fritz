@@ -3,14 +3,14 @@
 
 export MISTRALRS_METAL_PLATFORMS ?= macos
 
-# One lock spans compilation, integration tests, and bundle staging.
-ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote:
-	+@python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
-else
-
 setup:
 	./scripts/setup-worktree.sh
+
+# One lock spans compilation, integration tests, and bundle staging.
+ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
+build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta publish-beta promote:
+	+@python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
+else
 
 build:
 	./scripts/build-app.sh
