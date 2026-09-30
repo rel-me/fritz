@@ -63,6 +63,18 @@ xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE"
 
 ## Beta and promotion
 
+The DMG contains `Fritz.app` and a shortcut to `/Applications`, arranged over
+Fritz's branded drag-to-install background. `make update-archive` creates this
+layout locally without publishing. `scripts/dmg-settings.py` controls the
+Finder window and icon positions; the artwork and export instructions live in
+[`design/dmg/`](../../design/dmg/README.md).
+
+Archive creation installs the hash-locked `dmgbuild`, `ds_store`, and `mac_alias`
+release tools into a Python virtual environment under the build cache on first
+use. These tools write the Finder metadata directly and are never bundled into
+the app. The build works without a logged-in Finder session or Finder automation
+permission. Tool versions and wheel hashes are in `scripts/dmg-requirements.txt`.
+
 Keep `Cargo.toml`, `Cargo.lock`, `app/project.yml`, and the generated Xcode
 project at the same app version. Increase `CURRENT_PROJECT_VERSION` on each
 published build. Run the affected tests and stage a Release app first:
@@ -82,6 +94,12 @@ An interrupted upload can be retried with `make beta` or `make publish-beta`
 after the local archive and appcast have been prepared. Test the Beta update channel before
 running `make promote`. Promotion changes the appcast channel and uploads it;
 the DMG is not rebuilt or uploaded again.
+
+`make publish-beta` and `make promote` read the version and build number from
+the staged `dist/Fritz.app` and validate them against the appcast and archive.
+If the beta was built with `FRITZ_VERSION` and `FRITZ_BUILD_NUMBER` overrides,
+these publication commands do not need the overrides repeated. Keep that
+staged app with its archive and appcast until publication and promotion finish.
 
 After promotion, `make beta` cannot reuse that Release artifact. Increase both
 the app version and build number for the next beta; DMG URLs contain the app

@@ -10,14 +10,22 @@ case "$channel" in
   *) echo "error: publish-update.sh requires beta or release" >&2; exit 64 ;;
 esac
 
-archive="dist/updates/Fritz-$FRITZ_VERSION.dmg"
+test -d dist/Fritz.app || { echo "error: missing dist/Fritz.app" >&2; exit 1; }
+# Publication uses the prepared artifact, including version overrides used when
+# it was built. Source defaults describe the next build, not this signed update.
+version="$(plutil -extract CFBundleShortVersionString raw dist/Fritz.app/Contents/Info.plist)"
+build="$(plutil -extract CFBundleVersion raw dist/Fritz.app/Contents/Info.plist)"
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$build" =~ ^[1-9][0-9]*$ ]]; then
+  echo "error: staged app must have a semantic version and a positive build number" >&2
+  exit 1
+fi
+archive="dist/updates/Fritz-$version.dmg"
 appcast="dist/updates/appcast.xml"
 test -f "$archive" || { echo "error: missing $archive" >&2; exit 1; }
 test -f "$appcast" || { echo "error: missing $appcast" >&2; exit 1; }
-test -d dist/Fritz.app || { echo "error: missing dist/Fritz.app" >&2; exit 1; }
 
-python3 - "$appcast" "$archive" "$channel" "$FRITZ_VERSION" \
-  "$FRITZ_BUILD_NUMBER" "$FRITZ_UPDATE_DOWNLOAD_URL_PREFIX" \
+python3 - "$appcast" "$archive" "$channel" "$version" \
+  "$build" "$FRITZ_UPDATE_DOWNLOAD_URL_PREFIX" \
   "$FRITZ_RELEASE_BASE_URL" "$FRITZ_SPARKLE_FEED_URL" <<'PY'
 import json
 import os
@@ -81,9 +89,9 @@ fi
   npx --no-install wrangler deploy
   if [[ "$channel" == beta ]]; then
     npx --no-install wrangler r2 object put \
-      "fritz-updates/updates/Fritz-$FRITZ_VERSION.dmg" --remote \
+      "fritz-updates/updates/Fritz-$version.dmg" --remote \
       --file="../$archive" --content-type=application/x-apple-diskimage \
-      --content-disposition="attachment; filename=\"Fritz-$FRITZ_VERSION.dmg\"" \
+      --content-disposition="attachment; filename=\"Fritz-$version.dmg\"" \
       --cache-control='public, max-age=31536000, immutable'
   fi
   npx --no-install wrangler r2 object put fritz-updates/appcast.xml --remote \
@@ -99,7 +107,7 @@ cmp "$appcast" "$live_appcast" || {
   echo "error: live Fritz appcast differs from the signed local appcast" >&2; exit 1;
 }
 live_headers="$(curl --fail --silent --show-error --head \
-  "$FRITZ_UPDATE_DOWNLOAD_URL_PREFIX/Fritz-$FRITZ_VERSION.dmg")"
+  "$FRITZ_UPDATE_DOWNLOAD_URL_PREFIX/Fritz-$version.dmg")"
 live_length="$(printf '%s\n' "$live_headers" | tr -d '\r' | awk '
   tolower($1) == "content-length:" { value = $2 }
   END { print value }
@@ -107,4 +115,4 @@ live_length="$(printf '%s\n' "$live_headers" | tr -d '\r' | awk '
 [[ "$live_length" == "$(stat -f %z "$archive")" ]] || {
   echo "error: live Fritz archive length differs from $archive" >&2; exit 1;
 }
-echo "Published Fritz $FRITZ_VERSION ($FRITZ_BUILD_NUMBER) $channel update."
+echo "Published Fritz $version ($build) $channel update."

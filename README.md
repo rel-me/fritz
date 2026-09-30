@@ -34,6 +34,11 @@ Git dependency examples, public APIs, ownership and the planned REL adoption.
 For shared UI visual regression checks, run `make check-ui-snapshots`. See
 [UI verification](docs/agents/ui-verification.md) for coverage and reference review.
 
+## Install
+
+Open the release DMG and drag Fritz onto the Applications shortcut. Eject the
+disk image, then open Fritz from Applications.
+
 ## Build and run
 
 Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
@@ -64,6 +69,8 @@ Fritz includes Sparkle 2.9.6. Open **Fritz → Settings… → General** to choo
 The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkle build number `2`. Release builds use those values by default. Ordinary local builds have no update feed; distribution targets embed Fritz's Sparkle public key and the feed URL configured in `scripts/release-config.sh`. The private key remains in the macOS Keychain under the `fritz` Sparkle account.
 
 `make beta` builds the Developer ID signed app, creates and notarizes a versioned DMG in `dist/updates/`, signs the beta appcast, and publishes both through Fritz's own Cloudflare Worker and R2 bucket. If a signed local beta is already prepared, rerunning `make beta` resumes publication without rebuilding or notarizing. `make publish-beta` also publishes that prepared beta. After testing, `make promote` publishes the same artifact on the Release channel by updating the appcast. Increase both the app version and build number before publishing the next beta. See [the release procedure](docs/agents/releases.md) for one-time Cloudflare setup, credentials, verification, and version bumps.
+
+`make publish-beta` and `make promote` use the staged app's version and build number, so version overrides used to build a beta do not need to be repeated for publication or promotion. Keep the staged app, DMG, and appcast together until promotion finishes.
 
 The native Xcode project is `app/Fritz.xcodeproj`; its source specification is `app/project.yml`. Regenerate project structure with `xcodegen generate --spec app/project.yml`. Use the Makefile to stage the complete app with its Rust agent. `app/Package.swift` supports fast Swift builds and unit tests.
 
