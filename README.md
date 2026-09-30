@@ -65,6 +65,8 @@ The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkl
 
 `make beta` builds the Developer ID signed app, creates and notarizes a versioned DMG in `dist/updates/`, signs the beta appcast, and publishes both through Fritz's own Cloudflare Worker and R2 bucket. If a signed local beta is already prepared, rerunning `make beta` resumes publication without rebuilding or notarizing. `make publish-beta` also publishes that prepared beta. After testing, `make promote` publishes the same artifact on the Release channel by updating the appcast. Increase both the app version and build number before publishing the next beta. See [the release procedure](docs/agents/releases.md) for one-time Cloudflare setup, credentials, verification, and version bumps.
 
+`make publish-beta` and `make promote` use the staged app's version and build number, so version overrides used to build a beta do not need to be repeated for publication or promotion. Keep the staged app, DMG, and appcast together until promotion finishes.
+
 The native Xcode project is `app/Fritz.xcodeproj`; its source specification is `app/project.yml`. Regenerate project structure with `xcodegen generate --spec app/project.yml`. Use the Makefile to stage the complete app with its Rust agent. `app/Package.swift` supports fast Swift builds and unit tests.
 
 Use **+ → New Project** to choose an existing folder and create its first thread. The current app uses “Project” for a folder group; this is a temporary part of its navigation. Use **New Chat** from the + or File menu, or press ⌘N, for another conversation. Threads retain separate transcripts, drafts, and model settings. Their titles come from the first message; project and thread context menus also offer Rename.

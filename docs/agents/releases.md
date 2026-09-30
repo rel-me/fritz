@@ -83,6 +83,12 @@ after the local archive and appcast have been prepared. Test the Beta update cha
 running `make promote`. Promotion changes the appcast channel and uploads it;
 the DMG is not rebuilt or uploaded again.
 
+`make publish-beta` and `make promote` read the version and build number from
+the staged `dist/Fritz.app` and validate them against the appcast and archive.
+If the beta was built with `FRITZ_VERSION` and `FRITZ_BUILD_NUMBER` overrides,
+these publication commands do not need the overrides repeated. Keep that
+staged app with its archive and appcast until publication and promotion finish.
+
 After promotion, `make beta` cannot reuse that Release artifact. Increase both
 the app version and build number for the next beta; DMG URLs contain the app
 version and are immutable. Increasing only the build number still collides
