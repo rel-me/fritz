@@ -34,6 +34,11 @@ Git dependency examples, public APIs, ownership and the planned REL adoption.
 For shared UI visual regression checks, run `make check-ui-snapshots`. See
 [UI verification](docs/agents/ui-verification.md) for coverage and reference review.
 
+## Install
+
+Open the release DMG and drag Fritz onto the Applications shortcut. Eject the
+disk image, then open Fritz from Applications.
+
 ## Build and run
 
 Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
