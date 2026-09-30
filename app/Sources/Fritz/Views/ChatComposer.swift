@@ -29,6 +29,7 @@ struct ChatComposer: View {
         FritzUI.ChatComposer(
             draft: $draft, placeholder: placeholder, canSend: canSend,
             isResponding: isResponding, isFocused: isFocused,
+            background: FritzWindowStyle.chatInputBackground,
             cornerRadius: ChatVisualStyle.composerCornerRadius,
             send: send, stop: stop
         ) {

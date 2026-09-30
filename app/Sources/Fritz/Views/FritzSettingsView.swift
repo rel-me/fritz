@@ -61,7 +61,6 @@ struct FritzSettingsView: View {
                             .font(.headline)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                             .padding(24)
-                            .background(FritzWindowStyle.contentBackground)
                     }
                 }
                 // Bound list-based pages to the window while reserving the bottom inset.
@@ -148,7 +147,7 @@ private struct FritzGeneralSettingsView: View {
                 }
             }
         }
-        .fritzSettingsFormStyle()
+        .fritzSettingsFormStyle(background: .clear)
         .safeAreaInset(edge: .bottom) {
             if let error = settings.error { Text(error).foregroundStyle(.orange).textSelection(.enabled).padding() }
         }
@@ -196,7 +195,7 @@ private struct FritzServiceSettingsView: View {
                 if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
             }
         }
-        .fritzSettingsFormStyle()
+        .fritzSettingsFormStyle(background: .clear)
     }
 }
 
