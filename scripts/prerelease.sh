@@ -7,6 +7,8 @@ case "$channel" in
   *) echo "error: use make beta or make staging" >&2; exit 64 ;;
 esac
 export FRITZ_DISTRIBUTION=1
+explicit_version="${FRITZ_VERSION:+--explicit-version}"
+explicit_build="${FRITZ_BUILD_NUMBER:+--explicit-build}"
 source scripts/release-config.sh
 
 for variable in FRITZ_VERSION FRITZ_BUILD_NUMBER FRITZ_CODE_SIGN_IDENTITY \
@@ -32,35 +34,23 @@ if [[ "$FRITZ_SPARKLE_FEED_URL" != https://* ||
   echo "error: the feed, download prefix, and homepage must be HTTPS URLs" >&2
   exit 1
 fi
+published_appcast="$(mktemp "${TMPDIR:-/tmp}/fritz-published-appcast.XXXXXX")"
+trap 'rm -f "$published_appcast"' EXIT
+status="$(curl --silent --show-error --location --retry 2 --max-time 30 \
+  --output "$published_appcast" --write-out '%{http_code}' "$FRITZ_SPARKLE_FEED_URL")"
+case "$status" in
+  200) ;;
+  404) rm -f "$published_appcast" ;; # First publication has no feed yet.
+  *) echo "error: cannot read published appcast (HTTP $status)" >&2; exit 1 ;;
+esac
+selection_args=("$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$published_appcast")
+if [[ -n "$explicit_version" ]]; then selection_args+=("$explicit_version"); fi
+if [[ -n "$explicit_build" ]]; then selection_args+=("$explicit_build"); fi
+next="$(python3 scripts/next-release.py "${selection_args[@]}")"
+read -r FRITZ_VERSION FRITZ_BUILD_NUMBER <<< "$next"
+export FRITZ_VERSION FRITZ_BUILD_NUMBER
 archive="dist/updates/Fritz-$FRITZ_VERSION.dmg"
-if [[ -e "$archive" ]]; then
-  if [[ -f dist/updates/appcast.xml ]]; then
-    python3 - "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$channel" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-
-version, build, requested_channel = sys.argv[1:]
-sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
-item = ET.parse('dist/updates/appcast.xml').getroot().find('./channel/item')
-if (item is None or item.findtext(f'{sparkle}shortVersionString') != version
-        or item.findtext(f'{sparkle}version') != build):
-    raise SystemExit(f'error: existing appcast does not match Fritz {version} ({build}); '
-                     f'use a new version and build number for a new {requested_channel} update')
-channel = item.findtext(f'{sparkle}channel') or 'release'
-if channel == 'release':
-    raise SystemExit(f'error: Fritz {version} ({build}) is already on the Release channel; '
-                     f'increase the version and build number before running make {requested_channel} '
-                     'for a new update, or use make promote to retry Release publication')
-if channel != requested_channel:
-    raise SystemExit(f'error: existing appcast channel is {channel!r}; '
-                     f'only a prepared {requested_channel} update can resume publication with make {requested_channel}')
-PY
-    ./scripts/publish-update.sh "$channel"
-    exit 0
-  fi
-  echo "error: $archive already exists without an appcast; refusing to replace a release artifact" >&2
-  exit 1
-fi
+echo "Preparing Fritz $FRITZ_VERSION ($FRITZ_BUILD_NUMBER) for $channel."
 
 # Check credentials before spending time on the release build.
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
