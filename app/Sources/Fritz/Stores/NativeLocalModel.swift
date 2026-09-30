@@ -9,6 +9,7 @@ import Observation
     let catalog: [NativeModelDescriptor]
     private(set) var selectedModelID: String
     private(set) var state: NativeModelInstallState = .available
+    private(set) var installedURL: URL?
     var selectedModel: NativeModelDescriptor {
         catalog.first { $0.id == selectedModelID }!
     }
@@ -42,6 +43,7 @@ import Observation
     private func run(install: Bool) {
         cancel()
         state = .checking
+        installedURL = nil
         let id = UUID().uuidString
         let modelID = selectedModelID
         requestID = id
@@ -55,6 +57,10 @@ import Observation
                     guard let self, requestID == id, !Task.isCancelled else { return }
                     let event = try JSONDecoder().decode(LocalModelEvent.self, from: data)
                     state = try event.state(for: modelID, installing: install)
+                    if let model = event.result?.models?.first(where: { $0.id == modelID }),
+                       model.installed, let path = model.path {
+                        installedURL = URL(fileURLWithPath: path)
+                    }
                     if event.type == "result" { completed = true }
                 }
                 guard let self, requestID == id, !Task.isCancelled else { return }
@@ -72,7 +78,7 @@ import Observation
 }
 
 struct LocalModelEvent: Decodable {
-    struct InventoryModel: Decodable { let id: String; let installed: Bool }
+    struct InventoryModel: Decodable { let id: String; let installed: Bool; let path: String? }
     struct Result: Decodable {
         let models: [InventoryModel]?
         let modelId: String?

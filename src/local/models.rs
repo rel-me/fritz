@@ -245,8 +245,10 @@ impl ModelStore {
         let mut models = Vec::new();
         for pin in pins {
             let path = self.directory.join(&pin.file);
+            let installed = path.is_file();
             models.push(
-                json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":path.is_file()}),
+                json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":installed,
+                    "path":installed.then_some(path)}),
             );
         }
         Ok(json!({"models":models}))

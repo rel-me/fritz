@@ -1,3 +1,4 @@
+import AppKit
 import Fritz
 import FritzUI
 import SwiftUI
@@ -216,7 +217,6 @@ struct ProviderEditor: View {
                                 Text(model.name).tag(model.id)
                             }
                         }
-                        Button("Download Model…") { showsDownload = true }
                     } footer: {
                         switch nativeModel.state {
                         case .installed: Text(category == .decision ? "Installed. This experimental model runs on this Mac when requested." : "Installed and ready for chat.")
@@ -228,9 +228,24 @@ struct ProviderEditor: View {
                             Text("This local model is already added as \(duplicateConnection.name). Edit that provider instead.")
                                 .foregroundStyle(.red)
                         }
-                    }
-                    if managesLocalAPI {
-                        localRuntimeSection
+                        if nativeModel.state == .installed, let url = nativeModel.installedURL {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Installed at")
+                                Text(url.path).textSelection(.enabled)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(.top, 6)
+                        }
+                        HStack(spacing: 8) {
+                            Button("Download Model…") { showsDownload = true }
+                            if nativeModel.state == .installed, let url = nativeModel.installedURL {
+                                Button("Open in Finder", systemImage: "folder") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                                }
+                            }
+                        }
+                        .padding(.top, 6)
+                        if managesLocalAPI { localRuntimeControls.padding(.top, 12) }
                     }
                     if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
@@ -286,9 +301,11 @@ struct ProviderEditor: View {
             && existing?.modelID == nativeModel.selectedModelID
     }
 
-    private var localRuntimeSection: some View {
-        Section {
-            LabeledContent("Local API") {
+    private var localRuntimeControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Local API")
+                Spacer()
                 HStack(spacing: 8) {
                     if localSession.status == .running || localSession.status == .starting {
                         Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
@@ -300,7 +317,6 @@ struct ProviderEditor: View {
                     }
                 }
             }
-        } footer: {
             HStack(spacing: 6) {
                 if localSession.status == .starting { ProgressView().controlSize(.small) }
                 Text(localSession.status.title)
@@ -431,8 +447,9 @@ struct ProviderEditor: View {
     private var editorHeight: CGFloat {
         let base: CGFloat
         if managesLocalModels {
-            base = 340 + (store.connections.isEmpty ? 0 : 40)
-                + (managesLocalAPI ? 170 : 0)
+            base = 340 + (category == .llm && store.registry.defaultConnectionId != nil ? 40 : 0)
+                + (managesLocalAPI ? 100 : 0)
+                + (nativeModel.installedURL == nil ? 0 : 50)
         } else if category == .decision {
             base = 460 + (showsAdvanced ? 100 : 0)
         } else {

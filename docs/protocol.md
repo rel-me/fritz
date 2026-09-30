@@ -11,10 +11,10 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
-| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status |
+| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
-| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog and file-presence installation status |
+| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog, file-presence installation status, and `path` (installed ONNX graph path or null) |
 | `decisionModels.install` | `modelId` | Explicit verified download, progress events, and installed result |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |

@@ -111,6 +111,8 @@ of size, checksum, or optional metadata. Decision configuration uses the matchin
 model filename with a `.json` extension (for example, `laya-en.onnx` and
 `laya-en.json`). New downloads still validate size and SHA-256 before atomic
 publication. Older model directories are not read or migrated.
+The provider editor shows the installed model file's path and **Open in Finder**
+reveals it. Download and local API actions sit beside their status information.
 The native runtime's licenses ship in the app; each model's license is linked in
 the download sheet. Memory recommendations are estimates. Local chat supports an 8,192-token
 context and up to 2,048 output tokens per model turn.

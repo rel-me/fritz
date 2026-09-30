@@ -83,8 +83,10 @@ impl ModelStore {
         };
         let mut models = Vec::new();
         for pin in pins {
+            let installed = self.is_installed(pin).await;
             models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,
-                "installed":self.is_installed(pin).await}));
+                "installed":installed,
+                "path":installed.then(|| self.directory.join(format!("{}.onnx", pin.id)))}));
         }
         Ok(json!({"models":models}))
     }
