@@ -68,52 +68,151 @@ class PromotionTests(unittest.TestCase):
         self.assertEqual(self.appcast.read_bytes(), original_feed)
 
 
-class PrereleaseResumeTests(unittest.TestCase):
-    def test_resumes_only_the_matching_prerelease(self):
-        source = SCRIPT.parent
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            scripts = root / "scripts"
-            scripts.mkdir()
-            for name in ("prerelease.sh", "release-config.sh"):
-                shutil.copy2(source / name, scripts / name)
-            publication = root / "published"
-            publish = scripts / "publish-update.sh"
-            publish.write_text('#!/bin/bash\nprintf "%s" "$1" > published\n')
-            publish.chmod(0o755)
-            updates = root / "dist/updates"
-            updates.mkdir(parents=True)
-            archive = updates / "Fritz-1.2.3.dmg"
-            archive.write_bytes(b"existing immutable archive")
-            environment = dict(os.environ, FRITZ_VERSION="1.2.3", FRITZ_BUILD_NUMBER="10")
-            for requested_channel, channel, build, error in (
-                ("beta", "beta", "10", None),
-                ("staging", "staging", "10", None),
-                ("staging", "beta", "10", "only a prepared staging update"),
-                ("beta", "staging", "10", "only a prepared beta update"),
-                ("beta", None, "10", "already on the Release channel"),
-                ("beta", "beta", "9", "does not match Fritz 1.2.3 (10)"),
-            ):
-                with self.subTest(requested_channel=requested_channel, channel=channel, build=build):
-                    publication.unlink(missing_ok=True)
-                    marker = f"<sparkle:channel>{channel}</sparkle:channel>" if channel else ""
-                    appcast = updates / "appcast.xml"
-                    appcast.write_text(f"""<rss xmlns:sparkle="{release.SPARKLE}"><channel><item>
-{marker}<sparkle:version>{build}</sparkle:version>
-<sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
-</item></channel></rss>""")
-                    original = appcast.read_bytes()
-                    result = subprocess.run(["/bin/bash", str(scripts / "prerelease.sh"), requested_channel],
-                                            env=environment, capture_output=True, text=True)
-                    if error is None:
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        self.assertEqual(publication.read_text(), requested_channel)
-                    else:
-                        self.assertNotEqual(result.returncode, 0)
-                        self.assertIn(error, result.stderr)
-                        self.assertFalse(publication.exists())
-                    self.assertEqual(appcast.read_bytes(), original)
-                    self.assertEqual(archive.read_bytes(), b"existing immutable archive")
+class PrereleaseVersionTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory(prefix="fritz prerelease ")
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        scripts = self.root / "scripts"
+        scripts.mkdir()
+        for name in ("prerelease.sh", "release-config.sh", "build-cache.py", "next-release.py"):
+            shutil.copy2(SCRIPT.parent / name, scripts / name)
+        (self.root / "Cargo.toml").write_text('version = "0.1.1"\n')
+        (self.root / "app").mkdir()
+        (self.root / "app/project.yml").write_text('CURRENT_PROJECT_VERSION: 2\n')
+        self.updates = self.root / "dist/updates"
+        self.updates.mkdir(parents=True)
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        self.environment = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}",
+                                FRITZ_BUILD_ROOT=str(self.root / "cache"))
+        for key in ("FRITZ_VERSION", "FRITZ_BUILD_NUMBER", "FRITZ_DISTRIBUTION",
+                    "FRITZ_BUILD_CACHE_ACTIVE"):
+            self.environment.pop(key, None)
+        derived = subprocess.check_output(
+            [sys.executable, str(scripts / "build-cache.py"), "--derived-data"],
+            env=self.environment, text=True).strip()
+        key_tool = Path(derived) / "SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
+        key_tool.parent.mkdir(parents=True)
+        self.executable(key_tool, "import os\nprint(os.environ['FRITZ_SPARKLE_PUBLIC_ED_KEY'])\n")
+        website = self.root / "website"
+        (website / "node_modules").mkdir(parents=True)
+        (website / "package-lock.json").write_text('{}')
+        (website / "node_modules/.package-lock.json").write_text('{}')
+        self.remote = self.root / "remote.xml"
+        self.remote.write_text(self.feed(("0.1.2", "3", "beta")))
+        self.executable(self.bin / "curl", """import os, pathlib, shutil, sys
+if os.environ.get('CURL_FAILURE'):
+    print('curl: timed out', file=sys.stderr)
+    sys.exit(28)
+if pathlib.Path('remote.xml').exists():
+    shutil.copyfile('remote.xml', sys.argv[sys.argv.index('--output') + 1])
+    print('200', end='')
+else:
+    print(os.environ.get('HTTP_STATUS', '404'), end='')
+""")
+        self.executable(self.bin / "codesign", "import sys\nprint('Authority=Developer ID Application: Test', file=sys.stderr)\n")
+        for name in ("xcrun", "npx"):
+            self.executable(self.bin / name, "")
+        self.executable(scripts / "build-app.sh", """import json, os, plistlib
+from pathlib import Path
+version, build = os.environ['FRITZ_VERSION'], os.environ['FRITZ_BUILD_NUMBER']
+Path('built.json').write_text(json.dumps([version, build]))
+contents = Path('dist/Fritz.app/Contents')
+contents.mkdir(parents=True, exist_ok=True)
+(contents / 'Info.plist').write_bytes(plistlib.dumps({'CFBundleShortVersionString': version, 'CFBundleVersion': build}))
+""")
+        self.executable(scripts / "create-update-archive.sh", """import os
+from pathlib import Path
+Path('dist/updates/Fritz-' + os.environ['FRITZ_VERSION'] + '.dmg').write_bytes(b'new archive')
+""")
+        self.executable(scripts / "prepare-update.sh", """import json, sys
+from pathlib import Path
+Path('prepared.json').write_text(json.dumps([sys.argv[1], Path('dist/updates/appcast.xml').read_text() if Path('dist/updates/appcast.xml').exists() else None]))
+""")
+        self.executable(scripts / "publish-update.sh", "import sys\nfrom pathlib import Path\nPath('published').write_text(sys.argv[1])\n")
+
+    def executable(self, path, code):
+        path.write_text(f"#!{sys.executable}\n" + code)
+        path.chmod(0o755)
+
+    def feed(self, *items):
+        records = ''.join(f"<item><sparkle:version>{build}</sparkle:version>"
+                          f"<sparkle:shortVersionString>{version}</sparkle:shortVersionString>"
+                          + (f"<sparkle:channel>{channel}</sparkle:channel>" if channel else "") + "</item>"
+                          for version, build, channel in items)
+        return f'<rss xmlns:sparkle="{release.SPARKLE}"><channel>{records}</channel></rss>'
+
+    def run_release(self, channel, **overrides):
+        return subprocess.run(["/bin/bash", str(self.root / "scripts/prerelease.sh"), channel],
+                              env=dict(self.environment, **overrides), capture_output=True, text=True)
+
+    def test_next_version_across_local_and_published_channels(self):
+        # A stale source version and mismatched appcast previously stopped staging.
+        old = self.updates / "Fritz-0.1.1.dmg"
+        old.write_bytes(b'immutable old archive')
+        (self.updates / "appcast.xml").write_text(self.feed(("0.1.2", "3", "beta")))
+        self.remote.write_text(self.feed(("0.1.4", "5", None), ("0.1.3", "4", "staging"),
+                                         ("0.1.2", "3", None)))
+        for channel, expected in (("staging", ["0.1.5", "6"]), ("beta", ["0.1.6", "7"])):
+            with self.subTest(channel=channel):
+                result = self.run_release(channel)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads((self.root / "built.json").read_text()), expected)
+                self.assertEqual((self.root / "published").read_text(), channel)
+                prepared_channel, feed = json.loads((self.root / "prepared.json").read_text())
+                self.assertEqual(prepared_channel, channel)
+                items = ET.fromstring(feed).findall('./channel/item')
+                self.assertEqual({i.findtext(f'{{{release.SPARKLE}}}version') for i in items}, {'3', '4', '5'})
+                self.assertIsNone(next(i for i in items if i.findtext(
+                    f'{{{release.SPARKLE}}}version') == '3').find(f'{{{release.SPARKLE}}}channel'))
+                self.assertEqual(old.read_bytes(), b'immutable old archive')
+
+    def test_clean_checkout_and_first_publication(self):
+        for remote, expected in ((True, ["0.1.3", "4"]), (False, ["0.1.1", "2"])):
+            with self.subTest(remote=remote):
+                if not remote:
+                    self.remote.unlink()
+                    shutil.rmtree(self.root / "dist")
+                    self.updates.mkdir(parents=True)
+                result = self.run_release("beta")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads((self.root / "built.json").read_text()), expected)
+
+    def test_explicit_version_and_build_overrides(self):
+        result = self.run_release("staging", FRITZ_VERSION="1.0.0", FRITZ_BUILD_NUMBER="20")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads((self.root / "built.json").read_text()), ["1.0.0", "20"])
+
+    def test_higher_source_defaults_and_partial_overrides(self):
+        (self.root / "Cargo.toml").write_text('version = "0.2.0"\n')
+        (self.root / "app/project.yml").write_text('CURRENT_PROJECT_VERSION: 10\n')
+        for overrides, expected in (({}, ["0.2.0", "10"]),
+                                    ({"FRITZ_VERSION": "0.3.0"}, ["0.3.0", "11"]),
+                                    ({"FRITZ_BUILD_NUMBER": "20"}, ["0.3.1", "20"])):
+            with self.subTest(overrides=overrides):
+                result = self.run_release("beta", **overrides)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads((self.root / "built.json").read_text()), expected)
+
+    def test_rejects_collisions_and_unreadable_feed_before_building(self):
+        for overrides, error in (
+            ({"FRITZ_VERSION": "0.1.2"}, "FRITZ_VERSION"),
+            ({"FRITZ_BUILD_NUMBER": "3"}, "FRITZ_BUILD_NUMBER"),
+            ({"CURL_FAILURE": "1"}, "curl"),
+            ({"HTTP_STATUS": "503"}, "HTTP 503"),
+            ({}, "appcast"),
+        ):
+            with self.subTest(overrides=overrides):
+                if not overrides:
+                    self.remote.write_text('invalid XML')
+                elif "HTTP_STATUS" in overrides:
+                    self.remote.unlink()
+                result = self.run_release("staging", **overrides)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(error, result.stderr)
+                self.assertFalse((self.root / "built.json").exists())
+                self.assertFalse((self.root / "published").exists())
 
 
 class PublicationTests(unittest.TestCase):

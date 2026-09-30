@@ -26,11 +26,14 @@ npm ci
 npx wrangler r2 bucket create fritz-updates
 ```
 
-The first `make beta` deploys `website/worker.mjs` to the custom domain in
+Before the first publication, deploy `website/worker.mjs` with
+`cd website && npx wrangler deploy` to establish the custom domain in
 `website/wrangler.jsonc`. The Cloudflare account must own the configured zone and
 permit custom domains for Workers. Confirm the configured hostname resolves
-after that deployment. The Worker serves the appcast from R2 with `no-store` and
-versioned DMGs with immutable caching and byte-range support.
+after that deployment. Prerelease targets read this domain's appcast before
+building; an empty bucket returns HTTP 404. They redeploy the Worker during
+publication. The Worker serves the appcast from R2 with `no-store` and versioned
+DMGs with immutable caching and byte-range support.
 
 ## Home page
 
@@ -108,8 +111,10 @@ the app. The build works without a logged-in Finder session or Finder automation
 permission. Tool versions and wheel hashes are in `scripts/dmg-requirements.txt`.
 
 Keep `Cargo.toml`, `Cargo.lock`, `app/project.yml`, and the generated Xcode
-project at the same app version. Increase `CURRENT_PROJECT_VERSION` on each
-published build. Run the affected tests and stage a Release app first:
+project at the same source app version. Prerelease targets use these as minimum
+version defaults; their selected app version and build number are passed to the
+build without modifying source files. Run the affected tests and stage a Release
+app first:
 
 ```sh
 make test
@@ -118,13 +123,13 @@ CONFIGURATION=release make build
 make beta
 ```
 
-`make staging` and `make beta` read the source version and build number and publish to their respective Sparkle channels. Staging accepts Staging, Beta, and Release updates in Settings. Saved Dev selections migrate to Staging on launch. Staging updates are excluded from the website’s download selection and cannot be promoted directly to Release. Use a new app version and build number when moving from Staging to Beta.
+`make staging` and `make beta` select a new version and publish to their respective Sparkle channels. They read the source defaults, local DMGs, staged app, local appcast, and live appcast across all channels. When the source version has already been used, they increment the highest patch version; the build number exceeds all known builds. A higher unused source version or build number is kept. Published appcast items are merged into the local feed to preserve the other channels on a fresh or stale checkout. Only HTTP 404 is treated as an initial publication; network errors, other HTTP failures, and malformed feeds stop the target before building. Staging accepts Staging, Beta, and Release updates in Settings. Saved Dev selections migrate to Staging on launch. Staging updates are excluded from the website’s download selection and cannot be promoted directly to Release. Moving from Staging to Beta automatically selects a new app version and build number.
 
 Each target verifies notarization
 credentials before building, refuses to replace an existing local versioned
 DMG, then builds, notarizes, staples, signs the appcast, deploys the Worker,
 uploads the DMG and appcast to the separate bucket, and checks the live URLs.
-An interrupted upload can be retried with `make staging` or `make publish-staging` for Staging, or `make beta` or `make publish-beta` for Beta
+An interrupted upload can be retried with `make publish-staging` for Staging or `make publish-beta` for Beta
 after the local archive and appcast have been prepared. Test the Beta update channel before
 running `make promote`. Promotion changes the appcast channel and uploads it;
 the DMG is not rebuilt or uploaded again.
@@ -135,11 +140,13 @@ If the beta was built with `FRITZ_VERSION` and `FRITZ_BUILD_NUMBER` overrides,
 these publication commands do not need the overrides repeated. Keep that
 staged app with its archive and appcast until publication and promotion finish.
 
-After promotion, neither `make beta` nor `make staging` can reuse that Release artifact. Increase both
-the app version and build number for the next beta; DMG URLs contain the app
-version and are immutable. Increasing only the build number still collides
-with the existing DMG. To retry publication of an already promoted Release,
-use `make promote`.
+Every `make beta` or `make staging` invocation prepares a new artifact, including
+after promotion. DMG URLs contain the app version and are immutable, so both
+the app version and build number advance. Explicit `FRITZ_VERSION` and
+`FRITZ_BUILD_NUMBER` overrides must exceed all known local and published values;
+an omitted override is selected automatically. Use the `publish-*` targets to
+retry a prepared update, or `make promote` to retry a promoted Release. Keep
+prepared artifacts until their publication finishes.
 
 Release defaults in `scripts/release-config.sh` can be overridden through
 `FRITZ_VERSION`, `FRITZ_BUILD_NUMBER`, `FRITZ_CODE_SIGN_IDENTITY`,
