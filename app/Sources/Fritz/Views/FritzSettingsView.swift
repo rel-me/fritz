@@ -55,7 +55,7 @@ struct FritzSettingsView: View {
                     case .providers:
                         ProvidersView(store: state.providers, localModels: state.localModels, editor: $editor)
                     case .service:
-                        FritzServiceSettingsView(agent: state.agent)
+                        FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
                     case .debug:
                         Text("Debug")
                             .font(.headline)
@@ -163,6 +163,7 @@ private struct FritzGeneralSettingsView: View {
 
 private struct FritzServiceSettingsView: View {
     let agent: AgentClient
+    let localModels: LocalModelRuntimeStore
 
     var body: some View {
         Form {
@@ -182,6 +183,17 @@ private struct FritzServiceSettingsView: View {
                 } else {
                     Text("Fritz supervises its bundled agent. Each active chat uses a separate fritz-harness process.")
                 }
+            }
+            Section {
+                LabeledContent("Status", value: localModels.service.status.title)
+                if let pid = localModels.service.processID { LabeledContent("Process ID", value: String(pid)) }
+                if let address = localModels.service.address {
+                    LabeledContent("Address") { Text(address).textSelection(.enabled) }
+                }
+            } header: {
+                Text("Local API")
+            } footer: {
+                if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
             }
         }
         .fritzSettingsFormStyle()

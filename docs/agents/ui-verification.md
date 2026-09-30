@@ -34,8 +34,11 @@ the following surfaces, include these behaviors:
   persistent sidebar without a toggle, and a rounded detail surface that begins
   below the toolbar in light/dark appearance. General appearance,
   update channel, CLI install feedback, Models selection, blank and populated model
-  lists, local-model download and editor process controls (stopped by default, start/stop/restart, PID, address,
-  errors, and quit cleanup), Service status, and
+  lists, local-model download and New Models/Edit Models process controls (First use
+  by default, App start persistence, weight load/unload, installed path and Finder
+  reveal, PID, address, multi-model memory warnings including API first-use
+  admission, errors, and quit cleanup), automatic Local API startup with no models,
+  Service status, and
   Debug page navigation.
 - **Providers:** combined LLM and decision provider list, add/edit/cancel, field
   labels, discovery and refresh, default/manual model choices, validation, and
@@ -45,7 +48,7 @@ Check keyboard focus and command targets when moving between chat, popovers,
 and Providers. Exercise accessibility or reduced-motion/transparency settings
 when the changed behavior depends on them. Capture before/after screenshots
 when they help review a visual change, using synthetic text and no credentials.
-With an app-owned sheet open (including New Provider), verify that Command-Q,
+With an app-owned sheet open (including New Models), verify that Command-Q,
 the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.

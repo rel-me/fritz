@@ -22,7 +22,7 @@ import SwiftUI
         workspace = WorkspaceStore(agent: agent)
         providers = ProviderStore(agent: agent, database: workspace.database)
         settings = AppSettings(database: workspace.database)
-        localModels = LocalModelRuntimeStore(agent: agent)
+        localModels = LocalModelRuntimeStore(agent: agent, database: workspace.database)
     }
     func newThread() {
         if let project = workspace.selectedProject ?? workspace.projects.first {
@@ -108,7 +108,9 @@ import SwiftUI
                 .task(id: updater.allowsAppUse) {
                     guard updater.allowsAppUse else { return }
                     state.agent.start()
+                    state.localModels.startService()
                     await state.providers.refresh()
+                    await state.localModels.startAtAppLaunch(state.providers.connections)
                 }
         }
         .defaultSize(width: 1080, height: 760)

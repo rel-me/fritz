@@ -41,7 +41,7 @@ struct ProvidersView: View {
             .fritzListSurface()
             .contextMenu(forSelectionType: UUID.self) { ids in
                 if ids.count == 1, let connection = store.connections.first(where: { ids.contains($0.id) }) {
-                    Button("Edit Provider", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
+                    Button("Edit Models", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
                     if connection.category == .llm {
                         Button("Make Default", systemImage: "checkmark.circle") { Task { await store.makeDefault(connection) } }
                             .disabled(connection.id == store.registry.defaultConnectionId)
@@ -162,6 +162,7 @@ struct ProviderEditor: View {
     @State private var refreshID = 0
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: NativeLocalModel
+    @State private var startPolicy: LocalModelRuntimeStore.StartPolicy
     @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
@@ -169,7 +170,9 @@ struct ProviderEditor: View {
         self.store = store; self.localModels = localModels; self.existing = existing
         let category = existing?.category ?? .llm
         _id = State(initialValue: existing?.id ?? UUID())
-        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category))
+        let initialNativeModel = NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category)
+        _nativeModel = State(initialValue: initialNativeModel)
+        _startPolicy = State(initialValue: localModels.policy(for: initialNativeModel.selectedModelID))
         let baseName = category == .decision ? "TypeSafe" : "OpenAI"
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
@@ -192,7 +195,7 @@ struct ProviderEditor: View {
             footerBackground: FritzWindowStyle.workspaceBackground,
             cancel: { nativeModel.cancel(); dismiss() }, save: save
         ) {
-            FritzManagementHeader(existing == nil ? "New Provider" : "Edit Provider")
+            FritzManagementHeader(existing == nil ? "New Models" : "Edit Models")
         } content: {
             Form {
                 Section {
@@ -217,15 +220,23 @@ struct ProviderEditor: View {
                                 Text(model.name).tag(model.id)
                             }
                         }
+                        if managesLocalAPI {
+                            Picker("Start on", selection: $startPolicy) {
+                                ForEach(LocalModelRuntimeStore.StartPolicy.allCases) { policy in
+                                    Text(policy.title).tag(policy)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
                     } footer: {
                         switch nativeModel.state {
-                        case .installed: Text(category == .decision ? "Installed. This experimental model runs on this Mac when requested." : "Installed and ready for chat.")
-                        case .checking: Text("Checking local model…")
+                        case .installed: EmptyView()
+                        case .checking: Text("Checking…")
                         case .failed(let message): Text(message).foregroundStyle(.red)
-                        case .available, .downloading: Text("Download this model before adding it as a provider.")
+                        case .available, .downloading: Text("Not installed")
                         }
                         if let duplicateConnection {
-                            Text("This local model is already added as \(duplicateConnection.name). Edit that provider instead.")
+                            Text("Already added as \(duplicateConnection.name).")
                                 .foregroundStyle(.red)
                         }
                         if nativeModel.state == .installed, let url = nativeModel.installedURL {
@@ -237,7 +248,17 @@ struct ProviderEditor: View {
                             .padding(.top, 6)
                         }
                         HStack(spacing: 8) {
-                            Button("Download Model…") { showsDownload = true }
+                            Button("Download") { showsDownload = true }
+                            if managesLocalAPI {
+                                if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
+                                    Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
+                                        .disabled(localSession.status == .stopping)
+                                } else {
+                                    Button("Start") { localModels.start(nativeModel.selectedModelID) }
+                                        .disabled(nativeModel.state != .installed || localModels.isLoading
+                                                  || !localModels.installedIDs.contains(nativeModel.selectedModelID))
+                                }
+                            }
                             if nativeModel.state == .installed, let url = nativeModel.installedURL {
                                 Button("Open in Finder", systemImage: "folder") {
                                     NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -246,6 +267,7 @@ struct ProviderEditor: View {
                         }
                         .padding(.top, 6)
                         if managesLocalAPI { localRuntimeControls.padding(.top, 12) }
+                        if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     }
                     if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
@@ -253,7 +275,6 @@ struct ProviderEditor: View {
                                 .disabled(existing?.id == store.registry.defaultConnectionId)
                         }
                     }
-                    if let error { Section {} footer: { Text(error).foregroundStyle(.red) } }
                 } else {
                     remoteSections
                 }
@@ -273,6 +294,9 @@ struct ProviderEditor: View {
             modelID = new.category == .decision ? "jev-latest" : ""
             models = []; error = nil; discoveryError = nil; discoveryFinished = false; refreshID = 0
             showsModels = false
+        }
+        .onChange(of: nativeModel.selectedModelID) { _, modelID in
+            startPolicy = localModels.policy(for: modelID)
         }
         .task(id: preset.provider) {
             nativeModel.cancel()
@@ -297,26 +321,11 @@ struct ProviderEditor: View {
     }
 
     private var managesLocalAPI: Bool {
-        preset.provider == .fritz && existing?.provider == .fritz
-            && existing?.modelID == nativeModel.selectedModelID
+        preset.provider == .fritz
     }
 
     private var localRuntimeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Local API")
-                Spacer()
-                HStack(spacing: 8) {
-                    if localSession.status == .running || localSession.status == .starting {
-                        Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
-                        Button("Restart") { localModels.restart(nativeModel.selectedModelID) }
-                    } else {
-                        Button("Start") { localModels.start(nativeModel.selectedModelID) }
-                            .disabled(nativeModel.state != .installed || localModels.isLoading
-                                      || !localModels.installedIDs.contains(nativeModel.selectedModelID))
-                    }
-                }
-            }
             HStack(spacing: 6) {
                 if localSession.status == .starting { ProgressView().controlSize(.small) }
                 Text(localSession.status.title)
@@ -325,9 +334,8 @@ struct ProviderEditor: View {
                     Text("· PID \(processID)").monospacedDigit()
                 }
             }
-            if let address = localSession.address { Text(address).textSelection(.enabled) }
-            Text("Starts only when you click Start. Fritz stops this API when it quits. Chat loads the model when you send a message and uses a separate process.")
-            if let error = localSession.error ?? localModels.error {
+            if let address = localModels.service.address { Text(address).textSelection(.enabled) }
+            if let error = localModels.policyError ?? localSession.error ?? localModels.service.error ?? localModels.error {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
             }
         }
@@ -351,7 +359,7 @@ struct ProviderEditor: View {
                     .labelStyle(.iconOnly).frame(width: 24, height: 20).disabled(apiKey.isEmpty)
                     .help(isAPIKeyVisible ? "Hide API Key" : "Show API Key")
                 }
-            }.help("API keys are stored in macOS Keychain.")
+            }
             if category == .decision {
                 LabeledContent("Model", value: "Jev · jev-latest")
                 TextField("Connection name", text: $name)
@@ -377,18 +385,15 @@ struct ProviderEditor: View {
             }
         } footer: {
             if let duplicateConnection {
-                Text("This provider and endpoint are already added as \(duplicateConnection.name). Edit that provider instead.")
+                Text("Already added as \(duplicateConnection.name).")
                     .foregroundStyle(.red)
-            }
-            if category == .decision {
-                Text("Jev evaluates typed questions through TypeSafe. The key is stored in Keychain; decisions are not sent to chat automatically.")
             }
             if category == .decision, let error {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
             } else if let discoveryError {
                 Label(discoveryError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             } else if discoveryFinished, models.isEmpty {
-                Text("No models were returned by this model provider.").foregroundStyle(.secondary)
+                Text("No models found.").foregroundStyle(.secondary)
             }
         }
         Section {
@@ -419,10 +424,6 @@ struct ProviderEditor: View {
             .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
             .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
         } footer: {
-            if showsAdvanced {
-                if !requiresEndpoint { Text("Leave Gateway URL blank to use the provider’s default endpoint.") }
-                if category == .llm { Text("Enter a model ID for endpoints without a model catalog.") }
-            }
             if category == .llm, let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
         }
     }
@@ -434,7 +435,6 @@ struct ProviderEditor: View {
                 .labelsHidden().autocorrectionDisabled()
                 .accessibilityLabel(endpointTitle)
         }
-        .help(requiresEndpoint ? "The OpenAI-compatible API endpoint, including its version path." : "Leave blank to use the provider’s default endpoint.")
     }
 
     private var category: AIModelCategory { preset.category }
@@ -448,10 +448,10 @@ struct ProviderEditor: View {
         let base: CGFloat
         if managesLocalModels {
             base = 340 + (category == .llm && store.registry.defaultConnectionId != nil ? 40 : 0)
-                + (managesLocalAPI ? 100 : 0)
+                + (managesLocalAPI ? 65 : 0)
                 + (nativeModel.installedURL == nil ? 0 : 50)
         } else if category == .decision {
-            base = 460 + (showsAdvanced ? 100 : 0)
+            base = 350 + (showsAdvanced ? 100 : 0)
         } else {
             base = 370 + (requiresEndpoint ? 64 : 0) + (showsAdvanced ? (requiresEndpoint ? 150 : 250) : 0)
                 + (store.connections.isEmpty ? 0 : 32)
@@ -459,7 +459,7 @@ struct ProviderEditor: View {
         }
         return base - (existing == nil ? 32 : 0) + (duplicateConnection == nil ? 0 : 44)
     }
-    private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
+    private var primaryActionTitle: String { existing == nil ? "Add" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointTitle: String { requiresEndpoint ? "Gateway URL" : "Gateway URL (Optional)" }
     private var endpointPrompt: String {
@@ -475,6 +475,7 @@ struct ProviderEditor: View {
     private var keyPrompt: String { keepsSavedKey ? "**********" : "Enter API key" }
     private var canSave: Bool {
         !isSaving && duplicateConnection == nil
+            && (!managesLocalAPI || localModels.policyError == nil)
             && (!managesLocalModels || nativeModel.category == category && nativeModel.state == .installed)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
@@ -543,6 +544,9 @@ struct ProviderEditor: View {
                 if let existing, existing.provider == .fritz,
                    saved.provider != .fritz || saved.modelID != existing.modelID {
                     localModels.stop(existing.modelID)
+                }
+                if saved.provider == .fritz {
+                    try localModels.setPolicy(startPolicy, for: saved.modelID)
                 }
                 try Task.checkCancellation()
                 apiKey = ""; dismiss()

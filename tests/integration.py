@@ -9,6 +9,8 @@ import tempfile
 import threading
 import uuid
 from http.server import ThreadingHTTPServer
+import urllib.request
+import urllib.error
 from mock_provider import Provider
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +29,107 @@ class AuthenticatedProvider(Provider):
         super().do_GET()
 
 
+def managed_local_api():
+    """Test real listener ownership and private-pipe model admission, without weights."""
+    with tempfile.TemporaryDirectory(prefix="fritz-api-test-") as directory:
+        models = Path(directory) / "Models"
+        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_MODELS_DIR=str(models))
+        process = subprocess.Popen([str(EXECUTABLE), "local-models", "serve", "--port", "0", "--managed"],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, env=env)
+        events = queue.Queue()
+        threading.Thread(target=lambda: [events.put(json.loads(line)) for line in process.stdout], daemon=True).start()
+
+        def receive():
+            return events.get(timeout=15)
+
+        def control(action, model):
+            process.stdin.write(json.dumps({"action": action, "modelId": model}) + "\n")
+            process.stdin.flush()
+
+        def request(path, payload=None):
+            data = None if payload is None else json.dumps(payload).encode()
+            req = urllib.request.Request(address + path, data=data, headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    return response.status, json.load(response)
+            except urllib.error.HTTPError as error:
+                return error.code, json.load(error)
+
+        replies = queue.Queue()
+
+        def infer():
+            try:
+                replies.put(request("/api/generate", {"model": model, "prompt": "Fixture", "stream": False}))
+            except Exception as error:
+                replies.put(error)
+
+        try:
+            started = receive()
+            assert started["type"] == "service"
+            address = started["address"]
+            assert address.startswith("http://127.0.0.1:")
+            assert request("/api/tags") == (200, {"models": []})
+            assert not models.exists(), "Starting a listener must not install a model"
+            model = "qwen3-0.6b-q4_k_m"
+            assert request("/api/generate", {"model": model, "prompt": "Fixture"})[0] == 404
+            models.mkdir()
+            (models / "qwen3-0.6b-q4_k_m.gguf").write_bytes(b"invalid GGUF lifecycle fixture")
+            assert [item["model"] for item in request("/api/tags")[1]["models"]] == [model]
+
+            threading.Thread(target=infer, daemon=True).start()
+            assert receive() == {"type": "loadRequested", "modelId": model}
+            assert replies.empty(), "Inference must wait for app admission"
+            control("deny", model)
+            status, body = replies.get(timeout=15)
+            assert status == 503 and "cancelled" in body["error"]
+
+            threading.Thread(target=infer, daemon=True).start()
+            assert receive() == {"type": "loadRequested", "modelId": model}
+            control("start", model)
+            assert receive()["status"] == "starting"
+            failed = receive()
+            assert failed["status"] == "failed" and "Could not load the installed GGUF" in failed["error"]
+            status, body = replies.get(timeout=15)
+            assert status == 503 and "Could not load" in body["error"]
+            # Start actually invokes the loader; file presence alone is not Running.
+            control("stop", model)
+            assert receive() == {"type": "model", "modelId": model, "status": "stopped"}
+            assert request("/api/tags")[0] == 200, "Stopping weights must leave the listener running"
+
+            threading.Thread(target=infer, daemon=True).start()
+            assert receive()["type"] == "loadRequested"
+            control("stop", model)
+            assert receive()["status"] == "stopped"
+            assert isinstance(replies.get(timeout=15), Exception), "Stop must cancel the model's active request"
+            assert request("/api/tags")[0] == 200
+
+            threading.Thread(target=infer, daemon=True).start()
+            assert receive()["type"] == "loadRequested"
+            process.stdin.close()
+            assert process.wait(timeout=5) == 0, process.stderr.read()
+            assert isinstance(replies.get(timeout=15), Exception), "Owner exit must close pending API requests"
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+        # Quit's SIGTERM path also releases the listener without needing a command.
+        process = subprocess.Popen([str(EXECUTABLE), "local-models", "serve", "--port", "0", "--managed"],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, env=env)
+        try:
+            assert json.loads(process.stdout.readline())["type"] == "service"
+            process.terminate()
+            assert process.wait(timeout=5) == 0, process.stderr.read()
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+        print("PASS: empty local API, private model admission/cancellation, loader failure, stop, EOF and SIGTERM shutdown")
+
+
 def main():
+    managed_local_api()
     server = ThreadingHTTPServer(("127.0.0.1", 0), AuthenticatedProvider)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     endpoint = f"http://127.0.0.1:{server.server_address[1]}/v1"

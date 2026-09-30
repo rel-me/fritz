@@ -10,15 +10,63 @@ use mistralrs::{
     ToolChoice, ToolType,
 };
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use tokio::sync::Mutex;
 
-// The optional local API holds one model between requests. Chat harnesses own
-// their engines separately, so transcripts and cancellation remain isolated.
-static API_ENGINE: Mutex<Option<inference::Engine>> = Mutex::const_new(None);
+// The API retains explicitly started models independently of chat harnesses.
+static API_ENGINES: Mutex<Option<HashMap<String, inference::Engine>>> = Mutex::const_new(None);
+
+pub(crate) async fn start_model(model_id: &str) -> Result<()> {
+    let mut engines = API_ENGINES.lock().await;
+    let engines = engines.get_or_insert_with(HashMap::new);
+    if !engines.contains_key(model_id) {
+        let engine = inference::Engine::installed(model_id).await?;
+        engine.model().await?;
+        engines.insert(model_id.to_owned(), engine);
+    }
+    Ok(())
+}
+
+pub(crate) async fn model_is_started(model_id: &str) -> bool {
+    API_ENGINES
+        .lock()
+        .await
+        .as_ref()
+        .is_some_and(|engines| engines.contains_key(model_id))
+}
+
+pub(crate) async fn stop_model(model_id: &str) {
+    if let Some(engine) = API_ENGINES
+        .lock()
+        .await
+        .as_mut()
+        .and_then(|engines| engines.remove(model_id))
+    {
+        engine.unload().await;
+    }
+}
+
+pub(crate) async fn stop_other_models(model_id: &str) {
+    let mut active = API_ENGINES.lock().await;
+    if let Some(engines) = active.as_mut() {
+        let others: Vec<_> = engines
+            .keys()
+            .filter(|id| *id != model_id)
+            .cloned()
+            .collect();
+        for id in others {
+            if let Some(engine) = engines.remove(&id) {
+                engine.unload().await;
+            }
+        }
+    }
+}
 
 pub async fn shutdown() {
-    if let Some(engine) = API_ENGINE.lock().await.take() {
-        engine.unload().await;
+    if let Some(engines) = API_ENGINES.lock().await.take() {
+        for (_, engine) in engines {
+            engine.unload().await;
+        }
     }
 }
 
@@ -177,17 +225,20 @@ pub async fn generate(
     output: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> Result<(u64, u64, bool)> {
     use mistralrs::Constraint;
-    let mut active = API_ENGINE.lock().await;
-    if active
-        .as_ref()
-        .is_none_or(|engine| engine.model_id() != model_id || engine.context_size() != context_size)
+    let mut active = API_ENGINES.lock().await;
+    let engines = active.get_or_insert_with(HashMap::new);
+    if engines
+        .get(model_id)
+        .is_none_or(|engine| engine.context_size() != context_size)
     {
-        if let Some(previous) = active.take() {
+        if let Some(previous) = engines.remove(model_id) {
             previous.unload().await;
         }
-        *active = Some(inference::Engine::installed_with_context(model_id, context_size).await?);
+        let engine = inference::Engine::installed_with_context(model_id, context_size).await?;
+        engine.model().await?;
+        engines.insert(model_id.to_owned(), engine);
     }
-    let engine = active.as_ref().unwrap();
+    let engine = &engines[model_id];
     let mut request = RequestBuilder::new().set_sampler_max_len(output_limit);
     if models::manifest(model_id)?.disable_thinking {
         request = request.with_reasoning_effort(ReasoningEffort::Off);

@@ -52,6 +52,8 @@ headers, footers, help, or feedback outside cells. Omit empty sections and
 placeholders unless an action is needed to continue. Preserve native selection,
 keyboard command routing, and the unified toolbar. Keep useful diagnostic menu
 items available in optimized builds rather than hiding them behind `#if DEBUG`.
+Do not add text that describes button actions unless the user requests it. Prefer
+concise labels and actual status, validation, errors, or resource warnings.
 
 Maintain user-facing setup and CLI documentation in `README.md`, the private
 agent protocol in `docs/protocol.md`, and development procedures in

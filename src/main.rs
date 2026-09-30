@@ -99,6 +99,9 @@ enum LocalModelCommand {
         /// Restrict this listener to one installed model.
         #[arg(long)]
         model: Option<String>,
+        /// Private app supervision over stdin/stdout.
+        #[arg(long, hide = true)]
+        managed: bool,
     },
 }
 
@@ -486,7 +489,11 @@ async fn run() -> Result<()> {
                 })
                 .await?;
             }
-            LocalModelCommand::Serve { port, model } => local::ollama::serve(port, model).await?,
+            LocalModelCommand::Serve {
+                port,
+                model,
+                managed,
+            } => local::ollama::serve(port, model, managed).await?,
         },
         Some(Command::DecisionModels { command }) => {
             let store = decision::local::ModelStore::new(config::models_dir());

@@ -47,12 +47,33 @@ marked to disable thinking use reasoning effort off; tool choice is automatic.
 Structured calls and tool results remain
 in model-native history for the next turn. Without a project, no tools are sent.
 
-`fritz local-models serve` is an explicit, separate loopback API mode for
-installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
-`/api/generate` routes. The app's private agent and chat harness pipes do not
-use this listener. The Models settings editor starts API processes only on an explicit Start
-action. The app owns these processes and stops them on app exit; CLI-started listeners remain under CLI
-process control.
+`fritz local-models serve` exposes loopback-only Ollama-shaped `/api/tags`,
+`/api/chat`, and `/api/generate` routes. CLI listeners retain one model between
+requests and remain owned by their CLI process. Fritz starts one shared listener
+at app launch, even without installed models, with a free loopback port. The
+address and PID appear in Settings → Service and the model editor. Chat and
+agent requests keep their existing private pipes and do not use this listener.
+
+The app passes `--managed` and supervises the listener over private stdin/stdout
+pipes. Stdin accepts NDJSON `{ "action": "start" | "stop" | "deny", "modelId": ID }`.
+`start` loads and retains weights; `stop` cancels its active API request and
+unloads that model, leaving the API running; `deny` cancels a pending first-use admission. Stdout emits
+`{ "type": "service", "address": URL }`,
+`{ "type": "model", "modelId": ID, "status": "starting" | "running" | "stopped" | "failed", "error"?: MESSAGE }`,
+and `{ "type": "loadRequested", "modelId": ID }` when an API request needs
+unloaded weights. That request waits for app admission before loading. The
+service reports Running only after the native loader succeeds. Failed loads
+return a model error and leave the API available. Managed listeners can retain
+multiple models; inference remains serialized.
+
+New Models and Edit Models expose Download, Start/Stop, and Start on for Fritz
+chat models. Startup policies live in the workspace database. First use is the
+default and loads on the first API request; App start preloads saved Fritz
+connections. Explicit starts and first-use admissions check catalog memory
+recommendations and current available RAM, warning before another model loads
+when the estimate is tight. Closing the owner pipe or quitting the app stops
+the listener and unloads its models. Deleting or changing a connection unloads
+its old API model. Chat and decision harness ownership remains unchanged.
 
 ## Decision harness
 

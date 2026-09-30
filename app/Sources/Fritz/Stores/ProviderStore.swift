@@ -62,7 +62,7 @@ import Security
                         nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
                     }
                     if connection.provider.isNative, response.models.isEmpty {
-                        nextErrors[connection.id] = "No local models are installed. Edit this provider to download a model."
+                        nextErrors[connection.id] = "No local models installed."
                     }
                 } catch {
                     guard refreshID == revision else { return }

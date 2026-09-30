@@ -124,14 +124,27 @@ without a folder, local models answer without actions.
 
 ## Run a local model API
 
-Open **Settings → Models** (or **Models → Models…**) and edit a **Fritz**
-connection. The **Local API** controls show its status, process ID, address, and
-errors. Local APIs stay stopped by default; **Start** explicitly launches a separate
-loopback API process for the selected model. **Stop** and
-**Restart** control that process. The app stops processes it started when it
-quits. Chat conversations keep their own harnesses and are unaffected by
-these API controls. Changing or deleting the connection stops its previous API
-process. The model's weights load on its first API request.
+Fritz starts one loopback-only local API when the app opens, including when no
+models are installed. Its address and process ID are in **Settings → Service**.
+Open **Settings → Models** and use **New Models** or **Edit Models** for a Fritz
+model. **Download**, **Start**/**Stop**, **Start on**, the installed path, and
+**Open in Finder** appear together with the model's load status and errors.
+Start loads and retains that model's weights in the shared API; Stop unloads
+those weights while leaving the API available. **First use** is the default:
+the model loads when an API request needs it. **App start** preloads saved Fritz
+connections when the app launches. Startup choices are saved per model in the
+workspace database; Cancel leaves the choice unchanged. Manual Start works
+before saving a new connection.
+
+Starting another model compares the combined catalog RAM recommendations
+against total RAM and the new model's recommendation against available RAM
+(free, inactive, and speculative pages, with 2 GB reserved). This check also
+applies to first-use API requests. A memory warning offers Start Anyway or
+Cancel when the estimated budget is tight or available RAM cannot be measured.
+Fritz unloads all API models and stops its listener when it quits. Changing or
+deleting a connection unloads its previous API model. Each chat keeps its
+separate harness, so API preloading does not warm chat harnesses. Decision
+models retain their request-owned decision harnesses.
 
 For command-line use, `fritz local-models serve` listens on
 `127.0.0.1:11435` until interrupted. Pass `--port` to choose another port or
@@ -141,8 +154,8 @@ accept text, `stream: false` for one JSON response, or the default incremental
 NDJSON stream. `format: "json"` and `options.num_ctx` / `num_predict` are
 supported up to 8,192 context tokens; temperature is fixed at zero. Raw prompts,
 tool calls, and images are unsupported by this optional API.
-The listener binds only to this Mac's loopback interface and starts only when
-requested.
+The listener binds only to this Mac's loopback interface. CLI listeners start
+when requested and retain one model between requests.
 
 ## CLI
 
