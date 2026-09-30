@@ -65,6 +65,17 @@ public struct ModelPickerPopover<Value>: View {
         .opacity(searchText.isEmpty ? 0 : 1)
         .disabled(searchText.isEmpty)
         .accessibilityHidden(searchText.isEmpty)
+
+        Button(action: configureModels) {
+          Image(systemName: "cpu")
+            .font(.callout)
+            .foregroundStyle(.white)
+            .frame(width: 28, height: 28)
+            .background(.tint, in: Circle())
+        }
+        .buttonStyle(FritzButtonStyle(.inline))
+        .accessibilityLabel("Open Models")
+        .help("Open Models")
       }
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
@@ -118,17 +129,6 @@ public struct ModelPickerPopover<Value>: View {
             }
           }
         }
-
-        Button(action: configureModels) {
-          Image(systemName: "cpu")
-            .font(.callout)
-            .foregroundStyle(.white)
-            .frame(width: 28, height: 28)
-            .background(.tint, in: Circle())
-        }
-        .buttonStyle(FritzButtonStyle(.inline))
-        .accessibilityLabel("Open Models")
-        .help("Open Models")
       }
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
