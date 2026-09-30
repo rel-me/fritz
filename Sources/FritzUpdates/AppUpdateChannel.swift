@@ -3,7 +3,7 @@ import Foundation
 public enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
     case release
     case beta
-    case dev
+    case staging
 
     public var id: String { rawValue }
 
@@ -11,7 +11,7 @@ public enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .release: "Release"
         case .beta: "Beta"
-        case .dev: "Dev"
+        case .staging: "Staging"
         }
     }
 
@@ -19,7 +19,7 @@ public enum AppUpdateChannel: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .release: []
         case .beta: ["beta"]
-        case .dev: ["beta", "dev"]
+        case .staging: ["beta", "staging"]
         }
     }
 }

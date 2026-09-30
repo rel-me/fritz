@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+channel="${1:-}"
+case "$channel" in
+  beta|staging) ;;
+  *) echo "error: use make beta or make staging" >&2; exit 64 ;;
+esac
 export FRITZ_DISTRIBUTION=1
 source scripts/release-config.sh
 
@@ -8,7 +13,7 @@ for variable in FRITZ_VERSION FRITZ_BUILD_NUMBER FRITZ_CODE_SIGN_IDENTITY \
   FRITZ_SPARKLE_FEED_URL FRITZ_SPARKLE_PUBLIC_ED_KEY \
   FRITZ_UPDATE_DOWNLOAD_URL_PREFIX FRITZ_HOMEPAGE_URL FRITZ_NOTARY_PROFILE; do
   if [[ -z "${!variable:-}" ]]; then
-    echo "error: $variable is required for make beta" >&2
+    echo "error: $variable is required for make $channel" >&2
     exit 1
   fi
 done
@@ -30,27 +35,27 @@ fi
 archive="dist/updates/Fritz-$FRITZ_VERSION.dmg"
 if [[ -e "$archive" ]]; then
   if [[ -f dist/updates/appcast.xml ]]; then
-    python3 - "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" <<'PY'
+    python3 - "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$channel" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 
-version, build = sys.argv[1:]
+version, build, requested_channel = sys.argv[1:]
 sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
 item = ET.parse('dist/updates/appcast.xml').getroot().find('./channel/item')
 if (item is None or item.findtext(f'{sparkle}shortVersionString') != version
         or item.findtext(f'{sparkle}version') != build):
     raise SystemExit(f'error: existing appcast does not match Fritz {version} ({build}); '
-                     'use a new version and build number for a new beta')
+                     f'use a new version and build number for a new {requested_channel} update')
 channel = item.findtext(f'{sparkle}channel') or 'release'
 if channel == 'release':
     raise SystemExit(f'error: Fritz {version} ({build}) is already on the Release channel; '
-                     'increase the version and build number before running make beta '
-                     'for a new beta, or use make promote to retry Release publication')
-if channel != 'beta':
+                     f'increase the version and build number before running make {requested_channel} '
+                     'for a new update, or use make promote to retry Release publication')
+if channel != requested_channel:
     raise SystemExit(f'error: existing appcast channel is {channel!r}; '
-                     'only a prepared beta can resume publication with make beta')
+                     f'only a prepared {requested_channel} update can resume publication with make {requested_channel}')
 PY
-    ./scripts/publish-update.sh beta
+    ./scripts/publish-update.sh "$channel"
     exit 0
   fi
   echo "error: $archive already exists without an appcast; refusing to replace a release artifact" >&2
@@ -85,6 +90,6 @@ fi
 xcrun notarytool submit "$archive" --keychain-profile "$FRITZ_NOTARY_PROFILE" --wait
 xcrun stapler staple "$archive"
 xcrun stapler validate "$archive"
-./scripts/prepare-update.sh beta
-./scripts/publish-update.sh beta
-echo "Fritz $FRITZ_VERSION beta is published at $FRITZ_SPARKLE_FEED_URL."
+./scripts/prepare-update.sh "$channel"
+./scripts/publish-update.sh "$channel"
+echo "Fritz $FRITZ_VERSION $channel is published at $FRITZ_SPARKLE_FEED_URL."

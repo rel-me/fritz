@@ -73,7 +73,7 @@ quits only the instance it launched. Temporary chat/provider data is removed on
 exit. `FRITZ_DATA_DIR` does not isolate Release UserDefaults or the Keychain, but
 this capture uses no keys; macOS may retain the app's window geometry.
 
-`make beta`, `make publish-beta`, and `make promote` deploy the current page
+`make beta`, `make staging`, `make publish-beta`, `make publish-staging`, and `make promote` deploy the current page
 with the Worker. Run `npm --prefix website test` after editing it. To preview
 locally, seed the local bucket and start Wrangler; nothing is uploaded:
 
@@ -93,7 +93,7 @@ source scripts/release-config.sh
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE"
 ```
 
-## Beta and promotion
+## Staging, Beta, and promotion
 
 The DMG contains `Fritz.app` and a shortcut to `/Applications`, arranged over
 Fritz's branded drag-to-install background. `make update-archive` creates this
@@ -118,22 +118,24 @@ CONFIGURATION=release make build
 make beta
 ```
 
-`make beta` reads the source version and build number. It verifies notarization
+`make staging` and `make beta` read the source version and build number and publish to their respective Sparkle channels. Staging accepts Staging, Beta, and Release updates in Settings. Saved Dev selections migrate to Staging on launch. Staging updates are excluded from the website’s download selection and cannot be promoted directly to Release. Use a new app version and build number when moving from Staging to Beta.
+
+Each target verifies notarization
 credentials before building, refuses to replace an existing local versioned
 DMG, then builds, notarizes, staples, signs the appcast, deploys the Worker,
 uploads the DMG and appcast to the separate bucket, and checks the live URLs.
-An interrupted upload can be retried with `make beta` or `make publish-beta`
+An interrupted upload can be retried with `make staging` or `make publish-staging` for Staging, or `make beta` or `make publish-beta` for Beta
 after the local archive and appcast have been prepared. Test the Beta update channel before
 running `make promote`. Promotion changes the appcast channel and uploads it;
 the DMG is not rebuilt or uploaded again.
 
-`make publish-beta` and `make promote` read the version and build number from
+`make publish-beta`, `make publish-staging`, and `make promote` read the version and build number from
 the staged `dist/Fritz.app` and validate them against the appcast and archive.
 If the beta was built with `FRITZ_VERSION` and `FRITZ_BUILD_NUMBER` overrides,
 these publication commands do not need the overrides repeated. Keep that
 staged app with its archive and appcast until publication and promotion finish.
 
-After promotion, `make beta` cannot reuse that Release artifact. Increase both
+After promotion, neither `make beta` nor `make staging` can reuse that Release artifact. Increase both
 the app version and build number for the next beta; DMG URLs contain the app
 version and are immutable. Increasing only the build number still collides
 with the existing DMG. To retry publication of an already promoted Release,

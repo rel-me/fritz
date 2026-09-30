@@ -61,21 +61,21 @@ class PromotionTests(unittest.TestCase):
         self.assertEqual(self.appcast.read_bytes(), original_feed)
 
     def test_rejects_wrong_channel_without_changing_feed(self):
-        self.write_appcast("dev")
+        self.write_appcast("staging")
         original_feed = self.appcast.read_bytes()
         with self.assertRaisesRegex(ValueError, "channel"):
             release.promote(self.appcast, self.archive, "1.2.3", "10", self.prefix)
         self.assertEqual(self.appcast.read_bytes(), original_feed)
 
 
-class BetaResumeTests(unittest.TestCase):
-    def test_resumes_only_the_matching_beta(self):
+class PrereleaseResumeTests(unittest.TestCase):
+    def test_resumes_only_the_matching_prerelease(self):
         source = SCRIPT.parent
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ("beta-release.sh", "release-config.sh"):
+            for name in ("prerelease.sh", "release-config.sh"):
                 shutil.copy2(source / name, scripts / name)
             publication = root / "published"
             publish = scripts / "publish-update.sh"
@@ -86,12 +86,15 @@ class BetaResumeTests(unittest.TestCase):
             archive = updates / "Fritz-1.2.3.dmg"
             archive.write_bytes(b"existing immutable archive")
             environment = dict(os.environ, FRITZ_VERSION="1.2.3", FRITZ_BUILD_NUMBER="10")
-            for channel, build, error in (
-                ("beta", "10", None),
-                (None, "10", "already on the Release channel"),
-                ("beta", "9", "does not match Fritz 1.2.3 (10)"),
+            for requested_channel, channel, build, error in (
+                ("beta", "beta", "10", None),
+                ("staging", "staging", "10", None),
+                ("staging", "beta", "10", "only a prepared staging update"),
+                ("beta", "staging", "10", "only a prepared beta update"),
+                ("beta", None, "10", "already on the Release channel"),
+                ("beta", "beta", "9", "does not match Fritz 1.2.3 (10)"),
             ):
-                with self.subTest(channel=channel, build=build):
+                with self.subTest(requested_channel=requested_channel, channel=channel, build=build):
                     publication.unlink(missing_ok=True)
                     marker = f"<sparkle:channel>{channel}</sparkle:channel>" if channel else ""
                     appcast = updates / "appcast.xml"
@@ -100,11 +103,11 @@ class BetaResumeTests(unittest.TestCase):
 <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
 </item></channel></rss>""")
                     original = appcast.read_bytes()
-                    result = subprocess.run(["/bin/bash", str(scripts / "beta-release.sh")],
+                    result = subprocess.run(["/bin/bash", str(scripts / "prerelease.sh"), requested_channel],
                                             env=environment, capture_output=True, text=True)
                     if error is None:
                         self.assertEqual(result.returncode, 0, result.stderr)
-                        self.assertEqual(publication.read_text(), "beta")
+                        self.assertEqual(publication.read_text(), requested_channel)
                     else:
                         self.assertNotEqual(result.returncode, 0)
                         self.assertIn(error, result.stderr)
@@ -188,25 +191,29 @@ else:
     print('Content-Length: {archive.stat().st_size}')
 """)
             original_archive = archive.read_bytes()
-            for invocation in ("publish-beta", "promote", "retry-promote"):
+            for invocation in ("publish-staging", "publish-beta", "promote", "retry-promote"):
                 with self.subTest(invocation=invocation):
                     commands.unlink(missing_ok=True)
                     uploaded.unlink(missing_ok=True)
-                    if invocation == "publish-beta":
-                        args = [str(scripts / "publish-update.sh"), "beta"]
+                    if invocation.startswith("publish-"):
+                        channel = invocation.removeprefix("publish-")
+                        tree = ET.parse(appcast)
+                        tree.getroot().find(f'./channel/item/{{{release.SPARKLE}}}channel').text = channel
+                        tree.write(appcast)
+                        args = [str(scripts / "publish-update.sh"), channel]
                     else:
                         args = [str(scripts / "promote-release.sh")]
                     result = subprocess.run(["/bin/bash", *args], env=environment,
                                             capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    channel = "beta" if invocation == "publish-beta" else "release"
+                    channel = invocation.removeprefix("publish-") if invocation.startswith("publish-") else "release"
                     self.assertIn(f"Published Fritz 0.1.2 (3) {channel} update.", result.stdout)
                     item = ET.parse(uploaded).getroot().find('./channel/item')
                     self.assertEqual(item.findtext(f'{{{release.SPARKLE}}}channel') or 'release', channel)
                     self.assertEqual(item.find('enclosure').get(f'{{{release.SPARKLE}}}edSignature'), signature)
                     operations = [json.loads(line) for line in commands.read_text().splitlines()]
                     dmgs = [args for args in operations if "fritz-updates/updates/Fritz-0.1.2.dmg" in args]
-                    self.assertEqual(len(dmgs), 1 if channel == "beta" else 0)
+                    self.assertEqual(len(dmgs), 1 if channel != "release" else 0)
                     self.assertEqual(archive.read_bytes(), original_archive)
             # Replacing the staged app must not let an unrelated artifact publish.
             (contents / "Info.plist").write_bytes(plistlib.dumps({
