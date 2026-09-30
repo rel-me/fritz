@@ -30,6 +30,26 @@ fi
 archive="dist/updates/Fritz-$FRITZ_VERSION.dmg"
 if [[ -e "$archive" ]]; then
   if [[ -f dist/updates/appcast.xml ]]; then
+    python3 - "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+version, build = sys.argv[1:]
+sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
+item = ET.parse('dist/updates/appcast.xml').getroot().find('./channel/item')
+if (item is None or item.findtext(f'{sparkle}shortVersionString') != version
+        or item.findtext(f'{sparkle}version') != build):
+    raise SystemExit(f'error: existing appcast does not match Fritz {version} ({build}); '
+                     'use a new version and build number for a new beta')
+channel = item.findtext(f'{sparkle}channel') or 'release'
+if channel == 'release':
+    raise SystemExit(f'error: Fritz {version} ({build}) is already on the Release channel; '
+                     'increase the version and build number before running make beta '
+                     'for a new beta, or use make promote to retry Release publication')
+if channel != 'beta':
+    raise SystemExit(f'error: existing appcast channel is {channel!r}; '
+                     'only a prepared beta can resume publication with make beta')
+PY
     ./scripts/publish-update.sh beta
     exit 0
   fi
