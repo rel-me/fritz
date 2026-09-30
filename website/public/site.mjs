@@ -11,7 +11,7 @@ const observer = "IntersectionObserver" in window && new IntersectionObserver((e
   }
 }, { threshold: 0.2 });
 
-for (const element of document.querySelectorAll("[data-reveal], [data-play]")) {
+for (const element of document.querySelectorAll("[data-reveal]")) {
   if (observer) observer.observe(element);
   else element.classList.add("is-visible");
 }

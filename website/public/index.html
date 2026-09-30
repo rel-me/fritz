@@ -64,51 +64,15 @@
       </div>
     </section>
 
-    <section class="section section--demo" aria-label="Example session">
+    <section class="section section--demo" aria-label="Fritz app">
       <figure class="showcase">
-        <div class="window" data-play aria-hidden="true">
-          <div class="window-bar">
-            <span class="lights"><i></i><i></i><i></i></span>
-            <span class="window-title">Plan a quiet weekend</span>
-            <span class="toolbar-icons">
-              <svg viewBox="0 0 20 20"><rect x="5" y="5" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.5v2M12 2.5v2M8 15.5v2M12 15.5v2M2.5 8h2M2.5 12h2M15.5 8h2M15.5 12h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-              <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-            </span>
-          </div>
-          <div class="window-body">
-            <div class="sidebar">
-              <p class="sidebar-project"><svg viewBox="0 0 20 20"><path d="M2.5 6A1.5 1.5 0 0 1 4 4.5h3.6l1.6 1.8H16A1.5 1.5 0 0 1 17.5 7.8v6.7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>weekend-notes</p>
-              <ul>
-                <li class="is-selected">Plan a quiet weekend</li>
-                <li>Ideas for dinner</li>
-                <li>Questions for the vet</li>
-              </ul>
-              <p class="sidebar-project"><svg viewBox="0 0 20 20"><path d="M2.5 6A1.5 1.5 0 0 1 4 4.5h3.6l1.6 1.8H16A1.5 1.5 0 0 1 17.5 7.8v6.7A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>field-notes</p>
-              <ul>
-                <li>Summarize my notes</li>
-              </ul>
-            </div>
-            <div class="transcript">
-              <p class="bubble">Help me plan a relaxed Saturday using the notes in this folder.</p>
-              <div class="activity">
-                <p class="activity-head">Tool activity</p>
-                <ol class="steps">
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l3 3v12h-9Z M11.5 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Read <code>ideas.txt</code></span></li>
-                  <li class="step"><svg viewBox="0 0 20 20"><path d="M5.5 2.5h6l3 3v12h-9Z M11.5 2.5v3h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Read <code>errands.txt</code></span></li>
-                </ol>
-              </div>
-              <p class="reply">Your notes mention a walk by the water and one errand at the market. You could take the walk in the morning, stop by the market on the way home, and leave the afternoon open.</p>
-              <div class="composer">
-                <span class="composer-field">Ask a follow-up…</span>
-                <span class="composer-row">
-                  <span class="model-chip">Claude Sonnet 5</span>
-                  <span class="send"><svg viewBox="0 0 20 20"><path d="M10 15V5m0 0-4 4m4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <figcaption class="visually-hidden">An example Fritz session: a folder sidebar with conversations, and a thread in which Fritz reads two notes and suggests a relaxed Saturday plan.</figcaption>
+        <picture>
+          <source srcset="/fritz-dark.png" media="(prefers-color-scheme: dark)">
+          <img class="app-screenshot" src="/fritz-light.png" width="2240" height="1480"
+               alt="Fritz on macOS, with a sidebar of conversations and a chat planning a quiet Saturday."
+               loading="lazy" decoding="async">
+        </picture>
+        <figcaption class="visually-hidden">The Fritz app with an example weekend-planning conversation and a follow-up draft.</figcaption>
       </figure>
     </section>
 

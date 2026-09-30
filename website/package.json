@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "screenshot": "python3 ../scripts/capture-website.py",
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
