@@ -11,10 +11,10 @@ or perform actions from a model judgment.
 - Author's Laya weights: `convaiinnovations/laya` at
   `aa8c91ca088ec597df95a0d1c76b3063cb2ae5e8`.
 - CPU fp32 graph, pinned tokenizer and temperature calibration, four inference
-  threads, one question row at a time. Each harness verifies files and loads the
+  threads, one question row at a time. Each harness checks file presence and loads the
   model afresh. The graph allows 512 tokens shared between question and state.
 - Measured September 26, 2026, on a 32 GB Apple-silicon Mac (`Mac14,9`).
-  Timings include verification, loading, three questions, and
+  Timings include presence checks, loading, three questions, and
   process exit. Other build/test activity was present; these are not isolated
   performance benchmarks.
 

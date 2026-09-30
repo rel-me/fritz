@@ -54,11 +54,14 @@ class DevRuntimeTests(unittest.TestCase):
         self.assertRegex(detached.stdout, r"(?m)^app_name=FritzDebug[0-9a-f]{8}$")
 
     def test_linked_main_uses_plain_debug_name(self):
+        primary = self.resolve()
         self.git("switch", "-c", "feature")
         self.use_linked_worktree("main")
         result = self.resolve()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("app_name=FritzDebug\n", result.stdout)
+        for output in (primary.stdout, result.stdout):
+            self.assertIn("models_directory=/Library/Application Support/Fritz/Data/Models\n", output)
 
     def test_feature_and_detached_head_share_checkout_name_without_pr(self):
         self.git("branch", "feature")

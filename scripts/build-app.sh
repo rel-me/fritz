@@ -76,6 +76,7 @@ if [[ "$configuration" == debug ]]; then
   plutil -replace CFBundleName -string "$app_name" "$plist"
   plutil -replace CFBundleDisplayName -string "$app_name" "$plist"
   plutil -insert FritzDataDirectory -string "$data_directory" "$plist"
+  plutil -insert FritzModelsDirectory -string "$models_directory" "$plist"
   plutil -insert FritzKeychainService -string "$keychain_service" "$plist"
 fi
 if [[ -n "$feed_url" ]]; then

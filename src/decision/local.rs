@@ -1,8 +1,8 @@
 //! Ollaya inference runs only in the private decision harness. Installation is explicit.
 use super::{DecisionFuture, DecisionModel, DecisionRequest, DecisionResponse, Usage};
-use crate::local::models::{download_file, verified};
+use crate::local::models::download_file;
 use anyhow::{Context, Result, bail};
-use ollaya_runner::{Device, Encoding, OnnxModel};
+use ollaya_runner::{Device, Encoding, ModelFiles, OnnxModel};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::PathBuf};
@@ -44,7 +44,7 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
         .with_context(|| format!("Unknown local decision model: {id}"))
 }
 
-/// A host-selected cache, separate from the conversational model cache.
+/// Decision artifacts share the host-selected Models directory with chat weights.
 pub struct ModelStore {
     directory: PathBuf,
 }
@@ -56,16 +56,9 @@ impl ModelStore {
         }
     }
 
-    fn path(&self, pin: &Manifest) -> PathBuf {
-        self.directory
-            .join("DecisionModels")
-            .join(&pin.id)
-            .join(&pin.revision)
-    }
-
     async fn is_installed(&self, pin: &Manifest) -> bool {
         for file in &pin.files {
-            if !verified(&self.path(pin).join(&file.file), file.size, &file.sha256).await {
+            if !self.directory.join(&file.file).is_file() {
                 return false;
             }
         }
@@ -76,11 +69,11 @@ impl ModelStore {
         let pin = manifest(id)?;
         if !self.is_installed(pin).await {
             bail!(
-                "{} is not installed or failed verification. Download it in Model Providers → Decision Models → Ollaya, or run `fritz decision-models install {id}`.",
+                "{} is not installed. Download it in Models → + → Provider → Ollaya, or run `fritz decision-models install {id}`.",
                 pin.name
             );
         }
-        Ok(self.path(pin))
+        Ok(self.directory.clone())
     }
 
     pub async fn inventory(&self, id: Option<&str>) -> Result<Value> {
@@ -90,8 +83,10 @@ impl ModelStore {
         };
         let mut models = Vec::new();
         for pin in pins {
+            let installed = self.is_installed(pin).await;
             models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,
-                "installed":self.is_installed(pin).await}));
+                "installed":installed,
+                "path":installed.then(|| self.directory.join(format!("{}.onnx", pin.id)))}));
         }
         Ok(json!({"models":models}))
     }
@@ -100,7 +95,7 @@ impl ModelStore {
         let pin = manifest(id)?;
         let mut completed = 0;
         for file in &pin.files {
-            download_file(&self.path(pin), &file.url, &file.file, file.size, &file.sha256, &|event| {
+            download_file(&self.directory, &file.url, &file.file, file.size, &file.sha256, &|event| {
                 let status = if event["status"] == "ready" { "checking" } else { event["status"].as_str().unwrap_or("checking") };
                 emit(json!({"type":"progress", "status":status,
                     "downloaded":completed + event["downloaded"].as_u64().unwrap_or(0), "total":pin.size}));
@@ -121,7 +116,7 @@ impl DecisionModel for Ollaya {
             let pin = manifest(&request.model)?;
             let questions =
                 ollaya_decision::parse_questions(&serde_json::to_value(&request.questions)?)?;
-            let directory = ModelStore::new(crate::config::data_dir())
+            let directory = ModelStore::new(crate::config::models_dir())
                 .installed_path(&request.model)
                 .await?;
             let state = request.state.clone();
@@ -148,7 +143,15 @@ fn infer(
     state: Value,
     questions: ollaya_decision::Questions,
 ) -> Result<DecisionResponse> {
-    let model = OnnxModel::load(&directory, Device::Cpu, Some(4))
+    let files = ModelFiles {
+        graph: directory.join(format!("{}.onnx", pin.id)),
+        tokenizer: directory.join(format!("{}.tokenizer.json", pin.id)),
+        decision: directory.join(format!("{}.json", pin.id)),
+        calibration: Some(directory.join(format!("{}.calibration.json", pin.id))),
+        arch: None,
+        weights: None,
+    };
+    let model = OnnxModel::load_files(&files, Device::Cpu, Some(4))
         .context("Could not load the local decision model.")?;
     let encoding = model.encode(&state, &questions)?;
     if encoding.questions.iter().any(|row| row.state_truncated) {
@@ -197,7 +200,7 @@ mod tests {
     use sha2::{Digest, Sha256};
 
     #[tokio::test]
-    async fn installation_requires_every_artifact_to_pass_integrity_checks() {
+    async fn installation_requires_present_artifacts_without_hash_or_metadata_checks() {
         let data = tempfile::tempdir().unwrap();
         let store = ModelStore::new(data.path());
         let mut pin = Manifest {
@@ -207,7 +210,7 @@ mod tests {
             revision: "revision".into(),
             files: Vec::new(),
         };
-        std::fs::create_dir_all(store.path(&pin)).unwrap();
+        std::fs::create_dir_all(data.path()).unwrap();
         for name in ["model.onnx", "model.safetensors"] {
             pin.files.push(ModelFile {
                 file: name.into(),
@@ -216,14 +219,16 @@ mod tests {
                 sha256: format!("{:x}", Sha256::digest(b"good")),
             });
         }
-        let graph = store.path(&pin).join("model.onnx");
-        let weights = store.path(&pin).join("model.safetensors");
+        let graph = data.path().join("model.onnx");
+        let weights = data.path().join("model.safetensors");
         std::fs::write(&graph, b"good").unwrap();
         assert!(!store.is_installed(&pin).await);
         std::fs::write(&weights, b"good").unwrap();
         assert!(store.is_installed(&pin).await);
         for path in [&graph, &weights] {
             std::fs::write(path, b"evil").unwrap();
+            assert!(store.is_installed(&pin).await);
+            std::fs::remove_file(path).unwrap();
             assert!(!store.is_installed(&pin).await);
             std::fs::write(path, b"good").unwrap();
         }

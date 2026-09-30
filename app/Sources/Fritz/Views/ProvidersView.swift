@@ -1,3 +1,4 @@
+import AppKit
 import Fritz
 import FritzUI
 import SwiftUI
@@ -9,6 +10,7 @@ struct ProviderEditorSelection: Identifiable {
 
 struct ProvidersView: View {
     @Bindable var store: ProviderStore
+    @Bindable var localModels: LocalModelRuntimeStore
     @Binding var editor: ProviderEditorSelection?
     @State private var selectedIDs: Set<UUID> = []
     @State private var deleting: ProviderConnection?
@@ -19,7 +21,7 @@ struct ProvidersView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ModelManagementHeader("Model Providers", background: FritzWindowStyle.workspaceBackground) {
+            ModelManagementHeader("Models", background: FritzWindowStyle.workspaceBackground) {
                 transferMenu
                     .controlSize(.extraLarge)
                 Button("Add Provider", systemImage: "plus") {
@@ -39,7 +41,7 @@ struct ProvidersView: View {
             .fritzListSurface()
             .contextMenu(forSelectionType: UUID.self) { ids in
                 if ids.count == 1, let connection = store.connections.first(where: { ids.contains($0.id) }) {
-                    Button("Edit Provider", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
+                    Button("Edit Models", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
                     if connection.category == .llm {
                         Button("Make Default", systemImage: "checkmark.circle") { Task { await store.makeDefault(connection) } }
                             .disabled(connection.id == store.registry.defaultConnectionId)
@@ -73,7 +75,12 @@ struct ProvidersView: View {
         .onChange(of: store.connections) { _, connections in selectedIDs.formIntersection(connections.map(\.id)) }
         .confirmationDialog("Delete this provider?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             if let deleting {
-                Button("Delete \(deleting.providerDisplayName)", role: .destructive) { Task { await store.remove(deleting) }; self.deleting = nil }
+                Button("Delete \(deleting.providerDisplayName)", role: .destructive) { Task {
+                    await store.remove(deleting)
+                    if deleting.provider == .fritz, !store.connections.contains(where: { $0.id == deleting.id }) {
+                        localModels.stop(deleting.modelID)
+                    }
+                }; self.deleting = nil }
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("This removes the connection and its saved key from Fritz.") }
@@ -133,6 +140,7 @@ struct ProvidersView: View {
 
 struct ProviderEditor: View {
     let store: ProviderStore
+    @Bindable var localModels: LocalModelRuntimeStore
     let existing: ProviderConnection?
     @Environment(\.dismiss) private var dismiss
     @State private var id: UUID
@@ -154,14 +162,17 @@ struct ProviderEditor: View {
     @State private var refreshID = 0
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: NativeLocalModel
+    @State private var startPolicy: LocalModelRuntimeStore.StartPolicy
     @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
-    init(store: ProviderStore, existing: ProviderConnection?) {
-        self.store = store; self.existing = existing
+    init(store: ProviderStore, localModels: LocalModelRuntimeStore, existing: ProviderConnection?) {
+        self.store = store; self.localModels = localModels; self.existing = existing
         let category = existing?.category ?? .llm
         _id = State(initialValue: existing?.id ?? UUID())
-        _nativeModel = State(initialValue: NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category))
+        let initialNativeModel = NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category)
+        _nativeModel = State(initialValue: initialNativeModel)
+        _startPolicy = State(initialValue: localModels.policy(for: initialNativeModel.selectedModelID))
         let baseName = category == .decision ? "TypeSafe" : "OpenAI"
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
@@ -184,11 +195,20 @@ struct ProviderEditor: View {
             footerBackground: FritzWindowStyle.workspaceBackground,
             cancel: { nativeModel.cancel(); dismiss() }, save: save
         ) {
-            FritzManagementHeader(existing == nil ? "New Provider" : "Edit Provider")
+            FritzManagementHeader(existing == nil ? "New Models" : "Edit Models")
         } content: {
             Form {
                 Section {
-                    AIProviderPicker(selection: $preset)
+                    if existing == nil {
+                        AIProviderPicker(selection: $preset)
+                    } else {
+                        Picker("Provider", selection: $preset) {
+                            ForEach(AIProviderPreset.allCases) { provider in
+                                Text(provider.name).tag(provider)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
                 }.disabled(nativeModel.state.isBusy)
                 if managesLocalModels {
                     Section {
@@ -200,18 +220,64 @@ struct ProviderEditor: View {
                                 Text(model.name).tag(model.id)
                             }
                         }
-                        Button("Download Model…") { showsDownload = true }
+                        if managesLocalAPI {
+                            Picker("Start on", selection: $startPolicy) {
+                                ForEach(LocalModelRuntimeStore.StartPolicy.allCases) { policy in
+                                    Text(policy.title).tag(policy)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                        }
                     } footer: {
                         switch nativeModel.state {
-                        case .installed: Text(category == .decision ? "Installed. This experimental model runs on this Mac when requested." : "Installed and ready for chat.")
-                        case .checking: Text("Checking local model…")
+                        case .installed: EmptyView()
+                        case .checking: Text("Checking…")
                         case .failed(let message): Text(message).foregroundStyle(.red)
-                        case .available, .downloading: Text("Download this model before adding it as a provider.")
+                        case .available, .downloading: Text("Not installed")
                         }
                         if let duplicateConnection {
-                            Text("This local model is already added as \(duplicateConnection.name). Edit that provider instead.")
+                            Text("Already added as \(duplicateConnection.name).")
                                 .foregroundStyle(.red)
                         }
+                        if nativeModel.state == .installed, let url = nativeModel.installedURL {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Installed at")
+                                HStack(spacing: 6) {
+                                    Text(url.path).textSelection(.enabled)
+                                        .lineLimit(1).truncationMode(.middle)
+                                    Button("Copy Path", systemImage: "doc.on.doc") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(url.path, forType: .string)
+                                    }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(FritzButtonStyle(.inline))
+                                    .help("Copy Path")
+                                    .fixedSize()
+                                }
+                            }
+                            .padding(.top, 6)
+                        }
+                        HStack(spacing: 8) {
+                            Button("Download") { showsDownload = true }
+                            if managesLocalAPI {
+                                if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
+                                    Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
+                                        .disabled(localSession.status == .stopping)
+                                } else {
+                                    Button("Start") { localModels.start(nativeModel.selectedModelID) }
+                                        .disabled(nativeModel.state != .installed || localModels.isLoading
+                                                  || !localModels.installedIDs.contains(nativeModel.selectedModelID))
+                                }
+                            }
+                            if nativeModel.state == .installed, let url = nativeModel.installedURL {
+                                Button("Open in Finder", systemImage: "folder") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                                }
+                            }
+                        }
+                        .padding(.top, 6)
+                        if managesLocalAPI { localRuntimeControls.padding(.top, 12) }
+                        if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                     }
                     if category == .llm && store.registry.defaultConnectionId != nil {
                         Section {
@@ -219,7 +285,6 @@ struct ProviderEditor: View {
                                 .disabled(existing?.id == store.registry.defaultConnectionId)
                         }
                     }
-                    if let error { Section {} footer: { Text(error).foregroundStyle(.red) } }
                 } else {
                     remoteSections
                 }
@@ -231,13 +296,17 @@ struct ProviderEditor: View {
         .onChange(of: preset) { old, new in
             nativeModel.cancel()
             if old.category != new.category {
-                makeDefault = new.category == .llm && store.registry.defaultConnectionId == nil
+                makeDefault = new.category == .llm &&
+                    (existing?.id == store.registry.defaultConnectionId || store.registry.defaultConnectionId == nil)
             }
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.category == .decision ? "jev-latest" : ""
-            models = []; error = nil; discoveryFinished = false; refreshID = 0
+            models = []; error = nil; discoveryError = nil; discoveryFinished = false; refreshID = 0
             showsModels = false
+        }
+        .onChange(of: nativeModel.selectedModelID) { _, modelID in
+            startPolicy = localModels.policy(for: modelID)
         }
         .task(id: preset.provider) {
             nativeModel.cancel()
@@ -245,23 +314,46 @@ struct ProviderEditor: View {
                 nativeModel = NativeLocalModel(agent: store.agent, category: category)
             }
             if managesLocalModels { nativeModel.refresh() }
+            if preset.provider == .fritz { await localModels.refresh() }
         }
-        .sheet(isPresented: $showsDownload, onDismiss: { nativeModel.refresh() }) {
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            nativeModel.refresh()
+            Task { await localModels.refresh() }
+        }) {
             LocalModelDownloadSheet(agent: store.agent, modelID: nativeModel.selectedModelID, category: category)
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
     }
 
+    private var localSession: LocalModelRuntimeStore.Session {
+        localModels.sessions[nativeModel.selectedModelID] ?? .init()
+    }
+
+    private var managesLocalAPI: Bool {
+        preset.provider == .fritz
+    }
+
+    private var localRuntimeControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                if localSession.status == .starting { ProgressView().controlSize(.small) }
+                Text(localSession.status.title)
+                    .foregroundStyle(localSession.status == .running ? .green : .secondary)
+                if let processID = localSession.processID {
+                    Text("· PID \(String(processID))").monospacedDigit()
+                }
+            }
+            if let address = localModels.service.address { Text(address).textSelection(.enabled) }
+            if let error = localModels.policyError ?? localSession.error ?? localModels.service.error ?? localModels.error {
+                Text(error).foregroundStyle(.red).textSelection(.enabled)
+            }
+        }
+    }
+
     @ViewBuilder private var remoteSections: some View {
         Section {
-            if category == .llm {
-                LabeledContent(preset.provider == .openAICompatible ? "Endpoint" : "Base URL") {
-                    TextField("Endpoint", text: $endpoint, prompt: Text(endpointPrompt))
-                        .labelsHidden().autocorrectionDisabled()
-                }
-                .help(preset.provider == .openAICompatible ? "The OpenAI-compatible API endpoint, including its version path." : "Leave blank to use the provider’s default endpoint.")
-            }
+            if requiresEndpoint { endpointField }
             LabeledContent(apiKeyTitle) {
                 HStack(spacing: 8) {
                     Group {
@@ -277,7 +369,7 @@ struct ProviderEditor: View {
                     .labelStyle(.iconOnly).frame(width: 24, height: 20).disabled(apiKey.isEmpty)
                     .help(isAPIKeyVisible ? "Hide API Key" : "Show API Key")
                 }
-            }.help("API keys are stored in macOS Keychain.")
+            }
             if category == .decision {
                 LabeledContent("Model", value: "Jev · jev-latest")
                 TextField("Connection name", text: $name)
@@ -303,23 +395,21 @@ struct ProviderEditor: View {
             }
         } footer: {
             if let duplicateConnection {
-                Text("This provider and endpoint are already added as \(duplicateConnection.name). Edit that provider instead.")
+                Text("Already added as \(duplicateConnection.name).")
                     .foregroundStyle(.red)
-            }
-            if category == .decision {
-                Text("Jev evaluates typed questions through TypeSafe. The key is stored in Keychain; decisions are not sent to chat automatically.")
             }
             if category == .decision, let error {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
             } else if let discoveryError {
                 Label(discoveryError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             } else if discoveryFinished, models.isEmpty {
-                Text("No models were returned by this model provider.").foregroundStyle(.secondary)
+                Text("No models found.").foregroundStyle(.secondary)
             }
         }
-        if category == .llm {
-            Section {
-                if showsAdvanced {
+        Section {
+            if showsAdvanced {
+                if !requiresEndpoint { endpointField }
+                if category == .llm {
                     TextField("Connection name", text: $name)
                     if !models.isEmpty {
                         Picker("Default model", selection: $modelID) {
@@ -330,60 +420,81 @@ struct ProviderEditor: View {
                     }
                     TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                 }
-            } header: {
-                Button {
-                    showsAdvanced.toggle()
-                } label: {
-                    Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(FritzButtonStyle(.inline))
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
-                .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
-            } footer: {
-                if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
-                if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             }
+        } header: {
+            Button {
+                showsAdvanced.toggle()
+            } label: {
+                Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FritzButtonStyle(.inline))
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
+            .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
+        } footer: {
+            if category == .llm, let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
+        }
+    }
+
+    private var endpointField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(endpointTitle)
+            TextField(endpointTitle, text: $endpoint, prompt: Text(endpointPrompt))
+                .labelsHidden().autocorrectionDisabled()
+                .accessibilityLabel(endpointTitle)
         }
     }
 
     private var category: AIModelCategory { preset.category }
     private var managesLocalModels: Bool { preset.provider.isNative }
+    private var requiresEndpoint: Bool { preset == .adapter(.openAICompatible) }
+    private var resolvedEndpoint: String {
+        let value = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? preset.baseURL : value
+    }
     private var editorHeight: CGFloat {
         let base: CGFloat
         if managesLocalModels {
-            base = 340 + (store.connections.isEmpty ? 0 : 40)
+            base = 340 + (category == .llm && store.registry.defaultConnectionId != nil ? 40 : 0)
+                + (managesLocalAPI ? 65 : 0)
+                + (nativeModel.installedURL == nil ? 0 : 50)
         } else if category == .decision {
-            base = 430
+            base = 350 + (showsAdvanced ? 100 : 0)
         } else {
-            base = 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32)
+            base = 370 + (requiresEndpoint ? 64 : 0) + (showsAdvanced ? (requiresEndpoint ? 150 : 250) : 0)
+                + (store.connections.isEmpty ? 0 : 32)
                 + (discoveryError == nil ? 0 : 60)
         }
         return base - (existing == nil ? 32 : 0) + (duplicateConnection == nil ? 0 : 44)
     }
-    private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
+    private var primaryActionTitle: String { existing == nil ? "Add" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
-    private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
+    private var endpointTitle: String { requiresEndpoint ? "Gateway URL" : "Gateway URL (Optional)" }
+    private var endpointPrompt: String {
+        if requiresEndpoint { return "https://api.example.com/v1" }
+        return preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL
+    }
     private var keepsSavedKey: Bool {
         guard let existing, existing.provider == preset.provider else { return false }
         let old = existing.baseURL?.isEmpty == false ? existing.baseURL! : existing.provider.endpoint
-        let current = endpoint.isEmpty ? preset.provider.endpoint : endpoint
+        let current = resolvedEndpoint.isEmpty ? preset.provider.endpoint : resolvedEndpoint
         return old.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == current.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
     private var keyPrompt: String { keepsSavedKey ? "**********" : "Enter API key" }
     private var canSave: Bool {
         !isSaving && duplicateConnection == nil
+            && (!managesLocalAPI || localModels.policyError == nil)
             && (!managesLocalModels || nativeModel.category == category && nativeModel.state == .installed)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
-            && (preset.provider != .openAICompatible || !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            && (!requiresEndpoint || !resolvedEndpoint.isEmpty)
     }
     private var discoveryKey: DiscoveryKey { DiscoveryKey(provider: preset, endpoint: endpoint, apiKey: apiKey, refresh: refreshID) }
     private var connection: ProviderConnection {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
-                           baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
+                           baseURL: managesLocalModels || resolvedEndpoint.isEmpty ? nil : resolvedEndpoint,
                            modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private var duplicateConnection: ProviderConnection? {
@@ -413,7 +524,7 @@ struct ProviderEditor: View {
         guard !preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey else {
             if refreshID > 0 { discoveryError = "Enter an API key, then refresh." }; return
         }
-        guard preset.provider != .openAICompatible || !endpoint.isEmpty else {
+        guard !requiresEndpoint || !resolvedEndpoint.isEmpty else {
             if refreshID > 0 { discoveryError = "Enter an endpoint to load models." }; return
         }
         isDiscovering = true
@@ -438,7 +549,15 @@ struct ProviderEditor: View {
         saveTask = Task {
             defer { isSaving = false; saveTask = nil }
             do {
-                try await store.save(connection, key: apiKey, makeDefault: makeDefault)
+                let saved = connection
+                try await store.save(saved, key: apiKey, makeDefault: makeDefault)
+                if let existing, existing.provider == .fritz,
+                   saved.provider != .fritz || saved.modelID != existing.modelID {
+                    localModels.stop(existing.modelID)
+                }
+                if saved.provider == .fritz {
+                    try localModels.setPolicy(startPolicy, for: saved.modelID)
+                }
                 try Task.checkCancellation()
                 apiKey = ""; dismiss()
             } catch is CancellationError {

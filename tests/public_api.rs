@@ -180,11 +180,27 @@ async fn explicit_model_store_never_downloads_during_inventory_or_engine_creatio
             .as_array()
             .unwrap()
             .iter()
-            .all(|m| m["installed"] == false)
+            .all(|m| m["installed"] == false && m["path"].is_null())
     );
     assert!(Engine::installed_in(&store, &catalog[0].id).await.is_err());
     assert!(store.inventory_model("unknown").await.is_err());
     assert!(!directory.exists());
+
+    // A manually placed file is installed without catalog size/hash or metadata checks.
+    std::fs::create_dir_all(&directory).unwrap();
+    let model_id = "qwen2.5-1.5b-instruct-q4_k_m";
+    let path = directory.join("qwen2.5-1.5b-instruct-q4_k_m.gguf");
+    std::fs::write(&path, b"host-provided weights").unwrap();
+    assert_eq!(store.installed_path(model_id).await.unwrap(), path);
+    let inventory = store.inventory_model(model_id).await.unwrap();
+    assert_eq!(inventory["models"][0]["installed"], true);
+    assert_eq!(inventory["models"][0]["path"], path.to_str().unwrap());
+    assert!(Engine::installed_in(&store, model_id).await.is_ok());
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    let inventory = store.inventory_model(model_id).await.unwrap();
+    assert_eq!(inventory["models"][0]["installed"], false);
+    assert!(inventory["models"][0]["path"].is_null());
 }
 
 #[tokio::test]

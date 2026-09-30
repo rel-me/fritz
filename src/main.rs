@@ -88,7 +88,7 @@ enum Command {
 
 #[derive(Subcommand)]
 enum LocalModelCommand {
-    /// Show the pinned catalog and verified installation status.
+    /// Show the pinned catalog and file-presence installation status.
     List { model: Option<String> },
     /// Download and verify a model; progress is newline-delimited JSON.
     Install { model: String },
@@ -99,6 +99,9 @@ enum LocalModelCommand {
         /// Restrict this listener to one installed model.
         #[arg(long)]
         model: Option<String>,
+        /// Private app supervision over stdin/stdout.
+        #[arg(long, hide = true)]
+        managed: bool,
     },
 }
 
@@ -282,7 +285,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             Ok(json!({"modelId":id,"installed":true}))
         }
         "decisionModels.list" => {
-            decision::local::ModelStore::new(config::data_dir())
+            decision::local::ModelStore::new(config::models_dir())
                 .inventory(params["modelId"].as_str())
                 .await
         }
@@ -290,7 +293,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             let id = params["modelId"]
                 .as_str()
                 .context("Choose a local decision model.")?;
-            decision::local::ModelStore::new(config::data_dir())
+            decision::local::ModelStore::new(config::models_dir())
                 .download(id, &emit)
                 .await?;
             Ok(json!({"modelId":id,"installed":true}))
@@ -486,10 +489,14 @@ async fn run() -> Result<()> {
                 })
                 .await?;
             }
-            LocalModelCommand::Serve { port, model } => local::ollama::serve(port, model).await?,
+            LocalModelCommand::Serve {
+                port,
+                model,
+                managed,
+            } => local::ollama::serve(port, model, managed).await?,
         },
         Some(Command::DecisionModels { command }) => {
-            let store = decision::local::ModelStore::new(config::data_dir());
+            let store = decision::local::ModelStore::new(config::models_dir());
             match command {
                 DecisionModelCommand::List { model } => println!(
                     "{}",

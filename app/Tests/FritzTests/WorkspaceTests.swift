@@ -143,6 +143,9 @@ import FritzUpdates
         settings.updateChannel = "beta"
         settings.selectedTab = "providers"
         let providers = ProviderStore(agent: AgentClient(), database: database)
+        let localModels = LocalModelRuntimeStore(agent: AgentClient(), database: database)
+        XCTAssertEqual(localModels.policy(for: "model-a"), .firstUse)
+        try localModels.setPolicy(.appStart, for: "model-a")
         providers.record(ChatModelOption(id: "chosen", displayName: "Chosen", provider: .openAI, modelID: "gpt-5"))
         let restoredDatabase = AppDatabase(directory: root)
         let restored = AppSettings(database: restoredDatabase)
@@ -150,9 +153,11 @@ import FritzUpdates
         XCTAssertEqual(restored.updateChannel, "beta")
         XCTAssertEqual(restored.selectedTab, "providers")
         XCTAssertEqual(ProviderStore(agent: AgentClient(), database: restoredDatabase).recentIDs, ["chosen"])
+        XCTAssertEqual(LocalModelRuntimeStore(agent: AgentClient(), database: restoredDatabase).policy(for: "model-a"), .appStart)
         let separate = AppSettings(database: AppDatabase(directory: try directory()))
         XCTAssertEqual(separate.appearance, "system")
         XCTAssertEqual(separate.updateChannel, "release")
+        XCTAssertEqual(LocalModelRuntimeStore(agent: AgentClient(), database: AppDatabase(directory: try directory())).policy(for: "model-a"), .firstUse)
     }
 
     func testRemovingThreadsCascadesTheirHistoryAndPreferences() throws {

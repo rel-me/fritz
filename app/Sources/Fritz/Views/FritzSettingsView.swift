@@ -5,7 +5,6 @@ import SwiftUI
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
     case providers
-    case localModels
     case service
     case debug
 
@@ -14,8 +13,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: "General"
-        case .providers: "Model Providers"
-        case .localModels: "Local Models"
+        case .providers: "Models"
         case .service: "Service"
         case .debug: "Debug"
         }
@@ -25,7 +23,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .providers: "cpu"
-        case .localModels: "server.rack"
         case .service: "gearshape.2"
         case .debug: "ladybug"
         }
@@ -56,12 +53,9 @@ struct FritzSettingsView: View {
                     case .general:
                         FritzGeneralSettingsView(updater: updater, settings: state.settings)
                     case .providers:
-                        ProvidersView(store: state.providers, editor: $editor)
-                    case .localModels:
-                        LocalModelsView(store: state.localModels,
-                                        downloadModel: { state.showsLocalModelDownload = true })
+                        ProvidersView(store: state.providers, localModels: state.localModels, editor: $editor)
                     case .service:
-                        FritzServiceSettingsView(agent: state.agent)
+                        FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
                     case .debug:
                         Text("Debug")
                             .font(.headline)
@@ -93,7 +87,7 @@ struct FritzSettingsView: View {
         }
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(item: $editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+        .sheet(item: $editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection) }
         .sheet(isPresented: $state.showsLocalModelDownload, onDismiss: {
             Task {
                 await state.localModels.refresh()
@@ -169,6 +163,7 @@ private struct FritzGeneralSettingsView: View {
 
 private struct FritzServiceSettingsView: View {
     let agent: AgentClient
+    let localModels: LocalModelRuntimeStore
 
     var body: some View {
         Form {
@@ -188,6 +183,17 @@ private struct FritzServiceSettingsView: View {
                 } else {
                     Text("Fritz supervises its bundled agent. Each active chat uses a separate fritz-harness process.")
                 }
+            }
+            Section {
+                LabeledContent("Status", value: localModels.service.status.title)
+                if let pid = localModels.service.processID { LabeledContent("Process ID", value: String(pid)) }
+                if let address = localModels.service.address {
+                    LabeledContent("Address") { Text(address).textSelection(.enabled) }
+                }
+            } header: {
+                Text("Local API")
+            } footer: {
+                if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
             }
         }
         .fritzSettingsFormStyle()

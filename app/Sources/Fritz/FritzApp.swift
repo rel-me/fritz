@@ -10,7 +10,7 @@ import SwiftUI
     let localModels: LocalModelRuntimeStore
     let settings: AppSettings
     var settingsTab: FritzSettingsTab {
-        FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
+        settings.selectedTab == "localModels" ? .providers : FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
     }
     var isCreatingProject = false
     var editor: ProviderEditorSelection?
@@ -22,7 +22,7 @@ import SwiftUI
         workspace = WorkspaceStore(agent: agent)
         providers = ProviderStore(agent: agent, database: workspace.database)
         settings = AppSettings(database: workspace.database)
-        localModels = LocalModelRuntimeStore(agent: agent)
+        localModels = LocalModelRuntimeStore(agent: agent, database: workspace.database)
     }
     func newThread() {
         if let project = workspace.selectedProject ?? workspace.projects.first {
@@ -33,7 +33,7 @@ import SwiftUI
         settings.selectedTab = tab.rawValue
     }
     func newLocalModel() {
-        selectSettings(.localModels)
+        selectSettings(.providers)
         showsLocalModelDownload = true
     }
 }
@@ -108,7 +108,9 @@ import SwiftUI
                 .task(id: updater.allowsAppUse) {
                     guard updater.allowsAppUse else { return }
                     state.agent.start()
+                    state.localModels.startService()
                     await state.providers.refresh()
+                    await state.localModels.startAtAppLaunch(state.providers.connections)
                 }
         }
         .defaultSize(width: 1080, height: 760)
@@ -122,7 +124,7 @@ import SwiftUI
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Chat") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
                 Divider()
-                Button("New Model Provider") { state.editor = ProviderEditorSelection(); openWindow(id: "main") }
+                Button("New Model") { state.editor = ProviderEditorSelection(); openWindow(id: "main") }
                 Button("New Local Model") { state.newLocalModel(); openSettings() }
             }
             CommandMenu("Chat") {
@@ -131,7 +133,7 @@ import SwiftUI
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
             CommandMenu("Models") {
-                Button("Local Models…") { state.selectSettings(.localModels); openSettings() }
+                Button("Models…") { state.selectSettings(.providers); openSettings() }
             }
         }
 
@@ -213,8 +215,8 @@ private struct FritzWorkspaceView: View {
                                   createLocalModel: { state.newLocalModel(); openSettings() })
             }
             ToolbarItem(placement: .principal) {
-                Button("Model Providers", systemImage: "cpu") { openProviders() }
-                    .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Model Providers")
+                Button("Models", systemImage: "cpu") { openProviders() }
+                    .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Models")
             }
             if #available(macOS 26.0, *) {
                 ToolbarItem(placement: .primaryAction) {
@@ -239,7 +241,7 @@ private struct FritzWorkspaceView: View {
         .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
-        .sheet(item: $state.editor) { ProviderEditor(store: state.providers, existing: $0.connection) }
+        .sheet(item: $state.editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection) }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {

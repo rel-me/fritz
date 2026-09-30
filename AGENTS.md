@@ -7,10 +7,10 @@ Fritz is a native macOS personal assistant. Keep the current product focused on 
 - Shared Swift APIs live in `Sources/Fritz`, `Sources/FritzUI`, `Sources/FritzState`, and `Sources/FritzUpdates`; the app module
   `FritzApp` lives in `app/Sources/Fritz`. Rust owns provider networking, model discovery, saved credentials, and the `fritz` CLI in `src`.
   Reusable Rust SQLite infrastructure lives in `crates/fritz-state`.
-- The main sidebar contains projects and their threads; Model Providers opens from the window toolbar. Preserve independent transcripts, drafts, model settings, and the selected thread across launches.
+- The main sidebar contains projects and their threads; Models opens from the window toolbar. Preserve independent transcripts, drafts, model settings, and the selected thread across launches.
 - The app supervises its bundled `fritz --agent` through private pipes. Each chat runs in a separate bundled `fritz-harness` process. Do not add an HTTP daemon just for app communication.
 - Decision judgments use a separate `fritz-decision-harness` and typed `decision::DecisionModel` contract. Jev is a remote decision backend, not a chat provider. A local decision backend must implement the same contract and be evaluated before user-facing use. Pairing decisions with chat belongs to application policy, not the model response.
-- Model Providers separates LLMs from Decision Models. Only LLM connections can be selected for chat or made the default chat provider; Jev belongs to Decision Models and uses a Keychain-backed connection.
+- Models separates LLMs from Decision Models. Only LLM connections can be selected for chat or made the default chat provider; Jev belongs to Decision Models and uses a Keychain-backed connection.
 - Keep credentials out of registry files, command-line arguments, environment variables, logs, and agent responses. Use Fritz’s Keychain namespace.
 - Fix failures in the supported path and surface actionable errors. Do not add hidden bypasses, silent fallback implementations, or undocumented compatibility behavior. Keep intentional recovery bounded, documented, and within the user's selected provider and permissions.
 - Keep Fritz free of CEF, embedded web engines, browsing sessions, profiles, proxy management, and unrelated runtime dependencies.
@@ -52,6 +52,8 @@ headers, footers, help, or feedback outside cells. Omit empty sections and
 placeholders unless an action is needed to continue. Preserve native selection,
 keyboard command routing, and the unified toolbar. Keep useful diagnostic menu
 items available in optimized builds rather than hiding them behind `#if DEBUG`.
+Do not add text that describes button actions unless the user requests it. Prefer
+concise labels and actual status, validation, errors, or resource warnings.
 
 Maintain user-facing setup and CLI documentation in `README.md`, the private
 agent protocol in `docs/protocol.md`, and development procedures in

@@ -81,6 +81,7 @@ def evaluate_via_agent(endpoint):
     with tempfile.TemporaryDirectory(prefix="fritz-decision-test-") as data:
         env = os.environ.copy()
         env["FRITZ_DATA_DIR"] = data
+        env["FRITZ_MODELS_DIR"] = str(Path(data) / "Models")
         child = subprocess.Popen([str(BIN.with_name("fritz")), "--agent"],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, text=True, env=env)
@@ -105,7 +106,7 @@ def evaluate_via_agent(endpoint):
 
 def local_provider_boundaries():
     with tempfile.TemporaryDirectory(prefix="fritz-local-decision-") as data:
-        env = dict(os.environ, FRITZ_DATA_DIR=data)
+        env = dict(os.environ, FRITZ_DATA_DIR=data, FRITZ_MODELS_DIR=str(Path(data) / "Models"))
         def cli(*args, ok=True, input=None):
             result = subprocess.run([str(BIN.with_name("fritz")), *args], env=env,
                                     input=input, capture_output=True, text=True, timeout=20)
@@ -127,7 +128,7 @@ def local_provider_boundaries():
         assert "Unknown local decision model" in cli("decide", "--connection", connection, input=json.dumps(request), ok=False).stderr
         cli("add-provider", "--name", "Invalid endpoint", "--provider", "ollaya", "--base-url", "https://example.com", ok=False)
         cli("add-provider", "--name", "Invalid key", "--provider", "ollaya", "--api-key-stdin", input="synthetic-key", ok=False)
-        assert not (Path(data) / "DecisionModels").exists(), "Listing/evaluation must never download weights"
+        assert not (Path(data) / "Models").exists(), "Listing/evaluation must never download weights"
         print("PASS: local decision discovery, explicit-install requirement, missing model, native provider validation, chat/default exclusion")
 
 

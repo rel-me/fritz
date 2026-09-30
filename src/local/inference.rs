@@ -29,7 +29,7 @@ impl Engine {
         context_size: usize,
     ) -> Result<Self> {
         let mut engine = Self::installed_in(
-            &super::models::ModelStore::new(crate::config::data_dir()),
+            &super::models::ModelStore::new(crate::config::models_dir()),
             model_id,
         )
         .await?;
@@ -37,7 +37,7 @@ impl Engine {
         Ok(engine)
     }
 
-    /// Verify installed weights without loading them or accessing the network.
+    /// Resolve present model files without loading them or accessing the network.
     pub async fn installed_in(store: &super::models::ModelStore, model_id: &str) -> Result<Self> {
         Ok(Self {
             model_id: model_id.to_owned(),
@@ -56,8 +56,8 @@ impl Engine {
                     .file_name()
                     .and_then(|name| name.to_str())
                     .context("Invalid model filename")?;
-                // The installed path has already been verified against Fritz's pinned
-                // size and digest. Passing its local directory avoids Hub downloads.
+                // Presence determines installation. Passing the local directory avoids
+                // Hub downloads; invalid files surface the native loader error.
                 GgufModelBuilder::new(directory.to_string_lossy(), vec![filename])
                     .with_token_source(TokenSource::None)
                     .with_max_model_len(self.context_size)

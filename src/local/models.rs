@@ -1,6 +1,6 @@
 //! The app ships the inference runtime and manifest, but downloads weights only
-//! after an explicit install request in provider setup. This cache belongs to the selected runtime.
-use anyhow::{Result, anyhow};
+//! after an explicit install request in provider setup. Debug apps share model storage across checkouts.
+use anyhow::{Context, Result, anyhow};
 use fs2::FileExt;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -14,7 +14,6 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Deserialize)]
 pub struct Manifest {
@@ -49,36 +48,13 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
         .ok_or_else(|| anyhow!("Unknown Fritz local model: {id}"))
 }
 
-fn cache_directory(data: &Path, pin: &Manifest) -> PathBuf {
-    data.join("Models").join(&pin.id)
-}
-
-pub(crate) async fn verified(path: &Path, size: u64, sha256: &str) -> bool {
-    let Ok(mut file) = tokio::fs::File::open(path).await else {
-        return false;
-    };
-    if file.metadata().await.map(|m| m.len()).ok() != Some(size) {
-        return false;
-    }
-    let mut hash = Sha256::new();
-    let mut buffer = vec![0; 1024 * 1024];
-    loop {
-        match file.read(&mut buffer).await {
-            Ok(0) => break,
-            Ok(count) => hash.update(&buffer[..count]),
-            Err(_) => return false,
-        }
-    }
-    format!("{:x}", hash.finalize()) == sha256
-}
-
 pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
-    ModelStore::new(crate::config::data_dir())
+    ModelStore::new(crate::config::models_dir())
         .installed_path(model_id)
         .await
 }
 
-/// Pinned model downloads and integrity checks in a host-selected data directory.
+/// Flat model files in a host-selected Models directory. Downloads verify before publication.
 #[derive(Clone, Debug)]
 pub struct ModelStore {
     directory: PathBuf,
@@ -93,12 +69,12 @@ impl ModelStore {
 
     pub async fn installed_path(&self, model_id: &str) -> Result<PathBuf> {
         let pin = manifest(model_id)?;
-        let path = cache_directory(&self.directory, pin).join(&pin.file);
-        if verified(&path, pin.size, &pin.sha256).await {
+        let path = self.directory.join(&pin.file);
+        if path.is_file() {
             Ok(path)
         } else {
             Err(anyhow!(format!(
-                "{} is not installed. Open Providers → New Provider → Local → Fritz to download and install it.",
+                "{} is not installed. Open Models → + → Provider → Local → Fritz to download and install it.",
                 pin.name
             )))
         }
@@ -119,7 +95,7 @@ impl Drop for Partial {
 }
 
 pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
-    ModelStore::new(crate::config::data_dir())
+    ModelStore::new(crate::config::models_dir())
         .download(model_id, emit)
         .await
 }
@@ -131,7 +107,7 @@ impl ModelStore {
             "https://huggingface.co/{}/resolve/{}/{}",
             pin.repository, pin.revision, pin.file
         );
-        download_to(&cache_directory(&self.directory, pin), &url, pin, emit).await
+        download_to(&self.directory, &url, pin, emit).await
     }
 }
 
@@ -152,25 +128,37 @@ pub(crate) async fn download_file(
     sha256: &str,
     emit: &(impl Fn(Value) + Sync),
 ) -> Result<()> {
-    fs::create_dir_all(directory)?;
+    let destination = directory.join(filename);
+    progress(emit, 0, size, "checking");
+    if destination.is_file() {
+        progress(emit, size, size, "ready");
+        return Ok(());
+    }
+    fs::create_dir_all(directory).with_context(|| format!(
+        "Could not create model storage at {}. Create this directory and grant your account write access.", directory.display()
+    ))?;
     let lock = OpenOptions::new()
         .create(true)
         .truncate(false)
         .read(true)
         .write(true)
-        .open(directory.join("download.lock"))?;
+        .open(directory.join(format!(".{filename}.download.lock")))
+        .with_context(|| {
+            format!(
+                "Could not write model storage at {}. Grant your account write access.",
+                directory.display()
+            )
+        })?;
     lock.try_lock_exclusive().map_err(|_| {
         anyhow!(
-            "This model is being installed in another window. Retry when that download finishes.",
+            "This model is being installed in another window. Retry when that download finishes."
         )
     })?;
-    let destination = directory.join(filename);
-    progress(emit, 0, size, "checking");
-    if verified(&destination, size, sha256).await {
+    if destination.is_file() {
         progress(emit, size, size, "ready");
         return Ok(());
     }
-    let partial = Partial(directory.join("model.partial"));
+    let partial = Partial(directory.join(format!(".{filename}.partial")));
     let mut file = File::create(&partial.0)?;
     let client = reqwest::Client::builder()
         .user_agent(concat!("Fritz/", env!("CARGO_PKG_VERSION")))
@@ -233,11 +221,13 @@ pub(crate) async fn download_file(
 #[cfg(test)]
 const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
 pub async fn inventory() -> Result<Value> {
-    ModelStore::new(crate::config::data_dir()).inventory().await
+    ModelStore::new(crate::config::models_dir())
+        .inventory()
+        .await
 }
 
 pub async fn inventory_model(id: &str) -> Result<Value> {
-    ModelStore::new(crate::config::data_dir())
+    ModelStore::new(crate::config::models_dir())
         .inventory_model(id)
         .await
 }
@@ -254,8 +244,12 @@ impl ModelStore {
     async fn inventory_for<'a>(&self, pins: impl Iterator<Item = &'a Manifest>) -> Result<Value> {
         let mut models = Vec::new();
         for pin in pins {
-            let path = cache_directory(&self.directory, pin).join(&pin.file);
-            models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":verified(&path,pin.size,&pin.sha256).await}));
+            let path = self.directory.join(&pin.file);
+            let installed = path.is_file();
+            models.push(
+                json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":installed,
+                    "path":installed.then_some(path)}),
+            );
         }
         Ok(json!({"models":models}))
     }
@@ -283,7 +277,7 @@ mod tests {
             assert!(pin.sha256.bytes().all(|c| c.is_ascii_hexdigit()));
             assert_eq!(Path::new(&pin.file).components().count(), 1);
             assert!(pin.size > 0);
-            assert!(paths.insert(cache_directory(Path::new("data"), pin)));
+            assert!(paths.insert(&pin.file));
         }
         assert!(manifest("../../outside").is_err());
         assert!(manifest("unknown").is_err());
@@ -299,24 +293,32 @@ mod tests {
                 name: id.into(),
                 disable_thinking: false,
                 architecture: String::new(),
-                file: "model.gguf".into(),
+                file: format!("{id}.gguf"),
                 repository: String::new(),
                 revision: String::new(),
                 size: data.len() as u64,
                 sha256: format!("{:x}", Sha256::digest(data)),
             };
-            let directory = cache_directory(temp.path(), &pin);
+            let directory = temp.path();
+            let _other_lock = if id == "second-model" {
+                let file =
+                    File::open(directory.join(format!(".{MODEL_ID}.gguf.download.lock"))).unwrap();
+                file.lock_exclusive().unwrap();
+                Some(file)
+            } else {
+                None
+            };
             let (url, server) = fixture(data);
-            download_to(&directory, &url, &pin, &|_| {}).await.unwrap();
+            download_to(directory, &url, &pin, &|_| {}).await.unwrap();
             server.join().unwrap();
-            assert!(verified(&directory.join(&pin.file), pin.size, &pin.sha256).await);
+            assert_eq!(fs::read(directory.join(&pin.file)).unwrap(), data);
         }
         assert!(
             temp.path()
-                .join("Models/qwen2.5-1.5b-instruct-q4_k_m/model.gguf")
+                .join("qwen2.5-1.5b-instruct-q4_k_m.gguf")
                 .exists()
         );
-        assert!(temp.path().join("Models/second-model/model.gguf").exists());
+        assert!(temp.path().join("second-model.gguf").exists());
     }
     fn fixture(data: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
         fixture_response(data, 200, data.len() as u64)
@@ -365,7 +367,7 @@ mod tests {
             assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
             server.join().unwrap();
             assert!(!temp.path().join(&pin.file).exists());
-            assert!(!temp.path().join("model.partial").exists());
+            assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
         }
     }
 
@@ -400,16 +402,16 @@ mod tests {
             result = &mut download => panic!("download finished early: {result:?}"),
             _ = received => {},
         }
-        assert!(temp.path().join("model.partial").exists());
+        assert!(temp.path().join(format!(".{}.partial", pin.file)).exists());
         drop(download);
         release.send(()).unwrap();
         server.join().unwrap();
-        assert!(!temp.path().join("model.partial").exists());
+        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
         assert!(!temp.path().join(&pin.file).exists());
         let (url, server) = fixture(data);
         download_to(temp.path(), &url, &pin, &|_| {}).await.unwrap();
         server.join().unwrap();
-        assert!(verified(&temp.path().join(&pin.file), pin.size, &pin.sha256).await);
+        assert_eq!(fs::read(temp.path().join(&pin.file)).unwrap(), data);
     }
     #[tokio::test]
     async fn download_verifies_atomic_install_and_reuses_offline() {
@@ -434,8 +436,8 @@ mod tests {
         .await
         .unwrap();
         server.join().unwrap();
-        assert!(verified(&temp.path().join(&pin.file), pin.size, &pin.sha256).await);
-        assert!(!temp.path().join("model.partial").exists());
+        assert_eq!(fs::read(temp.path().join(&pin.file)).unwrap(), data);
+        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
         assert!(
             events
                 .lock()
@@ -446,13 +448,21 @@ mod tests {
         download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
             .await
             .unwrap();
-        fs::write(temp.path().join(&pin.file), b"corrupt model").unwrap();
+        fs::write(temp.path().join(&pin.file), b"host-provided weights").unwrap();
+        download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(temp.path().join(&pin.file)).unwrap(),
+            b"host-provided weights"
+        );
+        fs::remove_file(temp.path().join(&pin.file)).unwrap();
         let (url, server) = fixture(b"wrong weights");
         assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
         server.join().unwrap();
-        assert!(!verified(&temp.path().join(&pin.file), pin.size, &pin.sha256).await);
-        assert!(!temp.path().join("model.partial").exists());
-        let lock = File::create(temp.path().join("download.lock")).unwrap();
+        assert!(!temp.path().join(&pin.file).exists());
+        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
+        let lock = File::create(temp.path().join(format!(".{}.download.lock", pin.file))).unwrap();
         lock.lock_exclusive().unwrap();
         assert!(
             download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})

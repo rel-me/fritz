@@ -56,7 +56,10 @@ or on `main` in a linked worktree, without a PR lookup. Other linked branches us
 without a resolvable PR and all detached checkouts use
 `dist/FritzDebug{checkout hash}.app`.
 The checkout-path hash continues to isolate the bundle ID, data directory,
-Keychain service, and UserDefaults domain. Use
+Keychain service, and UserDefaults domain. Model weights are shared by all Debug
+apps at `/Library/Application Support/Fritz/Data/Models/`; chat GGUFs and decision
+artifacts use that same flat directory. The directory needs user write access for
+downloads. `FRITZ_MODELS_DIR` is an explicit override for isolated model tests. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
@@ -185,8 +188,11 @@ instance and stop the mock server with Ctrl-C in its terminal.
 the Release app. It does **not** isolate its Keychain service
 `dev.fritz.provider-credentials`, macOS/Sparkle-managed window and update-engine preferences. Use newly created, keyless mock connections for Release app tests.
 Debug apps use a worktree-specific bundle ID, data directory, Keychain
-service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR` and
-`FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug identity outside the app.
+service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR`,
+`FRITZ_MODELS_DIR`, and `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug
+identity and model storage outside the app. For isolated Debug app verification,
+launch with `open -n --env "FRITZ_MODELS_DIR=$fritz_test_data/Models"` and use the
+same explicit override for its bundled CLI; this avoids reading shared weights.
 
 Local-model unit tests use small deterministic HTTP fixtures for checksums,
 interruption, cancellation, and atomic installation. CLI integration tests verify

@@ -11,10 +11,10 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
-| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, verified `installed` status |
+| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
-| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog and verified installation status |
+| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog, file-presence installation status, and `path` (installed ONNX graph path or null) |
 | `decisionModels.install` | `modelId` | Explicit verified download, progress events, and installed result |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
@@ -35,7 +35,7 @@ leave a bounded partial file; the next explicit install replaces it. Only files
 with the catalog's exact size and SHA-256 are atomically published and loaded.
 
 The `fritz` provider has no endpoint or API key. `models.list` returns its
-verified installed models. Listing, saving a connection, and chatting never
+present model files. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
 through the same pipes as remote providers. Each request loads weights in its
 own harness process; closing its pipe cancels the run. The local model is
@@ -47,12 +47,33 @@ marked to disable thinking use reasoning effort off; tool choice is automatic.
 Structured calls and tool results remain
 in model-native history for the next turn. Without a project, no tools are sent.
 
-`fritz local-models serve` is an explicit, separate loopback API mode for
-installed models. It exposes Ollama-shaped `/api/tags`, `/api/chat`, and
-`/api/generate` routes. The app's private agent and chat harness pipes do not
-use this listener. The Local Models settings page owns only the API processes it
-starts and stops them on app exit; CLI-started listeners remain under CLI
-process control.
+`fritz local-models serve` exposes loopback-only Ollama-shaped `/api/tags`,
+`/api/chat`, and `/api/generate` routes. CLI listeners retain one model between
+requests and remain owned by their CLI process. Fritz starts one shared listener
+at app launch, even without installed models, with a free loopback port. The
+address and PID appear in Settings → Service and the model editor. Chat and
+agent requests keep their existing private pipes and do not use this listener.
+
+The app passes `--managed` and supervises the listener over private stdin/stdout
+pipes. Stdin accepts NDJSON `{ "action": "start" | "stop" | "deny", "modelId": ID }`.
+`start` loads and retains weights; `stop` cancels its active API request and
+unloads that model, leaving the API running; `deny` cancels a pending first-use admission. Stdout emits
+`{ "type": "service", "address": URL }`,
+`{ "type": "model", "modelId": ID, "status": "starting" | "running" | "stopped" | "failed", "error"?: MESSAGE }`,
+and `{ "type": "loadRequested", "modelId": ID }` when an API request needs
+unloaded weights. That request waits for app admission before loading. The
+service reports Running only after the native loader succeeds. Failed loads
+return a model error and leave the API available. Managed listeners can retain
+multiple models; inference remains serialized.
+
+New Models and Edit Models expose Download, Start/Stop, and Start on for Fritz
+chat models. Startup policies live in the workspace database. First use is the
+default and loads on the first API request; App start preloads saved Fritz
+connections. Explicit starts and first-use admissions check catalog memory
+recommendations and current available RAM, warning before another model loads
+when the estimate is tight. Closing the owner pipe or quitting the app stops
+the listener and unloads its models. Deleting or changing a connection unloads
+its old API model. Chat and decision harness ownership remains unchanged.
 
 ## Decision harness
 
@@ -152,7 +173,8 @@ and no API key. A saved Ollaya `connectionId` selects the local harness backend;
 explicit host requests use `backend: {"kind":"ollaya"}` and omit `apiKey`.
 Downloads use the same `progress` shape as `localModels.install`, with byte counts
 aggregated across the model artifacts. Listing and evaluation never download files.
-The harness verifies all files, uses CPU inference, rejects truncated state, and
+The harness requires the model artifacts to be present in the shared Models
+directory, uses CPU inference, rejects truncated state, and
 returns a resolved `laya-en@<revision>` ID. Score legends preserve JSON criteria,
 including objects. All decision requests have a 120-second harness deadline;
 closing stdin or sending SIGTERM/SIGINT cancels native loading/inference too.

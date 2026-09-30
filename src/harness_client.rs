@@ -10,12 +10,12 @@ use std::os::fd::{AsRawFd, FromRawFd};
 use std::process::Stdio;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 
-/// Private harness stdin. Closing the supervising pipe cancels its run.
+/// Nonblocking private stdin for supervised harnesses and the local model service.
 pub struct PrivateStdin(tokio::io::unix::AsyncFd<std::fs::File>);
 
 impl PrivateStdin {
     pub fn new() -> Result<Self> {
-        // SAFETY: fd 0 is valid and exclusively owned by this harness process.
+        // SAFETY: fd 0 is valid and exclusively owned by this supervised process.
         let stdin = unsafe { std::fs::File::from_raw_fd(0) };
         // SAFETY: F_GETFL/F_SETFL operate on the owned fd and retain no pointers.
         let flags = unsafe { libc::fcntl(stdin.as_raw_fd(), libc::F_GETFL) };

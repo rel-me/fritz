@@ -72,7 +72,7 @@ final class SharedControlSnapshots: XCTestCase {
 
     func testModelProvidersList() throws {
         let view = VStack(spacing: 0) {
-            ModelManagementHeader("Model Providers", background: Color(nsColor: .windowBackgroundColor)) {
+            ModelManagementHeader("Models", background: Color(nsColor: .windowBackgroundColor)) {
                 Button("Add Provider", systemImage: "plus") {}
             }
             ModelProvidersTable(providers: [
@@ -85,25 +85,6 @@ final class SharedControlSnapshots: XCTestCase {
             .alternatingRowBackgrounds(.disabled)
         }
         try snapshot(view, name: "model-providers-list", size: .init(width: 760, height: 300))
-    }
-
-    func testLocalModelsList() throws {
-        let view = VStack(spacing: 0) {
-            ModelManagementHeader("Local Models", background: Color(nsColor: .windowBackgroundColor)) {
-                Button("Download Models", systemImage: "arrow.down") {}
-            }
-            LocalModelsList(models: [
-                .init(id: "small", name: "Small Model", modelID: "small-q4", status: "Running",
-                      isRunning: true, processID: 4231, detail: "Browser chat"),
-                .init(id: "large", name: "Large Model", modelID: "large-q4", status: "Failed",
-                      isRunning: false, errorMessage: "Could not load model")
-            ]) { id in
-                Button(id == "small" ? "Stop" : "Start") {}
-            }
-            .scrollContentBackground(.hidden)
-            .alternatingRowBackgrounds(.disabled)
-        }
-        try snapshot(view, name: "local-models-list", size: .init(width: 760, height: 300))
     }
 
     private func modelPicker(models: [ModelPickerItem<String>], recent: [ModelPickerItem<String>] = [],

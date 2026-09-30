@@ -1,14 +1,20 @@
-//! Opt-in, loopback-only Ollama text API for installed Fritz models.
+//! Loopback-only Ollama text API, with private-pipe app supervision.
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    sync::atomic::{AtomicBool, Ordering},
+    collections::HashMap,
+    io::Write,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
+    sync::{Mutex, oneshot},
 };
 
 const MAX_REQUEST: usize = 128 * 1024;
@@ -160,34 +166,231 @@ fn bounded_option(
     }
 }
 
-pub async fn serve(port: u16, model: Option<String>) -> Result<()> {
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Control {
+    action: String,
+    model_id: String,
+}
+
+struct PendingLoad {
+    model_id: String,
+    sender: oneshot::Sender<Result<(), String>>,
+}
+
+struct ActiveRequest {
+    model_id: String,
+    abort: tokio::task::AbortHandle,
+}
+
+#[derive(Default)]
+struct Managed {
+    // Permit admits only one inference request at a time.
+    pending: Mutex<Option<PendingLoad>>,
+    active: Mutex<Option<ActiveRequest>>,
+}
+
+fn emit(value: Value) {
+    println!("{value}");
+    let _ = std::io::stdout().flush();
+}
+
+impl Managed {
+    async fn request_start(&self, model_id: &str) -> Result<(), String> {
+        if super::model_is_started(model_id).await {
+            return Ok(());
+        }
+        let (sender, receiver) = oneshot::channel();
+        {
+            let mut pending = self.pending.lock().await;
+            // A manual start may have finished between the first check and admission.
+            if super::model_is_started(model_id).await {
+                return Ok(());
+            }
+            *pending = Some(PendingLoad {
+                model_id: model_id.to_owned(),
+                sender,
+            });
+            emit(json!({"type":"loadRequested", "modelId":model_id}));
+        }
+        receiver
+            .await
+            .unwrap_or_else(|_| Err("Local model service stopped".into()))
+    }
+
+    async fn complete(&self, model_id: &str, result: Result<(), String>) {
+        let mut pending = self.pending.lock().await;
+        if pending
+            .as_ref()
+            .is_some_and(|pending| pending.model_id == model_id)
+            && let Some(pending) = pending.take()
+        {
+            let _ = pending.sender.send(result);
+        }
+    }
+
+    async fn run(
+        self: Arc<Self>,
+        mut stream: TcpStream,
+        request: InferenceRequest,
+        permit: Permit,
+    ) -> Result<()> {
+        let model_id = request.model.clone();
+        let owner = self.clone();
+        // Register under the same lock Stop uses, so it cannot miss a new request.
+        let mut active = self.active.lock().await;
+        let mut work = AbortOnDrop(tokio::spawn(async move {
+            let _permit = permit;
+            if let Err(message) = owner.request_start(&request.model).await {
+                error(&mut stream, 503, &message).await?;
+                return Ok(());
+            }
+            infer(&mut stream, request, true).await
+        }));
+        *active = Some(ActiveRequest {
+            model_id,
+            abort: work.0.abort_handle(),
+        });
+        drop(active);
+        let result = (&mut work.0).await;
+        let mut active = self.active.lock().await;
+        if active
+            .as_ref()
+            .is_some_and(|request| request.abort.id() == work.0.id())
+        {
+            *active = None;
+        }
+        match result {
+            Ok(result) => result,
+            Err(error) if error.is_cancelled() => Ok(()),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    async fn controls(self: Arc<Self>) -> Result<()> {
+        let mut lines = BufReader::new(crate::harness_client::PrivateStdin::new()?);
+        let mut jobs = tokio::task::JoinSet::new();
+        let mut operations: HashMap<String, tokio::task::AbortHandle> = HashMap::new();
+        loop {
+            // Keep partial command bytes while completed jobs are reaped.
+            let mut next_line = Box::pin(crate::harness_client::read_line(&mut lines, 8192));
+            let line = loop {
+                tokio::select! {
+                    line = &mut next_line => break line?,
+                    joined = jobs.join_next_with_id(), if !jobs.is_empty() => {
+                        match joined {
+                            Some(Ok((task, id))) => {
+                                if operations.get(&id).is_some_and(|operation| operation.id() == task) { operations.remove(&id); }
+                            }
+                            Some(Err(error)) if !error.is_cancelled() => return Err(error.into()),
+                            _ => {}
+                        }
+                    }
+                }
+            };
+            drop(next_line);
+            let Some(line) = line else {
+                break;
+            };
+            let control: Control =
+                serde_json::from_str(&line).context("Invalid model service command")?;
+            let id = control.model_id;
+            match control.action.as_str() {
+                "start" => {
+                    if let Some(operation) = operations.remove(&id) {
+                        operation.abort();
+                    }
+                    emit(json!({"type":"model", "modelId":id, "status":"starting"}));
+                    let owner = self.clone();
+                    let model_id = id.clone();
+                    let operation = jobs.spawn(async move {
+                        let result = super::start_model(&model_id).await.map_err(|error| format!("{error:#}"));
+                        match &result {
+                            Ok(()) => emit(json!({"type":"model", "modelId":model_id, "status":"running"})),
+                            Err(error) => emit(json!({"type":"model", "modelId":model_id, "status":"failed", "error":error})),
+                        }
+                        owner.complete(&model_id, result).await;
+                        model_id
+                    });
+                    operations.insert(id, operation);
+                }
+                "stop" => {
+                    if let Some(operation) = operations.remove(&id) {
+                        operation.abort();
+                    }
+                    let mut active = self.active.lock().await;
+                    if active
+                        .as_ref()
+                        .is_some_and(|request| request.model_id == id)
+                        && let Some(request) = active.take()
+                    {
+                        request.abort.abort();
+                    }
+                    drop(active);
+                    self.complete(&id, Err("Model start was cancelled".into()))
+                        .await;
+                    let model_id = id.clone();
+                    let operation = jobs.spawn(async move {
+                        super::stop_model(&model_id).await;
+                        emit(json!({"type":"model", "modelId":model_id, "status":"stopped"}));
+                        model_id
+                    });
+                    operations.insert(id, operation);
+                }
+                "deny" => {
+                    self.complete(&id, Err("Model start was cancelled".into()))
+                        .await;
+                }
+                _ => bail!("Unknown model service command"),
+            }
+        }
+        jobs.abort_all();
+        while jobs.join_next().await.is_some() {}
+        Ok(())
+    }
+}
+
+pub async fn serve(port: u16, model: Option<String>, managed: bool) -> Result<()> {
     if let Some(id) = &model {
         super::models::installed_path(id).await?;
     }
     let listener = TcpListener::bind(("127.0.0.1", port))
         .await
         .with_context(|| format!("Could not bind the local model API on 127.0.0.1:{port}"))?;
-    eprintln!(
-        "Fritz local model API listening on http://{}",
-        listener.local_addr()?
-    );
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    let address = format!("http://{}", listener.local_addr()?);
+    eprintln!("Fritz local model API listening on {address}");
+    if managed {
+        emit(json!({"type":"service", "address":address}));
+    }
+    let supervisor = managed.then(|| Arc::new(Managed::default()));
+    let control_owner = supervisor.clone();
+    let mut controls = Box::pin(async move {
+        match control_owner {
+            Some(owner) => owner.controls().await,
+            None => std::future::pending().await,
+        }
+    });
     let mut requests = tokio::task::JoinSet::new();
-    loop {
+    let result = loop {
         tokio::select! {
             result = listener.accept() => {
                 let (stream, _) = result?;
                 let model = model.clone();
-                requests.spawn(async move { let _ = tokio::time::timeout(std::time::Duration::from_secs(330), handle(stream, model.as_deref())).await; });
+                let supervisor = supervisor.clone();
+                requests.spawn(async move { let _ = tokio::time::timeout(std::time::Duration::from_secs(330), handle(stream, model.as_deref(), supervisor)).await; });
             }
-            _ = tokio::signal::ctrl_c() => break,
-            _ = terminate.recv() => break,
+            result = &mut controls => break result,
+            _ = requests.join_next(), if !requests.is_empty() => {},
+            _ = tokio::signal::ctrl_c() => break Ok(()),
+            _ = terminate.recv() => break Ok(()),
         }
-    }
+    };
+    drop(controls);
     requests.abort_all();
     while requests.join_next().await.is_some() {}
     super::shutdown().await;
-    Ok(())
+    result
 }
 
 struct AbortOnDrop<T>(tokio::task::JoinHandle<T>);
@@ -304,7 +507,11 @@ fn event(
     value
 }
 
-async fn handle(mut stream: TcpStream, selected_model: Option<&str>) -> Result<()> {
+async fn handle(
+    mut stream: TcpStream,
+    selected_model: Option<&str>,
+    supervisor: Option<Arc<Managed>>,
+) -> Result<()> {
     let (method, path, body) = match read_request(&mut stream).await {
         Ok(request) => request,
         Err(problem) => {
@@ -353,7 +560,12 @@ async fn handle(mut stream: TcpStream, selected_model: Option<&str>) -> Result<(
                 .await?;
                 return Ok(());
             };
-            infer(&mut stream, request).await?;
+            if let Some(supervisor) = supervisor {
+                supervisor.run(stream, request, _permit).await?;
+            } else {
+                super::stop_other_models(&request.model).await;
+                infer(&mut stream, request, false).await?;
+            }
         }
         ("GET" | "POST", _) => error(&mut stream, 404, "Unknown endpoint").await?,
         _ => error(&mut stream, 405, "Method not allowed").await?,
@@ -361,7 +573,7 @@ async fn handle(mut stream: TcpStream, selected_model: Option<&str>) -> Result<(
     Ok(())
 }
 
-async fn infer(stream: &mut TcpStream, request: InferenceRequest) -> Result<()> {
+async fn infer(stream: &mut TcpStream, request: InferenceRequest, managed: bool) -> Result<()> {
     let started = Instant::now();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
     let model = request.model.clone();
@@ -424,6 +636,11 @@ async fn infer(stream: &mut TcpStream, request: InferenceRequest) -> Result<()> 
             }
         }
         Err(problem) => {
+            if managed && !super::model_is_started(&request.model).await {
+                emit(
+                    json!({"type":"model", "modelId":request.model, "status":"failed", "error":format!("{problem:#}")}),
+                );
+            }
             if request.stream {
                 stream
                     .write_all(format!("{}\n", json!({"error":problem.to_string()})).as_bytes())
