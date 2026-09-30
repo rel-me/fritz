@@ -371,6 +371,11 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
   cancellation and download/add actions, with host-provided recommendation and
   error content.
 
+Apply `.fritzSettingsTitleStyle(font: .title2.weight(.semibold), bottomPadding: 8)`
+to customize page titles in management headers and shared Settings forms. The
+modifier leaves section labels and control fonts unchanged. Without an override,
+titles retain the existing headline font and zero added bottom padding.
+
 These views do not discover models, access Keychain, persist provider settings,
 install artifacts or launch processes. Hosts own their observable state and
 asynchronous task lifetime. Pass catalog and runtime snapshots as values and

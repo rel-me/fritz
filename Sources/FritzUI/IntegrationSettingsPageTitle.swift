@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct IntegrationSettingsPageTitle<SectionHeader: View>: View {
+  @Environment(\.fritzSettingsTitleStyle) private var titleStyle
   let title: String
   let description: String?
   let sectionHeader: SectionHeader
@@ -19,7 +20,8 @@ struct IntegrationSettingsPageTitle<SectionHeader: View>: View {
     VStack(alignment: .leading, spacing: 8) {
       VStack(alignment: .leading, spacing: 3) {
         Text(title)
-          .font(.headline)
+          .font(titleStyle.font)
+          .padding(.bottom, titleStyle.bottomPadding)
           .accessibilityAddTraits(.isHeader)
 
         if let description {

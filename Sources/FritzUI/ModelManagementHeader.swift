@@ -3,6 +3,7 @@ import SwiftUI
 /// Heading and action area shared by model-management pages. The host supplies
 /// its workspace color and actions while the layout stays consistent.
 public struct ModelManagementHeader<Actions: View>: View {
+  @Environment(\.fritzSettingsTitleStyle) private var titleStyle
   let title: String
   let description: String?
   let background: Color
@@ -22,7 +23,8 @@ public struct ModelManagementHeader<Actions: View>: View {
     HStack(alignment: .center, spacing: 20) {
       VStack(alignment: .leading, spacing: 3) {
         Text(title)
-          .font(.headline)
+          .font(titleStyle.font)
+          .padding(.bottom, titleStyle.bottomPadding)
           .accessibilityAddTraits(.isHeader)
         if let description {
           Text(description)
