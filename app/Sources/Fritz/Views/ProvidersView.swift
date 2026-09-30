@@ -188,7 +188,16 @@ struct ProviderEditor: View {
         } content: {
             Form {
                 Section {
-                    AIProviderPicker(selection: $preset)
+                    if existing == nil {
+                        AIProviderPicker(selection: $preset)
+                    } else {
+                        Picker("Provider", selection: $preset) {
+                            ForEach(AIProviderPreset.allCases) { provider in
+                                Text(provider.name).tag(provider)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
                 }.disabled(nativeModel.state.isBusy)
                 if managesLocalModels {
                     Section {
@@ -231,12 +240,13 @@ struct ProviderEditor: View {
         .onChange(of: preset) { old, new in
             nativeModel.cancel()
             if old.category != new.category {
-                makeDefault = new.category == .llm && store.registry.defaultConnectionId == nil
+                makeDefault = new.category == .llm &&
+                    (existing?.id == store.registry.defaultConnectionId || store.registry.defaultConnectionId == nil)
             }
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.category == .decision ? "jev-latest" : ""
-            models = []; error = nil; discoveryFinished = false; refreshID = 0
+            models = []; error = nil; discoveryError = nil; discoveryFinished = false; refreshID = 0
             showsModels = false
         }
         .task(id: preset.provider) {
@@ -255,13 +265,7 @@ struct ProviderEditor: View {
 
     @ViewBuilder private var remoteSections: some View {
         Section {
-            if category == .llm {
-                LabeledContent(preset.provider == .openAICompatible ? "Endpoint" : "Base URL") {
-                    TextField("Endpoint", text: $endpoint, prompt: Text(endpointPrompt))
-                        .labelsHidden().autocorrectionDisabled()
-                }
-                .help(preset.provider == .openAICompatible ? "The OpenAI-compatible API endpoint, including its version path." : "Leave blank to use the provider’s default endpoint.")
-            }
+            if requiresEndpoint { endpointField }
             LabeledContent(apiKeyTitle) {
                 HStack(spacing: 8) {
                     Group {
@@ -317,9 +321,10 @@ struct ProviderEditor: View {
                 Text("No models were returned by this model provider.").foregroundStyle(.secondary)
             }
         }
-        if category == .llm {
-            Section {
-                if showsAdvanced {
+        Section {
+            if showsAdvanced {
+                if !requiresEndpoint { endpointField }
+                if category == .llm {
                     TextField("Connection name", text: $name)
                     if !models.isEmpty {
                         Picker("Default model", selection: $modelID) {
@@ -330,46 +335,69 @@ struct ProviderEditor: View {
                     }
                     TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                 }
-            } header: {
-                Button {
-                    showsAdvanced.toggle()
-                } label: {
-                    Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(FritzButtonStyle(.inline))
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
-                .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
-            } footer: {
-                if showsAdvanced { Text("Enter a model ID for endpoints without a model catalog.") }
-                if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
             }
+        } header: {
+            Button {
+                showsAdvanced.toggle()
+            } label: {
+                Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FritzButtonStyle(.inline))
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
+            .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
+        } footer: {
+            if showsAdvanced {
+                if !requiresEndpoint { Text("Leave Gateway URL blank to use the provider’s default endpoint.") }
+                if category == .llm { Text("Enter a model ID for endpoints without a model catalog.") }
+            }
+            if category == .llm, let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
         }
+    }
+
+    private var endpointField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(endpointTitle)
+            TextField(endpointTitle, text: $endpoint, prompt: Text(endpointPrompt))
+                .labelsHidden().autocorrectionDisabled()
+                .accessibilityLabel(endpointTitle)
+        }
+        .help(requiresEndpoint ? "The OpenAI-compatible API endpoint, including its version path." : "Leave blank to use the provider’s default endpoint.")
     }
 
     private var category: AIModelCategory { preset.category }
     private var managesLocalModels: Bool { preset.provider.isNative }
+    private var requiresEndpoint: Bool { preset == .adapter(.openAICompatible) }
+    private var resolvedEndpoint: String {
+        let value = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? preset.baseURL : value
+    }
     private var editorHeight: CGFloat {
         let base: CGFloat
         if managesLocalModels {
             base = 340 + (store.connections.isEmpty ? 0 : 40)
         } else if category == .decision {
-            base = 430
+            base = 460 + (showsAdvanced ? 100 : 0)
         } else {
-            base = 400 + (showsAdvanced ? 150 : 0) + (store.connections.isEmpty ? 0 : 32)
+            base = 370 + (requiresEndpoint ? 64 : 0) + (showsAdvanced ? (requiresEndpoint ? 150 : 250) : 0)
+                + (store.connections.isEmpty ? 0 : 32)
                 + (discoveryError == nil ? 0 : 60)
         }
         return base - (existing == nil ? 32 : 0) + (duplicateConnection == nil ? 0 : 44)
     }
     private var primaryActionTitle: String { existing == nil ? "Add Provider" : "Save" }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
-    private var endpointPrompt: String { preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL }
+    private var endpointTitle: String { requiresEndpoint ? "Gateway URL" : "Gateway URL (Optional)" }
+    private var endpointPrompt: String {
+        if requiresEndpoint { return "https://api.example.com/v1" }
+        return preset.baseURL.isEmpty ? preset.provider.endpoint : preset.baseURL
+    }
     private var keepsSavedKey: Bool {
         guard let existing, existing.provider == preset.provider else { return false }
         let old = existing.baseURL?.isEmpty == false ? existing.baseURL! : existing.provider.endpoint
-        let current = endpoint.isEmpty ? preset.provider.endpoint : endpoint
+        let current = resolvedEndpoint.isEmpty ? preset.provider.endpoint : resolvedEndpoint
         return old.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == current.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
     private var keyPrompt: String { keepsSavedKey ? "**********" : "Enter API key" }
@@ -378,12 +406,12 @@ struct ProviderEditor: View {
             && (!managesLocalModels || nativeModel.category == category && nativeModel.state == .installed)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && (!preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey)
-            && (preset.provider != .openAICompatible || !endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            && (!requiresEndpoint || !resolvedEndpoint.isEmpty)
     }
     private var discoveryKey: DiscoveryKey { DiscoveryKey(provider: preset, endpoint: endpoint, apiKey: apiKey, refresh: refreshID) }
     private var connection: ProviderConnection {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
-                           baseURL: managesLocalModels || endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : endpoint.trimmingCharacters(in: .whitespacesAndNewlines),
+                           baseURL: managesLocalModels || resolvedEndpoint.isEmpty ? nil : resolvedEndpoint,
                            modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private var duplicateConnection: ProviderConnection? {
@@ -413,7 +441,7 @@ struct ProviderEditor: View {
         guard !preset.requiresAPIKey || !apiKey.isEmpty || keepsSavedKey else {
             if refreshID > 0 { discoveryError = "Enter an API key, then refresh." }; return
         }
-        guard preset.provider != .openAICompatible || !endpoint.isEmpty else {
+        guard !requiresEndpoint || !resolvedEndpoint.isEmpty else {
             if refreshID > 0 { discoveryError = "Enter an endpoint to load models." }; return
         }
         isDiscovering = true
