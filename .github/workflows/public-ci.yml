@@ -19,7 +19,7 @@ jobs:
     name: Mac mini tests and Rust checks
     # Check the PR author, not the actor who happens to rerun the workflow.
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel'
-    # Assign fritz-isolated-account only to a runner owned by fritz-ci.
+    # Assign fritz-isolated-account only to a runner owned by runner-ci.
     # The Keychain wrapper also verifies the account before changing preferences.
     runs-on: [self-hosted, macOS, ARM64, runner-ci, fritz-isolated-account]
     # Includes waiting for the dedicated CI account's session lock.

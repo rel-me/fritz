@@ -93,7 +93,7 @@ macOS checks use the organization's `Mac mini` group, restricted to `rel`,
 `/Users/local/actions-runner-mac-mini-N`. These desktop-account runners must not
 run Fritz's temporary-Keychain wrapper. Fritz macOS CI additionally requires
 the `fritz-isolated-account` label, assigned only to runners installed and run
-under a separate `fritz-ci` macOS account. Do not add this label to the existing
+under a separate `runner-ci` macOS account. Do not add this label to the existing
 `local` account's runners. The wrapper checks the actual account name before
 reading or changing any Keychain preferences and refuses every other account.
 One job runs

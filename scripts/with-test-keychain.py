@@ -2,7 +2,7 @@
 """Run CI tests with a disposable Keychain on the dedicated macOS runner.
 
 This temporarily changes the runner user's default Keychain and search list.
-Requires the dedicated fritz-ci account; never use a desktop login account.
+Requires the dedicated runner-ci account; never use a desktop login account.
 The empty password is for synthetic test fixtures only, never user credentials.
 """
 import os
@@ -29,10 +29,10 @@ def main():
     # These preferences belong to the entire macOS account, not this process.
     # A lock or a finally block cannot protect desktop apps while tests run,
     # and forced termination can bypass restoration entirely.
-    if pwd.getpwuid(os.getuid()).pw_name != "fritz-ci":
+    if pwd.getpwuid(os.getuid()).pw_name != "runner-ci":
         raise SystemExit(
             "Refusing to change account-wide Keychain preferences. "
-            "Run CI under the dedicated fritz-ci macOS account; "
+            "Run CI under the dedicated runner-ci macOS account; "
             "ordinary local tests use make test without this wrapper."
         )
     original_default = shlex.split(security("default-keychain", "-d", "user"))
