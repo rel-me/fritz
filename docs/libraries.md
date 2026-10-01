@@ -202,7 +202,7 @@ fritz = { git = "https://github.com/rel-me/fritz", rev = "<commit-sha>" }
 
 The library is named `fritz`; the `fritz`, `fritz-harness`, and
 `fritz-decision-harness` binaries remain separate targets. This initial library requires macOS and the native inference
-build toolchain (Rust 1.94+, CMake and Xcode). Native Metal inference is currently
+build toolchain (Rust 1.95+, CMake and Xcode). Native Metal inference is currently
 part of the crate, rather than an optional feature. `publish = false` prevents
 an accidental crates.io upload; Git and path dependencies are supported.
 
@@ -277,7 +277,7 @@ fritz-harness = { git = "https://github.com/rel-me/fritz", rev = "<commit-sha>" 
 # Hosts using Rig's high-level AgentRunner also enable `features = ["rig"]`.
 ```
 
-Every `run` uses Rig 0.42's `AgentRun` state machine with Fritz's IO driver. The default crate has no installed tools, app
+Every `run` uses Rig 0.43's `AgentRun` state machine with Fritz's IO driver. The default crate has no installed tools, app
 state, configured provider client or native inference dependency. A host implements
 `Host` (current tool definitions and execution) and `Model` (initial canonical
 conversation, one provider-native turn with its text, and native result history),
@@ -304,7 +304,7 @@ Fritz's application registers its five folder tools as Rig `DynamicTool`s in a
 authoring and registry API as `fritz_harness::tools`, and message types as
 `fritz_harness::message`. Hosts can register their own `Tool`, `PortableTool`,
 or `DynamicTool` implementations, or Rig's built-in tools, and expose the
-registry through `Host`. Rig 0.42 bundles `ThinkTool`, an echo tool for reasoning;
+registry through `Host`. Rig 0.43 bundles `ThinkTool`, an echo tool for reasoning;
 it does not supply Fritz's file or process actions. Fritz does not register
 `ThinkTool` by default. MCP integration is not enabled by this migration.
 
@@ -323,6 +323,16 @@ text/image tool results, native history, active-tool validation and per-turn
 request patches. Hosts retain their provider adapters, cancellation ownership,
 conversation persistence and execution budgets. A closed progress channel does
 not spin or cancel an otherwise valid run.
+
+This crate requires Rust 1.95 or newer. With Rig 0.43, construct the runner with
+`agent.prompt(...)`; its `stream()` method returns the stream directly. Provider
+failures use `rig_core::error::ProviderError`, and structured stream reports are
+returned as `PromptError::Report`. Tool names and call IDs use Rig's typed
+identities; keep the call ID intact when constructing tool-result receipts.
+Rig 0.43's high-level runtime buffers tool-call argument fragments until the
+call is complete and validated. Its `on_tool_call_delta` hook therefore does
+not provide progress while incomplete arguments are still arriving. Host
+progress forwarded by `run_with_progress` retains the host's own event timing.
 
 Both integrations use Rig. The native-provider path drives `AgentRun` directly;
 the high-level path drives an already configured `AgentRunner`, including its

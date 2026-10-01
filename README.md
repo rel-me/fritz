@@ -41,7 +41,7 @@ disk image, then open Fritz from Applications.
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.94+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.95+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -84,7 +84,7 @@ In **Settings → Models**, click **+** and choose any LLM or decision provider 
 
 The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. The selected model’s provider appears first in the provider filters and provider sections. Recent stays above the provider sections and shows up to five available models, excluding the current selection; Fritz remembers the last eight distinct selections. The message field receives focus when opening or switching threads, without a focus border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a chat, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Models page directly. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
-Every conversation runs through Rig 0.42's agent runtime inside the bundled
+Every conversation runs through Rig 0.43's agent runtime inside the bundled
 `fritz-harness` process. Fritz supplies the provider adapters, local inference,
 and application policy. Folder actions use Fritz's own tools registered with Rig;
 Rig does not supply the file and shell implementations. Their paths are relative

@@ -7,7 +7,7 @@ use rig_agent::{
     agent::{AgentRunner, CompletionCall, MultiTurnStreamItem, PromptResponse, StreamingError},
     completion::PromptError,
 };
-use rig_core::completion::CompletionError;
+use rig_core::error::ProviderError;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 /// A host receives completion accounting before the next model/tool step.
@@ -16,7 +16,7 @@ pub async fn run(
     runner: AgentRunner,
     mut completion: impl FnMut(&CompletionCall) -> Result<(), PromptError>,
 ) -> Result<PromptResponse, PromptError> {
-    let mut stream = runner.stream().await;
+    let mut stream = runner.stream();
     while let Some(item) = stream.next().await {
         match item {
             Ok(MultiTurnStreamItem::CompletionCall(call)) => completion(&call)?,
@@ -24,13 +24,14 @@ pub async fn run(
             Err(StreamingError::Completion(error)) => {
                 return Err(PromptError::CompletionError(error));
             }
-            Err(StreamingError::Prompt(error)) => return Err(*error),
+            Err(StreamingError::Prompt(error)) => return Err(error),
+            Err(StreamingError::Report(error)) => return Err(PromptError::Report(error)),
             _ => {}
         }
     }
-    Err(PromptError::CompletionError(
-        CompletionError::ResponseError("The model stream ended without a final response.".into()),
-    ))
+    Err(PromptError::CompletionError(ProviderError::Response(
+        "The model stream ended without a final response.".into(),
+    )))
 }
 
 /// Drive a run while forwarding host-defined progress to its transport.

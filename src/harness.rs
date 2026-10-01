@@ -187,7 +187,7 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
         Ok(self
             .registry
             .as_ref()
-            .map(|registry| registry.get_tool_definitions())
+            .map(|registry| registry.tool_definitions())
             .unwrap_or_default())
     }
 

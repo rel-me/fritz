@@ -56,7 +56,7 @@ impl Workspace {
                         name.clone(),
                         definition["description"].as_str().unwrap(),
                         definition["parameters"].clone(),
-                        move |_, args| {
+                        move |args| {
                             let workspace = workspace.clone();
                             let name = name.clone();
                             Box::pin(async move {

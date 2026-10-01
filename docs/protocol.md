@@ -127,7 +127,7 @@ one terminal `result`/`error`. New events are:
 `toolCallId` is unique within the UI transcript and distinct from provider call
 IDs. Failures become native tool results so the model can correct a call or
 inspect a failed command. Incomplete provider streams never dispatch tools.
-Rig 0.42's `AgentRun` drives every chat, including chats without a folder and
+Rig 0.43's `AgentRun` drives every chat, including chats without a folder and
 Fritz local models. Fritz supplies provider IO, preserves native reasoning and
 tool-result history, and enforces execution limits. Folder actions are registered
 in Rig's `ToolSet`; no additional built-in or MCP tools are enabled implicitly.
