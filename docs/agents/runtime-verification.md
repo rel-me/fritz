@@ -86,11 +86,20 @@ PRs by other authors skip every job, including the final check; rerunning one as
 `gabriel` does not change eligibility. Feature-branch pushes do not start a
 duplicate run. New commits cancel older runs for the same PR or branch.
 
-macOS checks run on the registered `fritz-mac-mini` runner using the labels
-`self-hosted`, `macOS`, `ARM64`, and `gabriel-ci`. It has one runner, so one job
-runs `python3 scripts/with-test-keychain.py make -j2 test` (Rust/runtime and Swift
-test groups concurrently), followed by `make check`. The wrapper gives the
-dedicated runner a temporary Keychain for synthetic credentials and restores its
+macOS checks use the organization's `Mac mini` group, restricted to `rel`,
+`rel-tools`, and `fritz`. Its five runners, `runner-mac-mini-1` through
+`runner-mac-mini-5`, carry `self-hosted`, `macOS`, `ARM64`, `runner-ci`, and
+`runner-snapshot-ci`. Each has its own installation and `_work` directory under
+`/Users/local/actions-runner-mac-mini-N`. One job runs
+`python3 scripts/with-test-keychain.py make -j2 test` (Rust/runtime and Swift
+test groups concurrently), snapshot comparisons, then `make check`.
+Keychain tests and snapshot comparisons run under `lockf -k` with the persistent
+`~/Library/Caches/runner-mac-mini-session.lock`, also used by REL's Swift tests,
+snapshot comparisons, and Staging publication. This serializes changes to
+the shared login session's Keychain preferences and appearance. Never delete
+that lock file while jobs run. The job's 300-minute timeout includes waiting
+behind REL Staging publication as well as its own checks. The wrapper gives the
+job a temporary Keychain for synthetic credentials and restores its
 original default and search list on success, failure, or cancellation. It does
 not unlock the login Keychain. Tests compile the Rust and Swift code they
 exercise; CI does not build, stage, or sign a release app. Verify packaging and signing separately
@@ -99,9 +108,10 @@ The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
 The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-The Mini uses `~/Builds/Fritz/ci/<toolchain-fingerprint>` across CI runs. The
+The Mini uses `~/Builds/Fritz/ci/<runner-name>/<toolchain-fingerprint>` across CI runs. The
 fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
-change selects fresh storage. Source cleanup does not touch this directory.
+change selects fresh storage. Runner-specific roots keep concurrent jobs' mutable
+build outputs separate. Source cleanup does not touch these directories.
 There is no remote cache transfer. Old toolchain directories can be removed when
 no build is using them.
 
