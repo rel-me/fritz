@@ -90,11 +90,12 @@ macOS checks use the organization's `Mac mini` group, restricted to `rel`,
 `rel-tools`, and `fritz`. Its five runners, `runner-mac-mini-1` through
 `runner-mac-mini-5`, carry `self-hosted`, `macOS`, `ARM64`, `runner-ci`, and
 `runner-snapshot-ci`. Each has its own installation and `_work` directory under
-`/Users/local/actions-runner-mac-mini-N`. These desktop-account runners must not
-run Fritz's temporary-Keychain wrapper. Fritz macOS CI additionally requires
-the `fritz-isolated-account` label, assigned only to runners installed and run
-under a separate `runner-ci` macOS account. Do not add this label to the existing
-`local` account's runners. The wrapper checks the actual account name before
+`/Users/runner-ci/actions-runner-mac-mini-N`, owned by the Standard `runner-ci`
+macOS account. The previous `local` account's services are disabled; their files
+are retained for rollback and must not be started alongside the migrated runners.
+Fritz macOS CI additionally requires the `fritz-isolated-account` label, assigned
+only to runners installed and run under `runner-ci`. Do not assign this label to
+a desktop-account runner. The wrapper checks the actual account name before
 reading or changing any Keychain preferences and refuses every other account.
 One job runs
 `python3 scripts/with-test-keychain.py make -j2 test` (Rust/runtime and Swift
@@ -111,8 +112,16 @@ original default and search list on success, failure, SIGINT, or SIGTERM. Forced
 termination or a machine failure can bypass cleanup; using a dedicated account
 keeps both in-progress changes and interrupted cleanup away from personal
 credentials and desktop applications. It does not unlock the login Keychain.
-Provision the isolated runner before enabling this workflow. Without a matching
-runner, jobs stay queued; do not remove the account guard to make them run.
+The service plists live in `runner-ci`'s `~/Library/LaunchAgents` and start at
+that account's graphical login. Sign in to `runner-ci` once, then fast-switch
+back to the desktop account without logging `runner-ci` out. Running `su` alone
+creates a background user session, which does not provide the graphical session
+needed for macOS UI tests. Never enable automatic login or disable FileVault for
+this setup. Each reboot requires signing in to `runner-ci` again.
+Verify the runner processes run as `runner-ci`, are online in GitHub, and leave
+the desktop account's default Keychain unchanged before enabling the workflow.
+Without a matching online runner, jobs stay queued; do not remove the account
+guard to make them run.
 Tests compile the Rust and Swift code they
 exercise; CI does not build, stage, or sign a release app. Verify packaging and signing separately
 with `CONFIGURATION=release make build` when needed.
