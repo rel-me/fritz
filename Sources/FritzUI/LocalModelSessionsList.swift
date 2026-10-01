@@ -9,12 +9,14 @@ public struct LocalModelSessionItem<ID: Hashable>: Identifiable {
   public let isRunning: Bool
   public let isResponding: Bool
   public let canStart: Bool
+  public let showsControls: Bool
   public let status: String
   public let errorMessage: String?
 
   public init(
     id: ID, modelID: String, modelName: String, scope: String, processID: Int32?, isRunning: Bool,
-    isResponding: Bool, canStart: Bool, status: String, errorMessage: String?
+    isResponding: Bool, canStart: Bool, status: String, errorMessage: String?,
+    showsControls: Bool = true
   ) {
     self.id = id
     self.modelID = modelID
@@ -24,6 +26,7 @@ public struct LocalModelSessionItem<ID: Hashable>: Identifiable {
     self.isRunning = isRunning
     self.isResponding = isResponding
     self.canStart = canStart
+    self.showsControls = showsControls
     self.status = status
     self.errorMessage = errorMessage
   }
@@ -52,8 +55,10 @@ public struct LocalModelSessionsList<ID: Hashable>: View {
         VStack(alignment: .leading, spacing: 3) {
           Text(session.modelName)
             .font(.headline)
-          Text(session.scope)
-            .foregroundStyle(.secondary)
+          if !session.scope.isEmpty {
+            Text(session.scope)
+              .foregroundStyle(.secondary)
+          }
           Text(session.modelID)
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -80,13 +85,15 @@ public struct LocalModelSessionsList<ID: Hashable>: View {
         .frame(width: 200, alignment: .leading)
 
         HStack(spacing: 8) {
-          if session.isRunning {
-            Button("Stop") { stop(session.id) }
-            Button("Restart") { restart(session.id) }
-              .disabled(session.isResponding)
-          } else {
-            Button("Start") { start(session.id) }
-              .disabled(!session.canStart)
+          if session.showsControls {
+            if session.isRunning {
+              Button("Stop") { stop(session.id) }
+              Button("Restart") { restart(session.id) }
+                .disabled(session.isResponding)
+            } else {
+              Button("Start") { start(session.id) }
+                .disabled(!session.canStart)
+            }
           }
         }
         .frame(width: 125, alignment: .trailing)

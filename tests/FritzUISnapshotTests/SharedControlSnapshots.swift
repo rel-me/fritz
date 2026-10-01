@@ -87,6 +87,23 @@ final class SharedControlSnapshots: XCTestCase {
         try snapshot(view, name: "model-providers-list", size: .init(width: 760, height: 300))
     }
 
+    func testLocalModelSessionsList() throws {
+        let sessions: [LocalModelSessionItem<String>] = [
+            .init(id: "available", modelID: "qwen-small", modelName: "Qwen Small",
+                  scope: "", processID: nil, isRunning: false, isResponding: false,
+                  canStart: false, status: "Available", errorMessage: nil, showsControls: false),
+            .init(id: "running", modelID: "qwen-large", modelName: "Qwen Large",
+                  scope: "Research chat", processID: 4231, isRunning: true, isResponding: false,
+                  canStart: true, status: "Ready", errorMessage: nil),
+            .init(id: "failed", modelID: "qwen-code", modelName: "Qwen Code",
+                  scope: "Writing chat", processID: nil, isRunning: false, isResponding: false,
+                  canStart: true, status: "Failed", errorMessage: "Model could not load")
+        ]
+        try snapshot(LocalModelSessionsList(sessions: sessions, start: { _ in },
+                                            stop: { _ in }, restart: { _ in }),
+                     name: "local-model-sessions-list", size: .init(width: 760, height: 320))
+    }
+
     private func modelPicker(models: [ModelPickerItem<String>], recent: [ModelPickerItem<String>] = [],
                              query: String = "") -> some View {
         ModelPickerPopover(models: models, recentModels: recent,

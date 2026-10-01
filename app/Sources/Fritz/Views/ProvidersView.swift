@@ -20,49 +20,36 @@ struct ProvidersView: View {
     @State private var textExport: ProviderTextExport?
 
     var body: some View {
-        VStack(spacing: 0) {
-            ModelManagementHeader("Models", background: FritzWindowStyle.workspaceBackground) {
-                transferMenu
-                    .controlSize(.extraLarge)
-                Button("Add Provider", systemImage: "plus") {
-                    editor = ProviderEditorSelection()
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-                .controlSize(.extraLarge)
-                .help("Add Provider")
-            }
-
-            ModelProvidersTable(providers: providerItems, selection: $selectedIDs, isLoading: store.isLoading) { id in
+        ModelsView(
+            providers: providerItems, selectedProviderIDs: $selectedIDs,
+            sessions: [LocalModelSessionItem<String>](),
+            isLoadingProviders: store.isLoading, providerError: store.error,
+            background: FritzWindowStyle.workspaceBackground,
+            actionControlSize: .extraLarge,
+            transferActions: { transferMenu.controlSize(.extraLarge) },
+            addProvider: { editor = ProviderEditorSelection() },
+            editProvider: { id in
                 if let connection = store.connections.first(where: { $0.id == id }) {
                     editor = ProviderEditorSelection(connection: connection)
                 }
-            }
-            .fritzListSurface()
-            .contextMenu(forSelectionType: UUID.self) { ids in
-                if ids.count == 1, let connection = store.connections.first(where: { ids.contains($0.id) }) {
-                    Button("Edit Models", systemImage: "pencil") { editor = ProviderEditorSelection(connection: connection) }
-                    if connection.category == .llm {
-                        Button("Make Default", systemImage: "checkmark.circle") { Task { await store.makeDefault(connection) } }
-                            .disabled(connection.id == store.registry.defaultConnectionId)
-                    }
-                    Divider()
-                    Button("Delete Provider", role: .destructive) { deleting = connection }
+            },
+            canMakeDefault: { id in
+                store.connections.contains { $0.id == id && $0.category == .llm }
+                    && id != store.registry.defaultConnectionId
+            },
+            showsMakeDefault: { id in
+                store.connections.contains { $0.id == id && $0.category == .llm }
+            },
+            makeDefault: { id in
+                if let connection = store.connections.first(where: { $0.id == id }) {
+                    Task { await store.makeDefault(connection) }
                 }
-                if !ids.isEmpty {
-                    Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(ids) }
-                }
-            } primaryAction: { ids in
-                if ids.count == 1, let connection = store.connections.first(where: { ids.contains($0.id) }) {
-                    editor = ProviderEditorSelection(connection: connection)
-                }
+            },
+            exportProviders: prepareExport,
+            deleteProvider: { id in
+                deleting = store.connections.first(where: { $0.id == id })
             }
-            .onDeleteCommand { deleting = selectedConnection }
-            if let error = store.error {
-                Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).textSelection(.enabled).padding(12)
-            }
-        }
-        .background(FritzWindowStyle.workspaceBackground)
+        )
         .sheet(isPresented: $isImporting) { ProviderTransferSheet(store: store) }
         .confirmationDialog("Export Providers", isPresented: $showsExportOptions) {
             Button("Export Without Keys") { exportProviders(includeKeys: false) }
@@ -121,10 +108,6 @@ struct ProvidersView: View {
             )
         }
     }
-    private var selectedConnection: ProviderConnection? {
-        selectedIDs.count == 1 ? store.connections.first { selectedIDs.contains($0.id) } : nil
-    }
-
     private func prepareExport(_ ids: Set<UUID>) {
         exportConnections = store.connections.filter { ids.contains($0.id) }
         if !exportConnections.isEmpty { showsExportOptions = true }

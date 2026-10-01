@@ -350,6 +350,10 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
 
 `FritzUI` also provides host-driven management views:
 
+- `ModelsView` owns the Models page heading, provider table, optional local-model
+  pane, selection actions, and empty/error presentation. Hosts provide their
+  provider records, installed-model sessions, persistence actions, and runtime
+  callbacks. Fritz and REL use this page in their native windows.
 - `ModelManagementHeader` gives model management pages the same heading
   and action layout while accepting the host's workspace color and actions.
 - `ModelProvidersTable` renders provider readiness, local/default badges, model
