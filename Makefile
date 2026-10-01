@@ -32,6 +32,7 @@ test-runtime:
 	python3 tests/test_tool_evals.py
 
 test-swift:
+	swift test --package-path Packages/NativeMarkup --scratch-path "$(FRITZ_SWIFT_BUILD)-native-markup" --cache-path "$(FRITZ_SWIFT_CACHE)"
 	swift test --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
 	swift test --package-path app --scratch-path "$(FRITZ_APP_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
 
