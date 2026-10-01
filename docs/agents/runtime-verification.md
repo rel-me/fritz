@@ -90,18 +90,39 @@ macOS checks use the organization's `Mac mini` group, restricted to `rel`,
 `rel-tools`, and `fritz`. Its five runners, `runner-mac-mini-1` through
 `runner-mac-mini-5`, carry `self-hosted`, `macOS`, `ARM64`, `runner-ci`, and
 `runner-snapshot-ci`. Each has its own installation and `_work` directory under
-`/Users/local/actions-runner-mac-mini-N`. One job runs
+`/Users/runner-ci/actions-runner-mac-mini-N`, owned by the Standard `runner-ci`
+macOS account. The previous `local` account's services are disabled; their files
+are retained for rollback and must not be started alongside the migrated runners.
+Fritz macOS CI additionally requires the `fritz-isolated-account` label, assigned
+only to runners installed and run under `runner-ci`. Do not assign this label to
+a desktop-account runner. The wrapper checks the actual account name before
+reading or changing any Keychain preferences and refuses every other account.
+One job runs
 `python3 scripts/with-test-keychain.py make -j2 test` (Rust/runtime and Swift
 test groups concurrently), snapshot comparisons, then `make check`.
 Keychain tests and snapshot comparisons run under `lockf -k` with the persistent
 `~/Library/Caches/runner-mac-mini-session.lock`, also used by REL's Swift tests,
-snapshot comparisons, and Staging publication. This serializes changes to
-the shared login session's Keychain preferences and appearance. Never delete
+snapshot comparisons, and Staging publication. The lock serializes jobs within
+each account; it does not isolate Keychain settings from that account's desktop
+applications. Never delete
 that lock file while jobs run. The job's 300-minute timeout includes waiting
-behind REL Staging publication as well as its own checks. The wrapper gives the
-job a temporary Keychain for synthetic credentials and restores its
-original default and search list on success, failure, or cancellation. It does
-not unlock the login Keychain. Tests compile the Rust and Swift code they
+for other jobs in the dedicated CI account as well as its own checks. The wrapper gives the
+job a temporary Keychain for synthetic credentials and attempts to restore its
+original default and search list on success, failure, SIGINT, or SIGTERM. Forced
+termination or a machine failure can bypass cleanup; using a dedicated account
+keeps both in-progress changes and interrupted cleanup away from personal
+credentials and desktop applications. It does not unlock the login Keychain.
+The service plists live in `runner-ci`'s `~/Library/LaunchAgents` and start at
+that account's graphical login. Sign in to `runner-ci` once, then fast-switch
+back to the desktop account without logging `runner-ci` out. Running `su` alone
+creates a background user session, which does not provide the graphical session
+needed for macOS UI tests. Never enable automatic login or disable FileVault for
+this setup. Each reboot requires signing in to `runner-ci` again.
+Verify the runner processes run as `runner-ci`, are online in GitHub, and leave
+the desktop account's default Keychain unchanged before enabling the workflow.
+Without a matching online runner, jobs stay queued; do not remove the account
+guard to make them run.
+Tests compile the Rust and Swift code they
 exercise; CI does not build, stage, or sign a release app. Verify packaging and signing separately
 with `CONFIGURATION=release make build` when needed.
 The final “Libraries, app, and runtime” check

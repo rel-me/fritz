@@ -19,8 +19,10 @@ jobs:
     name: Mac mini tests and Rust checks
     # Check the PR author, not the actor who happens to rerun the workflow.
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel'
-    runs-on: [self-hosted, macOS, ARM64, runner-ci]
-    # Includes waiting for the shared login-session lock during REL Staging publication.
+    # Assign fritz-isolated-account only to a runner owned by runner-ci.
+    # The Keychain wrapper also verifies the account before changing preferences.
+    runs-on: [self-hosted, macOS, ARM64, runner-ci, fritz-isolated-account]
+    # Includes waiting for the dedicated CI account's session lock.
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@v5
@@ -64,7 +66,7 @@ jobs:
           cargo --version
           cmake --version
       - name: Test Rust, runtime, libraries, and application
-        # Keychain defaults are shared by this login session; coordinate with REL jobs.
+        # Serialize tests within the dedicated CI account's login session.
         run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" python3 scripts/with-test-keychain.py make -j2 test
       - name: Compare SwiftUI snapshots
         run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" make check-ui-snapshots
