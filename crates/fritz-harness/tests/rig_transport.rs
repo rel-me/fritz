@@ -62,6 +62,8 @@ impl Transport<MockScript> for Model {
 }
 
 #[tokio::test]
+// The host callback's public signature returns Rig's unboxed PromptError.
+#[allow(clippy::result_large_err)]
 async fn closed_progress_channel_keeps_completion_and_accounting() {
     let agent = AgentBuilder::new(
         Model {
@@ -104,6 +106,8 @@ async fn closed_progress_channel_keeps_completion_and_accounting() {
 }
 
 #[tokio::test]
+// The host callback's public signature returns Rig's unboxed PromptError.
+#[allow(clippy::result_large_err)]
 async fn failed_progress_transport_drops_pending_model_io() {
     let (sender, mut receiver) = mpsc::unbounded_channel();
     let dropped = Arc::new(AtomicBool::new(false));
