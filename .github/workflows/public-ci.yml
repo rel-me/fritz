@@ -19,8 +19,9 @@ jobs:
     name: Mac mini tests and Rust checks
     # Check the PR author, not the actor who happens to rerun the workflow.
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel'
-    runs-on: [self-hosted, macOS, ARM64, gabriel-ci]
-    timeout-minutes: 45
+    runs-on: [self-hosted, macOS, ARM64, runner-ci]
+    # Includes waiting for the shared login-session lock during REL Staging publication.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v5
         with:
@@ -52,10 +53,10 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
-      - name: Select shared build storage for this toolchain
+      - name: Select runner-local build storage for this toolchain
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
-          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/$fingerprint" >> "$GITHUB_ENV"
+          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/$RUNNER_NAME/$fingerprint" >> "$GITHUB_ENV"
       - name: Check toolchains
         run: |
           xcodebuild -version
@@ -63,10 +64,10 @@ jobs:
           cargo --version
           cmake --version
       - name: Test Rust, runtime, libraries, and application
-        # One runner services the Mini: parallelize independent test groups here.
-        run: python3 scripts/with-test-keychain.py make -j2 test
+        # Keychain defaults are shared by this login session; coordinate with REL jobs.
+        run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" python3 scripts/with-test-keychain.py make -j2 test
       - name: Compare SwiftUI snapshots
-        run: make check-ui-snapshots
+        run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" make check-ui-snapshots
       - name: Upload snapshot failures
         if: failure()
         uses: actions/upload-artifact@v4
