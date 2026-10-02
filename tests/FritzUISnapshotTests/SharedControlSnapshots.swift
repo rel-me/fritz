@@ -77,7 +77,7 @@ final class SharedControlSnapshots: XCTestCase {
             }
             ModelProvidersTable(providers: [
                 .init(id: "openai", name: "OpenAI", warning: nil, isLocal: false,
-                      isDefault: true, models: "Example Model, Second Model"),
+                      isDefault: true, models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
                 .init(id: "local", name: "Local", warning: "Download a model", isLocal: true,
                       isDefault: false, models: "Local Model")
             ], selection: .constant([]), isLoading: false) { _ in }
@@ -85,6 +85,7 @@ final class SharedControlSnapshots: XCTestCase {
             .alternatingRowBackgrounds(.disabled)
         }
         try snapshot(view, name: "model-providers-list", size: .init(width: 760, height: 300))
+        try snapshot(view, name: "model-providers-list-compact", size: .init(width: 520, height: 300))
     }
 
     func testLocalModelSessionsList() throws {

@@ -97,7 +97,8 @@ struct ProvidersView: View {
     private var providerItems: [ModelProviderItem<UUID>] {
         store.connections.map { connection in
             let names = store.catalog[connection.id].map { models in
-                models.isEmpty ? "No models" : models.map(\.displayName).joined(separator: ", ")
+                models.isEmpty ? "No models" : DiscoveredAIModel.preferredOrder(models, provider: connection.provider)
+                    .map(\.displayName).joined(separator: ", ")
             } ?? (store.isLoading || connection.modelID.isEmpty ? nil : connection.modelID)
             return ModelProviderItem(
                 id: connection.id, name: connection.providerDisplayName,
@@ -527,7 +528,8 @@ struct ProviderEditor: View {
             let response: ModelCatalog = try await store.agent.request("models.list", params: params)
             try Task.checkCancellation()
             guard activeDiscoveryID == token else { return }
-            models = response.models; discoveryFinished = true
+            models = DiscoveredAIModel.preferredOrder(response.models, provider: preset.provider)
+            discoveryFinished = true
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled, activeDiscoveryID == token else { return }
