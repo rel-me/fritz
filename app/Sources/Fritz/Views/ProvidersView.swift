@@ -151,20 +151,25 @@ struct ProviderEditor: View {
 
     init(store: ProviderStore, localModels: LocalModelRuntimeStore, existing: ProviderConnection?) {
         self.store = store; self.localModels = localModels; self.existing = existing
-        let category = existing?.category ?? .llm
+        let addedPresets = Set(store.connections.map {
+            AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL)
+        })
+        let initialPreset = existing.map { AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL) }
+            ?? AIProviderPreset.allCases.first { $0.category == .llm && !addedPresets.contains($0) }
+            ?? .adapter(.openAI)
+        let category = initialPreset.category
         _id = State(initialValue: existing?.id ?? UUID())
         let initialNativeModel = NativeLocalModel(agent: store.agent, modelID: existing?.modelID, category: category)
         _nativeModel = State(initialValue: initialNativeModel)
         _startPolicy = State(initialValue: localModels.policy(for: initialNativeModel.selectedModelID))
-        let baseName = category == .decision ? "TypeSafe" : "OpenAI"
+        let baseName = initialPreset.name
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
             initialName = "\(baseName) \(suffix)"; suffix += 1
         }
         _name = State(initialValue: existing?.name ?? initialName)
-        _preset = State(initialValue: existing.map { .matching(provider: $0.provider, baseURL: $0.baseURL) }
-                        ?? (category == .decision ? .adapter(.jev) : .adapter(.openAI)))
-        _endpoint = State(initialValue: existing?.baseURL ?? "")
+        _preset = State(initialValue: initialPreset)
+        _endpoint = State(initialValue: existing?.baseURL ?? initialPreset.baseURL)
         _modelID = State(initialValue: existing?.modelID ?? (category == .decision ? "jev-latest" : ""))
         _makeDefault = State(initialValue: category == .llm &&
                              (existing?.id == store.registry.defaultConnectionId || store.registry.defaultConnectionId == nil))
@@ -219,8 +224,7 @@ struct ProviderEditor: View {
                         case .available, .downloading: Text("Not installed")
                         }
                         if let duplicateConnection {
-                            Text("Already added as \(duplicateConnection.name).")
-                                .foregroundStyle(.red)
+                            duplicateWarning(duplicateConnection)
                         }
                         if nativeModel.state == .installed, let url = nativeModel.installedURL {
                             VStack(alignment: .leading, spacing: 4) {
@@ -378,8 +382,7 @@ struct ProviderEditor: View {
             }
         } footer: {
             if let duplicateConnection {
-                Text("Already added as \(duplicateConnection.name).")
-                    .foregroundStyle(.red)
+                duplicateWarning(duplicateConnection)
             }
             if category == .decision, let error {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
@@ -419,6 +422,11 @@ struct ProviderEditor: View {
         } footer: {
             if category == .llm, let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
         }
+    }
+
+    private func duplicateWarning(_ connection: ProviderConnection) -> some View {
+        Label("Already added as \(connection.name).", systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
     }
 
     private var endpointField: some View {

@@ -1,6 +1,7 @@
 # Native UI verification
 
-Build the complete staged app and use the mock-provider setup in
+Use `make build` for incremental Debug builds of the complete staged app during
+UI development and verification. Use the mock-provider setup in
 [runtime verification](runtime-verification.md). Inspect the actual native
 surface affected by the change; process launch and compilation do not verify
 layout, focus, command routing, or state restoration.
