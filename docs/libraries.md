@@ -25,6 +25,7 @@ SwiftPM resources using their normal Xcode/SwiftPM build integration.
 | Module | Public infrastructure |
 | --- | --- |
 | `Fritz` | Provider connections and registry wire models, endpoint presets/categories, discovered models, model capabilities and picker grouping, pinned local-model descriptors and hardware information, appearance, CLI symlink installation, private-pipe agent client |
+| `FritzUI` | Shared native controls, complete Models screen/editor/download/import/export flow, observable `ModelsStore` and `ModelsLocalRuntime` owners |
 | `FritzState` | Host-owned SQLite connections, bound values, transactions, ordered migrations and schema validation; no app models, Sparkle or inference dependency |
 | `FritzUpdates` | Sparkle configuration validation, updater lifecycle and required-update state, release/beta/staging channels, Check for Updates command |
 | `FritzApp` | Executable module: scenes, project/thread persistence, observable app stores, settings and chat UI, app-specific process configuration |
@@ -61,8 +62,8 @@ Info.plist.
 
 ## Shared macOS views
 
-The `FritzUI` product provides SwiftUI controls without depending on Fritz's
-provider protocols, stores, transport, updater, or persistence. Both the Fritz
+The `FritzUI` product provides SwiftUI controls and the complete Models configuration flow, including Fritz's
+provider registry store, native model installer, and local model process owner. Both the Fritz
 app and REL consume the same views. Add `.product(name: "FritzUI", package: "fritz")`
 to the host target and `import FritzUI` where needed.
 
@@ -461,3 +462,24 @@ listener remains opt-in and lasts only for the service lifetime. Pairing expires
 after five minutes, device access after seven days; revocation rejects new work
 but cannot undo a command already executing. See
 [integration services](integrations.md) for the transport and security contracts.
+
+### Models configuration and runtime
+
+`ModelsConfigurationScreen(store:runtime:)` is the Models page used by Fritz's
+Settings. It owns editor presentation and uses `ModelsProviderEditor` for both
+remote and local providers. Local models are managed inside that editor; they
+are not a separate Settings page. `ModelsDownloadSheet(store:modelID:category:)`
+provides the same filtered catalog and cancellable installer used by Fritz.
+
+Create one `ModelsStore` and one `ModelsLocalRuntime` per app with the same
+`AgentClient`. `ModelsPreferences` supplies the app's existing nonsecret settings
+persistence for recent selections and startup policies. Provider records and
+credential updates go through the bundled Fritz agent and its Rust registry.
+Start the agent, call `startService()` and `startAtAppLaunch(_:)`, and call
+`stopAll()` and `agent.stop()` at shutdown. The runtime uses the bundled `fritz`
+executable and the app's `FritzDataDirectory`, `FritzModelsDirectory`, and
+`FritzKeychainService` bundle configuration; keep each Debug checkout isolated.
+
+The lower-level `ModelsConfigurationView`, `ModelsProviderStore`, and
+`ModelsRuntimeStore` contracts let native hosts route presentation through their
+own scene owners. They do not require a fork of the editor or download UI.
