@@ -23,9 +23,19 @@ public enum ModelsImportPolicy: String, CaseIterable {
     func importProviders(_ text: String, policy: ModelsImportPolicy) async throws
     func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel]
+    func modelStorage() async throws -> ModelStorage
+    func setModelStorage(directory: URL) async throws -> ModelStorage
     func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
                      requestID: String) -> AsyncThrowingStream<Data, Error>
     func cancelModelRequest(_ requestID: String)
+}
+
+public struct ModelStorage: Decodable {
+    public let directory: String
+    public let isOverridden: Bool
+    public init(directory: String, isOverridden: Bool = false) {
+        self.directory = directory; self.isOverridden = isOverridden
+    }
 }
 
 public enum ModelsStartPolicy: String, Codable, CaseIterable, Identifiable {

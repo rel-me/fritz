@@ -166,11 +166,72 @@ pub fn data_dir() -> PathBuf {
         })
 }
 
-/// Model weights can be shared independently from provider and conversation data.
-pub fn models_dir() -> PathBuf {
-    std::env::var_os("FRITZ_MODELS_DIR")
+/// Explicit test/CLI overrides take precedence over the saved folder and bundle default.
+pub fn models_dir() -> Result<PathBuf> {
+    if let Some(directory) = std::env::var_os("FRITZ_MODELS_DIR") {
+        return Ok(PathBuf::from(directory));
+    }
+    let path = data_dir().join("model-storage.sqlite");
+    if path.exists() {
+        use rusqlite::OptionalExtension;
+        let database = model_storage_database()?;
+        let directory: Option<String> = database
+            .connection()
+            .query_row(
+                "SELECT directory FROM model_storage WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if let Some(directory) = directory {
+            return Ok(PathBuf::from(directory));
+        }
+    }
+    Ok(std::env::var_os("FRITZ_DEFAULT_MODELS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| data_dir().join("Models"))
+        .unwrap_or_else(|| data_dir().join("Models")))
+}
+
+fn model_storage_database() -> Result<Database> {
+    Database::open(
+        &data_dir().join("model-storage.sqlite"),
+        &[
+            "CREATE TABLE model_storage (id INTEGER PRIMARY KEY CHECK(id = 1), directory TEXT NOT NULL);",
+        ],
+        &[("model_storage", &["id", "directory"])],
+    )
+}
+
+pub fn model_storage() -> Result<serde_json::Value> {
+    Ok(
+        serde_json::json!({"directory": models_dir()?, "isOverridden": std::env::var_os("FRITZ_MODELS_DIR").is_some()}),
+    )
+}
+
+pub fn set_model_storage(directory: &str) -> Result<serde_json::Value> {
+    if std::env::var_os("FRITZ_MODELS_DIR").is_some() {
+        bail!(
+            "Model storage is overridden by FRITZ_MODELS_DIR. Remove the override to choose a folder."
+        );
+    }
+    let directory_path = std::path::Path::new(directory);
+    if !directory_path.is_absolute() {
+        bail!("Choose an absolute model storage folder.");
+    }
+    std::fs::create_dir_all(directory_path).with_context(|| format!(
+        "Could not create model storage at {directory}. Choose another folder or grant your account write access."
+    ))?;
+    // Check actual write access before persisting; permissions bits alone miss ACLs/read-only volumes.
+    let probe = directory_path.join(format!(".fritz-write-check-{}", Uuid::new_v4()));
+    let file = std::fs::OpenOptions::new().write(true).create_new(true).open(&probe)
+        .with_context(|| format!("Could not write model storage at {directory}. Choose another folder or grant your account write access."))?;
+    drop(file);
+    std::fs::remove_file(probe)?;
+    model_storage_database()?.connection().execute(
+        "INSERT INTO model_storage (id, directory) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET directory = excluded.directory",
+        [directory]
+    )?;
+    model_storage()
 }
 
 pub fn load() -> Result<Registry> {

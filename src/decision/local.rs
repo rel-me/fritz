@@ -116,7 +116,7 @@ impl DecisionModel for Ollaya {
             let pin = manifest(&request.model)?;
             let questions =
                 ollaya_decision::parse_questions(&serde_json::to_value(&request.questions)?)?;
-            let directory = ModelStore::new(crate::config::models_dir())
+            let directory = ModelStore::new(crate::config::models_dir()?)
                 .installed_path(&request.model)
                 .await?;
             let state = request.state.clone();

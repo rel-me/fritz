@@ -13,6 +13,8 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
+| `modelStorage.get` | — | `directory` and `isOverridden` (explicit `FRITZ_MODELS_DIR`) |
+| `modelStorage.set` | absolute `directory` | Validates creation/write access, persists the folder, returns the same storage shape; rejected with an explicit override |
 | `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |

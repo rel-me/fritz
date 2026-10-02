@@ -17,6 +17,75 @@ ROOT = Path(__file__).resolve().parents[1]
 EXECUTABLE = Path(os.environ.get("FRITZ_TEST_BIN_DIR", ROOT / "target/debug")) / "fritz"
 
 
+def model_storage_selection():
+    """Persist a writable folder through the agent and use it in fresh CLI processes."""
+    with tempfile.TemporaryDirectory(prefix="fritz-model-storage-") as directory:
+        data = Path(directory)
+        default = data / "default weights"
+        chosen = data / "chosen weights"
+        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_DEFAULT_MODELS_DIR=str(default))
+        env.pop("FRITZ_MODELS_DIR", None)
+
+        def request(method, params=None, environment=env):
+            process = subprocess.Popen([str(EXECUTABLE), "--agent"], text=True,
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, env=environment)
+            events = queue.Queue()
+            threading.Thread(target=lambda: [events.put(json.loads(line)) for line in process.stdout],
+                             daemon=True).start()
+            try:
+                process.stdin.write(json.dumps({"id": "storage", "method": method, "params": params or {}}) + "\n")
+                process.stdin.flush()
+                while True:
+                    event = events.get(timeout=15)
+                    if event["type"] in ("result", "error"):
+                        return event
+            finally:
+                process.stdin.close()
+                try:
+                    assert process.wait(timeout=5) == 0, process.stderr.read()
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+                    raise
+
+
+        assert request("modelStorage.get")["result"] == {"directory": str(default), "isOverridden": False}
+        assert not default.exists(), "Reading storage must not create the model folder"
+        assert request("modelStorage.set", {"directory": str(chosen)})["result"]["directory"] == str(chosen)
+        assert chosen.is_dir()
+        assert request("modelStorage.get")["result"]["directory"] == str(chosen)
+        # Invalid destinations must preserve the last usable folder.
+        blocked = data / "file"
+        blocked.write_text("fixture")
+        for path in ("relative/path", str(blocked / "weights")):
+            assert request("modelStorage.set", {"directory": path})["type"] == "error"
+            assert request("modelStorage.get")["result"]["directory"] == str(chosen)
+
+        chat = json.loads((ROOT / "Sources/Fritz/LocalModels.json").read_text())["models"][0]
+        decision = json.loads((ROOT / "Sources/Fritz/DecisionModels.json").read_text())["models"][0]
+        (chosen / chat["file"]).write_bytes(b"host-provided fixture")
+        for artifact in decision["files"]:
+            (chosen / artifact["file"]).write_bytes(b"host-provided fixture")
+        for prefix, model in (("localModels", chat), ("decisionModels", decision)):
+            inventory = request(prefix + ".list", {"modelId": model["id"]})["result"]["models"][0]
+            assert inventory["installed"] and Path(inventory["path"]).parent == chosen
+            # Reuse existing weights without any network request.
+            assert request(prefix + ".install", {"modelId": model["id"]})["result"]["installed"]
+        for command in ("local-models", "decision-models"):
+            result = subprocess.run([str(EXECUTABLE), command, "list"], text=True, capture_output=True,
+                                    env=env, timeout=15, check=True)
+            assert any(model["installed"] for model in json.loads(result.stdout)["models"])
+        overridden = dict(env, FRITZ_MODELS_DIR=str(default))
+        assert request("modelStorage.get", environment=overridden)["result"] == {
+            "directory": str(default), "isOverridden": True
+        }
+        assert request("modelStorage.set", {"directory": str(chosen)}, overridden)["type"] == "error"
+        assert not any(model["installed"] for model in request("localModels.list", environment=overridden)["result"]["models"])
+        assert request("modelStorage.get")["result"]["directory"] == str(chosen)
+        print("PASS: model folder validation, persistence, chat/decision discovery, and explicit isolation override")
+
+
 class AuthenticatedProvider(Provider):
     """Require the imported fixture key on a separate discovery endpoint."""
 
@@ -338,4 +407,5 @@ def main():
 
 
 if __name__ == "__main__":
+    model_storage_selection()
     main()

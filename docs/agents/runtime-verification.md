@@ -56,10 +56,15 @@ or on `main` in a linked worktree, without a PR lookup. Other linked branches us
 without a resolvable PR and all detached checkouts use
 `dist/FritzDebug{checkout hash}.app`.
 The checkout-path hash continues to isolate the bundle ID, data directory,
-Keychain service, and UserDefaults domain. Model weights are shared by all Debug
-apps at `/Library/Application Support/Fritz/Data/Models/`; chat GGUFs and decision
-artifacts use that same flat directory. The directory needs user write access for
-downloads. `FRITZ_MODELS_DIR` is an explicit override for isolated model tests. Use
+Keychain service, and UserDefaults domain. Debug model weights default to a shared
+user directory at `~/Library/Application Support/FritzDebug/Models/`; chat GGUFs
+and decision artifacts use that same flat directory. The user-owned directory is created on
+the first download. Download Folder → Choose…
+saves an alternate folder in the app's data directory, used by downloads and all
+model runtimes without restarting. It does not move existing weights.
+`FRITZ_MODELS_DIR` is an explicit override for isolated model tests and disables
+the chooser. Debug bundles supply their default through `FRITZ_DEFAULT_MODELS_DIR`,
+which yields to a saved folder. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
@@ -220,8 +225,9 @@ the Release app. It does **not** isolate its Keychain service
 `dev.fritz.provider-credentials`, macOS/Sparkle-managed window and update-engine preferences. Use newly created, keyless mock connections for Release app tests.
 Debug apps use a worktree-specific bundle ID, data directory, Keychain
 service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR`,
-`FRITZ_MODELS_DIR`, and `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug
-identity and model storage outside the app. For isolated Debug app verification,
+`FRITZ_DEFAULT_MODELS_DIR`, and `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that
+Debug identity and default model storage outside the app. A saved Download Folder
+choice takes precedence over that default. For isolated Debug app verification,
 launch with `open -n --env "FRITZ_MODELS_DIR=$fritz_test_data/Models"` and use the
 same explicit override for its bundled CLI; this avoids reading shared weights.
 

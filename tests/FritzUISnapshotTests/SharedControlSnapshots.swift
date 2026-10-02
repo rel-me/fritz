@@ -320,6 +320,8 @@ final class SharedControlSnapshots: XCTestCase {
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
         [.init(id: "test-model", displayName: "Test Model")]
     }
+    func modelStorage() async throws -> ModelStorage { .init(directory: "/Models") }
+    func setModelStorage(directory: URL) async throws -> ModelStorage { .init(directory: directory.path) }
     func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in

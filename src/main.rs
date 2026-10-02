@@ -273,6 +273,12 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
         "health" => Ok(
             json!({"name":"fritz","version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"harness":"fritz-harness"}),
         ),
+        "modelStorage.get" => config::model_storage(),
+        "modelStorage.set" => config::set_model_storage(
+            params["directory"]
+                .as_str()
+                .context("Choose a model storage folder.")?,
+        ),
         "localModels.list" => match params["modelId"].as_str() {
             Some(id) => local::models::inventory_model(id).await,
             None => local::models::inventory().await,
@@ -285,7 +291,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             Ok(json!({"modelId":id,"installed":true}))
         }
         "decisionModels.list" => {
-            decision::local::ModelStore::new(config::models_dir())
+            decision::local::ModelStore::new(config::models_dir()?)
                 .inventory(params["modelId"].as_str())
                 .await
         }
@@ -293,7 +299,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             let id = params["modelId"]
                 .as_str()
                 .context("Choose a local decision model.")?;
-            decision::local::ModelStore::new(config::models_dir())
+            decision::local::ModelStore::new(config::models_dir()?)
                 .download(id, &emit)
                 .await?;
             Ok(json!({"modelId":id,"installed":true}))
@@ -436,8 +442,8 @@ async fn agent() -> Result<()> {
             continue;
         }
         let tx = sender.clone();
-        // Registry mutations finish in request order; network operations can be cancelled.
-        if request.method.starts_with("providers.") {
+        // Registry and model-folder mutations finish in request order; network operations can be cancelled.
+        if request.method.starts_with("providers.") || request.method.starts_with("modelStorage.") {
             let result = dispatch(&request, |_| {}).await;
             let _ = tx.send(envelope(&request.id, result));
         } else {
@@ -509,7 +515,7 @@ async fn run() -> Result<()> {
             } => local::ollama::serve(port, model, managed).await?,
         },
         Some(Command::DecisionModels { command }) => {
-            let store = decision::local::ModelStore::new(config::models_dir());
+            let store = decision::local::ModelStore::new(config::models_dir()?);
             match command {
                 DecisionModelCommand::List { model } => println!(
                     "{}",

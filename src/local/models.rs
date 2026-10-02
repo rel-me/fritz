@@ -49,7 +49,7 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
 }
 
 pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
-    ModelStore::new(crate::config::models_dir())
+    ModelStore::new(crate::config::models_dir()?)
         .installed_path(model_id)
         .await
 }
@@ -95,7 +95,7 @@ impl Drop for Partial {
 }
 
 pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
-    ModelStore::new(crate::config::models_dir())
+    ModelStore::new(crate::config::models_dir()?)
         .download(model_id, emit)
         .await
 }
@@ -221,13 +221,13 @@ pub(crate) async fn download_file(
 #[cfg(test)]
 const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
 pub async fn inventory() -> Result<Value> {
-    ModelStore::new(crate::config::models_dir())
+    ModelStore::new(crate::config::models_dir()?)
         .inventory()
         .await
 }
 
 pub async fn inventory_model(id: &str) -> Result<Value> {
-    ModelStore::new(crate::config::models_dir())
+    ModelStore::new(crate::config::models_dir()?)
         .inventory_model(id)
         .await
 }

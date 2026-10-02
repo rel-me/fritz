@@ -11,6 +11,7 @@ import Observation
     private(set) var selectedModelID: String
     private(set) var state: LocalModelInstallState = .available
     private(set) var installedURL: URL?
+    private(set) var storage: ModelStorage?
     var selectedModel: NativeModelDescriptor {
         catalog.first { $0.id == selectedModelID }!
     }
@@ -33,6 +34,7 @@ import Observation
     }
     func refresh() { run(install: false) }
     func install() { run(install: true) }
+    func changeDirectory(_ directory: URL) { run(install: false, directory: directory) }
 
     func cancel() {
         if let requestID { store.cancelModelRequest(requestID) }
@@ -41,19 +43,26 @@ import Observation
         if state.isBusy { state = .available }
     }
 
-    private func run(install: Bool) {
+    private func run(install: Bool, directory: URL? = nil) {
         cancel()
         state = .checking
         installedURL = nil
         let id = UUID().uuidString
         let modelID = selectedModelID
         requestID = id
-        let events = store.modelEvents(category: category, modelID: modelID, install: install, requestID: id)
+        let category = category
         task = Task { [weak self] in
             var completed = false
             do {
+                guard let self else { return }
+                let nextStorage: ModelStorage
+                if let directory { nextStorage = try await store.setModelStorage(directory: directory) }
+                else { nextStorage = try await store.modelStorage() }
+                guard requestID == id, !Task.isCancelled else { return }
+                storage = nextStorage
+                let events = store.modelEvents(category: category, modelID: modelID, install: install, requestID: id)
                 for try await data in events {
-                    guard let self, requestID == id, !Task.isCancelled else { return }
+                    guard requestID == id, !Task.isCancelled else { return }
                     let event = try JSONDecoder().decode(LocalModelEvent.self, from: data)
                     state = try event.state(for: modelID, installing: install)
                     if let model = event.result?.models?.first(where: { $0.id == modelID }),
@@ -62,7 +71,7 @@ import Observation
                     }
                     if event.type == "result" { completed = true }
                 }
-                guard let self, requestID == id, !Task.isCancelled else { return }
+                guard requestID == id, !Task.isCancelled else { return }
                 if !completed { state = .failed("The model installer stopped before completing. Retry the download.") }
             } catch is CancellationError {
             } catch {

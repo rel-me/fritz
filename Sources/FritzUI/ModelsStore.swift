@@ -162,6 +162,12 @@ extension ModelsStore {
         let response: ModelCatalog = try await agent.request("models.list", params: params)
         return response.models
     }
+    public func modelStorage() async throws -> ModelStorage {
+        try await agent.request("modelStorage.get")
+    }
+    public func setModelStorage(directory: URL) async throws -> ModelStorage {
+        try await agent.request("modelStorage.set", params: ["directory": directory.path])
+    }
     public func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         let prefix = category == .decision ? "decisionModels" : "localModels"

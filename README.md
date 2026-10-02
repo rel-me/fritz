@@ -108,15 +108,17 @@ provider leaves downloaded weights available for reuse.
 Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run inside the per-chat Rust harness using
 mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
-models or sending a chat never starts a download. Weights live under
-`~/Library/Application Support/Fritz/Data/Models/` in the regular app. All Debug apps
-share `/Library/Application Support/Fritz/Data/Models/`, while their provider and
-conversation databases remain separate. This system-wide directory must exist
-with write access for your account; Fritz reports a storage error if it cannot
-create or write it. `FRITZ_MODELS_DIR` explicitly overrides model storage for tests
-or CLI use. Chat GGUFs and decision artifacts are flat files in the same Models
-directory. A model is installed when its required files are present, regardless
-of size, checksum, or optional metadata. Decision configuration uses the matching
+models or sending a chat never starts a download. Weights default to
+`~/Library/Application Support/Fritz/Data/Models/` in the regular app. Debug apps
+default to the shared folder `~/Library/Application Support/FritzDebug/Models/`,
+while their provider and conversation databases remain separate. Before downloading, use **Download Folder →
+Choose…** to select a writable directory. The choice is saved for that app's data
+directory and applies to chat and decision models, downloads, and model lookup.
+Changing it does not move existing files; choose their folder to reuse them.
+`FRITZ_MODELS_DIR` explicitly overrides saved model storage for tests or CLI use;
+the folder chooser is disabled while this override is set. Chat GGUFs and decision
+artifacts are flat files in the same Models directory. A model is installed when
+its required files are present, regardless of size, checksum, or optional metadata. Decision configuration uses the matching
 model filename with a `.json` extension (for example, `laya-en.onnx` and
 `laya-en.json`). New downloads still validate size and SHA-256 before atomic
 publication. Older model directories are not read or migrated.
@@ -196,11 +198,12 @@ Use **Settings → General → Command Line** to install a symlink to the CLI fr
 - `src/bin/fritz-decision-harness.rs`, `src/decision.rs`, `src/decision_client.rs`: a separate typed-judgment runtime with Jev and native Ollaya adapters. The host supplies Jev’s credential over a private pipe; local decisions need no key, and neither backend is a conversational provider.
 - `src/tools.rs`: current folder actions, including listing, reading, creating, and changing files, plus noninteractive local processes. Stop cancels the harness request and terminates child process groups. Closing the app closes the private pipes; closing only the window keeps the app available in the Dock.
 - `~/Library/Application Support/Fritz/Data/providers.sqlite`: non-secret provider records and the default connection, owned by Rust. Concurrent CLI/agent updates use SQLite transactions.
+- `~/Library/Application Support/Fritz/Data/model-storage.sqlite`: the selected model download and lookup folder, owned by Rust.
 - `~/Library/Application Support/Fritz/Data/workspace.sqlite`: projects, threads, ordered messages and tool activity, drafts, model choices, selection, appearance, update channel, settings page and model recents, owned by the native app.
 - SQLite connections use WAL, foreign keys, bounded lock waits, private file permissions, schema validation and atomic versioned migrations. A corrupt or newer database produces an error; it is never silently reset.
 - Legacy JSON files and old application preferences are ignored. There is no import or backwards compatibility. Existing files are left on disk but are no longer read or written.
-- Provider secrets remain in Fritz’s Keychain namespace; they are never stored in SQLite. Chat and decision model files share Models; Debug apps use the system-wide directory described above.
-- `FRITZ_DATA_DIR` overrides databases and the default regular-app/CLI model root (`FRITZ_DATA_DIR/Models`). Debug apps use the shared system model root. Set `FRITZ_MODELS_DIR` to override model storage independently, including isolated Debug app tests. Neither override changes the Keychain namespace or macOS/Sparkle-managed preferences.
+- Provider secrets remain in Fritz’s Keychain namespace; they are never stored in SQLite. Chat and decision model files share Models; Debug apps default to the shared user directory described above.
+- `FRITZ_DATA_DIR` overrides databases and the default regular-app/CLI model root (`FRITZ_DATA_DIR/Models`). Debug apps default to the shared user model root. Saved Download Folder choices apply to both app and CLI using the same data directory. Set `FRITZ_MODELS_DIR` to override model storage independently, including isolated Debug app tests. Neither override changes the Keychain namespace or macOS/Sparkle-managed preferences.
 - Interrupted prose is omitted from future context unless it has tool records; the next turn then receives the activity and an interruption notice so it can inspect current state before retrying.
 
 The app has no embedded web engine or browser runtime. Its Rust runtime handles providers, local models, chat, and the current folder actions.

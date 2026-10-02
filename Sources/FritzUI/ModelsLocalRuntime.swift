@@ -169,7 +169,7 @@ import Observation
         }
         if environment["FRITZ_MODELS_DIR"] == nil,
            let directory = Bundle.main.object(forInfoDictionaryKey: "FritzModelsDirectory") as? String {
-            environment["FRITZ_MODELS_DIR"] = NSString(string: directory).expandingTildeInPath
+            environment["FRITZ_DEFAULT_MODELS_DIR"] = NSString(string: directory).expandingTildeInPath
         }
         process.environment = environment
         let input = Pipe(), output = Pipe(), stderr = Pipe()
