@@ -1,0 +1,13 @@
+<Interface version="1">
+  <VStack id="panel" spacing="12" alignment="leading">
+    <Text id="heading" value="Scratchpad"/>
+    <TextField id="note-field" title="Note" text="$note"/>
+    <Toggle id="enabled" title="Enabled" isOn="$enabled"/>
+    <Text id="preview" value="$note"/>
+    <Button id="clear" title="Clear" action="clear">
+      <Modifiers>
+        <Disabled value="{{ !enabled || isEmpty(note) }}"/>
+      </Modifiers>
+    </Button>
+  </VStack>
+</Interface>

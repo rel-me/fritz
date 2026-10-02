@@ -11,8 +11,18 @@ Fritz currently groups conversations under folders in the sidebar. Folder-attach
 
 ## Right panel
 
-The toolbar toggles a blank right panel. Conversations stay in the main chat
-area and are selected from the project sidebar. There is no bottom panel.
+The toolbar toggles a native markup panel. Choose **Open Markup…** to load a local
+XML interface; saving the file updates the panel without rebuilding Fritz.
+The panel starts with a small editable sample. Its values remain in memory when
+the panel is hidden or its layout reloads. Invalid edits show a diagnostic and
+retain the last valid layout. Conversations stay in the main chat area and are
+selected from the project sidebar. There is no bottom panel.
+
+The independent [NativeMarkup package](Packages/NativeMarkup/README.md) documents
+the supported syntax, host bindings/actions, reload behavior, and current limits.
+Open [the sample document](Packages/NativeMarkup/Examples/Panel.xml) from the
+checkout to try live editing. The sample's `note` and `enabled` bindings and
+`clear` action are provided by Fritz and are not saved across app launches.
 
 ## Open source and shared libraries
 

@@ -23,7 +23,12 @@ the following surfaces, include these behaviors:
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
   model settings, and launch restoration. Main chat has no tab strip. Check that
   the right panel opens without tabs, closes from its button, and can be hidden
-  and reopened without changing the selected conversation. Check the panel toggle
+  and reopened without changing the selected conversation or its markup values.
+  Open a local markup file, edit/save it (including an atomic replacement), and
+  verify live layout updates with text-field contents preserved. Check invalid
+  XML/schema diagnostics, last-valid-layout retention, recovery after fixing the
+  file, and the host's registered actions. Verify Command-Q while the markup file
+  chooser is open. Check the panel toggle
   at minimum window width; there is no bottom panel or chat-tab keyboard commands.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,

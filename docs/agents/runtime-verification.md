@@ -21,7 +21,8 @@ make check
 CONFIGURATION=release make build
 ```
 
-`make test` runs Rust tests, root Swift-library tests, app Swift tests, and the real CLI/agent integration
+`make test` runs Rust tests, standalone NativeMarkup tests, root Swift-library tests,
+app Swift tests, and the real CLI/agent integration
 harness. The harness starts `tests/mock_provider.py` on a free loopback port,
 creates temporary data, and checks discovery, streaming, provider errors,
 cancellation, persistence, and agent shutdown without personal API keys.
@@ -144,7 +145,7 @@ release tools). The layout is:
 
 - `cargo/`: shared Rust debug/release outputs and incremental dependencies.
 - `swift-packages/` and `xcode-packages/`: shared package download caches.
-- `worktrees/<path-hash>/swift`, `swift-app`, and `DerivedData`: SwiftPM and Xcode
+- `worktrees/<path-hash>/swift`, `swift-native-markup`, `swift-app`, and `DerivedData`: SwiftPM and Xcode
   build state for one physical checkout path. These databases contain absolute
   source paths and are not reused as writable build state by other worktrees.
 - `.lock`: an advisory lock held across the entire command, including tests and
