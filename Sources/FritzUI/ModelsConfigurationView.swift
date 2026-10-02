@@ -428,10 +428,12 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     }
 
     private var endpointField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(endpointTitle)
+        HStack(spacing: 12) {
+            Text(endpointTitle).fixedSize()
             TextField(endpointTitle, text: $endpoint, prompt: Text(endpointPrompt))
                 .labelsHidden().autocorrectionDisabled()
+                .lineLimit(1).truncationMode(.middle)
+                .frame(maxWidth: .infinity)
                 .accessibilityLabel(endpointTitle)
         }
     }
