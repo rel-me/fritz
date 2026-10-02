@@ -104,7 +104,7 @@ import Security
         let configurations = try connections.map { connection in
             ProviderConfigurationTransfer.Configuration(connection, apiKey: includeKeys ? try exportKey(for: connection) : nil)
         }
-        return try ProviderConfigurationTransfer.export(configurations)
+        return try ProviderConfigurationTransfer.exportCURL(configurations)
     }
 
     /// Only an explicit key-inclusive export reads credentials in the UI process.

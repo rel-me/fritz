@@ -51,12 +51,12 @@ struct ProvidersView: View {
             }
         )
         .sheet(isPresented: $isImporting) { ProviderTransferSheet(store: store) }
-        .confirmationDialog("Export Providers", isPresented: $showsExportOptions) {
+        .confirmationDialog("Export", isPresented: $showsExportOptions) {
             Button("Export Without Keys") { exportProviders(includeKeys: false) }
             Button("Export Including API Keys") { exportProviders(includeKeys: true) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Included API keys will be readable in the exported JSON.")
+            Text("Included API keys will be readable in the export.")
         }
         .sheet(item: $textExport) { exported in ProviderTransferSheet(store: store, exported: exported) }
         .onChange(of: store.connections) { _, connections in selectedIDs.formIntersection(connections.map(\.id)) }
@@ -85,7 +85,7 @@ struct ProvidersView: View {
     private var transferMenuContent: some View {
         Menu {
             Button("Import…", systemImage: "square.and.arrow.down") { isImporting = true }
-            Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
+            Button("Export…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
                 .disabled(selectedIDs.isEmpty)
         } label: {
             Label("Import and Export", systemImage: "ellipsis")

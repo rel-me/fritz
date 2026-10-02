@@ -127,7 +127,7 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
               Button("Delete Provider", role: .destructive) { deleteProvider(id) }
             }
             if !ids.isEmpty {
-              Button(ids.count == 1 ? "Export Provider" : "Export Providers",
+              Button("Export",
                      systemImage: "square.and.arrow.up") { exportProviders(ids) }
             }
           } primaryAction: { ids in

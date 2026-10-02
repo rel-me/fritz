@@ -20,7 +20,7 @@ struct ProviderTransferSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(exported == nil ? "Import" : "Export Providers").font(.title2.bold())
+            Text(exported == nil ? "Import" : "Export").font(.title2.bold())
             Text(guidance).font(.callout).foregroundStyle(.secondary)
             if let exported {
                 ScrollView {
@@ -84,8 +84,8 @@ struct ProviderTransferSheet: View {
             return "Paste a provider configuration. Included API keys are saved in Keychain. Providers without keys can be completed later."
         }
         return exported.includesKeys
-            ? "This JSON includes API keys. Share it only with people who should have access."
-            : "Copy this JSON. API keys and the default-provider preference are excluded."
+            ? "This export includes API keys. Share it only with people who should have access."
+            : "API keys are replaced with YOUR_API_KEY. MODEL_ID marks an unset model."
     }
 
     private func importProviders() {

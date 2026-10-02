@@ -51,15 +51,82 @@ enum ProviderConfigurationTransfer {
         let apiKey: String?
     }
 
-    static func export(_ configurations: [Configuration]) throws -> String {
+    static func exportCURL(_ configurations: [Configuration]) throws -> String {
         guard !configurations.isEmpty else { throw TransferError(message: "Select at least one provider to export.") }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let data = configurations.count == 1
-            ? try encoder.encode(Envelope(format: "fritz.provider", version: 1, configuration: configurations[0]))
-            : try encoder.encode(Envelope(format: "fritz.providers", version: 1, configuration: configurations))
-        try checkSize(data.count)
-        return String(decoding: data, as: UTF8.self)
+        let commands = try configurations.map { configuration in
+            let connection = try configuration.connection()
+            guard !connection.provider.isNative else {
+                throw TransferError(message: "This selection contains local model connections without an HTTP endpoint. Select only HTTP providers to export cURL.")
+            }
+            let base = (connection.baseURL?.isEmpty == false ? connection.baseURL! : connection.provider.endpoint)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard !base.isEmpty else { throw TransferError(message: "Add a Gateway URL before exporting cURL.") }
+            let model = connection.modelID.isEmpty ? "MODEL_ID" : connection.modelID
+            let messages: [[String: String]] = [["role": "user", "content": "Hello"]]
+            let endpoint: String
+            let body: [String: Any]
+            switch connection.provider {
+            case .openAI:
+                endpoint = base + "/responses"
+                body = ["model": model, "input": messages, "store": false]
+            case .anthropic:
+                endpoint = base + "/messages"
+                body = ["model": model, "messages": messages, "max_tokens": 1024]
+            case .gemini:
+                let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+                let modelPath = model.hasPrefix("models/") ? String(model.dropFirst(7)) : model
+                guard let encoded = modelPath.addingPercentEncoding(withAllowedCharacters: allowed) else {
+                    throw TransferError(message: "The model ID cannot be used in a cURL URL.")
+                }
+                endpoint = base + "/models/" + encoded + ":generateContent"
+                body = ["contents": [["role": "user", "parts": [["text": "Hello"]]]]]
+            case .ollama:
+                endpoint = base + "/api/chat"
+                body = ["model": model, "messages": messages, "stream": false]
+            case .jev:
+                endpoint = base
+                body = ["model": model, "state": ["message": "Remind me tomorrow"],
+                        "questions": ["reminder": ["type": "noul", "instructions": "Does the message request a reminder?"]]]
+            case .openRouter, .openAICompatible:
+                endpoint = base + "/chat/completions"
+                body = ["model": model, "messages": messages]
+            case .fritz, .ollaya:
+                throw TransferError(message: "Local model connections without an HTTP endpoint cannot be exported as cURL.")
+            }
+            var headers = ["Content-Type: application/json"]
+            if connection.provider == .anthropic { headers.append("anthropic-version: 2023-06-01") }
+            let key = configuration.apiKey.flatMap { $0.isEmpty ? nil : $0 }
+            guard key?.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) != true else {
+                throw TransferError(message: "The API key contains invalid control characters.")
+            }
+            if key != nil || connection.provider != .ollama {
+                let header = switch connection.provider {
+                case .anthropic: "x-api-key"
+                case .gemini: "x-goog-api-key"
+                default: "Authorization"
+                }
+                let value = (header == "Authorization" ? "Bearer " : "") + (key ?? "YOUR_API_KEY")
+                headers.append(header + ": " + value)
+            }
+            let data = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys, .withoutEscapingSlashes])
+            // A quoted heredoc prevents shell expansion; stdin keeps keys out of process arguments.
+            let options = ["url = " + curlQuoted(endpoint), "request = \"POST\""]
+                + headers.map { "header = " + curlQuoted($0) }
+                + ["data = " + curlQuoted(String(decoding: data, as: UTF8.self))]
+            return "curl -q --globoff --silent --show-error --fail-with-body --config - <<'CURL_CONFIG'\n"
+                + options.joined(separator: "\n") + "\nCURL_CONFIG"
+        }
+        let text = commands.joined(separator: "\n\n")
+        try checkSize(text.utf8.count)
+        return text
+    }
+
+    private static func curlQuoted(_ value: String) -> String {
+        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\t", with: "\\t")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r") + "\""
     }
 
     static func decode(_ text: String) throws -> [Configuration] {
