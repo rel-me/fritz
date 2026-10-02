@@ -36,7 +36,7 @@ enum ProviderConfigurationTransfer {
             // Accept REL's service label and its older Jev label.
             let service = ["Jev", "TypeSafe AI"].contains(name) ? "TypeSafe" : name
             guard let preset = AIProviderPreset.allCases.first(where: { $0.name == service }) else {
-                throw TransferError(message: "Unknown provider service. Use a service supported by Fritz.")
+                throw TransferError(message: "Unknown provider service. Choose a supported service.")
             }
             guard AIProviderPreset.matching(provider: preset.provider, baseURL: baseURL) == preset else {
                 throw TransferError(message: "The base URL does not match the provider service.")
@@ -76,7 +76,7 @@ enum ProviderConfigurationTransfer {
             case "fritz.providers", "rel.providers":
                 configurations = try JSONDecoder().decode(Envelope<[Configuration]>.self, from: data).configuration
             default:
-                throw TransferError(message: "Paste a Fritz or REL provider configuration.")
+                throw TransferError(message: "Paste a provider configuration.")
             }
             guard !configurations.isEmpty else { throw TransferError(message: "The provider list is empty.") }
             for configuration in configurations { _ = try configuration.connection() }

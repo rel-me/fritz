@@ -84,7 +84,7 @@ struct ProvidersView: View {
 
     private var transferMenuContent: some View {
         Menu {
-            Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
+            Button("Import…", systemImage: "square.and.arrow.down") { isImporting = true }
             Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
                 .disabled(selectedIDs.isEmpty)
         } label: {

@@ -12,7 +12,7 @@ struct ProviderTransferSheet: View {
     var exported: ProviderTextExport?
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
-    @State private var policy = ExistingProviderImportPolicy.skip
+    @State private var overwritesExisting = true
     @State private var error: String?
     @State private var copied = false
     @State private var isImporting = false
@@ -20,7 +20,7 @@ struct ProviderTransferSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(exported == nil ? "Import Providers" : "Export Providers").font(.title2.bold())
+            Text(exported == nil ? "Import" : "Export Providers").font(.title2.bold())
             Text(guidance).font(.callout).foregroundStyle(.secondary)
             if let exported {
                 ScrollView {
@@ -36,10 +36,8 @@ struct ProviderTransferSheet: View {
                     .font(.system(.body, design: .monospaced)).border(.separator)
                     .accessibilityLabel("Configuration to import").privacySensitive()
                     .disabled(isImporting)
-                Picker("Existing providers", selection: $policy) {
-                    Text("Skip").tag(ExistingProviderImportPolicy.skip)
-                    Text("Overwrite").tag(ExistingProviderImportPolicy.overwrite)
-                }.pickerStyle(.segmented).disabled(isImporting)
+                Toggle("Overwrite existing", isOn: $overwritesExisting)
+                    .toggleStyle(.checkbox).disabled(isImporting)
                 Text("Matches the service name. Overwrite keeps saved keys when no key is included and the endpoint is unchanged.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -83,7 +81,7 @@ struct ProviderTransferSheet: View {
 
     private var guidance: String {
         guard let exported else {
-            return "Paste a Fritz or REL provider configuration. Included API keys are saved in Keychain. Providers without keys can be completed later."
+            return "Paste a provider configuration. Included API keys are saved in Keychain. Providers without keys can be completed later."
         }
         return exported.includesKeys
             ? "This JSON includes API keys. Share it only with people who should have access."
@@ -95,7 +93,7 @@ struct ProviderTransferSheet: View {
         importTask = Task {
             defer { isImporting = false; importTask = nil }
             do {
-                try await store.importProviders(text, policy: policy)
+                try await store.importProviders(text, policy: overwritesExisting ? .overwrite : .skip)
                 try Task.checkCancellation()
                 text = ""; dismiss()
             } catch is CancellationError {
