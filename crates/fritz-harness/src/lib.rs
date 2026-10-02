@@ -10,7 +10,8 @@ use rig_agent::agent::{
 use rig_core::{
     completion::Usage,
     message::{
-        AssistantContent, ImageMediaType, Message, MimeType, ToolResultContent, UserContent,
+        AssistantContent, ImageMediaType, Message, MimeType, ToolName, ToolResultContent,
+        UserContent,
     },
 };
 use serde_json::Value;
@@ -154,7 +155,7 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                         }
                         content.push(AssistantContent::tool_call(
                             call.id,
-                            call.name,
+                            ToolName::new(call.name)?,
                             serde_json::from_str(&call.arguments)
                                 .context("Invalid tool arguments; no tools executed.")?,
                         ));
@@ -162,15 +163,17 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                     let mut outcome = run.model_response(ModelTurn::new(
                         None,
                         content,
-                        Usage::new(),
+                        Usage::default(),
                         names.clone(),
                         names,
+                        Value::Null,
                     ))?;
                     while let ModelTurnOutcome::NeedsResolution(context) = outcome {
                         let call = ToolCall {
                             id: context
                                 .tool_call_id
-                                .context("Missing rejected tool call ID.")?,
+                                .context("Missing rejected tool call ID.")?
+                                .to_string(),
                             name: context.tool_name,
                             arguments: context.args.context("Missing rejected tool arguments.")?,
                         };
@@ -190,8 +193,8 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                     for pending in calls {
                         let rig_call = pending.tool_call;
                         let call = ToolCall {
-                            id: rig_call.id.as_str().to_owned(),
-                            name: rig_call.function.name,
+                            id: rig_call.id.to_string(),
+                            name: rig_call.function.name.to_string(),
                             arguments: rig_call.function.arguments.to_string(),
                         };
                         let result = if let Some(result) = rejected.remove(&call.id) {
@@ -217,10 +220,9 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                                 None,
                             ));
                         }
-                        receipts.push(UserContent::tool_result_for(
+                        receipts.push(UserContent::tool_result(
                             rig_call.id,
-                            rig_call.provider,
-                            call.name.clone(),
+                            rig_call.function.name,
                             content,
                         ));
                         results.push((call, result));
