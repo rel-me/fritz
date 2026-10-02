@@ -29,12 +29,12 @@ struct ProviderTransferSheet: View {
                         .frame(maxWidth: .infinity, alignment: .topLeading).padding(10)
                 }
                 .border(.separator)
-                .accessibilityLabel("Exported configuration")
+                .accessibilityLabel("Exported cURL")
                 .privacySensitive(exported.includesKeys)
             } else {
                 TextEditor(text: $text)
                     .font(.system(.body, design: .monospaced)).border(.separator)
-                    .accessibilityLabel("Configuration to import").privacySensitive()
+                    .accessibilityLabel("cURL to import").privacySensitive()
                     .disabled(isImporting)
                 Toggle("Overwrite existing", isOn: $overwritesExisting)
                     .toggleStyle(.checkbox).disabled(isImporting)
@@ -51,7 +51,7 @@ struct ProviderTransferSheet: View {
                 } else {
                     Button("Paste", systemImage: "doc.on.clipboard") {
                         guard let value = NSPasteboard.general.string(forType: .string), !value.isEmpty else {
-                            error = "Copy a configuration first, then paste it here."
+                            error = "Copy a cURL request first, then paste it here."
                             return
                         }
                         guard value.utf8.count <= ProviderConfigurationTransfer.maximumBytes else {
@@ -81,11 +81,11 @@ struct ProviderTransferSheet: View {
 
     private var guidance: String {
         guard let exported else {
-            return "Paste a provider configuration. Included API keys are saved in Keychain. Providers without keys can be completed later."
+            return "Paste a cURL provider export. Included API keys are saved in Keychain. Providers without keys can be completed later."
         }
         return exported.includesKeys
             ? "This export includes API keys. Share it only with people who should have access."
-            : "API keys are replaced with YOUR_API_KEY. MODEL_ID marks an unset model."
+            : "Checks the provider’s model list. Required API keys are replaced with YOUR_API_KEY."
     }
 
     private func importProviders() {
