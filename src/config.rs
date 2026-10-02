@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+pub mod migration;
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProviderKind {
@@ -184,7 +186,7 @@ fn provider_database(dir: &std::path::Path) -> Result<Database> {
         CREATE TABLE providers (id TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
         CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id = 1), default_connection_id TEXT REFERENCES providers(id) ON DELETE SET NULL);
         INSERT INTO registry VALUES (1, NULL);
-    "], &[("providers", &["id", "position", "payload"]), ("registry", &["id", "default_connection_id"])])
+    ", "CREATE TABLE provider_migrations (id TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));"], &[("providers", &["id", "position", "payload"]), ("registry", &["id", "default_connection_id"]), ("provider_migrations", &["id", "payload"])])
 }
 
 fn read_registry(connection: &rusqlite::Connection) -> Result<Registry> {
@@ -243,33 +245,37 @@ impl RegistryStore {
         database.transaction(|transaction| {
             let mut registry = read_registry(transaction)?;
             f(&mut registry)?;
-            if let Some(default_id) = registry.default_connection_id
-                && !registry.connections.iter().any(|connection| {
-                    connection.id == default_id
-                        && connection.provider.category() == ModelCategory::Llm
-                })
-            {
-                bail!("The default chat provider must be an LLM connection.");
-            }
-            transaction.execute("DELETE FROM providers", [])?;
-            for (position, connection) in registry.connections.iter().enumerate() {
-                connection.validate()?;
-                transaction.execute(
-                    "INSERT INTO providers VALUES (?1, ?2, ?3)",
-                    params![
-                        connection.id.to_string(),
-                        position,
-                        serde_json::to_string(connection)?
-                    ],
-                )?;
-            }
-            transaction.execute(
-                "UPDATE registry SET default_connection_id = ?1 WHERE id = 1",
-                [registry.default_connection_id.map(|id| id.to_string())],
-            )?;
+            write_registry(transaction, &registry)?;
             Ok(registry)
         })
     }
+}
+
+fn write_registry(transaction: &rusqlite::Connection, registry: &Registry) -> Result<()> {
+    if let Some(default_id) = registry.default_connection_id
+        && !registry.connections.iter().any(|connection| {
+            connection.id == default_id && connection.provider.category() == ModelCategory::Llm
+        })
+    {
+        bail!("The default chat provider must be an LLM connection.");
+    }
+    transaction.execute("DELETE FROM providers", [])?;
+    for (position, connection) in registry.connections.iter().enumerate() {
+        connection.validate()?;
+        transaction.execute(
+            "INSERT INTO providers VALUES (?1, ?2, ?3)",
+            params![
+                connection.id.to_string(),
+                position,
+                serde_json::to_string(connection)?
+            ],
+        )?;
+    }
+    transaction.execute(
+        "UPDATE registry SET default_connection_id = ?1 WHERE id = 1",
+        [registry.default_connection_id.map(|id| id.to_string())],
+    )?;
+    Ok(())
 }
 
 const KEYCHAIN_SERVICE: &str = "dev.fritz.provider-credentials";

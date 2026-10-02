@@ -1,4 +1,5 @@
 import AppKit
+import Fritz
 import SwiftUI
 
 struct ProviderTextExport: Identifiable {
@@ -7,12 +8,12 @@ struct ProviderTextExport: Identifiable {
     let includesKeys: Bool
 }
 
-struct ProviderTransferSheet: View {
-    let store: ProviderStore
+struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
+    let store: Store
     var exported: ProviderTextExport?
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
-    @State private var policy = ExistingProviderImportPolicy.skip
+    @State private var policy = ModelsImportPolicy.skip
     @State private var error: String?
     @State private var copied = false
     @State private var isImporting = false
@@ -37,8 +38,8 @@ struct ProviderTransferSheet: View {
                     .accessibilityLabel("Configuration to import").privacySensitive()
                     .disabled(isImporting)
                 Picker("Existing providers", selection: $policy) {
-                    Text("Skip").tag(ExistingProviderImportPolicy.skip)
-                    Text("Overwrite").tag(ExistingProviderImportPolicy.overwrite)
+                    Text("Skip").tag(ModelsImportPolicy.skip)
+                    Text("Overwrite").tag(ModelsImportPolicy.overwrite)
                 }.pickerStyle(.segmented).disabled(isImporting)
                 Text("Matches the service name. Overwrite keeps saved keys when no key is included and the endpoint is unchanged.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -56,7 +57,7 @@ struct ProviderTransferSheet: View {
                             error = "Copy a configuration first, then paste it here."
                             return
                         }
-                        guard value.utf8.count <= ProviderConfigurationTransfer.maximumBytes else {
+                        guard value.utf8.count <= 1_048_576 else {
                             error = "The configuration must be no larger than 1 MB."
                             return
                         }
@@ -75,7 +76,7 @@ struct ProviderTransferSheet: View {
             }
         }
         .padding(24).frame(width: 600, height: exported == nil ? 460 : 350)
-        .background(FritzWindowStyle.contentBackground)
+        .background(ModelsConfigurationStyle.contentBackground)
         .interactiveDismissDisabled(isImporting)
         .buttonStyle(FritzButtonStyle())
         .onDisappear { importTask?.cancel() }

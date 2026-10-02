@@ -299,7 +299,20 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             Ok(json!({"modelId":id,"installed":true}))
         }
         "providers.list" => Ok(serde_json::to_value(config::load()?)?),
+        "providers.migrationStatus" => Ok(
+            json!({"migration": config::RegistryStore::new(config::data_dir()).migration_result(
+            params["migrationId"].as_str().context("A migration identity is required.")?
+        )?}),
+        ),
         "providers.import" => Ok(serde_json::to_value(import_providers(params)?)?),
+        "providers.migrate" => {
+            if serde_json::to_vec(params)?.len() > 1_048_576 {
+                bail!("The migration must be no larger than 1 MB.");
+            }
+            Ok(serde_json::to_value(config::migration::migrate(
+                serde_json::from_value(params.clone())?,
+            )?)?)
+        }
         "providers.save" => Ok(serde_json::to_value(save(
             serde_json::from_value(params["connection"].clone())?,
             params["apiKey"].as_str().map(str::to_string),
