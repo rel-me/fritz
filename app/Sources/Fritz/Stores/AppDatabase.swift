@@ -1,8 +1,9 @@
 import Foundation
 import FritzState
+import FritzUI
 
 /// The app owns this schema. FritzState owns SQLite connections and migrations.
-@MainActor final class AppDatabase {
+@MainActor final class AppDatabase: ModelsPreferences {
     private let storage: Result<StateDatabase, Error>
 
     init(directory: URL) {

@@ -1,5 +1,6 @@
 import FritzUpdates
 import Fritz
+import FritzUI
 import SwiftUI
 
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
@@ -32,7 +33,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
 struct FritzSettingsView: View {
     @Bindable var state: FritzState
     @ObservedObject var updater: AppUpdater
-    @State private var editor: ProviderEditorSelection?
 
     var body: some View {
         GeometryReader { geometry in
@@ -53,7 +53,7 @@ struct FritzSettingsView: View {
                     case .general:
                         FritzGeneralSettingsView(updater: updater, settings: state.settings)
                     case .providers:
-                        ProvidersView(store: state.providers, localModels: state.localModels, editor: $editor)
+                        ModelsConfigurationScreen(store: state.providers, runtime: state.localModels)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
                     case .debug:
@@ -86,14 +86,13 @@ struct FritzSettingsView: View {
         }
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(item: $editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection) }
         .sheet(isPresented: $state.showsLocalModelDownload, onDismiss: {
             Task {
                 await state.localModels.refresh()
                 await state.providers.refresh()
             }
         }) {
-            LocalModelDownloadSheet(agent: state.agent)
+            LocalModelDownloadSheet(store: state.providers)
         }
     }
 

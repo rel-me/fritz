@@ -1,7 +1,7 @@
 import Foundation
 import Fritz
 import XCTest
-@testable import FritzApp
+@testable import FritzUI
 
 final class ProviderTransferTests: XCTestCase {
     func testRELImportAndFritzExportKeepServiceEndpointAndModelWithoutIdentityOrDefault() throws {

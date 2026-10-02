@@ -1,22 +1,21 @@
-import FritzUI
 import Fritz
 import SwiftUI
 
-struct AIProviderPicker: View {
+struct ConfigurationProviderPicker: View {
     @Binding var selection: AIProviderPreset
     var providers: [AIProviderPreset] = AIProviderPreset.allCases
 
     var body: some View {
-        FritzUI.ProviderPicker(
-            selection: AIProviderPickerContent.item(selection),
-            providers: providers.map(AIProviderPickerContent.item),
-            categories: AIProviderPickerContent.categories(for: providers),
+        ProviderPicker(
+            selection: ConfigurationProviderPickerContent.item(selection),
+            providers: providers.map(ConfigurationProviderPickerContent.item),
+            categories: ConfigurationProviderPickerContent.categories(for: providers),
             onSelect: { selection = $0.value }
         )
     }
 }
 
-struct AIProviderPickerContent: View {
+struct ConfigurationProviderPickerContent: View {
     let selection: AIProviderPreset
     var initialSearchText = ""
     var initialCategory: AIProviderCategory = .all
@@ -24,7 +23,7 @@ struct AIProviderPickerContent: View {
     let onSelect: (AIProviderPreset) -> Void
 
     var body: some View {
-        FritzUI.ProviderPickerContent(
+        ProviderPickerContent(
             selection: Self.item(selection), initialSearchText: initialSearchText,
             categories: Self.categories(for: providers), initialCategoryID: initialCategory.rawValue.lowercased(),
             providers: providers.map(Self.item), onSelect: { onSelect($0.value) }

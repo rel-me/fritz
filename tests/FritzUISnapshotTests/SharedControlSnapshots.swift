@@ -1,5 +1,7 @@
 import AppKit
 import FritzUI
+import Fritz
+import Observation
 import SwiftUI
 import SwiftUISnapshotTesting
 import XCTest
@@ -104,6 +106,24 @@ final class SharedControlSnapshots: XCTestCase {
                      name: "local-model-sessions-list", size: .init(width: 760, height: 320))
     }
 
+    func testUnifiedModelsEditor() throws {
+        let store = ModelsFixture(state: "populated")
+        for provider in [AIProviderKind.openAI, .ollama, .fritz, .jev, .ollaya] {
+            let connection = store.connection(provider)
+            try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(), existing: connection),
+                         name: "models-editor-\(provider.rawValue)", size: .init(width: 600, height: 560), settleDuration: 0.45)
+        }
+        try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(), existing: nil),
+                     name: "models-editor-new", size: .init(width: 600, height: 560), settleDuration: 0.45)
+    }
+
+    func testUnifiedModelDownload() throws {
+        for state in ["available", "installed", "error"] {
+            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state)),
+                         name: "models-download-\(state)", size: .init(width: 840, height: 540), settleDuration: 0.45)
+        }
+    }
+
     private func modelPicker(models: [ModelPickerItem<String>], recent: [ModelPickerItem<String>] = [],
                              query: String = "") -> some View {
         ModelPickerPopover(models: models, recentModels: recent,
@@ -188,16 +208,18 @@ final class SharedControlSnapshots: XCTestCase {
     }
 
     private func snapshot<V: View>(_ view: V, name: String, size: CGSize,
-                                   file: StaticString = #filePath, line: UInt = #line) throws {
+                                   settleDuration: TimeInterval = 0.15, file: StaticString = #filePath, line: UInt = #line) throws {
         let mode = ProcessInfo.processInfo.environment["FRITZ_SNAPSHOT_MODE"]
         guard mode == "compare" || mode == "record" else {
             throw XCTSkip("Run make check-ui-snapshots to compare visual references.")
         }
+        let recordPrefix = ProcessInfo.processInfo.environment["FRITZ_SNAPSHOT_RECORD_PREFIX"]
+        let recordsSnapshot = mode == "record" && (recordPrefix.map { name.hasPrefix($0) } ?? true)
         for scheme in [ColorScheme.light, .dark] {
             let appearance = scheme == .dark ? "dark" : "light"
             let reference = URL(fileURLWithPath: "\(file)").deletingLastPathComponent()
                 .appendingPathComponent("__Snapshots__/SharedControlSnapshots/\(name)-macOS.\(appearance).png")
-            if mode == "compare", !FileManager.default.fileExists(atPath: reference.path) {
+            if !recordsSnapshot, !FileManager.default.fileExists(atPath: reference.path) {
                 XCTFail("Missing reviewed reference: \(reference.path)", file: file, line: line)
                 continue
             }
@@ -209,18 +231,18 @@ final class SharedControlSnapshots: XCTestCase {
                     .environment(\.locale, Locale(identifier: "en_US"))
                     .environment(\.controlActiveState, .key)
                     .scrollIndicators(.hidden)
-                    .tint(.blue), appearance: scheme == .dark ? .darkAqua : .aqua, size: size)
+                    .tint(.blue), appearance: scheme == .dark ? .darkAqua : .aqua, size: size, settleDuration: settleDuration)
             // The package compares the fully rendered native surface. Its detached
             // host forces light AppKit appearance and does not settle native controls.
             SwiftUISnapshotTesting.assertSnapshot(
                 view: Image(nsImage: image).resizable().interpolation(.none),
                 device: .macOS(width: size.width, height: size.height), named: appearance,
-                record: mode == "record", file: file, testName: name, line: line)
+                record: recordsSnapshot, file: file, testName: name, line: line)
         }
     }
 
     private func renderSettled<V: View>(_ view: V, appearance name: NSAppearance.Name,
-                                       size: CGSize) throws -> NSImage {
+                                       size: CGSize, settleDuration: TimeInterval) throws -> NSImage {
         let appearance = try XCTUnwrap(NSAppearance(named: name))
         let app = NSApplication.shared
         let previous = app.appearance
@@ -241,14 +263,17 @@ final class SharedControlSnapshots: XCTestCase {
         defer { window.contentView = nil; window.close() }
         window.layoutIfNeeded()
         host.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: settleDuration))
         window.layoutIfNeeded()
         host.layoutSubtreeIfNeeded()
         // SwiftUI hides the scroller but legacy AppKit style still reserves a
         // 17-point gutter. Pin the fixture instead of inheriting macOS settings.
         func normalizeScrollers(in view: NSView) {
             if let scrollView = view as? NSScrollView {
+                // Re-layout even when the inherited style already reports overlay.
+                scrollView.scrollerStyle = .legacy
                 scrollView.scrollerStyle = .overlay
+                scrollView.tile()
             }
             view.subviews.forEach { normalizeScrollers(in: $0) }
         }
@@ -268,4 +293,56 @@ final class SharedControlSnapshots: XCTestCase {
         return image
     }
 
+}
+
+@MainActor @Observable private final class ModelsFixture: ModelsProviderStore {
+    let state: String
+    var error: String?
+    var isLoading: Bool { state == "loading" }
+    var connections: [ProviderConnection] { ["empty", "loading"].contains(state) ? [] : [.init(id: connectionID, name: "Test", provider: .ollama)] }
+    var defaultConnectionID: UUID? { connections.first?.id }
+    var catalog: [UUID: [DiscoveredAIModel]] { [connectionID: [.init(id: "test-model", displayName: "Test Model")]] }
+    var discoveryErrors: [UUID: String] { state == "error" ? [connectionID: "The provider is unavailable."] : [:] }
+    var recentIDs: [String] { [] }
+    var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
+    private let connectionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    init(state: String) { self.state = state; error = state == "error" ? "The provider is unavailable." : nil }
+    func connection(_ provider: AIProviderKind) -> ProviderConnection {
+        .init(id: connectionID, name: "Test", provider: provider,
+              modelID: provider == .ollaya ? NativeModelDescriptor.decisionCatalog[0].id : "qwen2.5-1.5b-instruct-q4_k_m")
+    }
+    func refresh() async {}
+    func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws {}
+    func remove(_ connection: ProviderConnection) async {}
+    func makeDefault(_ connection: ProviderConnection) async {}
+    func importProviders(_ text: String, policy: ModelsImportPolicy) async throws {}
+    func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String { "" }
+    func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
+        [.init(id: "test-model", displayName: "Test Model")]
+    }
+    func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
+                     requestID: String) -> AsyncThrowingStream<Data, Error> {
+        AsyncThrowingStream { continuation in
+            if state == "error" { continuation.finish(throwing: AgentFailure(message: "The installer is unavailable.")); return }
+            let event: [String: Any] = ["type": "result", "result": ["models": [
+                ["id": modelID, "installed": state == "installed" || state == "populated", "path": "/Models/Test.gguf"]
+            ]]]
+            continuation.yield(try! JSONSerialization.data(withJSONObject: event)); continuation.finish()
+        }
+    }
+    func cancelModelRequest(_ requestID: String) {}
+}
+
+@MainActor @Observable private final class RuntimeFixture: ModelsRuntimeStore {
+    var installedIDs: Set<String> { ["qwen2.5-1.5b-instruct-q4_k_m"] }
+    var sessions: [String: ModelsRuntimeSession] { ["qwen2.5-1.5b-instruct-q4_k_m": .init(status: .running, processID: 1234)] }
+    var service: ModelsRuntimeSession { .init(status: .running, address: "http://127.0.0.1:11435") }
+    var isLoading: Bool { false }
+    var error: String? { nil }
+    var policyError: String? { nil }
+    func policy(for modelID: String) -> ModelsStartPolicy { .firstUse }
+    func setPolicy(_ policy: ModelsStartPolicy, for modelID: String) throws {}
+    func refresh() async {}
+    func start(_ modelID: String) {}
+    func stop(_ modelID: String) {}
 }

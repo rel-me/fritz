@@ -483,3 +483,13 @@ executable and the app's `FritzDataDirectory`, `FritzModelsDirectory`, and
 The lower-level `ModelsConfigurationView`, `ModelsProviderStore`, and
 `ModelsRuntimeStore` contracts let native hosts route presentation through their
 own scene owners. They do not require a fork of the editor or download UI.
+
+For a one-time import, call `ModelsStore.migrate(_:)` with a `ProviderMigration`
+and nonsecret `ProviderMigrationItem.CredentialSource` references. Rust performs
+the Keychain copies and commits the records and completion together. Preserve the
+source until this succeeds; use the returned UUID map to resolve saved selections.
+A repeated migration returns its original map and preserves later edits.
+`migrationResult(id:)` method reads the committed map without accessing the
+previous records or credentials, so a completed import can retire its old input.
+The `AgentClient(bundle:)` initializer uses the same bundle storage configuration in
+all native hosts.
