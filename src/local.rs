@@ -224,7 +224,6 @@ pub async fn generate(
     output_limit: usize,
     output: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> Result<(u64, u64, bool)> {
-    use mistralrs::Constraint;
     let mut active = API_ENGINES.lock().await;
     let engines = active.get_or_insert_with(HashMap::new);
     if engines
@@ -238,7 +237,26 @@ pub async fn generate(
         engine.model().await?;
         engines.insert(model_id.to_owned(), engine);
     }
-    let engine = &engines[model_id];
+    generate_with_engine(
+        &engines[model_id],
+        messages,
+        json_format,
+        output_limit,
+        output,
+    )
+    .await
+}
+
+/// Generate with a host-created engine; no Fritz default store or Keychain is read.
+pub async fn generate_with_engine(
+    engine: &inference::Engine,
+    messages: Vec<(String, String)>,
+    json_format: bool,
+    output_limit: usize,
+    output: tokio::sync::mpsc::UnboundedSender<String>,
+) -> Result<(u64, u64, bool)> {
+    use mistralrs::Constraint;
+    let model_id = engine.model_id();
     let mut request = RequestBuilder::new().set_sampler_max_len(output_limit);
     if models::manifest(model_id)?.disable_thinking {
         request = request.with_reasoning_effort(ReasoningEffort::Off);

@@ -14,10 +14,12 @@ import Security
     public var recentIDs: [String] = []
     private let database: any ModelsPreferences
     public let agent: AgentClient
+    private let keychainService: String
     @ObservationIgnored private var refreshID = UUID()
 
-    public init(agent: AgentClient, preferences: any ModelsPreferences) {
+    public init(agent: AgentClient, preferences: any ModelsPreferences, keychainService: String) {
         self.agent = agent
+        self.keychainService = keychainService
         self.database = preferences
         do { recentIDs = try preferences.setting("recentModelIDs") ?? [] }
         catch { self.error = error.localizedDescription }
@@ -125,8 +127,7 @@ import Security
     /// The agent protocol continues to return metadata only.
     private func exportKey(for connection: ProviderConnection) throws -> String? {
         guard !connection.provider.isNative else { return nil }
-        let service = Bundle.main.object(forInfoDictionaryKey: "FritzKeychainService") as? String
-            ?? "dev.fritz.provider-credentials"
+        let service = keychainService
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

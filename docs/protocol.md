@@ -181,3 +181,18 @@ directory, uses CPU inference, rejects truncated state, and
 returns a resolved `laya-en@<revision>` ID. Score legends preserve JSON criteria,
 including objects. All decision requests have a 120-second harness deadline;
 closing stdin or sending SIGTERM/SIGINT cancels native loading/inference too.
+
+## Embedded host storage
+
+`ModelsService::new` receives a `RegistryStore::with_storage` implementation,
+explicit `CredentialStore`, and explicit chat/decision `ModelStore` instances.
+`ProviderStorage::open` supplies a host-initialized SQLite connection containing
+`config::PROVIDER_SCHEMA`; the host owns schema migration, locking and versioning.
+Fritz does not change that connection's `user_version` or initialize another file.
+Registry updates and provider migration completion still share one transaction.
+`models_service::run_stdio` supplies the same cancellable Models protocol for a
+host-owned backend. Its methods cover providers and models; chat policy remains
+with the host. Standalone Fritz chooses its own storage in its app/CLI composition.
+Shared `ModelsStore` requires an explicit Keychain service for key-inclusive export.
+`ModelsLocalRuntime` accepts a host executable and environment, and
+`local::generate_with_engine` uses a host-created engine without default cache access.

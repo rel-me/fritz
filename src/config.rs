@@ -177,8 +177,7 @@ pub fn load() -> Result<Registry> {
     load_from(&data_dir())
 }
 fn load_from(dir: &std::path::Path) -> Result<Registry> {
-    let mut database = provider_database(dir)?;
-    database.transaction(|transaction| read_registry(transaction))
+    RegistryStore::new(dir).load()
 }
 
 fn provider_database(dir: &std::path::Path) -> Result<Database> {
@@ -223,28 +222,80 @@ pub fn update(f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
     RegistryStore::new(data_dir()).update(f)
 }
 
-/// A host-owned provider registry. Construct separate stores instead of changing process environment.
-#[derive(Clone, Debug)]
-pub struct RegistryStore {
+/// The host owns connection opening, schema migrations, locking and lifetime.
+/// This connection must contain the provider tables declared by PROVIDER_SCHEMA.
+pub trait ProviderStorage: Send + Sync {
+    fn open(&self) -> Result<rusqlite::Connection>;
+}
+
+pub const PROVIDER_SCHEMA: &str = "
+    CREATE TABLE providers (id TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
+    CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id = 1), default_connection_id TEXT REFERENCES providers(id) ON DELETE SET NULL);
+    INSERT INTO registry VALUES (1, NULL);
+    CREATE TABLE provider_migrations (id TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
+";
+
+struct FritzProviderStorage {
     directory: PathBuf,
+}
+impl ProviderStorage for FritzProviderStorage {
+    fn open(&self) -> Result<rusqlite::Connection> {
+        Ok(provider_database(&self.directory)?.into_connection())
+    }
+}
+
+/// Provider algorithms operate on an injected host storage implementation.
+#[derive(Clone)]
+pub struct RegistryStore {
+    storage: std::sync::Arc<dyn ProviderStorage>,
 }
 
 impl RegistryStore {
+    /// Fritz's standalone convenience store. Embedded hosts use with_storage.
     pub fn new(directory: impl Into<PathBuf>) -> Self {
-        Self {
+        Self::with_storage(std::sync::Arc::new(FritzProviderStorage {
             directory: directory.into(),
-        }
+        }))
+    }
+
+    pub fn with_storage(storage: std::sync::Arc<dyn ProviderStorage>) -> Self {
+        Self { storage }
+    }
+
+    pub(crate) fn transaction<T>(
+        &self,
+        action: impl FnOnce(&rusqlite::Transaction<'_>) -> Result<T>,
+    ) -> Result<T> {
+        let mut connection = self.storage.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let result = action(&transaction)?;
+        transaction.commit()?;
+        Ok(result)
     }
 
     pub fn load(&self) -> Result<Registry> {
-        load_from(&self.directory)
+        self.transaction(|transaction| read_registry(transaction))
     }
 
-    pub fn update(&self, f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
-        let mut database = provider_database(&self.directory)?;
-        database.transaction(|transaction| {
+    pub fn find(&self, selector: Option<&str>) -> Result<Connection> {
+        let registry = self.load()?;
+        registry
+            .connections
+            .into_iter()
+            .find(|connection| match selector {
+                Some(value) => {
+                    Uuid::parse_str(value).ok() == Some(connection.id) || connection.name == value
+                }
+                None => Some(connection.id) == registry.default_connection_id,
+            })
+            .context("No provider selected. Add a connection in Models.")
+    }
+
+    pub fn update(&self, action: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
+        self.transaction(|transaction| {
             let mut registry = read_registry(transaction)?;
-            f(&mut registry)?;
+            action(&mut registry)?;
             write_registry(transaction, &registry)?;
             Ok(registry)
         })
@@ -280,7 +331,7 @@ fn write_registry(transaction: &rusqlite::Connection, registry: &Registry) -> Re
 
 const KEYCHAIN_SERVICE: &str = "dev.fritz.provider-credentials";
 
-fn keychain_service() -> String {
+pub fn keychain_service() -> String {
     std::env::var("FRITZ_KEYCHAIN_SERVICE")
         .ok()
         .filter(|value| {

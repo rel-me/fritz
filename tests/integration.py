@@ -163,7 +163,9 @@ def provider_migration(endpoint):
 
         try:
             status = dict(migrationId=request["migrationId"])
-            assert migrate(status, "providers.migrationStatus")["result"]["migration"] is None
+            initial = migrate(status, "providers.migrationStatus")
+            assert initial["type"] == "result", initial
+            assert initial["result"]["migration"] is None
             invalid = dict(request, providers=request["providers"] + [dict(connection=dict(other, id=str(uuid.uuid4()), baseUrl="invalid"))])
             assert migrate(invalid)["type"] == "error"
             assert cli(target_env, "providers")["connections"] == []
