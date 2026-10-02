@@ -1,4 +1,5 @@
 import AppKit
+import Fritz
 import SwiftUI
 
 struct ProviderTextExport: Identifiable {
@@ -7,8 +8,8 @@ struct ProviderTextExport: Identifiable {
     let includesKeys: Bool
 }
 
-struct ProviderTransferSheet: View {
-    let store: ProviderStore
+struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
+    let store: Store
     var exported: ProviderTextExport?
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
@@ -54,7 +55,7 @@ struct ProviderTransferSheet: View {
                             error = "Copy a cURL request first, then paste it here."
                             return
                         }
-                        guard value.utf8.count <= ProviderConfigurationTransfer.maximumBytes else {
+                        guard value.utf8.count <= 1_048_576 else {
                             error = "The configuration must be no larger than 1 MB."
                             return
                         }
@@ -73,7 +74,7 @@ struct ProviderTransferSheet: View {
             }
         }
         .padding(24).frame(width: 600, height: exported == nil ? 460 : 350)
-        .background(FritzWindowStyle.contentBackground)
+        .background(ModelsConfigurationStyle.contentBackground)
         .interactiveDismissDisabled(isImporting)
         .buttonStyle(FritzButtonStyle())
         .onDisappear { importTask?.cancel() }

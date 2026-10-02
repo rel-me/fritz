@@ -82,6 +82,10 @@ FRITZ_SNAPSHOT_MODE=record swift test --filter SharedControlSnapshots/testModelP
 make check-ui-snapshots
 ```
 
+Use `FRITZ_SNAPSHOT_RECORD_PREFIX=models-download-` when recording that family
+in the full suite's AppKit initialization context. Unmatched snapshots still
+compare; comparison mode ignores this recording selector.
+
 Recording intentionally reports test failures while writing references. Review
 every new/changed PNG in `tests/FritzUISnapshotTests/__Snapshots__` before the
 comparison run. Never use recording in CI or relax precision to accept a change.
