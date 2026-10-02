@@ -124,7 +124,7 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
               Divider()
             }
             if ids.count == 1, let id = ids.first, providers.contains(where: { $0.id == id }) {
-              Button("Delete Provider", role: .destructive) { deleteProvider(id) }
+              Button("Delete", role: .destructive) { deleteProvider(id) }
             }
             if !ids.isEmpty {
               Button("Export",
