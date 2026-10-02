@@ -573,6 +573,7 @@ private struct ProviderModelsPopover: View {
                     .accessibilityHidden(true)
                 TextField("Search models", text: $searchText)
                     .textFieldStyle(.plain)
+                    .multilineTextAlignment(.leading)
                     .focused($isSearchFocused)
             }
             .padding(12)
