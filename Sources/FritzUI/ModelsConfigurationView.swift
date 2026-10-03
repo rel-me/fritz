@@ -213,6 +213,11 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                             }
                         }
                         .disabled(nativeModel.state.isBusy)
+                        if nativeModel.state != .installed {
+                            ConfigurationDownloadLocation(directory: nativeModel.downloadDirectory,
+                                                          choose: nativeModel.chooseDirectory)
+                                .disabled(nativeModel.state.isBusy)
+                        }
                         if managesLocalAPI {
                             Picker("Start on", selection: $startPolicy) {
                                 ForEach(ModelsStartPolicy.allCases) { policy in
@@ -463,7 +468,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         if managesLocalModels {
             base = 340 + (category == .llm && store.defaultConnectionID != nil ? 40 : 0)
                 + (managesLocalAPI ? 65 : 0)
-                + (nativeModel.installedURL == nil ? 0 : 50)
+                + (nativeModel.installedURL == nil ? 44 : 50)
         } else if category == .decision {
             base = 350 + (showsAdvanced ? 100 : 0)
         } else {

@@ -28,11 +28,8 @@ impl Engine {
         model_id: &str,
         context_size: usize,
     ) -> Result<Self> {
-        let mut engine = Self::installed_in(
-            &super::models::ModelStore::new(crate::config::models_dir()),
-            model_id,
-        )
-        .await?;
+        let mut engine =
+            Self::installed_in(&super::models::ModelStore::configured()?, model_id).await?;
         engine.context_size = context_size;
         Ok(engine)
     }

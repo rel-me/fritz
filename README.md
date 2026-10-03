@@ -101,6 +101,10 @@ The downloadable catalog contains LLMs and experimental Laya decision models;
 Jev remains a remote Decision Model. In New Models or Edit Models, selecting an
 uninstalled Fritz or Ollaya model shows **Download**, which installs that model
 directly with progress and cancellation. Installed models have no Download button.
+Where Download appears, **Download to** shows its folder; **Choose…** selects
+a different folder for that model. Fritz remembers the folder after installation
+and uses it for discovery and loading across launches. Other models keep their
+own locations; choosing a folder does not move previously downloaded files.
 The download catalog shows the selected model’s license, download
 progress, and installation status. Cancel stops the download; Retry starts a fresh
 attempt. Once the model is installed, add or edit a **Fritz** provider in
@@ -111,14 +115,16 @@ provider leaves downloaded weights available for reuse.
 Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run inside the per-chat Rust harness using
 mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
-models or sending a chat never starts a download. Weights live under
+models or sending a chat never starts a download. By default, weights live under
 `~/Library/Application Support/Fritz/Data/Models/` in the regular app. All Debug apps
 share `/Library/Application Support/Fritz/Data/Models/`, while their provider and
-conversation databases remain separate. This system-wide directory must exist
-with write access for your account; Fritz reports a storage error if it cannot
-create or write it. `FRITZ_MODELS_DIR` explicitly overrides model storage for tests
-or CLI use. Chat GGUFs and decision artifacts are flat files in the same Models
-directory. A model is installed when its required files are present, regardless
+conversation databases remain separate. Downloading into that system-wide folder
+requires write access for your account; Fritz reports a storage error if it cannot
+create or write it. `FRITZ_MODELS_DIR` overrides the default model folder for tests
+or CLI use. A model's saved download folder takes precedence over that default.
+Folder choices are stored in the profile's `model_locations.sqlite` database.
+Chat GGUFs and decision artifacts are flat files in their selected folder.
+A model is installed when its required files are present, regardless
 of size, checksum, or optional metadata. Decision configuration uses the matching
 model filename with a `.json` extension (for example, `laya-en.onnx` and
 `laya-en.json`). New downloads still validate size and SHA-256 before atomic

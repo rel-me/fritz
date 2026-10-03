@@ -11,6 +11,8 @@ import Observation
     private(set) var selectedModelID: String
     private(set) var state: LocalModelInstallState = .available
     private(set) var installedURL: URL?
+    private(set) var downloadDirectory: URL?
+    @ObservationIgnored private var selectedDirectory: URL?
     var selectedModel: NativeModelDescriptor {
         catalog.first { $0.id == selectedModelID }!
     }
@@ -29,7 +31,16 @@ import Observation
         guard id != selectedModelID, catalog.contains(where: { $0.id == id }) else { return }
         cancel()
         selectedModelID = id
+        selectedDirectory = nil
+        downloadDirectory = nil
         refresh()
+    }
+    func chooseDirectory(_ url: URL) {
+        cancel()
+        selectedDirectory = url
+        downloadDirectory = url
+        installedURL = nil
+        state = .available
     }
     func refresh() { run(install: false) }
     func install() { run(install: true) }
@@ -48,7 +59,8 @@ import Observation
         let id = UUID().uuidString
         let modelID = selectedModelID
         requestID = id
-        let events = store.modelEvents(category: category, modelID: modelID, install: install, requestID: id)
+        let events = store.modelEvents(category: category, modelID: modelID, install: install,
+                                       directory: selectedDirectory, requestID: id)
         task = Task { [weak self] in
             var completed = false
             do {
@@ -56,9 +68,11 @@ import Observation
                     guard let self, requestID == id, !Task.isCancelled else { return }
                     let event = try JSONDecoder().decode(LocalModelEvent.self, from: data)
                     state = try event.state(for: modelID, installing: install)
-                    if let model = event.result?.models?.first(where: { $0.id == modelID }),
-                       model.installed, let path = model.path {
-                        installedURL = URL(fileURLWithPath: path)
+                    if let model = event.result?.models?.first(where: { $0.id == modelID }) {
+                        downloadDirectory = URL(fileURLWithPath: model.directory, isDirectory: true)
+                        if model.installed, let path = model.path {
+                            installedURL = URL(fileURLWithPath: path)
+                        }
                     }
                     if event.type == "result" { completed = true }
                 }
@@ -78,7 +92,7 @@ import Observation
 }
 
 struct LocalModelEvent: Decodable {
-    struct InventoryModel: Decodable { let id: String; let installed: Bool; let path: String? }
+    struct InventoryModel: Decodable { let id: String; let installed: Bool; let path: String?; let directory: String }
     struct Result: Decodable {
         let models: [InventoryModel]?
         let modelId: String?

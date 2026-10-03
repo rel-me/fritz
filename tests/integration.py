@@ -311,6 +311,56 @@ def main():
         assert event["id"] == local_list and event["result"]["models"][0]["installed"] is False
         send("localModels.install", {"modelId": "unknown"})
         assert receive()["type"] == "error"
+        # Model-specific folders travel through the real pipe and survive a fresh
+        # process. Existing file-presence installations avoid network/weight downloads.
+        llm_pin = next(pin for pin in json.loads((ROOT / "Sources/Fritz/LocalModels.json").read_text())["models"] if pin["id"] == native_id)
+        decision_pin = json.loads((ROOT / "Sources/Fritz/DecisionModels.json").read_text())["models"][0]
+        for prefix, command, kind, pin, filenames in [
+            ("localModels", "local-models", "fritz", llm_pin, [llm_pin["file"]]),
+            ("decisionModels", "decision-models", "ollaya", decision_pin, [item["file"] for item in decision_pin["files"]]),
+        ]:
+            custom = Path(directory) / f"Selected {prefix}"
+            custom.mkdir()
+            for filename in filenames:
+                (custom / filename).write_bytes(b"synthetic file-presence fixture")
+            for invalid in ["relative/folder", str(custom / filenames[0])]:
+                send(f"{prefix}.install", {"modelId": pin["id"], "directory": invalid})
+                assert receive()["type"] == "error"
+            send(f"{prefix}.list", {"modelId": pin["id"], "directory": str(custom)})
+            assert receive()["result"]["models"][0]["installed"] is True
+            send(f"{prefix}.list", {"modelId": pin["id"]})
+            before = receive()["result"]["models"][0]
+            assert before["installed"] is False and before["directory"] == env["FRITZ_MODELS_DIR"]
+            send(f"{prefix}.install", {"modelId": "unknown", "directory": str(custom)})
+            assert receive()["type"] == "error"
+            send(f"{prefix}.install", {"modelId": pin["id"], "directory": str(custom)})
+            event = receive()
+            while event["type"] == "progress":
+                event = receive()
+            assert event["type"] == "result" and event["result"]["installed"] is True, event
+            # Fresh CLI processes use the saved path in both inventory and provider discovery.
+            installed = json.loads(cli(command, "list", pin["id"]).stdout)["models"][0]
+            assert installed["directory"] == str(custom.resolve()) and installed["installed"] is True
+            assert Path(installed["path"]).parent == custom.resolve()
+            draft = dict(connection, id=str(uuid.uuid4()), name="Custom folder", provider=kind,
+                         baseUrl="", modelId=pin["id"])
+            send("models.list", {"connection": draft})
+            assert pin["id"] in [model["id"] for model in receive()["result"]["models"]]
+            send(f"{prefix}.install", {"modelId": pin["id"], "directory": str(custom / filenames[0] / "Blocked")})
+            event = receive()
+            while event["type"] == "progress":
+                event = receive()
+            assert event["type"] == "error", event
+            assert json.loads(cli(command, "list", pin["id"]).stdout)["models"][0]["directory"] == str(custom.resolve())
+            # Missing custom storage must not silently load a copy from the default folder.
+            default = Path(env["FRITZ_MODELS_DIR"])
+            default.mkdir(exist_ok=True)
+            for filename in filenames:
+                (default / filename).write_bytes(b"default copy must not be selected")
+            (custom / filenames[0]).unlink()
+            assert json.loads(cli(command, "list", pin["id"]).stdout)["models"][0]["installed"] is False
+        unchanged = next(model for model in json.loads(cli("local-models", "list").stdout)["models"] if model["id"] == other_native_id)
+        assert unchanged["directory"] == env["FRITZ_MODELS_DIR"] and unchanged["installed"] is False
         chat = send("chat", {"connectionId": connection["id"].upper(), "model": "slow-test", "messages": [{"role": "user", "content": "Hello"}]})
         event = receive()
         while event["type"] == "activity":

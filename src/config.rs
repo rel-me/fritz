@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub mod migration;
+mod model_locations;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
@@ -171,6 +172,14 @@ pub fn models_dir() -> PathBuf {
     std::env::var_os("FRITZ_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| data_dir().join("Models"))
+}
+
+pub fn model_directories() -> Result<std::collections::BTreeMap<String, PathBuf>> {
+    model_locations::load(&data_dir())
+}
+
+pub fn remember_model_directory(model_id: &str, directory: &std::path::Path) -> Result<()> {
+    model_locations::save(&data_dir(), model_id, directory)
 }
 
 pub fn load() -> Result<Registry> {

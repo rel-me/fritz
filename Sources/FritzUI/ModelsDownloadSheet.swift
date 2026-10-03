@@ -20,6 +20,12 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                 get: { model.selectedModelID },
                 set: { model.select($0) }
             ), state: model.state, hardware: hardware, catalog: model.catalog)
+            if hasVisibleSelection && model.state != .installed {
+                Divider()
+                ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
+                    .disabled(model.state.isBusy)
+                    .padding(.horizontal, 20).padding(.vertical, 12)
+            }
             Divider()
             HStack(spacing: 8) {
                 if hasVisibleSelection {

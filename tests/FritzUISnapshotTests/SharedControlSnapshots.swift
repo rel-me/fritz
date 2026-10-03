@@ -339,7 +339,7 @@ final class SharedControlSnapshots: XCTestCase {
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
         [.init(id: "test-model", displayName: "Test Model")]
     }
-    func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
+    func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             if state == "error" { continuation.finish(throwing: AgentFailure(message: "The installer is unavailable.")); return }
@@ -350,7 +350,7 @@ final class SharedControlSnapshots: XCTestCase {
             } else {
                 result = ["models": [
                     ["id": modelID, "installed": state == "installed" || state == "populated" || downloadedIDs.contains(modelID),
-                     "path": "/Models/Test.gguf"]
+                     "path": "/Models/Test.gguf", "directory": directory?.path ?? "/Models"]
                 ]]
             }
             let event: [String: Any] = ["type": "result", "result": result]
