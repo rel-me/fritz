@@ -69,6 +69,8 @@ Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so
 memory warnings and hardware summaries do not depend on the runner's Mac.
 The harness also pins each AppKit scroll view to overlay scrollers: hiding
 indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
+Native table column widths are rounded up to whole points before capture to avoid
+a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
 Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
 same command and uploads mismatches from `dist/snapshot-failures`. Ordinary

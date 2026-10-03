@@ -299,6 +299,19 @@ final class SharedControlSnapshots: XCTestCase {
         host.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         host.layoutSubtreeIfNeeded()
+        // Native table autosizing can leave the final column half a point
+        // narrower depending on earlier AppKit initialization. Round columns
+        // consistently so header dividers do not vary by one backing pixel.
+        func normalizeColumns(in view: NSView) {
+            if let table = view as? NSTableView {
+                for column in table.tableColumns {
+                    column.width = column.width.rounded(.up)
+                }
+                table.headerView?.needsDisplay = true
+            }
+            view.subviews.forEach { normalizeColumns(in: $0) }
+        }
+        normalizeColumns(in: host)
         host.displayIfNeeded()
         let bitmap = try XCTUnwrap(NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
