@@ -61,7 +61,7 @@ class DevRuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("app_name=FritzDebug\n", result.stdout)
         for output in (primary.stdout, result.stdout):
-            self.assertIn("models_directory=/Library/Application Support/Fritz/Data/Models\n", output)
+            self.assertIn(f"models_directory={Path.home() / 'Models'}\n", output)
 
     def test_feature_and_detached_head_share_checkout_name_without_pr(self):
         self.git("branch", "feature")

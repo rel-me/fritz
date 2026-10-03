@@ -33,7 +33,13 @@ def managed_local_api():
     """Test real listener ownership and private-pipe model admission, without weights."""
     with tempfile.TemporaryDirectory(prefix="fritz-api-test-") as directory:
         models = Path(directory) / "Models"
-        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_MODELS_DIR=str(models))
+        env = dict(os.environ, HOME=directory, FRITZ_DATA_DIR=str(Path(directory) / "Data"))
+        env.pop("FRITZ_MODELS_DIR", None)
+        for command in ["local-models", "decision-models"]:
+            inventory = subprocess.run([str(EXECUTABLE), command, "list"], env=env,
+                                       check=True, capture_output=True, text=True)
+            assert all(item["directory"] == str(models) for item in json.loads(inventory.stdout)["models"])
+        assert not models.exists(), "Listing models must not create ~/Models"
         process = subprocess.Popen([str(EXECUTABLE), "local-models", "serve", "--port", "0", "--managed"],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True, env=env)

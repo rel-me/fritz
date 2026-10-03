@@ -425,6 +425,8 @@ mod tests {
     #[tokio::test]
     async fn download_verifies_atomic_install_and_reuses_offline() {
         let temp = tempfile::tempdir().unwrap();
+        let directory = temp.path().join("Models");
+        assert!(!directory.exists());
         let data = b"fixture model";
         let pin = Manifest {
             id: "fixture".into(),
@@ -439,14 +441,14 @@ mod tests {
         };
         let (url, server) = fixture(data);
         let events = Mutex::new(Vec::new());
-        download_to(temp.path(), &url, &pin, &|event| {
+        download_to(&directory, &url, &pin, &|event| {
             events.lock().unwrap().push(event)
         })
         .await
         .unwrap();
         server.join().unwrap();
-        assert_eq!(fs::read(temp.path().join(&pin.file)).unwrap(), data);
-        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
+        assert_eq!(fs::read(directory.join(&pin.file)).unwrap(), data);
+        assert!(!directory.join(format!(".{}.partial", pin.file)).exists());
         assert!(
             events
                 .lock()
@@ -454,27 +456,27 @@ mod tests {
                 .iter()
                 .any(|event| event["status"] == "ready")
         );
-        download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+        download_to(&directory, "http://127.0.0.1:1", &pin, &|_| {})
             .await
             .unwrap();
-        fs::write(temp.path().join(&pin.file), b"host-provided weights").unwrap();
-        download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+        fs::write(directory.join(&pin.file), b"host-provided weights").unwrap();
+        download_to(&directory, "http://127.0.0.1:1", &pin, &|_| {})
             .await
             .unwrap();
         assert_eq!(
-            fs::read(temp.path().join(&pin.file)).unwrap(),
+            fs::read(directory.join(&pin.file)).unwrap(),
             b"host-provided weights"
         );
-        fs::remove_file(temp.path().join(&pin.file)).unwrap();
+        fs::remove_file(directory.join(&pin.file)).unwrap();
         let (url, server) = fixture(b"wrong weights");
-        assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
+        assert!(download_to(&directory, &url, &pin, &|_| {}).await.is_err());
         server.join().unwrap();
-        assert!(!temp.path().join(&pin.file).exists());
-        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
-        let lock = File::create(temp.path().join(format!(".{}.download.lock", pin.file))).unwrap();
+        assert!(!directory.join(&pin.file).exists());
+        assert!(!directory.join(format!(".{}.partial", pin.file)).exists());
+        let lock = File::create(directory.join(format!(".{}.download.lock", pin.file))).unwrap();
         lock.lock_exclusive().unwrap();
         assert!(
-            download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+            download_to(&directory, "http://127.0.0.1:1", &pin, &|_| {})
                 .await
                 .unwrap_err()
                 .to_string()

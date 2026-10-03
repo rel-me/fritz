@@ -116,11 +116,10 @@ Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run inside the per-chat Rust harness using
 mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
 models or sending a chat never starts a download. By default, weights live under
-`~/Library/Application Support/Fritz/Data/Models/` in the regular app. All Debug apps
-share `/Library/Application Support/Fritz/Data/Models/`, while their provider and
-conversation databases remain separate. Downloading into that system-wide folder
-requires write access for your account; Fritz reports a storage error if it cannot
-create or write it. `FRITZ_MODELS_DIR` overrides the default model folder for tests
+`~/Models/` in both regular and Debug apps. Fritz creates that folder only when
+you first download a model. Debug provider and conversation databases remain
+separate. Fritz reports a storage error if it cannot create or write the selected
+folder. `FRITZ_MODELS_DIR` overrides the default model folder for tests
 or CLI use. A model's saved download folder takes precedence over that default.
 Folder choices are stored in the profile's `model_locations.sqlite` database.
 Chat GGUFs and decision artifacts are flat files in their selected folder.

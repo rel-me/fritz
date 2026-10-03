@@ -171,7 +171,9 @@ pub fn data_dir() -> PathBuf {
 pub fn models_dir() -> PathBuf {
     std::env::var_os("FRITZ_MODELS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| data_dir().join("Models"))
+        .unwrap_or_else(|| {
+            PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join("Models")
+        })
 }
 
 pub fn model_directories() -> Result<std::collections::BTreeMap<String, PathBuf>> {
