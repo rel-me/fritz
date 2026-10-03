@@ -25,6 +25,7 @@ import Observation
     @ObservationIgnored private let agent: AgentClient
     private let executableURL: URL?
     private let environment: [String: String]
+    private let arguments: [String]
     @ObservationIgnored private var process: Process?
     @ObservationIgnored private var input: Pipe?
     @ObservationIgnored private var output: Pipe?
@@ -43,10 +44,11 @@ import Observation
         self.init(agent: agent, preferences: preferences,
             executableURL: Bundle.main.resourceURL?.appendingPathComponent("fritz"), environment: environment)
     }
-    public init(agent: AgentClient, preferences: any ModelsPreferences, executableURL: URL?, environment: [String: String]) {
+    public init(agent: AgentClient, preferences: any ModelsPreferences, executableURL: URL?, environment: [String: String], arguments: [String] = ["local-models", "serve", "--port", "0", "--managed"]) {
         self.agent = agent
         self.executableURL = executableURL
         self.environment = environment
+        self.arguments = arguments
         self.database = preferences
         do { policies = try preferences.setting("localModelStartPolicies") ?? [:] }
         catch { policyError = "Could not restore model startup settings: \(error.localizedDescription)" }
@@ -177,7 +179,7 @@ import Observation
         }
         let process = Process()
         process.executableURL = executable
-        process.arguments = ["local-models", "serve", "--port", "0", "--managed"]
+        process.arguments = arguments
         process.environment = environment
         let input = Pipe(), output = Pipe(), stderr = Pipe()
         process.standardInput = input

@@ -5,8 +5,10 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: ConfigurationNativeModel<Store>
     @State private var filters = NativeModelFilters()
+    private let hardware: LocalModelHardware
 
-    public init(store: Store, modelID: String? = nil, category: AIModelCategory? = nil) {
+    public init(store: Store, hardware: LocalModelHardware, modelID: String? = nil, category: AIModelCategory? = nil) {
+        self.hardware = hardware
         _model = State(initialValue: ConfigurationNativeModel(store: store, modelID: modelID, category: category))
     }
 
@@ -17,7 +19,13 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
             ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
                 get: { model.selectedModelID },
                 set: { model.select($0) }
-            ), state: model.state, hardware: .current, catalog: model.catalog)
+            ), state: model.state, hardware: hardware, catalog: model.catalog)
+            if hasVisibleSelection && model.state != .installed {
+                Divider()
+                ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
+                    .disabled(model.state.isBusy)
+                    .padding(.horizontal, 20).padding(.vertical, 12)
+            }
             Divider()
             HStack(spacing: 8) {
                 if hasVisibleSelection {

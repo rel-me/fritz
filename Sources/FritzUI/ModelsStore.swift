@@ -120,7 +120,7 @@ import Security
         let configurations = try connections.map { connection in
             ProviderConfigurationTransfer.Configuration(connection, apiKey: includeKeys ? try exportKey(for: connection) : nil)
         }
-        return try ProviderConfigurationTransfer.export(configurations)
+        return try ProviderConfigurationTransfer.exportCURL(configurations)
     }
 
     /// Only an explicit key-inclusive export reads credentials in the UI process.
@@ -163,11 +163,13 @@ extension ModelsStore {
         let response: ModelCatalog = try await agent.request("models.list", params: params)
         return response.models
     }
-    public func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
+    public func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         let prefix = category == .decision ? "decisionModels" : "localModels"
+        var params: [String: Any] = ["modelId": modelID]
+        if let directory { params["directory"] = directory.path }
         return agent.stream(method: "\(prefix).\(install ? "install" : "list")",
-                            params: ["modelId": modelID], id: requestID)
+                            params: params, id: requestID)
     }
     public func cancelModelRequest(_ requestID: String) { agent.cancel(requestID) }
 }

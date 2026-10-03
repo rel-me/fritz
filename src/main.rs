@@ -117,6 +117,7 @@ fn models_service() -> Result<fritz::models_service::ModelsService> {
         config::CredentialStore::new(config::keychain_service())?,
         local::models::ModelStore::new(config::models_dir()),
         decision::local::ModelStore::new(config::models_dir()),
+        config::ModelLocationStore::new(config::data_dir()),
     ))
 }
 fn save(
@@ -314,7 +315,7 @@ async fn run() -> Result<()> {
             } => local::ollama::serve(port, model, managed).await?,
         },
         Some(Command::DecisionModels { command }) => {
-            let store = decision::local::ModelStore::new(config::models_dir());
+            let store = decision::local::ModelStore::configured()?;
             match command {
                 DecisionModelCommand::List { model } => println!(
                     "{}",

@@ -47,18 +47,34 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
 /// Decision artifacts share the host-selected Models directory with chat weights.
 pub struct ModelStore {
     directory: PathBuf,
+    model_directories: BTreeMap<String, PathBuf>,
 }
 
 impl ModelStore {
     pub fn new(directory: impl Into<PathBuf>) -> Self {
         Self {
             directory: directory.into(),
+            model_directories: Default::default(),
         }
+    }
+
+    pub fn configured() -> Result<Self> {
+        Ok(Self {
+            directory: crate::config::models_dir(),
+            model_directories: crate::config::model_directories()?,
+        })
+    }
+
+    fn directory_for(&self, model_id: &str) -> &std::path::Path {
+        self.model_directories
+            .get(model_id)
+            .map(PathBuf::as_path)
+            .unwrap_or(&self.directory)
     }
 
     async fn is_installed(&self, pin: &Manifest) -> bool {
         for file in &pin.files {
-            if !self.directory.join(&file.file).is_file() {
+            if !self.directory_for(&pin.id).join(&file.file).is_file() {
                 return false;
             }
         }
@@ -73,7 +89,7 @@ impl ModelStore {
                 pin.name
             );
         }
-        Ok(self.directory.clone())
+        Ok(self.directory_for(id).to_owned())
     }
 
     pub async fn inventory(&self, id: Option<&str>) -> Result<Value> {
@@ -86,7 +102,8 @@ impl ModelStore {
             let installed = self.is_installed(pin).await;
             models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,
                 "installed":installed,
-                "path":installed.then(|| self.directory.join(format!("{}.onnx", pin.id)))}));
+                "path":installed.then(|| self.directory_for(&pin.id).join(format!("{}.onnx", pin.id))),
+                "directory":self.directory_for(&pin.id)}));
         }
         Ok(json!({"models":models}))
     }
@@ -95,7 +112,7 @@ impl ModelStore {
         let pin = manifest(id)?;
         let mut completed = 0;
         for file in &pin.files {
-            download_file(&self.directory, &file.url, &file.file, file.size, &file.sha256, &|event| {
+            download_file(self.directory_for(id), &file.url, &file.file, file.size, &file.sha256, &|event| {
                 let status = if event["status"] == "ready" { "checking" } else { event["status"].as_str().unwrap_or("checking") };
                 emit(json!({"type":"progress", "status":status,
                     "downloaded":completed + event["downloaded"].as_u64().unwrap_or(0), "total":pin.size}));
@@ -116,7 +133,7 @@ impl DecisionModel for Ollaya {
             let pin = manifest(&request.model)?;
             let questions =
                 ollaya_decision::parse_questions(&serde_json::to_value(&request.questions)?)?;
-            let directory = ModelStore::new(crate::config::models_dir())
+            let directory = ModelStore::configured()?
                 .installed_path(&request.model)
                 .await?;
             let state = request.state.clone();

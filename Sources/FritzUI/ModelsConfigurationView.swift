@@ -9,6 +9,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
     @State private var selectedIDs: Set<UUID> = []
     @State private var deleting: ProviderConnection?
     @State private var isImporting = false
+    @State private var showsDownload = false
     @State private var showsExportOptions = false
     @State private var exportConnections: [ProviderConnection] = []
     @State private var textExport: ProviderTextExport?
@@ -26,6 +27,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             actionControlSize: .extraLarge,
             transferActions: { transferMenu.controlSize(.extraLarge) },
             addProvider: { editor = ModelsEditorSelection() },
+            downloadModels: { showsDownload = true },
             editProvider: { id in
                 if let connection = store.connections.first(where: { $0.id == id }) {
                     editor = ModelsEditorSelection(connection: connection)
@@ -49,12 +51,17 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             }
         )
         .sheet(isPresented: $isImporting) { ConfigurationTransferSheet(store: store) }
-        .confirmationDialog("Export Providers", isPresented: $showsExportOptions) {
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            Task { await localModels.refresh(); await store.refresh() }
+        }) {
+            ModelsDownloadSheet(store: store, hardware: .current)
+        }
+        .confirmationDialog("Export", isPresented: $showsExportOptions) {
             Button("Export Without Keys") { exportProviders(includeKeys: false) }
             Button("Export Including API Keys") { exportProviders(includeKeys: true) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Included API keys will be readable in the exported JSON.")
+            Text("Included API keys will be readable in the export.")
         }
         .sheet(item: $textExport) { exported in ConfigurationTransferSheet(store: store, exported: exported) }
         .onChange(of: store.connections) { _, connections in selectedIDs.formIntersection(connections.map(\.id)) }
@@ -82,8 +89,8 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
 
     private var transferMenuContent: some View {
         Menu {
-            Button("Import Providers…", systemImage: "square.and.arrow.down") { isImporting = true }
-            Button("Export Providers…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
+            Button("Import…", systemImage: "square.and.arrow.down") { isImporting = true }
+            Button("Export…", systemImage: "square.and.arrow.up") { prepareExport(selectedIDs) }
                 .disabled(selectedIDs.isEmpty)
         } label: {
             Label("Import and Export", systemImage: "ellipsis")
@@ -95,7 +102,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
     private var providerItems: [ModelProviderItem<UUID>] {
         store.connections.map { connection in
             let names = store.catalog[connection.id].map { models in
-                models.isEmpty ? "No models" : models.map(\.displayName).joined(separator: ", ")
+                models.isEmpty ? "No models" : DiscoveredAIModel.preferredOrder(models, provider: connection.provider).map(\.displayName).joined(separator: ", ")
             } ?? (store.isLoading || connection.modelID.isEmpty ? nil : connection.modelID)
             return ModelProviderItem(
                 id: connection.id, name: connection.providerDisplayName,
@@ -144,25 +151,29 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: ConfigurationNativeModel<Store>
     @State private var startPolicy: ModelsStartPolicy
-    @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
     public init(store: Store, localModels: Runtime, existing: ProviderConnection?) {
         self.store = store; self.localModels = localModels; self.existing = existing
-        let category = existing?.category ?? .llm
+        let addedPresets = Set(store.connections.map {
+            AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL)
+        })
+        let initialPreset = existing.map { AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL) }
+            ?? AIProviderPreset.allCases.first { $0.category == .llm && !addedPresets.contains($0) }
+            ?? .adapter(.openAI)
+        let category = initialPreset.category
         _id = State(initialValue: existing?.id ?? UUID())
         let initialNativeModel = ConfigurationNativeModel(store: store, modelID: existing?.modelID, category: category)
         _nativeModel = State(initialValue: initialNativeModel)
         _startPolicy = State(initialValue: localModels.policy(for: initialNativeModel.selectedModelID))
-        let baseName = category == .decision ? "TypeSafe" : "OpenAI"
+        let baseName = initialPreset.name
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
             initialName = "\(baseName) \(suffix)"; suffix += 1
         }
         _name = State(initialValue: existing?.name ?? initialName)
-        _preset = State(initialValue: existing.map { .matching(provider: $0.provider, baseURL: $0.baseURL) }
-                        ?? (category == .decision ? .adapter(.jev) : .adapter(.openAI)))
-        _endpoint = State(initialValue: existing?.baseURL ?? "")
+        _preset = State(initialValue: initialPreset)
+        _endpoint = State(initialValue: existing?.baseURL ?? initialPreset.baseURL)
         _modelID = State(initialValue: existing?.modelID ?? (category == .decision ? "jev-latest" : ""))
         _makeDefault = State(initialValue: category == .llm &&
                              (existing?.id == store.defaultConnectionID || store.defaultConnectionID == nil))
@@ -201,6 +212,12 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                                 Text(model.name).tag(model.id)
                             }
                         }
+                        .disabled(nativeModel.state.isBusy)
+                        if nativeModel.state != .installed {
+                            ConfigurationDownloadLocation(directory: nativeModel.downloadDirectory,
+                                                          choose: nativeModel.chooseDirectory)
+                                .disabled(nativeModel.state.isBusy)
+                        }
                         if managesLocalAPI {
                             Picker("Start on", selection: $startPolicy) {
                                 ForEach(ModelsStartPolicy.allCases) { policy in
@@ -214,11 +231,15 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                         case .installed: EmptyView()
                         case .checking: Text("Checking…")
                         case .failed(let message): Text(message).foregroundStyle(.red)
-                        case .available, .downloading: Text("Not installed")
+                        case .available: Text("Not installed")
+                        case let .downloading(downloaded, total):
+                            ProgressView(value: Double(downloaded), total: Double(total))
+                                .accessibilityLabel("Downloading local model")
+                            Text("\(ByteCountFormatter.string(fromByteCount: Int64(downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file))")
+                                .monospacedDigit()
                         }
                         if let duplicateConnection {
-                            Text("Already added as \(duplicateConnection.name).")
-                                .foregroundStyle(.red)
+                            duplicateWarning(duplicateConnection)
                         }
                         if nativeModel.state == .installed, let url = nativeModel.installedURL {
                             VStack(alignment: .leading, spacing: 4) {
@@ -239,7 +260,11 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                             .padding(.top, 6)
                         }
                         HStack(spacing: 8) {
-                            Button("Download") { showsDownload = true }
+                            if !nativeModel.state.isBusy && nativeModel.state != .installed {
+                                Button("Download") { nativeModel.install() }
+                            } else if case .downloading = nativeModel.state {
+                                Button("Cancel Download") { nativeModel.cancel() }
+                            }
                             if managesLocalAPI {
                                 if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
                                     Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
@@ -297,11 +322,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             if managesLocalModels { nativeModel.refresh() }
             if preset.provider == .fritz { await localModels.refresh() }
         }
-        .sheet(isPresented: $showsDownload, onDismiss: {
-            nativeModel.refresh()
-            Task { await localModels.refresh() }
-        }) {
-            ModelsDownloadSheet(store: store, modelID: nativeModel.selectedModelID, category: category)
+        .task(id: nativeModel.state == .installed) {
+            if nativeModel.state == .installed { await localModels.refresh() }
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
@@ -376,8 +398,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             }
         } footer: {
             if let duplicateConnection {
-                Text("Already added as \(duplicateConnection.name).")
-                    .foregroundStyle(.red)
+                duplicateWarning(duplicateConnection)
             }
             if category == .decision, let error {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
@@ -419,11 +440,18 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         }
     }
 
+    private func duplicateWarning(_ connection: ProviderConnection) -> some View {
+        Label("Already added as \(connection.name).", systemImage: "exclamationmark.triangle.fill")
+            .foregroundStyle(.orange)
+    }
+
     private var endpointField: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(endpointTitle)
+        HStack(spacing: 12) {
+            Text(endpointTitle).fixedSize()
             TextField(endpointTitle, text: $endpoint, prompt: Text(endpointPrompt))
                 .labelsHidden().autocorrectionDisabled()
+                .lineLimit(1).truncationMode(.middle)
+                .frame(maxWidth: .infinity)
                 .accessibilityLabel(endpointTitle)
         }
     }
@@ -440,7 +468,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         if managesLocalModels {
             base = 340 + (category == .llm && store.defaultConnectionID != nil ? 40 : 0)
                 + (managesLocalAPI ? 65 : 0)
-                + (nativeModel.installedURL == nil ? 0 : 50)
+                + (nativeModel.installedURL == nil ? 44 : 50)
         } else if category == .decision {
             base = 350 + (showsAdvanced ? 100 : 0)
         } else {
@@ -515,7 +543,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             let discovered = try await store.discoverModels(connection, key: apiKey)
             try Task.checkCancellation()
             guard activeDiscoveryID == token else { return }
-            models = discovered; discoveryFinished = true
+            models = DiscoveredAIModel.preferredOrder(discovered, provider: preset.provider); discoveryFinished = true
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled, activeDiscoveryID == token else { return }
@@ -559,6 +587,7 @@ private struct ProviderModelsPopover: View {
                     .accessibilityHidden(true)
                 TextField("Search models", text: $searchText)
                     .textFieldStyle(.plain)
+                    .multilineTextAlignment(.leading)
                     .focused($isSearchFocused)
             }
             .padding(12)

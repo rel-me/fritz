@@ -13,7 +13,7 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
     var exported: ProviderTextExport?
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
-    @State private var policy = ModelsImportPolicy.skip
+    @State private var overwritesExisting = true
     @State private var error: String?
     @State private var copied = false
     @State private var isImporting = false
@@ -21,7 +21,7 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(exported == nil ? "Import Providers" : "Export Providers").font(.title2.bold())
+            Text(exported == nil ? "Import" : "Export").font(.title2.bold())
             Text(guidance).font(.callout).foregroundStyle(.secondary)
             if let exported {
                 ScrollView {
@@ -30,17 +30,15 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
                         .frame(maxWidth: .infinity, alignment: .topLeading).padding(10)
                 }
                 .border(.separator)
-                .accessibilityLabel("Exported configuration")
+                .accessibilityLabel("Exported cURL")
                 .privacySensitive(exported.includesKeys)
             } else {
                 TextEditor(text: $text)
                     .font(.system(.body, design: .monospaced)).border(.separator)
-                    .accessibilityLabel("Configuration to import").privacySensitive()
+                    .accessibilityLabel("cURL to import").privacySensitive()
                     .disabled(isImporting)
-                Picker("Existing providers", selection: $policy) {
-                    Text("Skip").tag(ModelsImportPolicy.skip)
-                    Text("Overwrite").tag(ModelsImportPolicy.overwrite)
-                }.pickerStyle(.segmented).disabled(isImporting)
+                Toggle("Overwrite existing", isOn: $overwritesExisting)
+                    .toggleStyle(.checkbox).disabled(isImporting)
                 Text("Matches the service name. Overwrite keeps saved keys when no key is included and the endpoint is unchanged.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -54,7 +52,7 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
                 } else {
                     Button("Paste", systemImage: "doc.on.clipboard") {
                         guard let value = NSPasteboard.general.string(forType: .string), !value.isEmpty else {
-                            error = "Copy a configuration first, then paste it here."
+                            error = "Copy a cURL request first, then paste it here."
                             return
                         }
                         guard value.utf8.count <= 1_048_576 else {
@@ -84,11 +82,11 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
 
     private var guidance: String {
         guard let exported else {
-            return "Paste a Fritz or REL provider configuration. Included API keys are saved in Keychain. Providers without keys can be completed later."
+            return "Paste a cURL provider export. Included API keys are saved in Keychain. Providers without keys can be completed later."
         }
         return exported.includesKeys
-            ? "This JSON includes API keys. Share it only with people who should have access."
-            : "Copy this JSON. API keys and the default-provider preference are excluded."
+            ? "This export includes API keys. Share it only with people who should have access."
+            : "Checks the provider’s model list. Required API keys are replaced with YOUR_API_KEY."
     }
 
     private func importProviders() {
@@ -96,7 +94,7 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
         importTask = Task {
             defer { isImporting = false; importTask = nil }
             do {
-                try await store.importProviders(text, policy: policy)
+                try await store.importProviders(text, policy: overwritesExisting ? .overwrite : .skip)
                 try Task.checkCancellation()
                 text = ""; dismiss()
             } catch is CancellationError {

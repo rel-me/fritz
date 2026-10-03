@@ -92,7 +92,7 @@ struct FritzSettingsView: View {
                 await state.providers.refresh()
             }
         }) {
-            LocalModelDownloadSheet(store: state.providers)
+            LocalModelDownloadSheet(store: state.providers, hardware: .current)
         }
     }
 

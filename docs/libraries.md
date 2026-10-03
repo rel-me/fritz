@@ -118,9 +118,13 @@ On the Rust side, implement `config::ProviderStorage::open` to return a connecti
 to the host-owned SQLite database. The host installs `config::PROVIDER_SCHEMA`
 through its own schema migrations and retains ownership of `user_version`,
 locking, recovery, and unrelated tables. Construct `RegistryStore::with_storage`
-and `ModelsService::new` with that store, an explicit `CredentialStore`, and
+and `ModelsService::new` with that store, an explicit `CredentialStore`, a
+`ModelLocationStore::with_storage` for the host
+`model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL)`
+table, and
 explicit chat/decision `ModelStore` directories. `models_service::run_stdio`
-serves the shared private Models protocol; `ModelsService::dispatch` also allows
+serves the shared private Models protocol, including per-model download folders.
+`ModelsService::dispatch` also allows
 an existing host agent to route Models requests itself. Neither constructor
 selects Fritz's default database, Keychain service, or model directory.
 
@@ -517,3 +521,9 @@ A repeated migration returns its original map and preserves later edits.
 previous records or credentials, so a completed import can retire its old input.
 The `AgentClient(bundle:)` initializer uses the same bundle storage configuration in
 all native hosts.
+
+Embedded hosts can use `local::ollama::serve_in` with their explicit model directory
+and `ModelLocationStore` to supervise the shared local API without accessing
+Fritz's default databases. `ModelsLocalRuntime` accepts the bundled executable,
+arguments, and environment for this host composition. Saved per-model folders
+are read on inventory and model admission, including context-size reloads.

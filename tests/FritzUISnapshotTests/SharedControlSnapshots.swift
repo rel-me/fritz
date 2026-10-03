@@ -1,5 +1,5 @@
 import AppKit
-import FritzUI
+@testable import FritzUI
 import Fritz
 import Observation
 import SwiftUI
@@ -79,7 +79,7 @@ final class SharedControlSnapshots: XCTestCase {
             }
             ModelProvidersTable(providers: [
                 .init(id: "openai", name: "OpenAI", warning: nil, isLocal: false,
-                      isDefault: true, models: "Example Model, Second Model"),
+                      isDefault: true, models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
                 .init(id: "local", name: "Local", warning: "Download a model", isLocal: true,
                       isDefault: false, models: "Local Model")
             ], selection: .constant([]), isLoading: false) { _ in }
@@ -87,6 +87,7 @@ final class SharedControlSnapshots: XCTestCase {
             .alternatingRowBackgrounds(.disabled)
         }
         try snapshot(view, name: "model-providers-list", size: .init(width: 760, height: 300))
+        try snapshot(view, name: "model-providers-list-compact", size: .init(width: 520, height: 300))
     }
 
     func testLocalModelSessionsList() throws {
@@ -115,11 +116,28 @@ final class SharedControlSnapshots: XCTestCase {
         }
         try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(), existing: nil),
                      name: "models-editor-new", size: .init(width: 600, height: 560), settleDuration: 0.45)
+        let availableStore = ModelsFixture(state: "available")
+        try snapshot(ModelsProviderEditor(store: availableStore, localModels: RuntimeFixture(installed: false),
+                                          existing: availableStore.connection(.fritz)),
+                     name: "models-editor-fritz-available", size: .init(width: 600, height: 560), settleDuration: 0.45)
+    }
+
+    func testDownloadCompletionRefreshesInstalledPath() async throws {
+        let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
+        defer { model.cancel() }
+        model.install()
+        let deadline = ContinuousClock.now + .seconds(2)
+        while model.installedURL == nil && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.state, .installed)
+        XCTAssertEqual(model.installedURL?.path, "/Models/Test.gguf")
     }
 
     func testUnifiedModelDownload() throws {
         for state in ["available", "installed", "error"] {
-            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state)),
+            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state),
+                                            hardware: LocalModelHardware(memoryGB: 32, appleSilicon: true)),
                          name: "models-download-\(state)", size: .init(width: 840, height: 540), settleDuration: 0.45)
         }
     }
@@ -281,6 +299,19 @@ final class SharedControlSnapshots: XCTestCase {
         host.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
         host.layoutSubtreeIfNeeded()
+        // Native table autosizing can leave the final column half a point
+        // narrower depending on earlier AppKit initialization. Round columns
+        // consistently so header dividers do not vary by one backing pixel.
+        func normalizeColumns(in view: NSView) {
+            if let table = view as? NSTableView {
+                for column in table.tableColumns {
+                    column.width = column.width.rounded(.up)
+                }
+                table.headerView?.needsDisplay = true
+            }
+            view.subviews.forEach { normalizeColumns(in: $0) }
+        }
+        normalizeColumns(in: host)
         host.displayIfNeeded()
         let bitmap = try XCTUnwrap(NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
@@ -306,6 +337,7 @@ final class SharedControlSnapshots: XCTestCase {
     var recentIDs: [String] { [] }
     var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
     private let connectionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    private var downloadedIDs: Set<String> = []
     init(state: String) { self.state = state; error = state == "error" ? "The provider is unavailable." : nil }
     func connection(_ provider: AIProviderKind) -> ProviderConnection {
         .init(id: connectionID, name: "Test", provider: provider,
@@ -320,13 +352,21 @@ final class SharedControlSnapshots: XCTestCase {
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
         [.init(id: "test-model", displayName: "Test Model")]
     }
-    func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
+    func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             if state == "error" { continuation.finish(throwing: AgentFailure(message: "The installer is unavailable.")); return }
-            let event: [String: Any] = ["type": "result", "result": ["models": [
-                ["id": modelID, "installed": state == "installed" || state == "populated", "path": "/Models/Test.gguf"]
-            ]]]
+            let result: [String: Any]
+            if install {
+                downloadedIDs.insert(modelID)
+                result = ["modelId": modelID, "installed": true]
+            } else {
+                result = ["models": [
+                    ["id": modelID, "installed": state == "installed" || state == "populated" || downloadedIDs.contains(modelID),
+                     "path": "/Models/Test.gguf", "directory": directory?.path ?? "/Models"]
+                ]]
+            }
+            let event: [String: Any] = ["type": "result", "result": result]
             continuation.yield(try! JSONSerialization.data(withJSONObject: event)); continuation.finish()
         }
     }
@@ -334,8 +374,10 @@ final class SharedControlSnapshots: XCTestCase {
 }
 
 @MainActor @Observable private final class RuntimeFixture: ModelsRuntimeStore {
-    var installedIDs: Set<String> { ["qwen2.5-1.5b-instruct-q4_k_m"] }
-    var sessions: [String: ModelsRuntimeSession] { ["qwen2.5-1.5b-instruct-q4_k_m": .init(status: .running, processID: 1234)] }
+    private let installed: Bool
+    init(installed: Bool = true) { self.installed = installed }
+    var installedIDs: Set<String> { installed ? ["qwen2.5-1.5b-instruct-q4_k_m"] : [] }
+    var sessions: [String: ModelsRuntimeSession] { installed ? ["qwen2.5-1.5b-instruct-q4_k_m": .init(status: .running, processID: 1234)] : [:] }
     var service: ModelsRuntimeSession { .init(status: .running, address: "http://127.0.0.1:11435") }
     var isLoading: Bool { false }
     var error: String? { nil }

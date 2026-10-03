@@ -8,6 +8,8 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub mod migration;
+mod model_locations;
+pub use model_locations::ModelLocationStore;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
@@ -146,6 +148,8 @@ pub struct Registry {
     pub version: u32,
     pub connections: Vec<Connection>,
     pub default_connection_id: Option<Uuid>,
+    #[serde(default)]
+    pub model_directories: std::collections::BTreeMap<String, PathBuf>,
 }
 impl Default for Registry {
     fn default() -> Self {
@@ -153,6 +157,7 @@ impl Default for Registry {
             version: 1,
             connections: vec![],
             default_connection_id: None,
+            model_directories: Default::default(),
         }
     }
 }
@@ -170,7 +175,17 @@ pub fn data_dir() -> PathBuf {
 pub fn models_dir() -> PathBuf {
     std::env::var_os("FRITZ_MODELS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| data_dir().join("Models"))
+        .unwrap_or_else(|| {
+            PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join("Models")
+        })
+}
+
+pub fn model_directories() -> Result<std::collections::BTreeMap<String, PathBuf>> {
+    ModelLocationStore::new(data_dir()).load()
+}
+
+pub fn remember_model_directory(model_id: &str, directory: &std::path::Path) -> Result<()> {
+    ModelLocationStore::new(data_dir()).remember(model_id, directory)
 }
 
 pub fn load() -> Result<Registry> {
@@ -215,6 +230,7 @@ fn read_registry(connection: &rusqlite::Connection) -> Result<Registry> {
         version: 1,
         connections,
         default_connection_id: default.map(|id| Uuid::parse_str(&id)).transpose()?,
+        model_directories: Default::default(),
     })
 }
 

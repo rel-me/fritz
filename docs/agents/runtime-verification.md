@@ -57,9 +57,9 @@ without a resolvable PR and all detached checkouts use
 `dist/FritzDebug{checkout hash}.app`.
 The checkout-path hash continues to isolate the bundle ID, data directory,
 Keychain service, and UserDefaults domain. Model weights are shared by all Debug
-apps at `/Library/Application Support/Fritz/Data/Models/`; chat GGUFs and decision
-artifacts use that same flat directory. The directory needs user write access for
-downloads. `FRITZ_MODELS_DIR` is an explicit override for isolated model tests. Use
+apps and the regular app at `~/Models/`; chat GGUFs and decision artifacts use
+that same flat directory. The first download creates it; listing models does not.
+`FRITZ_MODELS_DIR` is an explicit override for isolated model tests. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.

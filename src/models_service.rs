@@ -13,6 +13,7 @@ pub struct ModelsService {
     credentials: CredentialStore,
     local_models: local::models::ModelStore,
     decision_models: decision::local::ModelStore,
+    model_locations: config::ModelLocationStore,
 }
 impl ModelsService {
     pub fn new(
@@ -20,12 +21,14 @@ impl ModelsService {
         credentials: CredentialStore,
         local_models: local::models::ModelStore,
         decision_models: decision::local::ModelStore,
+        model_locations: config::ModelLocationStore,
     ) -> Self {
         Self {
             registry,
             credentials,
             local_models,
             decision_models,
+            model_locations,
         }
     }
     pub fn save(
@@ -195,9 +198,15 @@ impl ModelsService {
         connection.validate()?;
         if connection.provider.is_native() {
             let inventory = if connection.provider == ProviderKind::Ollaya {
-                self.decision_models.inventory(None).await?
+                decision::local::ModelStore::new(self.decision_models.default_directory())
+                    .with_model_directories(self.model_locations.load()?)
+                    .inventory(None)
+                    .await?
             } else {
-                self.local_models.inventory().await?
+                local::models::ModelStore::new(self.local_models.default_directory())
+                    .with_model_directories(self.model_locations.load()?)
+                    .inventory()
+                    .await?
             };
             return Ok(inventory["models"]
                 .as_array()
@@ -239,30 +248,64 @@ impl ModelsService {
         emit: impl Fn(Value) + Sync,
     ) -> Result<Option<Value>> {
         let result: Result<Value> = match method {
-            "localModels.list" => match params["modelId"].as_str() {
-                Some(id) => self.local_models.inventory_model(id).await,
-                None => self.local_models.inventory().await,
-            },
-            "localModels.install" => {
-                let id = params["modelId"]
-                    .as_str()
-                    .context("Choose a local model.")?;
-                self.local_models.download(id, &emit).await?;
-                Ok(json!({"modelId":id,"installed":true}))
+            "localModels.list" | "localModels.install" => {
+                let directory = download_directory(params)?;
+                let store = local::models::ModelStore::new(
+                    directory
+                        .as_deref()
+                        .unwrap_or(self.local_models.default_directory()),
+                )
+                .with_model_directories(if directory.is_some() {
+                    Default::default()
+                } else {
+                    self.model_locations.load()?
+                });
+                if method == "localModels.install" {
+                    let id = params["modelId"]
+                        .as_str()
+                        .context("Choose a local model.")?;
+                    store.download(id, &emit).await?;
+                    if let Some(directory) = directory {
+                        self.model_locations.remember(id, &directory)?;
+                    }
+                    Ok(json!({"modelId":id,"installed":true}))
+                } else {
+                    match params["modelId"].as_str() {
+                        Some(id) => store.inventory_model(id).await,
+                        None => store.inventory().await,
+                    }
+                }
             }
-            "decisionModels.list" => {
-                self.decision_models
-                    .inventory(params["modelId"].as_str())
-                    .await
+            "decisionModels.list" | "decisionModels.install" => {
+                let directory = download_directory(params)?;
+                let store = decision::local::ModelStore::new(
+                    directory
+                        .as_deref()
+                        .unwrap_or(self.decision_models.default_directory()),
+                )
+                .with_model_directories(if directory.is_some() {
+                    Default::default()
+                } else {
+                    self.model_locations.load()?
+                });
+                if method == "decisionModels.install" {
+                    let id = params["modelId"]
+                        .as_str()
+                        .context("Choose a local decision model.")?;
+                    store.download(id, &emit).await?;
+                    if let Some(directory) = directory {
+                        self.model_locations.remember(id, &directory)?;
+                    }
+                    Ok(json!({"modelId":id,"installed":true}))
+                } else {
+                    store.inventory(params["modelId"].as_str()).await
+                }
             }
-            "decisionModels.install" => {
-                let id = params["modelId"]
-                    .as_str()
-                    .context("Choose a local decision model.")?;
-                self.decision_models.download(id, &emit).await?;
-                Ok(json!({"modelId":id,"installed":true}))
+            "providers.list" => {
+                let mut registry = self.registry.load()?;
+                registry.model_directories = self.model_locations.load()?;
+                Ok(serde_json::to_value(registry)?)
             }
-            "providers.list" => Ok(serde_json::to_value(self.registry.load()?)?),
             "providers.migrationStatus" => Ok(json!({"migration": self.registry.migration_result(
             params["migrationId"].as_str().context("A migration identity is required.")?
         )?})),
@@ -314,6 +357,21 @@ impl ModelsService {
         };
         result.map(Some)
     }
+}
+
+fn download_directory(params: &Value) -> Result<Option<std::path::PathBuf>> {
+    let Some(value) = params.get("directory") else {
+        return Ok(None);
+    };
+    let directory =
+        std::path::PathBuf::from(value.as_str().context("Choose a model download folder.")?);
+    if !directory.is_absolute() || (directory.exists() && !directory.is_dir()) {
+        bail!("Choose an absolute folder path for the model download.");
+    }
+    params["modelId"]
+        .as_str()
+        .context("Choose a model for the download folder.")?;
+    Ok(Some(directory))
 }
 
 use std::collections::HashMap;
@@ -438,12 +496,14 @@ mod tests {
         let connection = rusqlite::Connection::open(&path).unwrap();
         connection.execute_batch("CREATE TABLE host_records (payload TEXT); INSERT INTO host_records VALUES ('keep'); PRAGMA user_version=87;").unwrap();
         connection.execute_batch(config::PROVIDER_SCHEMA).unwrap();
+        connection.execute_batch("CREATE TABLE model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL);").unwrap();
         let service = || {
             ModelsService::new(
                 RegistryStore::with_storage(Arc::new(HostStorage(path.clone()))),
                 CredentialStore::new("host.explicit.credentials.fixture").unwrap(),
                 local::models::ModelStore::new(directory.path().join("host-models")),
                 decision::local::ModelStore::new(directory.path().join("host-models")),
+                config::ModelLocationStore::with_storage(Arc::new(HostStorage(path.clone()))),
             )
         };
         let saved = Connection {
@@ -480,7 +540,64 @@ mod tests {
             first["connectionIds"][source.id.to_string()],
             saved.id.to_string()
         );
+        // A selected download location persists in the same host database and
+        // is used by inventory after restarting the service.
+        let selected = directory.path().join("selected-models");
+        std::fs::create_dir(&selected).unwrap();
+        let selected = selected.canonicalize().unwrap();
+        service()
+            .model_locations
+            .remember(&saved.model_id, &selected)
+            .unwrap();
         let reopened = service();
+        let inventory = reopened
+            .dispatch(
+                "localModels.list",
+                &json!({"modelId":saved.model_id}),
+                |_| {},
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            inventory["models"][0]["directory"],
+            selected.to_str().unwrap()
+        );
+        let metadata = reopened
+            .dispatch("providers.list", &json!({}), |_| {})
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            metadata["modelDirectories"][&saved.model_id],
+            selected.to_str().unwrap()
+        );
+        let override_folder = directory.path().join("not-created");
+        let preview = reopened
+            .dispatch(
+                "localModels.list",
+                &json!({"modelId":saved.model_id,"directory":override_folder}),
+                |_| {},
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            preview["models"][0]["directory"],
+            override_folder.to_str().unwrap()
+        );
+        assert!(!override_folder.exists());
+        assert!(
+            reopened
+                .dispatch(
+                    "localModels.list",
+                    &json!({"modelId":saved.model_id,"directory":"relative"}),
+                    |_| {}
+                )
+                .await
+                .is_err()
+        );
+
         let status = reopened
             .dispatch(
                 "providers.migrationStatus",
@@ -507,5 +624,7 @@ mod tests {
             87
         );
         assert!(!directory.path().join("providers.sqlite").exists());
+        assert!(!directory.path().join("model_locations.sqlite").exists());
+        assert!(!directory.path().join("host-models").exists());
     }
 }
