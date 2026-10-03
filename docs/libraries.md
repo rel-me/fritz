@@ -468,8 +468,9 @@ but cannot undo a command already executing. See
 `ModelsConfigurationScreen(store:runtime:)` is the Models page used by Fritz's
 Settings. It owns editor presentation and uses `ModelsProviderEditor` for both
 remote and local providers. Local models are managed inside that editor; they
-are not a separate Settings page. `ModelsDownloadSheet(store:modelID:category:)`
-provides the same filtered catalog and cancellable installer used by Fritz.
+are not a separate Settings page. `ModelsDownloadSheet(store:hardware:modelID:category:)`
+provides the same filtered catalog and cancellable installer used by Fritz. Hosts
+pass `LocalModelHardware.current` for the Mac running the local models.
 
 Create one `ModelsStore` and one `ModelsLocalRuntime` per app with the same
 `AgentClient`. `ModelsPreferences` supplies the app's existing nonsecret settings

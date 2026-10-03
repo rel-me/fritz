@@ -8,6 +8,14 @@ import XCTest
 
 @MainActor
 final class SharedControlSnapshots: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        // Pin AppKit's preferred style without changing the account's preferences.
+        var defaults = UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain)
+        defaults["AppleShowScrollBars"] = "WhenScrolling"
+        UserDefaults.standard.setVolatileDomain(defaults, forName: UserDefaults.argumentDomain)
+    }
+
     private let providers: [PickerProvider] = [
         .init(id: "fritz", displayName: "Fritz", groupID: "local"),
         .init(id: "bedrock", displayName: "Bedrock", groupID: "compatible"),
@@ -119,7 +127,8 @@ final class SharedControlSnapshots: XCTestCase {
 
     func testUnifiedModelDownload() throws {
         for state in ["available", "installed", "error"] {
-            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state)),
+            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state),
+                                             hardware: .init(memoryGB: 32, appleSilicon: true)),
                          name: "models-download-\(state)", size: .init(width: 840, height: 540), settleDuration: 0.45)
         }
     }

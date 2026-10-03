@@ -3,12 +3,15 @@ import Fritz
 import SwiftUI
 
 public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
+    private let hardware: LocalModelHardware
     @Environment(\.dismiss) private var dismiss
     @State private var model: ConfigurationNativeModel<Store>
     @State private var directoryPanel: NSOpenPanel?
     @State private var filters = NativeModelFilters()
 
-    public init(store: Store, modelID: String? = nil, category: AIModelCategory? = nil) {
+    public init(store: Store, hardware: LocalModelHardware = .current,
+                modelID: String? = nil, category: AIModelCategory? = nil) {
+        self.hardware = hardware
         _model = State(initialValue: ConfigurationNativeModel(store: store, modelID: modelID, category: category))
     }
 
@@ -19,7 +22,7 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
             ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
                 get: { model.selectedModelID },
                 set: { model.select($0) }
-            ), state: model.state, hardware: .current, catalog: model.catalog)
+            ), state: model.state, hardware: hardware, catalog: model.catalog)
             Divider()
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
