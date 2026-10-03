@@ -58,6 +58,18 @@ impl ModelStore {
         }
     }
 
+    pub fn with_model_directories(
+        mut self,
+        directories: std::collections::BTreeMap<String, PathBuf>,
+    ) -> Self {
+        self.model_directories = directories;
+        self
+    }
+
+    pub fn default_directory(&self) -> &std::path::Path {
+        &self.directory
+    }
+
     pub fn configured() -> Result<Self> {
         Ok(Self {
             directory: crate::config::models_dir(),

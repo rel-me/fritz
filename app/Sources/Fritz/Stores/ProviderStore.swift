@@ -1,10 +1,12 @@
 import Fritz
+import Foundation
 import FritzUI
 
 typealias ProviderStore = ModelsStore
 
 extension ModelsStore {
     convenience init(agent: AgentClient, database: AppDatabase) {
-        self.init(agent: agent, preferences: database)
+        self.init(agent: agent, preferences: database, keychainService:
+            Bundle.main.object(forInfoDictionaryKey: "FritzKeychainService") as? String ?? "dev.fritz.provider-credentials")
     }
 }

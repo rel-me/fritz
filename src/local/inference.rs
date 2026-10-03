@@ -34,6 +34,16 @@ impl Engine {
         Ok(engine)
     }
 
+    pub async fn installed_in_with_context(
+        store: &super::models::ModelStore,
+        model_id: &str,
+        context_size: usize,
+    ) -> Result<Self> {
+        let mut engine = Self::installed_in(store, model_id).await?;
+        engine.context_size = context_size;
+        Ok(engine)
+    }
+
     /// Resolve present model files without loading them or accessing the network.
     pub async fn installed_in(store: &super::models::ModelStore, model_id: &str) -> Result<Self> {
         Ok(Self {

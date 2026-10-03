@@ -36,8 +36,7 @@ impl RegistryStore {
     /// Retrieve the committed mapping without reopening the former storage.
     pub fn migration_result(&self, migration_id: &str) -> Result<Option<MigrationResult>> {
         validate_identity(migration_id)?;
-        let mut database = provider_database(&self.directory)?;
-        database.transaction(|transaction| read_migration(transaction, migration_id))
+        self.transaction(|transaction| read_migration(transaction, migration_id))
     }
     /// Preserves configured destination connections and credentials. Metadata and
     /// completion commit together. A failed Keychain copy leaves the source intact
@@ -64,8 +63,7 @@ impl RegistryStore {
         mut copy_credential: impl FnMut(&CredentialSource, Uuid) -> Result<()>,
     ) -> Result<MigrationResult> {
         validate_identity(&request.migration_id)?;
-        let mut database = provider_database(&self.directory)?;
-        database.transaction(|transaction| {
+        self.transaction(|transaction| {
             if let Some(completed) = read_migration(transaction, &request.migration_id)? {
                 return Ok(completed);
             }

@@ -48,10 +48,6 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
         .ok_or_else(|| anyhow!("Unknown Fritz local model: {id}"))
 }
 
-pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
-    ModelStore::configured()?.installed_path(model_id).await
-}
-
 /// Flat model files in a host-selected Models directory. Downloads verify before publication.
 #[derive(Clone, Debug)]
 pub struct ModelStore {
@@ -65,6 +61,18 @@ impl ModelStore {
             directory: directory.into(),
             model_directories: Default::default(),
         }
+    }
+
+    pub fn with_model_directories(
+        mut self,
+        directories: std::collections::BTreeMap<String, PathBuf>,
+    ) -> Self {
+        self.model_directories = directories;
+        self
+    }
+
+    pub fn default_directory(&self) -> &std::path::Path {
+        &self.directory
     }
 
     pub fn configured() -> Result<Self> {

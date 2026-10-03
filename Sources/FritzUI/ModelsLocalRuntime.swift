@@ -23,6 +23,9 @@ import Observation
     @ObservationIgnored private var warningModelID: String?
     @ObservationIgnored private var pendingStarts: [String] = []
     @ObservationIgnored private let agent: AgentClient
+    private let executableURL: URL?
+    private let environment: [String: String]
+    private let arguments: [String]
     @ObservationIgnored private var process: Process?
     @ObservationIgnored private var input: Pipe?
     @ObservationIgnored private var output: Pipe?
@@ -30,8 +33,22 @@ import Observation
     @ObservationIgnored private var pendingData = Data()
     @ObservationIgnored private var generation: UUID?
 
-    public init(agent: AgentClient, preferences: any ModelsPreferences) {
+    public convenience init(agent: AgentClient, preferences: any ModelsPreferences) {
+        var environment = ProcessInfo.processInfo.environment
+        if let directory = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
+            environment["FRITZ_DATA_DIR"] = NSString(string: directory).expandingTildeInPath
+        }
+        if environment["FRITZ_MODELS_DIR"] == nil, let directory = Bundle.main.object(forInfoDictionaryKey: "FritzModelsDirectory") as? String {
+            environment["FRITZ_MODELS_DIR"] = NSString(string: directory).expandingTildeInPath
+        }
+        self.init(agent: agent, preferences: preferences,
+            executableURL: Bundle.main.resourceURL?.appendingPathComponent("fritz"), environment: environment)
+    }
+    public init(agent: AgentClient, preferences: any ModelsPreferences, executableURL: URL?, environment: [String: String], arguments: [String] = ["local-models", "serve", "--port", "0", "--managed"]) {
         self.agent = agent
+        self.executableURL = executableURL
+        self.environment = environment
+        self.arguments = arguments
         self.database = preferences
         do { policies = try preferences.setting("localModelStartPolicies") ?? [:] }
         catch { policyError = "Could not restore model startup settings: \(error.localizedDescription)" }
@@ -155,22 +172,14 @@ import Observation
 
     public func startService() {
         guard !isShuttingDown, process == nil else { return }
-        guard let executable = Bundle.main.resourceURL?.appendingPathComponent("fritz"),
+        guard let executable = executableURL,
               FileManager.default.isExecutableFile(atPath: executable.path) else {
             service = Session(status: .failed, error: "The bundled fritz executable is missing.")
             return
         }
         let process = Process()
         process.executableURL = executable
-        process.arguments = ["local-models", "serve", "--port", "0", "--managed"]
-        var environment = ProcessInfo.processInfo.environment
-        if let dataDirectory = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
-            environment["FRITZ_DATA_DIR"] = NSString(string: dataDirectory).expandingTildeInPath
-        }
-        if environment["FRITZ_MODELS_DIR"] == nil,
-           let directory = Bundle.main.object(forInfoDictionaryKey: "FritzModelsDirectory") as? String {
-            environment["FRITZ_MODELS_DIR"] = NSString(string: directory).expandingTildeInPath
-        }
+        process.arguments = arguments
         process.environment = environment
         let input = Pipe(), output = Pipe(), stderr = Pipe()
         process.standardInput = input

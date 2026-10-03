@@ -106,6 +106,34 @@ Supply every filter category shown by the provider picker, including `.all`.
 Model/provider lists remain in host order before the documented grouping or
 alphabetical provider search. The library never starts processes or reads settings.
 
+## Host-owned Models storage
+
+Embed the complete Models flow with `ModelsConfigurationScreen` and a
+`ModelsStore` backed by an explicitly configured `AgentClient`. Pass the host's
+`keychainService` to `ModelsStore`; credential export uses that reference. Pass
+an executable URL and environment to `ModelsLocalRuntime` so the host controls
+its bundled runtime and model directory.
+
+On the Rust side, implement `config::ProviderStorage::open` to return a connection
+to the host-owned SQLite database. The host installs `config::PROVIDER_SCHEMA`
+through its own schema migrations and retains ownership of `user_version`,
+locking, recovery, and unrelated tables. Construct `RegistryStore::with_storage`
+and `ModelsService::new` with that store, an explicit `CredentialStore`, a
+`ModelLocationStore::with_storage` for the host
+`model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL)`
+table, and
+explicit chat/decision `ModelStore` directories. `models_service::run_stdio`
+serves the shared private Models protocol, including per-model download folders.
+`ModelsService::dispatch` also allows
+an existing host agent to route Models requests itself. Neither constructor
+selects Fritz's default database, Keychain service, or model directory.
+
+Legacy provider migration uses the injected registry transaction and credential
+store, persists its source-ID mapping, and retains completion state across
+restarts. See [the private protocol](protocol.md) for migration requests.
+For native inference, `Engine::installed_in_with_context` accepts an explicit
+model store, and `local::generate_with_engine` uses that host-created engine.
+
 ## Tabs and split panes
 
 The root package also exports `Bonsplit`, the self-contained MIT-licensed package
@@ -493,3 +521,9 @@ A repeated migration returns its original map and preserves later edits.
 previous records or credentials, so a completed import can retire its old input.
 The `AgentClient(bundle:)` initializer uses the same bundle storage configuration in
 all native hosts.
+
+Embedded hosts can use `local::ollama::serve_in` with their explicit model directory
+and `ModelLocationStore` to supervise the shared local API without accessing
+Fritz's default databases. `ModelsLocalRuntime` accepts the bundled executable,
+arguments, and environment for this host composition. Saved per-model folders
+are read on inventory and model admission, including context-size reloads.
