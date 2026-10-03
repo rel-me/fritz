@@ -1,5 +1,5 @@
 import AppKit
-import FritzUI
+@testable import FritzUI
 import Fritz
 import Observation
 import SwiftUI
@@ -116,6 +116,22 @@ final class SharedControlSnapshots: XCTestCase {
         }
         try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(), existing: nil),
                      name: "models-editor-new", size: .init(width: 600, height: 560), settleDuration: 0.45)
+        let availableStore = ModelsFixture(state: "available")
+        try snapshot(ModelsProviderEditor(store: availableStore, localModels: RuntimeFixture(installed: false),
+                                          existing: availableStore.connection(.fritz)),
+                     name: "models-editor-fritz-available", size: .init(width: 600, height: 560), settleDuration: 0.45)
+    }
+
+    func testDownloadCompletionRefreshesInstalledPath() async throws {
+        let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
+        defer { model.cancel() }
+        model.install()
+        let deadline = ContinuousClock.now + .seconds(2)
+        while model.installedURL == nil && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.state, .installed)
+        XCTAssertEqual(model.installedURL?.path, "/Models/Test.gguf")
     }
 
     func testUnifiedModelDownload() throws {
@@ -308,6 +324,7 @@ final class SharedControlSnapshots: XCTestCase {
     var recentIDs: [String] { [] }
     var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
     private let connectionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    private var downloadedIDs: Set<String> = []
     init(state: String) { self.state = state; error = state == "error" ? "The provider is unavailable." : nil }
     func connection(_ provider: AIProviderKind) -> ProviderConnection {
         .init(id: connectionID, name: "Test", provider: provider,
@@ -326,9 +343,17 @@ final class SharedControlSnapshots: XCTestCase {
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             if state == "error" { continuation.finish(throwing: AgentFailure(message: "The installer is unavailable.")); return }
-            let event: [String: Any] = ["type": "result", "result": ["models": [
-                ["id": modelID, "installed": state == "installed" || state == "populated", "path": "/Models/Test.gguf"]
-            ]]]
+            let result: [String: Any]
+            if install {
+                downloadedIDs.insert(modelID)
+                result = ["modelId": modelID, "installed": true]
+            } else {
+                result = ["models": [
+                    ["id": modelID, "installed": state == "installed" || state == "populated" || downloadedIDs.contains(modelID),
+                     "path": "/Models/Test.gguf"]
+                ]]
+            }
+            let event: [String: Any] = ["type": "result", "result": result]
             continuation.yield(try! JSONSerialization.data(withJSONObject: event)); continuation.finish()
         }
     }
@@ -336,8 +361,10 @@ final class SharedControlSnapshots: XCTestCase {
 }
 
 @MainActor @Observable private final class RuntimeFixture: ModelsRuntimeStore {
-    var installedIDs: Set<String> { ["qwen2.5-1.5b-instruct-q4_k_m"] }
-    var sessions: [String: ModelsRuntimeSession] { ["qwen2.5-1.5b-instruct-q4_k_m": .init(status: .running, processID: 1234)] }
+    private let installed: Bool
+    init(installed: Bool = true) { self.installed = installed }
+    var installedIDs: Set<String> { installed ? ["qwen2.5-1.5b-instruct-q4_k_m"] : [] }
+    var sessions: [String: ModelsRuntimeSession] { installed ? ["qwen2.5-1.5b-instruct-q4_k_m": .init(status: .running, processID: 1234)] : [:] }
     var service: ModelsRuntimeSession { .init(status: .running, address: "http://127.0.0.1:11435") }
     var isLoading: Bool { false }
     var error: String? { nil }

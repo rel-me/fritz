@@ -92,13 +92,16 @@ to the attached folder, with `.` identifying its root.
 
 ## Download local models
 
-Choose **New Local Model** from the **+** or **File** menu to download
+Click the download icon at the top of **Settings → Models**, or choose
+**New Local Model** from the **+** or **File** menu, to download
 a Fritz model from a selectable list with Name, Type, Size / Status, and Hardware
 Requirements columns. Use the type (LLM or Decision) and model-family capsules
 to combine filters; click a selected capsule to remove it, or All to reset.
 The downloadable catalog contains LLMs and experimental Laya decision models;
-Jev remains a remote Decision Model. Provider-specific download sheets show only
-that provider’s model category. The sheet shows the selected model’s license, download
+Jev remains a remote Decision Model. In New Models or Edit Models, selecting an
+uninstalled Fritz or Ollaya model shows **Download**, which installs that model
+directly with progress and cancellation. Installed models have no Download button.
+The download catalog shows the selected model’s license, download
 progress, and installation status. Cancel stops the download; Retry starts a fresh
 attempt. Once the model is installed, add or edit a **Fritz** provider in
 **Settings → Models** and select it.

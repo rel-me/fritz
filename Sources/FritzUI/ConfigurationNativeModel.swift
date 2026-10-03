@@ -72,6 +72,7 @@ import Observation
             }
             guard let self, requestID == id else { return }
             requestID = nil; task = nil
+            if install, state == .installed { refresh() }
         }
     }
 }

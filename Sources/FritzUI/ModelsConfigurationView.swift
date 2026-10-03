@@ -9,6 +9,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
     @State private var selectedIDs: Set<UUID> = []
     @State private var deleting: ProviderConnection?
     @State private var isImporting = false
+    @State private var showsDownload = false
     @State private var showsExportOptions = false
     @State private var exportConnections: [ProviderConnection] = []
     @State private var textExport: ProviderTextExport?
@@ -26,6 +27,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             actionControlSize: .extraLarge,
             transferActions: { transferMenu.controlSize(.extraLarge) },
             addProvider: { editor = ModelsEditorSelection() },
+            downloadModels: { showsDownload = true },
             editProvider: { id in
                 if let connection = store.connections.first(where: { $0.id == id }) {
                     editor = ModelsEditorSelection(connection: connection)
@@ -49,6 +51,11 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             }
         )
         .sheet(isPresented: $isImporting) { ConfigurationTransferSheet(store: store) }
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            Task { await localModels.refresh(); await store.refresh() }
+        }) {
+            ModelsDownloadSheet(store: store, hardware: .current)
+        }
         .confirmationDialog("Export", isPresented: $showsExportOptions) {
             Button("Export Without Keys") { exportProviders(includeKeys: false) }
             Button("Export Including API Keys") { exportProviders(includeKeys: true) }
@@ -144,7 +151,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: ConfigurationNativeModel<Store>
     @State private var startPolicy: ModelsStartPolicy
-    @State private var showsDownload = false
     @State private var saveTask: Task<Void, Never>?
 
     public init(store: Store, localModels: Runtime, existing: ProviderConnection?) {
@@ -206,6 +212,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                                 Text(model.name).tag(model.id)
                             }
                         }
+                        .disabled(nativeModel.state.isBusy)
                         if managesLocalAPI {
                             Picker("Start on", selection: $startPolicy) {
                                 ForEach(ModelsStartPolicy.allCases) { policy in
@@ -219,7 +226,12 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                         case .installed: EmptyView()
                         case .checking: Text("Checking…")
                         case .failed(let message): Text(message).foregroundStyle(.red)
-                        case .available, .downloading: Text("Not installed")
+                        case .available: Text("Not installed")
+                        case let .downloading(downloaded, total):
+                            ProgressView(value: Double(downloaded), total: Double(total))
+                                .accessibilityLabel("Downloading local model")
+                            Text("\(ByteCountFormatter.string(fromByteCount: Int64(downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file))")
+                                .monospacedDigit()
                         }
                         if let duplicateConnection {
                             duplicateWarning(duplicateConnection)
@@ -243,7 +255,11 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                             .padding(.top, 6)
                         }
                         HStack(spacing: 8) {
-                            Button("Download") { showsDownload = true }
+                            if !nativeModel.state.isBusy && nativeModel.state != .installed {
+                                Button("Download") { nativeModel.install() }
+                            } else if case .downloading = nativeModel.state {
+                                Button("Cancel Download") { nativeModel.cancel() }
+                            }
                             if managesLocalAPI {
                                 if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
                                     Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
@@ -301,11 +317,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             if managesLocalModels { nativeModel.refresh() }
             if preset.provider == .fritz { await localModels.refresh() }
         }
-        .sheet(isPresented: $showsDownload, onDismiss: {
-            nativeModel.refresh()
-            Task { await localModels.refresh() }
-        }) {
-            ModelsDownloadSheet(store: store, hardware: .current, modelID: nativeModel.selectedModelID, category: category)
+        .task(id: nativeModel.state == .installed) {
+            if nativeModel.state == .installed { await localModels.refresh() }
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }

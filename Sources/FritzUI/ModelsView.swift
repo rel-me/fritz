@@ -84,17 +84,18 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
       ModelManagementHeader("Models", background: background) {
         if page == .providers {
           transferActions
+        }
+        Button("Download Models", systemImage: "arrow.down", action: downloadModels)
+          .labelStyle(.iconOnly)
+          .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
+          .controlSize(actionControlSize)
+          .help("Download Models")
+        if page == .providers {
           Button("Add Provider", systemImage: "plus", action: addProvider)
             .labelStyle(.iconOnly)
             .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
             .controlSize(actionControlSize)
             .help("Add Provider")
-        } else {
-          Button("Download Models", systemImage: "arrow.down", action: downloadModels)
-            .labelStyle(.iconOnly)
-            .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-            .controlSize(actionControlSize)
-            .help("Download Models")
         }
       }
       if showsLocalModels {
