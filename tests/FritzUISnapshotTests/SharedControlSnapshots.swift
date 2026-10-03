@@ -120,7 +120,8 @@ final class SharedControlSnapshots: XCTestCase {
 
     func testUnifiedModelDownload() throws {
         for state in ["available", "installed", "error"] {
-            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state)),
+            try snapshot(ModelsDownloadSheet(store: ModelsFixture(state: state),
+                                            hardware: LocalModelHardware(memoryGB: 32, appleSilicon: true)),
                          name: "models-download-\(state)", size: .init(width: 840, height: 540), settleDuration: 0.45)
         }
     }

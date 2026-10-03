@@ -305,7 +305,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             nativeModel.refresh()
             Task { await localModels.refresh() }
         }) {
-            ModelsDownloadSheet(store: store, modelID: nativeModel.selectedModelID, category: category)
+            ModelsDownloadSheet(store: store, hardware: .current, modelID: nativeModel.selectedModelID, category: category)
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }

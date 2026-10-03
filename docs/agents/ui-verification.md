@@ -65,6 +65,8 @@ rendered surface through its `assertSnapshot(view:device:)` API. This captures t
 compares the pixels; it does not replace controls with stand-ins. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
 indicators, with synthetic model/provider values and no network or credentials.
+Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so
+memory warnings and hardware summaries do not depend on the runner's Mac.
 The harness also pins each AppKit scroll view to overlay scrollers: hiding
 indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
 
