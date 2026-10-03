@@ -40,49 +40,57 @@ public struct ModelProvidersTable<ID: Hashable>: View {
   }
 
   public var body: some View {
-    Table(providers, selection: $selection) {
-      TableColumn("Name") { profile in
-        HStack(spacing: 6) {
-          Text(profile.name)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .help(profile.nameHelp ?? profile.name)
-          if let warning = profile.warning {
-            Button {
-              edit(profile.id)
-            } label: {
-              providerChip("Needs Setup", color: .orange)
+    GeometryReader { geometry in
+      let nameWidth: CGFloat = 260
+      // The name width stays stable while AppKit resizes the flexible model column.
+      if geometry.size.width > 0 && geometry.size.height > 0 {
+        Table(providers, selection: $selection) {
+          TableColumn("Name") { profile in
+            HStack(spacing: 6) {
+              Text(profile.name)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(profile.nameHelp ?? profile.name)
+              if let warning = profile.warning {
+                Button {
+                  edit(profile.id)
+                } label: {
+                  providerChip("Needs Setup", color: .orange)
+                }
+                .buttonStyle(FritzButtonStyle(.inline))
+                .help(warning)
+                .accessibilityLabel("\(profile.name): \(warning)")
+              } else if isLoading {
+                providerChip("Loading", color: .secondary)
+              } else {
+                providerChip("Ready", color: .green)
+              }
+              if profile.isLocal {
+                providerChip("Local")
+              }
+              if profile.isDefault {
+                providerChip("Default")
+              }
             }
-            .buttonStyle(FritzButtonStyle(.inline))
-            .help(warning)
-            .accessibilityLabel("\(profile.name): \(warning)")
-          } else if isLoading {
-            providerChip("Loading", color: .secondary)
-          } else {
-            providerChip("Ready", color: .green)
           }
-          if profile.isLocal {
-            providerChip("Local")
-          }
-          if profile.isDefault {
-            providerChip("Default")
-          }
-        }
-      }
-      .width(min: 260, ideal: 340, max: .infinity)
+          .width(nameWidth)
 
-      TableColumn("Models") { profile in
-        if let names = profile.models {
-          Text(names)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .help(names)
-        } else {
-          Text(isLoading ? "Loading…" : "—")
-            .foregroundStyle(.secondary)
+          TableColumn("Models") { profile in
+            if let names = profile.models {
+              Text(names)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(names)
+            } else {
+              Text(isLoading ? "Loading…" : "—")
+                .foregroundStyle(.secondary)
+            }
+          }
+          .width(min: 100, max: .infinity)
         }
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .scrollIndicators(.hidden, axes: .horizontal)
       }
-      .width(min: 100, max: .infinity)
     }
   }
 

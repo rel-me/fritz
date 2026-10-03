@@ -13,18 +13,25 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
-| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status, and `path` (installed GGUF path or null) |
-| `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
+| `localModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned catalog entries with `id`, `name`, `size`, download `directory`, file-presence `installed` status, and `path` (installed GGUF path or null) |
+| `localModels.install` | `modelId`, optional absolute `directory` | Download progress, then `modelId` and `installed: true`; saves the selected folder after success |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
-| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog, file-presence installation status, and `path` (installed ONNX graph path or null) |
-| `decisionModels.install` | `modelId` | Explicit verified download, progress events, and installed result |
+| `decisionModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned local decision catalog, download `directory`, file-presence installation status, and `path` (installed ONNX graph path or null) |
+| `decisionModels.install` | `modelId`, optional absolute `directory` | Explicit verified download, progress events, and installed result; saves the selected folder after success |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
+Local-model folder choices are stored per model in the profile's `model_locations.sqlite`.
+Without an explicit directory, inventory, downloads, discovery and inference use
+the saved folder or the default model root. Listing an explicit folder does not
+save it; only a successful install does. Failed or cancelled installs preserve
+the previous choice. Existing files are not moved.
 TypeSafe connections retain the wire identifier `jev` for compatibility, use model `jev-latest`, and have no configurable endpoint. Providers have LLM or Decision model categories. Only LLM connections can be the default chat provider or be used by `chat`.
 
-Provider import validates every connection before saving, then saves in order. A storage or Keychain failure reports how many entries were saved. Missing keys are allowed during import and discovery reports that setup is needed. Existing keys are preserved when omitted; changing an endpoint with a saved key requires a replacement key. Saving or importing rejects another connection with the same provider kind and endpoint, or the same Fritz/Ollaya local model. Existing default selection is preserved; the first LLM becomes default if none exists. The UI resolves Skip/Overwrite by service, preserving existing IDs and connection names, and refuses ambiguous overwrites. Export is a UI operation: metadata is encoded as version 1 `fritz.provider` or `fritz.providers` JSON; the importer also accepts REL's corresponding envelopes. An explicit key-inclusive export reads Fritz's Keychain in the app process, never through an agent response.
+Provider import validates every connection before saving, then saves in order. A storage or Keychain failure reports how many entries were saved. Missing keys are allowed during import and discovery reports that setup is needed. Existing keys are preserved when omitted; changing an endpoint with a saved key requires a replacement key. Saving or importing rejects another connection with the same provider kind and endpoint, or the same Fritz/Ollaya local model. Existing default selection is preserved; the first LLM becomes default if none exists. The UI resolves Skip/Overwrite by service, preserving existing IDs and connection names, and refuses ambiguous overwrites.
+
+Import and export text uses cURL only; JSON envelopes are not supported. Export generates a bounded GET request to the HTTP provider’s model-list endpoint (`models`, or `api/tags` for Ollama). TypeSafe uses `/v1/models` with its fixed decision endpoint retained on import. Quoted stdin configuration comments preserve provider kind, connection name, and model; default-provider status is omitted. Import parses these exports and ordinary cURL GET checks to model-list or health endpoints, without executing shell text, expanding substitutions, reading files, or accepting unsupported request options. `YOUR_API_KEY` is treated as a missing key. An explicit key-inclusive export reads Fritz's Keychain in the app process, never through an agent response.
 
 Provider migration is a one-time host import with no API keys in its payload or result. Rust copies the referenced Keychain items into the destination namespace without deleting the sources or replacing existing destination keys. The full batch is validated before copying. Provider records, default selection, UUID mappings, and completion commit in one SQLite transaction. A credential/storage failure leaves the migration incomplete and retryable. Already configured connections are preserved; duplicate targets map to the existing UUID. Name or identity conflicts with a different target stop the migration. An existing default is preserved; otherwise the imported LLM default is selected. Retrying a completed `migrationId` returns the original mapping without reading source credentials or overwriting subsequent user changes.
 

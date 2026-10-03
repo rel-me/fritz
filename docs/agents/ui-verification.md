@@ -1,6 +1,7 @@
 # Native UI verification
 
-Build the complete staged app and use the mock-provider setup in
+Use `make build` for incremental Debug builds of the complete staged app during
+UI development and verification. Use the mock-provider setup in
 [runtime verification](runtime-verification.md). Inspect the actual native
 surface affected by the change; process launch and compilation do not verify
 layout, focus, command routing, or state restoration.
@@ -64,8 +65,12 @@ rendered surface through its `assertSnapshot(view:device:)` API. This captures t
 compares the pixels; it does not replace controls with stand-ins. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
 indicators, with synthetic model/provider values and no network or credentials.
+Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so
+memory warnings and hardware summaries do not depend on the runner's Mac.
 The harness also pins each AppKit scroll view to overlay scrollers: hiding
 indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
+Native table column widths are rounded up to whole points before capture to avoid
+a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
 Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
 same command and uploads mismatches from `dist/snapshot-failures`. Ordinary

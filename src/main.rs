@@ -267,35 +267,72 @@ struct Request {
     params: Value,
 }
 
+fn download_directory(params: &Value) -> Result<Option<std::path::PathBuf>> {
+    let Some(value) = params.get("directory") else {
+        return Ok(None);
+    };
+    let directory =
+        std::path::PathBuf::from(value.as_str().context("Choose a model download folder.")?);
+    if !directory.is_absolute() || (directory.exists() && !directory.is_dir()) {
+        bail!("Choose an absolute folder path for the model download.");
+    }
+    params["modelId"]
+        .as_str()
+        .context("Choose a model for the download folder.")?;
+    Ok(Some(directory))
+}
+
 async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Value> {
     let params = &request.params;
     match request.method.as_str() {
         "health" => Ok(
             json!({"name":"fritz","version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"harness":"fritz-harness"}),
         ),
-        "localModels.list" => match params["modelId"].as_str() {
-            Some(id) => local::models::inventory_model(id).await,
-            None => local::models::inventory().await,
-        },
+        "localModels.list" => {
+            let store = match download_directory(params)? {
+                Some(directory) => local::models::ModelStore::new(directory),
+                None => local::models::ModelStore::configured()?,
+            };
+            match params["modelId"].as_str() {
+                Some(id) => store.inventory_model(id).await,
+                None => store.inventory().await,
+            }
+        }
         "localModels.install" => {
             let id = params["modelId"]
                 .as_str()
                 .context("Choose a local model.")?;
-            local::models::download(id, &emit).await?;
+            let directory = download_directory(params)?;
+            let store = match &directory {
+                Some(directory) => local::models::ModelStore::new(directory),
+                None => local::models::ModelStore::configured()?,
+            };
+            store.download(id, &emit).await?;
+            if let Some(directory) = directory {
+                config::remember_model_directory(id, &directory)?;
+            }
             Ok(json!({"modelId":id,"installed":true}))
         }
         "decisionModels.list" => {
-            decision::local::ModelStore::new(config::models_dir())
-                .inventory(params["modelId"].as_str())
-                .await
+            let store = match download_directory(params)? {
+                Some(directory) => decision::local::ModelStore::new(directory),
+                None => decision::local::ModelStore::configured()?,
+            };
+            store.inventory(params["modelId"].as_str()).await
         }
         "decisionModels.install" => {
             let id = params["modelId"]
                 .as_str()
                 .context("Choose a local decision model.")?;
-            decision::local::ModelStore::new(config::models_dir())
-                .download(id, &emit)
-                .await?;
+            let directory = download_directory(params)?;
+            let store = match &directory {
+                Some(directory) => decision::local::ModelStore::new(directory),
+                None => decision::local::ModelStore::configured()?,
+            };
+            store.download(id, &emit).await?;
+            if let Some(directory) = directory {
+                config::remember_model_directory(id, &directory)?;
+            }
             Ok(json!({"modelId":id,"installed":true}))
         }
         "providers.list" => Ok(serde_json::to_value(config::load()?)?),
@@ -509,7 +546,7 @@ async fn run() -> Result<()> {
             } => local::ollama::serve(port, model, managed).await?,
         },
         Some(Command::DecisionModels { command }) => {
-            let store = decision::local::ModelStore::new(config::models_dir());
+            let store = decision::local::ModelStore::configured()?;
             match command {
                 DecisionModelCommand::List { model } => println!(
                     "{}",

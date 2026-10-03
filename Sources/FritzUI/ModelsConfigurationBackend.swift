@@ -23,7 +23,7 @@ public enum ModelsImportPolicy: String, CaseIterable {
     func importProviders(_ text: String, policy: ModelsImportPolicy) async throws
     func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel]
-    func modelEvents(category: AIModelCategory, modelID: String, install: Bool,
+    func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error>
     func cancelModelRequest(_ requestID: String)
 }

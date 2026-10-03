@@ -49,27 +49,41 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
 }
 
 pub(crate) async fn installed_path(model_id: &str) -> Result<PathBuf> {
-    ModelStore::new(crate::config::models_dir())
-        .installed_path(model_id)
-        .await
+    ModelStore::configured()?.installed_path(model_id).await
 }
 
 /// Flat model files in a host-selected Models directory. Downloads verify before publication.
 #[derive(Clone, Debug)]
 pub struct ModelStore {
     directory: PathBuf,
+    model_directories: std::collections::BTreeMap<String, PathBuf>,
 }
 
 impl ModelStore {
     pub fn new(directory: impl Into<PathBuf>) -> Self {
         Self {
             directory: directory.into(),
+            model_directories: Default::default(),
         }
+    }
+
+    pub fn configured() -> Result<Self> {
+        Ok(Self {
+            directory: crate::config::models_dir(),
+            model_directories: crate::config::model_directories()?,
+        })
+    }
+
+    fn directory_for(&self, model_id: &str) -> &Path {
+        self.model_directories
+            .get(model_id)
+            .map(PathBuf::as_path)
+            .unwrap_or(&self.directory)
     }
 
     pub async fn installed_path(&self, model_id: &str) -> Result<PathBuf> {
         let pin = manifest(model_id)?;
-        let path = self.directory.join(&pin.file);
+        let path = self.directory_for(model_id).join(&pin.file);
         if path.is_file() {
             Ok(path)
         } else {
@@ -95,9 +109,7 @@ impl Drop for Partial {
 }
 
 pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
-    ModelStore::new(crate::config::models_dir())
-        .download(model_id, emit)
-        .await
+    ModelStore::configured()?.download(model_id, emit).await
 }
 
 impl ModelStore {
@@ -107,7 +119,7 @@ impl ModelStore {
             "https://huggingface.co/{}/resolve/{}/{}",
             pin.repository, pin.revision, pin.file
         );
-        download_to(&self.directory, &url, pin, emit).await
+        download_to(self.directory_for(model_id), &url, pin, emit).await
     }
 }
 
@@ -221,15 +233,11 @@ pub(crate) async fn download_file(
 #[cfg(test)]
 const MODEL_ID: &str = "qwen2.5-1.5b-instruct-q4_k_m";
 pub async fn inventory() -> Result<Value> {
-    ModelStore::new(crate::config::models_dir())
-        .inventory()
-        .await
+    ModelStore::configured()?.inventory().await
 }
 
 pub async fn inventory_model(id: &str) -> Result<Value> {
-    ModelStore::new(crate::config::models_dir())
-        .inventory_model(id)
-        .await
+    ModelStore::configured()?.inventory_model(id).await
 }
 
 impl ModelStore {
@@ -244,11 +252,12 @@ impl ModelStore {
     async fn inventory_for<'a>(&self, pins: impl Iterator<Item = &'a Manifest>) -> Result<Value> {
         let mut models = Vec::new();
         for pin in pins {
-            let path = self.directory.join(&pin.file);
+            let directory = self.directory_for(&pin.id);
+            let path = directory.join(&pin.file);
             let installed = path.is_file();
             models.push(
                 json!({"id":pin.id,"name":pin.name,"size":pin.size,"installed":installed,
-                    "path":installed.then_some(path)}),
+                    "path":installed.then_some(path), "directory":directory}),
             );
         }
         Ok(json!({"models":models}))
@@ -416,6 +425,8 @@ mod tests {
     #[tokio::test]
     async fn download_verifies_atomic_install_and_reuses_offline() {
         let temp = tempfile::tempdir().unwrap();
+        let directory = temp.path().join("Models");
+        assert!(!directory.exists());
         let data = b"fixture model";
         let pin = Manifest {
             id: "fixture".into(),
@@ -430,14 +441,14 @@ mod tests {
         };
         let (url, server) = fixture(data);
         let events = Mutex::new(Vec::new());
-        download_to(temp.path(), &url, &pin, &|event| {
+        download_to(&directory, &url, &pin, &|event| {
             events.lock().unwrap().push(event)
         })
         .await
         .unwrap();
         server.join().unwrap();
-        assert_eq!(fs::read(temp.path().join(&pin.file)).unwrap(), data);
-        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
+        assert_eq!(fs::read(directory.join(&pin.file)).unwrap(), data);
+        assert!(!directory.join(format!(".{}.partial", pin.file)).exists());
         assert!(
             events
                 .lock()
@@ -445,27 +456,27 @@ mod tests {
                 .iter()
                 .any(|event| event["status"] == "ready")
         );
-        download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+        download_to(&directory, "http://127.0.0.1:1", &pin, &|_| {})
             .await
             .unwrap();
-        fs::write(temp.path().join(&pin.file), b"host-provided weights").unwrap();
-        download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+        fs::write(directory.join(&pin.file), b"host-provided weights").unwrap();
+        download_to(&directory, "http://127.0.0.1:1", &pin, &|_| {})
             .await
             .unwrap();
         assert_eq!(
-            fs::read(temp.path().join(&pin.file)).unwrap(),
+            fs::read(directory.join(&pin.file)).unwrap(),
             b"host-provided weights"
         );
-        fs::remove_file(temp.path().join(&pin.file)).unwrap();
+        fs::remove_file(directory.join(&pin.file)).unwrap();
         let (url, server) = fixture(b"wrong weights");
-        assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
+        assert!(download_to(&directory, &url, &pin, &|_| {}).await.is_err());
         server.join().unwrap();
-        assert!(!temp.path().join(&pin.file).exists());
-        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
-        let lock = File::create(temp.path().join(format!(".{}.download.lock", pin.file))).unwrap();
+        assert!(!directory.join(&pin.file).exists());
+        assert!(!directory.join(format!(".{}.partial", pin.file)).exists());
+        let lock = File::create(directory.join(format!(".{}.download.lock", pin.file))).unwrap();
         lock.lock_exclusive().unwrap();
         assert!(
-            download_to(temp.path(), "http://127.0.0.1:1", &pin, &|_| {})
+            download_to(&directory, "http://127.0.0.1:1", &pin, &|_| {})
                 .await
                 .unwrap_err()
                 .to_string()
