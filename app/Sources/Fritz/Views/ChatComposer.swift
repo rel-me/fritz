@@ -74,41 +74,37 @@ private struct ChatModelPicker: View {
             Button {
                 isChoosingModel = true
             } label: {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 4) {
-                        Text(selectedModel?.displayName ?? "Choose Model")
-                        configurationTitle
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .fixedSize()
-                    .accessibilityIdentifier("chat-configuration-expanded")
+                HStack(spacing: 6) {
+                    Text(selectedModel?.displayName ?? "Choose Model")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-                    HStack(spacing: 4) {
-                        Text(selectedModel?.displayName ?? "Choose Model")
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
+                    if selectedModel?.capabilities.supportsReasoningEffort == true {
+                        Text(selectedEffort.displayName)
                             .foregroundStyle(.secondary)
                             .fixedSize()
                     }
-                    .frame(minWidth: 100)
-                    .accessibilityIdentifier("chat-configuration-compact")
+
+                    if let speedTitle {
+                        Text(speedTitle)
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                    }
+
+                    Image(systemName: "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
                 }
                 .font(.body)
+                .foregroundStyle(.primary)
                 .padding(.horizontal, 5)
                 .padding(.vertical, 4)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(FritzButtonStyle(.inline))
+            .buttonStyle(.plain)
             .accessibilityLabel("Model, thinking, and speed")
-            .accessibilityValue(
-                selectedModel.map { "\($0.displayName), \(selectedEffort.displayName), \(selectedSpeed.displayName)" }
-                        ?? "Choose Model"
-            )
+            .accessibilityValue(configurationSummary)
             .help("Choose Model, Thinking, and Speed")
             .popover(isPresented: $isChoosingModel, arrowEdge: .bottom) {
                 configurationPopover
@@ -126,13 +122,20 @@ private struct ChatModelPicker: View {
         }
     }
 
-    private var configurationTitle: Text {
-        let thinking = selectedModel?.capabilities.supportsReasoningEffort == true
-            ? selectedEffort.displayName : ""
-        if selectedModel?.capabilities.supportsSpeed == true, selectedSpeed != .standard {
-            return Text("\(thinking) \(Image(systemName: "bolt.fill"))")
+    private var speedTitle: String? {
+        guard selectedModel?.capabilities.supportsSpeed == true,
+              selectedSpeed != .standard else { return nil }
+        return selectedSpeed == .priority ? "Fast" : selectedSpeed.displayName
+    }
+
+    private var configurationSummary: String {
+        guard let selectedModel else { return "Choose Model" }
+        var values = [selectedModel.displayName]
+        if selectedModel.capabilities.supportsReasoningEffort {
+            values.append(selectedEffort.displayName)
         }
-        return Text(thinking)
+        if let speedTitle { values.append(speedTitle) }
+        return values.joined(separator: ", ")
     }
 
     @ViewBuilder
