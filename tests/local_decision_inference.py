@@ -1,4 +1,4 @@
-"""Opt-in real Laya evaluation. Uses explicitly installed weights; never downloads or calls Jev."""
+"""Opt-in local decision evaluation. Uses explicitly installed weights; never downloads or calls Jev."""
 import argparse
 import json
 import os
@@ -42,11 +42,11 @@ HOLDOUT_CASES = [
 ]
 
 
-def request(message, question_style="explicit"):
+def request(message, question_style="explicit", model="laya-en"):
     instructions = "What is the user's current request?" if question_style == "broad" else (
         "Does the message ask the assistant to create a new reminder? "
         "Classify quoted text, translation requests, completed reminders, and explanations as other.")
-    return {"model": "laya-en", "state": {"message": message}, "questions": {
+    return {"model": model, "state": {"message": message}, "questions": {
         "intent": {"type": "choice", "instructions": instructions,
                    "criteria": {"reminder": "Create a reminder for the user", "other": "Any other request or statement"}},
         "reminder": {"type": "noul", "instructions": "Is the user asking to create a reminder?"},
@@ -63,10 +63,11 @@ def read_event(child, timeout=120):
     return json.loads(line)
 
 
-def start(binary, env, value):
+def start(binary, env, value, models_dir):
     child = subprocess.Popen([str(binary), "evaluate"], env=env, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    child.stdin.write(json.dumps({"backend": {"kind": "ollaya"}, "request": value}) + "\n")
+    child.stdin.write(json.dumps({"backend": {"kind": "ollaya"}, "request": value,
+                                 "modelStore": {"directory": str(models_dir), "modelDirectories": {}}}) + "\n")
     child.stdin.flush()
     return child
 
@@ -74,12 +75,15 @@ def start(binary, env, value):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", required=True, type=Path)
+    parser.add_argument("--models-dir", required=True, type=Path)
+    parser.add_argument("--model", choices=["laya-en", "kev-4b"], default="laya-en")
     parser.add_argument("--bin-dir", default=Path("target/debug"), type=Path)
     parser.add_argument("--suite", choices=["development", "holdout"], default="holdout")
     parser.add_argument("--question-style", choices=["broad", "explicit"], default="explicit")
     args = parser.parse_args()
     cases = DEVELOPMENT_CASES if args.suite == "development" else HOLDOUT_CASES
-    env = dict(os.environ, FRITZ_DATA_DIR=str(args.data_dir.resolve()))
+    models_dir = args.models_dir.resolve()
+    env = dict(os.environ, FRITZ_DATA_DIR=str(args.data_dir.resolve()), FRITZ_MODELS_DIR=str(models_dir))
     binary = args.bin_dir.resolve() / "fritz-decision-harness"
     correct = 0
     brier = 0
@@ -87,13 +91,13 @@ def main():
     results = []
     for message, expected in cases:
         started = time.monotonic()
-        child = start(binary, env, request(message, args.question_style))
+        child = start(binary, env, request(message, args.question_style, args.model), models_dir)
         try:
             event = read_event(child)
             child.wait(timeout=10)
             assert child.returncode == 0 and event["type"] == "result", event
             result = event["result"]
-            assert result["model"].startswith("laya-en@"), result
+            assert result["model"].startswith(args.model + "@"), result
             answers = result["answers"]
             assert answers["urgency"]["legend"] == {"0": {"urgency": "not urgent"}, "1": {"urgency": "urgent"}}
             assert 0 <= answers["urgency"]["score"] <= 1
@@ -108,15 +112,16 @@ def main():
             if child.poll() is None:
                 child.kill()
             child.communicate(timeout=10)
-    summary = {"suite": args.suite, "question_style": args.question_style, "cases": len(cases), "choice_accuracy": correct / len(cases),
+    summary = {"model": args.model, "suite": args.suite, "question_style": args.question_style, "cases": len(cases), "choice_accuracy": correct / len(cases),
                "noul_brier": brier / len(cases), "cold_seconds_min": min(timings),
                "cold_seconds_max": max(timings), "results": results}
     print(json.dumps(summary, indent=2), flush=True)
     # Reject truncation explicitly rather than returning a decision on an unseen suffix.
-    child = start(binary, env, request("A long note. " * 5000))
+    child = start(binary, env, request("A long note. " * 5000, model=args.model), models_dir)
     try:
         event = read_event(child)
-        assert event["type"] == "error" and "context" in event["message"], event
+        assert event["type"] == "error" and (
+            "context" in event["message"] or "the model's limit" in event["message"]), event
         child.wait(timeout=10)
     finally:
         if child.poll() is None:
@@ -125,7 +130,7 @@ def main():
     # Observe native model memory before cancelling, so this exercises native loading/inference,
     # not just stdin cancellation while the checksum is still running.
     for cancellation in ("pipe", "signal") * 3:
-        child = start(binary, env, request("Remind me tomorrow to call my dentist."))
+        child = start(binary, env, request("Remind me tomorrow to call my dentist.", model=args.model), models_dir)
         try:
             deadline = time.monotonic() + 60
             while True:

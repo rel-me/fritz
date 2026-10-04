@@ -249,6 +249,8 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `decision::{DecisionModel, DecisionRequest, DecisionResponse}` | Evaluate typed Choice, Score, and Noul questions through a backend-neutral contract. A local model can implement the trait. |
 | `config::{ModelCategory, ProviderKind}` and Swift `AIModelCategory` | Keep LLM and Decision connections distinct; TypeSafe supplies the Jev decision model and cannot be selected for chat. The `jev` wire identifier is preserved for compatibility. |
 | `decision::Jev` | Remote TypeSafe adapter; the host supplies a key in memory. Jev is separate from conversational providers. |
+| `decision::local::{ModelStore, ModelStoreConfiguration, Ollaya}` | Supply explicit absolute host model paths. `configuration()` is serialized as local `HarnessInput.model_store`; inference never reads default Fritz state. |
+| `decision::harness::run_stdio` | Call only inside an owned single-request child process. Supplies the shared private-pipe runner, signals/deadline and native cancellation exit. |
 | `decision_client::evaluate_with_input` | Run the bundled decision harness with a private input pipe and receive one validated result. |
 | `tools::Workspace` | Supply a trusted project directory; commands run with user permissions, not an OS sandbox. |
 

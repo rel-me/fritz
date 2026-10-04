@@ -2,8 +2,8 @@
 use super::{DecisionFuture, DecisionModel, DecisionRequest, DecisionResponse, Usage};
 use crate::local::models::download_file;
 use anyhow::{Context, Result, bail};
-use ollaya_runner::{Device, Encoding, ModelFiles, OnnxModel};
-use serde::Deserialize;
+use ollaya_runner::{Device, ModelFiles};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::PathBuf};
 
@@ -45,12 +45,41 @@ pub fn manifest(id: &str) -> Result<&'static Manifest> {
 }
 
 /// Decision artifacts share the host-selected Models directory with chat weights.
+#[derive(Clone)]
 pub struct ModelStore {
     directory: PathBuf,
     model_directories: BTreeMap<String, PathBuf>,
 }
 
+/// Private-pipe model paths supplied by the owning application, never discovered by inference.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ModelStoreConfiguration {
+    pub directory: PathBuf,
+    #[serde(default)]
+    pub model_directories: BTreeMap<String, PathBuf>,
+}
+
 impl ModelStore {
+    pub fn configuration(&self) -> ModelStoreConfiguration {
+        ModelStoreConfiguration {
+            directory: self.directory.clone(),
+            model_directories: self.model_directories.clone(),
+        }
+    }
+
+    pub fn from_configuration(config: ModelStoreConfiguration) -> Result<Self> {
+        if !config.directory.is_absolute()
+            || config
+                .model_directories
+                .iter()
+                .any(|(id, path)| id.trim().is_empty() || !path.is_absolute())
+        {
+            bail!("Local decision models require absolute host-owned model directories.");
+        }
+        Ok(Self::new(config.directory).with_model_directories(config.model_directories))
+    }
+
     pub fn new(directory: impl Into<PathBuf>) -> Self {
         Self {
             directory: directory.into(),
@@ -97,7 +126,7 @@ impl ModelStore {
         let pin = manifest(id)?;
         if !self.is_installed(pin).await {
             bail!(
-                "{} is not installed. Download it in Models → + → Provider → Ollaya, or run `fritz decision-models install {id}`.",
+                "{} ({id}) is not installed. Download it through the owning app's Models → + → Provider → Ollaya.",
                 pin.name
             );
         }
@@ -136,7 +165,15 @@ impl ModelStore {
     }
 }
 
-pub struct Ollaya;
+pub struct Ollaya {
+    store: ModelStore,
+}
+
+impl Ollaya {
+    pub fn new(store: ModelStore) -> Self {
+        Self { store }
+    }
+}
 
 impl DecisionModel for Ollaya {
     fn evaluate<'a>(&'a self, request: &'a DecisionRequest) -> DecisionFuture<'a> {
@@ -145,9 +182,7 @@ impl DecisionModel for Ollaya {
             let pin = manifest(&request.model)?;
             let questions =
                 ollaya_decision::parse_questions(&serde_json::to_value(&request.questions)?)?;
-            let directory = ModelStore::configured()?
-                .installed_path(&request.model)
-                .await?;
+            let directory = self.store.installed_path(&request.model).await?;
             let state = request.state.clone();
             // A dedicated OS thread keeps stdin/signals responsive during native loading and inference.
             // Unlike Tokio's blocking pool it does not prevent process exit after cancellation.
@@ -180,37 +215,24 @@ fn infer(
         arch: None,
         weights: None,
     };
-    let model = OnnxModel::load_files(&files, Device::Cpu, Some(4))
+    let calibration: ollaya_decision::CalibrationFile = serde_json::from_slice(&std::fs::read(
+        files
+            .calibration
+            .as_ref()
+            .context("Missing calibration path.")?,
+    )?)
+    .context("Invalid local decision calibration.")?;
+    let calibration = ollaya_decision::Calibration::from_file(&calibration);
+    let model = ollaya_runner::engine::load(&files, Device::Cpu, Some(4))
         .context("Could not load the local decision model.")?;
-    let encoding = model.encode(&state, &questions)?;
-    if encoding.questions.iter().any(|row| row.state_truncated) {
-        bail!("The state exceeds this decision model's context. Supply a shorter state.");
-    }
     let mut answers = BTreeMap::new();
     let mut input_tokens = 0;
     // One row at a time bounds native attention memory even for 64 questions.
-    for ((id, question), row) in questions.into_iter().zip(encoding.questions) {
+    for (id, question) in questions {
         let single = ollaya_decision::Questions::from_iter([(id.clone(), question)]);
-        let output = model.run_encoded(
-            &Encoding {
-                questions: vec![row],
-                state_tokens: encoding.state_tokens,
-            },
-            &single,
-        )?;
-        let raw = output
-            .questions
-            .first()
-            .context("The local model omitted an answer.")?;
+        let output = model.run(&state, &single)?;
         let question = &single[&id];
-        let answer = ollaya_decision::Answer::new(
-            question,
-            &model.calibration,
-            &raw.logits,
-            raw.act_logits.as_deref(),
-            output.state_tokens,
-        );
-        answers.insert(id, serde_json::from_value(answer.to_typesafe(question))?);
+        answers.insert(id, render_output(question, &calibration, &output)?);
         input_tokens += output.input_tokens as u64;
     }
     Ok(DecisionResponse {
@@ -223,10 +245,110 @@ fn infer(
     })
 }
 
+fn render_output(
+    question: &ollaya_decision::Question,
+    calibration: &ollaya_decision::Calibration,
+    output: &ollaya_runner::Output,
+) -> Result<super::Answer> {
+    if output.state_truncated {
+        bail!("The state exceeds this decision model's context. Supply a shorter state.");
+    }
+    if output.questions.len() != 1 {
+        bail!("The local model returned an invalid answer count.");
+    }
+    let raw = &output.questions[0];
+    let count = match &question.criteria {
+        ollaya_decision::Criteria::Choice(options) => options.len(),
+        ollaya_decision::Criteria::Score(levels) => levels.len(),
+        ollaya_decision::Criteria::Noul { .. } => 2,
+    };
+    if raw.logits.len() != count
+        || raw.logits.iter().any(|x| !x.is_finite())
+        || raw
+            .act_logits
+            .as_ref()
+            .is_some_and(|logits| logits.len() != 2 || logits.iter().any(|x| !x.is_finite()))
+    {
+        bail!("The local model returned invalid option scores.");
+    }
+    let answer = ollaya_decision::Answer::new(
+        question,
+        calibration,
+        &raw.logits,
+        raw.act_logits.as_deref(),
+        output.state_tokens,
+    );
+    Ok(serde_json::from_value(answer.to_typesafe(question))?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use sha2::{Digest, Sha256};
+
+    #[test]
+    fn raw_scores_are_calibrated_and_incomplete_state_is_rejected() {
+        let question = ollaya_decision::Question::parse(
+            "priority",
+            &json!({
+                "type":"score", "instructions":"How urgent?", "criteria":["low", "medium", "high"]
+            }),
+        )
+        .unwrap();
+        let calibration = ollaya_decision::Calibration::from_file(
+            &serde_json::from_value(json!({
+                "temperature":[2.0, 2.0, 2.0]
+            }))
+            .unwrap(),
+        );
+        let mut output = ollaya_runner::Output {
+            questions: vec![ollaya_runner::QuestionOutput {
+                logits: vec![0.1_f32.ln() * 2.0, 0.1_f32.ln() * 2.0, 0.8_f32.ln() * 2.0],
+                act_logits: None,
+            }],
+            input_tokens: 20,
+            state_tokens: 8,
+            state_truncated: false,
+        };
+        let answer =
+            serde_json::to_value(render_output(&question, &calibration, &output).unwrap()).unwrap();
+        assert_eq!(answer["probabilities"], json!({"0":0.1,"1":0.1,"2":0.8}));
+        assert_eq!(answer["score"], 1.7);
+        assert_eq!(answer["confidence"], 0.7);
+        assert_eq!(answer["legend"], json!({"0":"low","1":"medium","2":"high"}));
+        output.state_truncated = true;
+        assert!(
+            render_output(&question, &calibration, &output)
+                .unwrap_err()
+                .to_string()
+                .contains("context")
+        );
+        output.state_truncated = false;
+        output.questions[0].logits[0] = f32::NAN;
+        assert!(render_output(&question, &calibration, &output).is_err());
+        output.questions[0].logits = vec![0.0, 1.0];
+        assert!(render_output(&question, &calibration, &output).is_err());
+    }
+
+    #[tokio::test]
+    async fn explicit_store_resolves_only_its_model_override() {
+        let data = tempfile::tempdir().unwrap();
+        let alternate = data.path().join("alternate");
+        std::fs::create_dir(&alternate).unwrap();
+        let pin = manifest("kev-4b").unwrap();
+        for file in &pin.files {
+            std::fs::write(alternate.join(&file.file), b"invalid model contents").unwrap();
+        }
+        let default = ModelStore::new(data.path().join("default"));
+        assert!(default.installed_path("kev-4b").await.is_err());
+        let config = default
+            .with_model_directories(BTreeMap::from([("kev-4b".into(), alternate.clone())]))
+            .configuration();
+        let store = ModelStore::from_configuration(config).unwrap();
+        assert_eq!(store.installed_path("kev-4b").await.unwrap(), alternate);
+        assert!(store.installed_path("laya-en").await.is_err());
+        assert!(!data.path().join("default").exists());
+    }
 
     #[tokio::test]
     async fn installation_requires_present_artifacts_without_hash_or_metadata_checks() {

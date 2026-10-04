@@ -39,10 +39,10 @@ For native project-tool checks, `python3 tests/coding_provider.py` provides
 a local mock of Jev's typed API using a dummy key, including answer validation
 and pipe cancellation. No TypeSafe credential is needed. The same suite checks Ollaya provider separation
 and missing-model behavior without downloading weights. After explicitly installing
-Laya into an isolated `FRITZ_DATA_DIR`, run:
+Laya or Kev into an isolated `FRITZ_MODELS_DIR`, run:
 
 ```sh
-python3 tests/local_decision_inference.py --data-dir "$fritz_test_data" --bin-dir dist/Fritz.app/Contents/Resources
+python3 tests/local_decision_inference.py --data-dir "$fritz_test_data" --models-dir "$fritz_test_data/Models" --model laya-en --bin-dir dist/Fritz.app/Contents/Resources
 ```
 
 This opt-in check evaluates a fixed English reminder-intent set, all three answer

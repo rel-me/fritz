@@ -97,7 +97,7 @@ Click the download icon at the top of **Settings → Models**, or choose
 a Fritz model from a selectable list with Name, Type, Size / Status, and Hardware
 Requirements columns. Use the type (LLM or Decision) and model-family capsules
 to combine filters; click a selected capsule to remove it, or All to reset.
-The downloadable catalog contains LLMs and experimental Laya decision models;
+The downloadable catalog contains LLMs and experimental Laya and Kev decision models;
 Jev remains a remote Decision Model. In New Models or Edit Models, selecting an
 uninstalled Fritz or Ollaya model shows **Download**, which installs that model
 directly with progress and cancellation. Installed models have no Download button.
@@ -215,7 +215,7 @@ The app has no embedded web engine or browser runtime. Its Rust runtime handles 
 
 ## Decision models
 
-Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
+Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB) or **Kev 1.0 4B (Experimental)** (9.49 GB, 32 GB RAM recommended), and add the provider. Fritz bundles the Ollaya Rust runtime and runs these models on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
 
 The CLI uses the same provider and harness:
 

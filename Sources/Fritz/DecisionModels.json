@@ -47,6 +47,73 @@
           "sha256": "ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9"
         }
       ]
+    },
+    {
+      "id": "kev-4b",
+      "name": "Kev 1.0 4B (Experimental)",
+      "family": "Kev",
+      "category": "decision",
+      "size": 9489172672,
+      "memory_gb": 32,
+      "license_url": "https://ollaya.dev/blobs/sha256-5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d",
+      "revision": "139fdd94f1b6a6ad80cc15e08fcb99cac885a101",
+      "engine_revision": "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4",
+      "files": [
+        {
+          "file": "kev-4b.onnx",
+          "url": "https://ollaya.dev/blobs/sha256-137283895b845e8dac8ea2e3d70c2d9e56f4d0729e83c4cbdc1346ccbb9a1f3e",
+          "size": 14167868,
+          "sha256": "137283895b845e8dac8ea2e3d70c2d9e56f4d0729e83c4cbdc1346ccbb9a1f3e"
+        },
+        {
+          "file": "sha256-df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712",
+          "url": "https://huggingface.co/Qwen/Qwen3.5-4B-Base/resolve/1001bb4d826a52d1f399e183466143f4da7b741b/model.safetensors-00001-of-00002.safetensors",
+          "size": 5329398712,
+          "sha256": "df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712"
+        },
+        {
+          "file": "sha256-590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef",
+          "url": "https://huggingface.co/Qwen/Qwen3.5-4B-Base/resolve/1001bb4d826a52d1f399e183466143f4da7b741b/model.safetensors-00002-of-00002.safetensors",
+          "size": 3990429344,
+          "sha256": "590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef"
+        },
+        {
+          "file": "sha256-90e817356246e7f18bfa7ca3d31794cd4fbeb3332a66a84cb51d9ceae925f2b2",
+          "url": "https://huggingface.co/jaredpalmer/kev-4b/resolve/139fdd94f1b6a6ad80cc15e08fcb99cac885a101/adapter_model.safetensors",
+          "size": 129924032,
+          "sha256": "90e817356246e7f18bfa7ca3d31794cd4fbeb3332a66a84cb51d9ceae925f2b2"
+        },
+        {
+          "file": "sha256-dd633435998ecc751ac538717a3742e32149500fabf7d7276287dbf0693f347c",
+          "url": "https://huggingface.co/jaredpalmer/kev-4b/resolve/139fdd94f1b6a6ad80cc15e08fcb99cac885a101/head.pt",
+          "size": 5249791,
+          "sha256": "dd633435998ecc751ac538717a3742e32149500fabf7d7276287dbf0693f347c"
+        },
+        {
+          "file": "kev-4b.tokenizer.json",
+          "url": "https://huggingface.co/jaredpalmer/kev-4b/resolve/139fdd94f1b6a6ad80cc15e08fcb99cac885a101/tokenizer.json",
+          "size": 19989325,
+          "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523"
+        },
+        {
+          "file": "kev-4b.json",
+          "url": "https://ollaya.dev/blobs/sha256-79b66d83478debca2c95d5193e48650f87527878232aaffffe9d01f88df593ba",
+          "size": 2895,
+          "sha256": "79b66d83478debca2c95d5193e48650f87527878232aaffffe9d01f88df593ba"
+        },
+        {
+          "file": "kev-4b.calibration.json",
+          "url": "https://ollaya.dev/blobs/sha256-a51c52e256dbf07582753cd6ecb6eff404f4080e499315c0b31e723c473e5191",
+          "size": 252,
+          "sha256": "a51c52e256dbf07582753cd6ecb6eff404f4080e499315c0b31e723c473e5191"
+        },
+        {
+          "file": "kev-4b.LICENSE",
+          "url": "https://ollaya.dev/blobs/sha256-5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d",
+          "size": 10453,
+          "sha256": "5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d"
+        }
+      ]
     }
   ]
 }

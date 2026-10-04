@@ -182,6 +182,11 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
                 };
                 decision::HarnessInput {
                     request,
+                    model_store: if matches!(backend, decision::HarnessBackend::Ollaya) {
+                        Some(decision::local::ModelStore::configured()?.configuration())
+                    } else {
+                        None
+                    },
                     backend,
                     api_key,
                 }

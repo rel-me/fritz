@@ -206,3 +206,5 @@ Shared `ModelsStore` requires an explicit Keychain service for key-inclusive exp
 `ModelsLocalRuntime` accepts a host executable, arguments and environment.
 `local::ollama::serve_in` receives host-owned download-location storage, and
 `local::generate_with_engine` uses a host-created engine without default cache access.
+
+Local decision private inputs require `modelStore: {"directory": "/absolute/host/Models", "modelDirectories": {}}` and no API key. An optional per-model absolute directory overrides the default. Saved Fritz connections resolve their configured paths in the supervising CLI before spawning; hosts supply their own paths. Jev private inputs reject modelStore. The shared `decision::harness::run_stdio` runner is used only in owned child processes because native cancellation can exit that child.
