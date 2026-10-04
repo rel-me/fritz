@@ -1,5 +1,6 @@
 """Opt-in local decision evaluation. Uses explicitly installed weights; never downloads or calls Jev."""
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -55,21 +56,72 @@ def request(message, question_style="explicit", model="laya-en"):
     }}
 
 
-def read_event(child, timeout=120):
+# Let the child's 120-second terminal deadline arrive before the outer watchdog.
+EVENT_WAIT_SECONDS = 125
+
+
+def read_event(child, timeout=EVENT_WAIT_SECONDS, receipt=None):
     ready, _, _ = select.select([child.stdout], [], [], timeout)
     assert ready, "Decision harness timed out"
     line = child.stdout.readline()
-    assert line, child.stderr.read()
+    if receipt is not None:
+        receipt["raw_event_line"] = line
+    assert line, "Decision harness exited without an event"
     return json.loads(line)
 
 
-def start(binary, env, value, models_dir):
-    child = subprocess.Popen([str(binary), "evaluate"], env=env, stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    child.stdin.write(json.dumps({"backend": {"kind": "ollaya"}, "request": value,
-                                 "modelStore": {"directory": str(models_dir), "modelDirectories": {}}}) + "\n")
-    child.stdin.flush()
-    return child
+@contextmanager
+def attempt(binary, env, value, models_dir, attempt_id, phase, expected=None,
+            event_wait_seconds=EVENT_WAIT_SECONDS):
+    """Flush an in-flight and terminal receipt even when validation or cleanup fails."""
+    started = time.monotonic()
+    receipt = {"type": "attempt", "id": attempt_id, "phase": phase,
+               "status": "in_flight", "requested_model": value["model"], "request": value,
+               "expected_reminder": expected, "models_directory": str(models_dir),
+               "child_deadline_seconds": 120, "event_wait_seconds": event_wait_seconds}
+    print(json.dumps(receipt), flush=True)
+    child = None
+    failure = None
+    try:
+        child = subprocess.Popen([str(binary), "evaluate"], env=env, stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        receipt["pid"] = child.pid
+        child.stdin.write(json.dumps({"backend": {"kind": "ollaya"}, "request": value,
+                                     "modelStore": {"directory": str(models_dir), "modelDirectories": {}}}) + "\n")
+        child.stdin.flush()
+        yield child, receipt
+    except BaseException as error:
+        failure = {"type": type(error).__name__, "message": str(error)}
+        raise
+    finally:
+        cleanup = {"spawned": child is not None, "forced_kill": False}
+        if child is not None:
+            try:
+                if child.poll() is None and child.stdin is not None:
+                    child.stdin.close()
+                    child.stdin = None
+                try:
+                    stdout, stderr = child.communicate(timeout=10)
+                except subprocess.TimeoutExpired:
+                    cleanup["forced_kill"] = True
+                    child.kill()
+                    stdout, stderr = child.communicate(timeout=10)
+                cleanup.update(returncode=child.returncode, remaining_stdout=stdout, stderr=stderr)
+            except BaseException as error:
+                cleanup["error"] = {"type": type(error).__name__, "message": str(error)}
+                if child.poll() is None:
+                    cleanup["forced_kill"] = True
+                    child.kill()
+                    child.wait(timeout=10)
+        event = receipt.get("event")
+        result = event.get("result") if isinstance(event, dict) else None
+        result = result if isinstance(result, dict) else {}
+        receipt.update(status="failed" if failure or "error" in cleanup else "passed",
+                       elapsed_seconds=time.monotonic() - started, error=failure, cleanup=cleanup,
+                       resolved_model=result.get("model"), usage=result.get("usage"))
+        print(json.dumps(receipt), flush=True)
+        if "error" in cleanup and failure is None:
+            raise RuntimeError("Owned decision-child cleanup failed: " + cleanup["error"]["message"])
 
 
 def main():
@@ -89,11 +141,12 @@ def main():
     brier = 0
     timings = []
     results = []
-    for message, expected in cases:
+    for index, (message, expected) in enumerate(cases, 1):
         started = time.monotonic()
-        child = start(binary, env, request(message, args.question_style, args.model), models_dir)
-        try:
-            event = read_event(child)
+        with attempt(binary, env, request(message, args.question_style, args.model), models_dir,
+                     f"{args.suite}-{index:02}", args.suite, expected) as (child, receipt):
+            event = read_event(child, receipt=receipt)
+            receipt["event"] = event
             child.wait(timeout=10)
             assert child.returncode == 0 and event["type"] == "result", event
             result = event["result"]
@@ -107,31 +160,26 @@ def main():
             probability = answers["reminder"]["noul"]
             brier += (probability - int(expected)) ** 2
             timings.append(time.monotonic() - started)
-            results.append({"message": message, "expected": expected, "choice": predicted, "noul": probability})
-        finally:
-            if child.poll() is None:
-                child.kill()
-            child.communicate(timeout=10)
-    summary = {"model": args.model, "suite": args.suite, "question_style": args.question_style, "cases": len(cases), "choice_accuracy": correct / len(cases),
+            judgment = {"message": message, "expected": expected, "choice": predicted, "noul": probability}
+            receipt["judgment"] = judgment
+            results.append(judgment)
+    summary = {"type": "summary", "model": args.model, "suite": args.suite, "question_style": args.question_style, "cases": len(cases), "choice_accuracy": correct / len(cases),
                "noul_brier": brier / len(cases), "cold_seconds_min": min(timings),
                "cold_seconds_max": max(timings), "results": results}
-    print(json.dumps(summary, indent=2), flush=True)
+    print(json.dumps(summary), flush=True)
     # Reject truncation explicitly rather than returning a decision on an unseen suffix.
-    child = start(binary, env, request("A long note. " * 5000, model=args.model), models_dir)
-    try:
-        event = read_event(child)
+    with attempt(binary, env, request("A long note. " * 5000, model=args.model), models_dir,
+                 "context-limit", "context_rejection") as (child, receipt):
+        event = read_event(child, receipt=receipt)
+        receipt["event"] = event
         assert event["type"] == "error" and (
             "context" in event["message"] or "the model's limit" in event["message"]), event
         child.wait(timeout=10)
-    finally:
-        if child.poll() is None:
-            child.kill()
-        child.communicate(timeout=10)
     # Observe native model memory before cancelling, so this exercises native loading/inference,
     # not just stdin cancellation while the checksum is still running.
-    for cancellation in ("pipe", "signal") * 3:
-        child = start(binary, env, request("Remind me tomorrow to call my dentist.", model=args.model), models_dir)
-        try:
+    for index, cancellation in enumerate(("pipe", "signal") * 3, 1):
+        with attempt(binary, env, request("Remind me tomorrow to call my dentist.", model=args.model), models_dir,
+                     f"cancellation-{index:02}", cancellation, event_wait_seconds=5) as (child, receipt):
             deadline = time.monotonic() + 60
             while True:
                 assert child.poll() is None, "Model completed before cancellation was exercised"
@@ -146,14 +194,12 @@ def main():
                 child.stdin = None
             else:
                 child.send_signal(signal.SIGTERM)
-            assert read_event(child, 5)["type"] == "cancelled"
+            event = read_event(child, 5, receipt)
+            receipt["event"] = event
+            assert event["type"] == "cancelled"
             child.wait(timeout=5)
             assert child.returncode == 0, (cancellation, child.returncode, child.stderr.read())
             assert time.monotonic() - started < 5
-        finally:
-            if child.poll() is None:
-                child.kill()
-            child.communicate(timeout=10)
     print("PASS: real local typed inference, structured scores, context limit, and six native cancellation runs", flush=True)
     assert correct / len(cases) >= 0.8, "Reminder intent failed the initial accuracy gate"
     assert brier / len(cases) <= 0.2, "Reminder probability failed the initial Brier gate"

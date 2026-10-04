@@ -48,6 +48,12 @@ python3 tests/local_decision_inference.py --data-dir "$fritz_test_data" --models
 This opt-in check evaluates a fixed English reminder-intent set, all three answer
 types, structured score legends, context rejection, and cancellation while native
 model loading/inference is active. It never downloads models or uses remote keys.
+It flushes an in-flight and terminal JSON receipt for every attempt to stdout,
+including the raw event, usage, elapsed time, and owned-child cleanup. Redirect
+stdout and stderr into a new run directory so failures retain earlier outcomes.
+The outer event wait is 125 seconds so the unchanged 120-second child deadline
+can emit its terminal error first. A failure stops the cohort; reruns are separate
+recorded attempts, never replacements for failed measurements.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
 `dist/FritzDebug.app` bundle in the primary repository checkout on any branch,

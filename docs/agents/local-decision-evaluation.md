@@ -85,12 +85,53 @@ the evaluation script itself never downloads or calls a remote provider.
 
 ```sh
 export FRITZ_DATA_DIR="$PWD/dist/local-decision-evaluation"
+export FRITZ_MODELS_DIR="$FRITZ_DATA_DIR/Models"
 target/debug/fritz decision-models install laya-en
 python3 tests/local_decision_inference.py --data-dir "$FRITZ_DATA_DIR" \
+  --models-dir "$FRITZ_MODELS_DIR" \
   --suite development --question-style broad
-python3 tests/local_decision_inference.py --data-dir "$FRITZ_DATA_DIR"
+python3 tests/local_decision_inference.py --data-dir "$FRITZ_DATA_DIR" \
+  --models-dir "$FRITZ_MODELS_DIR"
 ```
 
 Use `--bin-dir dist/Fritz.app/Contents/Resources` to evaluate the staged release
 binaries. Keep the failing quality result visible when comparing future model
 pins or question designs; do not lower the gate to accept this model.
+
+## Kev 4B artifact and latency diagnostics, October 4, 2026
+
+Kev remains experimental and has no measured holdout accuracy here. All nine
+artifacts (9,489,172,672 bytes) were installed through Fritz's supported CLI in
+a fresh explicit Models directory on an external volume, then independently
+verified against every pinned SHA-256 and byte size. The checkpoint is
+`139fdd94f1b6a6ad80cc15e08fcb99cac885a101`; the engine recipe is unchanged at
+`152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4`.
+
+The original 12-case holdout cohort stopped when its outer 120-second watchdog
+raced the child's 120-second limit. Its aggregate-only driver had not flushed
+earlier judgments or timings, so the executed case count, accuracy, and Brier
+score are unknown. The original driver/hash and failure were retained. Context
+and native cancellation checks were not reached. The revised test driver now
+flushes each attempt and cleanup receipt and allows a 125-second transport wait
+above the unchanged child deadline. The failed cohort was not rerun.
+
+Two new, separate latency diagnostics used the unchanged first holdout state
+and instructions, once with only the intent Choice head and once with all three
+original heads. Each loaded a fresh CPU model with four threads on a 32 GiB
+Apple M2 Pro using the signed staged Debug harness from source
+`1eafcaed60b6169dba23e1449e4ee9796cf5cb54` (binary SHA-256
+`fe41d66f6774751d0cfc1450f117ae3cf70c10dc6fe079b13dbc14c4bfb2284c`).
+
+| Diagnostic | End-to-end time | Input / output tokens | Intent Choice |
+| --- | --- | --- | --- |
+| One Choice head | 22.39 seconds | 64 / 0 | reminder |
+| Original three heads | 97.42 seconds | 132 / 0 | reminder |
+
+Both returned the same Choice probabilities (reminder 0.8511, other 0.1489),
+valid typed answers, and clean exit code 0 with no forced kill or stderr. These
+two attempts establish typed inference for that state and highlight CPU latency;
+they do not establish quality, calibration, general latency, or publisher parity.
+No input or instruction was shortened. Broader qualification should retain each
+failure and measure head fan-out on an independent representative corpus before
+setting any application threshold. Fritz/Ollaya Score confidence still uses its
+existing formula, which differs from Kev 1.0's renderer for three or more levels.
