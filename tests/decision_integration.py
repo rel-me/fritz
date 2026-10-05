@@ -115,6 +115,7 @@ def local_provider_boundaries():
         catalog = json.loads(cli("decision-models", "list").stdout)["models"]
         model = catalog[0]["id"]
         assert catalog and not any(item["installed"] for item in catalog)
+        assert any(item["id"] == "kev-4b" for item in catalog)
         registry = json.loads(cli("add-provider", "--name", "Local decision", "--provider", "ollaya", "--model", model).stdout)
         connection = registry["connections"][0]["id"]
         assert registry["defaultConnectionId"] is None
@@ -124,6 +125,9 @@ def local_provider_boundaries():
         request = decision_input("unused")["request"]
         request["model"] = model
         assert "not installed" in cli("decide", "--connection", connection, input=json.dumps(request), ok=False).stderr
+        for item in catalog:
+            request["model"] = item["id"]
+            assert "not installed" in cli("decide", "--connection", connection, input=json.dumps(request), ok=False).stderr
         request["model"] = "../../outside"
         assert "Unknown local decision model" in cli("decide", "--connection", connection, input=json.dumps(request), ok=False).stderr
         cli("add-provider", "--name", "Invalid endpoint", "--provider", "ollaya", "--base-url", "https://example.com", ok=False)
@@ -132,8 +136,35 @@ def local_provider_boundaries():
         print("PASS: local decision discovery, explicit-install requirement, missing model, native provider validation, chat/default exclusion")
 
 
+def local_private_input():
+    with tempfile.TemporaryDirectory(prefix="fritz-host-decision-") as data:
+        payload = decision_input("unused")
+        payload["request"]["model"] = "kev-4b"
+        payload["backend"] = {"kind": "ollaya"}
+        payload["apiKey"] = None
+        cases = [(None, None, "explicit modelStore"),
+                 ({"directory": "relative"}, None, "absolute"),
+                 ({"directory": data}, "forbidden-local-key", "API key"),
+                 ({"directory": data}, None, "not installed")]
+        for store, key, message in cases:
+            payload["modelStore"] = store
+            payload["apiKey"] = key
+            child = subprocess.Popen([str(BIN), "evaluate"], stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            child.stdin.write(json.dumps(payload) + "\n")
+            child.stdin.flush()
+            terminal = json.loads(child.stdout.readline())
+            child.stdin.close()
+            child.wait(timeout=15)
+            assert terminal["type"] == "error" and message in terminal["message"], terminal
+            assert child.stdout.readline() == "", "Expected one terminal event"
+        assert not any(Path(data).iterdir()), "Local inference must not create or download model artifacts"
+        print("PASS: private local decisions require explicit absolute paths, reject credentials, and never download")
+
+
 def main():
     local_provider_boundaries()
+    local_private_input()
     server = ThreadingHTTPServer(("127.0.0.1", 0), DecisionEndpoint)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()

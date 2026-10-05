@@ -97,7 +97,7 @@ Click the download icon at the top of **Settings → Models**, or choose
 a Fritz model from a selectable list with Name, Type, Size / Status, and Hardware
 Requirements columns. Use the type (LLM or Decision) and model-family capsules
 to combine filters; click a selected capsule to remove it, or All to reset.
-The downloadable catalog contains LLMs and experimental Laya decision models;
+The downloadable catalog contains LLMs and experimental Laya, Kev and Bosun decision models;
 Jev remains a remote Decision Model. In New Models or Edit Models, selecting an
 uninstalled Fritz or Ollaya model shows **Download**, which installs that model
 directly with progress and cancellation. Installed models have no Download button.
@@ -215,7 +215,7 @@ The app has no embedded web engine or browser runtime. Its Rust runtime handles 
 
 ## Decision models
 
-Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
+Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB) or **Kev 1.0 4B (Experimental)** (9.49 GB, 32 GB RAM recommended), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya and Kev on CPU inside its decision harness; no Ollaya installation or server is needed. The same local provider also includes **Bosun 3.1 0.6B F16 (Experimental)**, a 1.21 GB download using Fritz's bundled mistral.rs Metal runtime. Bosun returns learned decision-slot probabilities with a 2,048-token rendered-prompt limit; it does not generate chat replies. Its catalog RAM floor is provisional, and workflow quality and 24 GB pairing remain unqualified. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
 
 The CLI uses the same provider and harness:
 
@@ -232,7 +232,17 @@ fritz decide --connection 'Local decisions' request.json
 {"model":"laya-en","state":{"message":"Remind me tomorrow to call Sam"},"questions":{"reminder":{"type":"noul","instructions":"Is the user asking to create a reminder?"}}}
 ```
 
-Use `-` (the default filename) to read JSON from stdin. The model is loaded for each request; expect seconds of cold-start latency. The initial reminder-routing quality gate did **not** pass; use this experimental backend for explicit evaluation, not automatic reminder actions. See the [evaluation results](docs/agents/local-decision-evaluation.md) before designing a policy around its probabilities. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
+Use `-` (the default filename) to read JSON from stdin. The model is loaded for each request; expect seconds of cold-start latency. The initial reminder-routing quality gate did **not** pass; use this experimental backend for explicit evaluation, not automatic reminder actions. See the [evaluation results](docs/agents/local-decision-evaluation.md) before designing a policy around its probabilities. The [local model comparison](docs/local-browser-pairing.md) records frozen selection measurements and their limits. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
+
+Hosts can explicitly start the bundled `fritz-decision-harness resident` for
+serial Laya/Kev decisions using a versioned private pipe. It reuses weights with
+fresh request state, has bounded lifetime and requires host-owned process-group
+cleanup. It does not change `fritz decide`, chat, or app decision calls. Bosun
+and Jev residency are unsupported. See [messages and lifecycle](docs/decision-harness.md#explicit-resident-local-worker).
+
+To install the compact experimental engine explicitly, use
+`fritz decision-models install bosun-v3.1-0.6b-f16`, then add an Ollaya connection
+with that model ID. It remains separate from the default chat provider.
 
 Use the **Import and Export** menu beside **+** to import or export providers as cURL. Command-click to select multiple providers. Import accepts cURL exports and GET checks to `models`, `api/tags`, or `health` endpoints with standard API key headers; it parses text without executing shell commands. JSON configurations are not supported. **Overwrite existing** is checked by default and updates a single matching service while preserving its identity and saved key when the endpoint is unchanged. Uncheck it to leave matching services alone. Ambiguous matches require removing duplicates first. Imports without required keys show **Needs Setup** until a key is added. Export offers **Without Keys** or **Including API Keys** and generates a GET request to the provider’s model list, without requiring a model or running inference. cURL comments preserve the provider, connection name, and selected model for import. Commands read their options from stdin, and required omitted keys use `YOUR_API_KEY`, which import treats as missing. Native local model connections without an HTTP endpoint cannot be exported as cURL. Included keys are readable in the copied command. The default chat provider preference and downloaded model files are not exported.
 

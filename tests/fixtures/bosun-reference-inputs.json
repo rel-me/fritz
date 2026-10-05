@@ -1,0 +1,121 @@
+{
+  "schema": "fritz-bosun-reference-inputs-v1",
+  "status": "frozen inputs; no model probability reference yet",
+  "model": "bosun-v3.1-0.6b-f16",
+  "source": {
+    "repo": "Hanno-Labs/bosun-v3.1-0.6b",
+    "revision": "2afeaccc760165386c2dd52e78b851b1b53cb752",
+    "compiler_sha256": "c04ab1c7929d41185d3c80e61ae0088a47a2c66438947f9dcc499b020f2b4cb5",
+    "template_sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8",
+    "tokenizer_sha256": "7d3acd3a7d8f4f180f5331a87c004402188745c5a719aee456d9cb8cb9b34168",
+    "base_repo": "Qwen/Qwen3-0.6B",
+    "base_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "typed_mapping_repo": "Hanno-Labs/jev-compatible-server",
+    "typed_mapping_revision": "431b8e1ecc501cdb76c118fe58907a0a004d6fc0"
+  },
+  "native": {
+    "repo": "Hanno-Labs/bosun-v3.1-0.6b-GGUF",
+    "revision": "977dd19615ca452899988d03c1c4f7e29bdda3e5",
+    "file": "bosun-v3.1-0.6b-F16.gguf",
+    "sha256": "f65d9aaf894e5ee98cf9adece2aed99099d84d97f226abced13352f51820cd75",
+    "engine_revision": "4400935451da5e2dc7379a3f92fbbada66557f6c",
+    "max_prompt_tokens": 2048,
+    "max_raw_tensor_bytes": 1244569600,
+    "max_absolute_probability_error": 0.005,
+    "require_equal_prompt_bytes": true,
+    "require_equal_token_ids": true,
+    "require_equal_candidate_slots": true,
+    "require_equal_top_choice": true
+  },
+  "reference_settings": {
+    "runtime": "official BosunForDecision.from_pretrained, local_files_only=True",
+    "device": "cpu",
+    "weight_dtype": "float32",
+    "attention": "eager",
+    "generation": false,
+    "seed": 0,
+    "row_id": "sha256 canonical JSON of question_name plus full request with explicit null Noul criteria",
+    "attempts_per_case": 1,
+    "retry": false,
+    "reference_deadline_seconds": 120,
+    "native_deadline_seconds": 120,
+    "quality_claim": "none; these inputs test runtime/compiler parity only"
+  },
+  "cases": [
+    {
+      "id": "structured-choice-unicode-floats",
+      "request": {
+        "model": "bosun-v3.1-0.6b-f16",
+        "state": {"message": "Café invoice INV-17 was charged twice.\nPlease correct it.", "amount": 19.99, "ratio": 0.00001, "verified": false},
+        "questions": {
+          "route": {
+            "type": "choice",
+            "instructions": {"ask": "Which team should handle this message?", "rule": "Use the described task, not the language."},
+            "criteria": {
+              "billing": {"scope": "Invoices, duplicate charges, and refunds", "requires": ["payment evidence"]},
+              "security": {"requires": ["security evidence"], "scope": "Account compromise and suspicious access"},
+              "support": {"scope": "General product questions", "requires": []}
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mixed-descriptions-choice",
+      "request": {
+        "model": "bosun-v3.1-0.6b-f16",
+        "state": {"url": "https://example.invalid/orders", "message": "I only want the titles from the current page.", "page": "Read-only order status listing"},
+        "questions": {
+          "operation": {
+            "type": "choice",
+            "instructions": "Which supplied read-only browser operation best addresses the request?",
+            "criteria": {
+              "observe": "Read page content and titles",
+              "scroll": {"purpose": "Reveal additional content", "input": "native"},
+              "wait": null,
+              "navigate": ["Open another page", "Only when the current page cannot answer"]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "structured-score",
+      "request": {
+        "model": "bosun-v3.1-0.6b-f16",
+        "state": "The page explicitly says the service is unavailable and retrying is safe after one minute.",
+        "questions": {
+          "readiness": {
+            "type": "score",
+            "instructions": ["Rate how ready this page is for answering the user's factual request.", "Use only supplied evidence."],
+            "criteria": [{"level": "not ready", "evidence": "Error or no content"}, {"level": "partial", "evidence": "Some content but missing required facts"}, {"level": "ready", "evidence": "The requested facts are present"}]
+          }
+        }
+      }
+    },
+    {
+      "id": "noul-default-criteria",
+      "request": {
+        "model": "bosun-v3.1-0.6b-f16",
+        "state": {"message": "Please read the visible shipping dates.", "intent": "read only"},
+        "questions": {
+          "write": {"type": "noul", "instructions": "Does the request authorize changing any order?"}
+        }
+      }
+    },
+    {
+      "id": "noul-structured-criteria",
+      "request": {
+        "model": "bosun-v3.1-0.6b-f16",
+        "state": {"message": "I want you to cancel order 73 now.", "order_id": "73"},
+        "questions": {
+          "write": {
+            "type": "noul",
+            "instructions": "Does this request explicitly authorize cancelling the supplied order?",
+            "criteria": {"true": {"evidence": "An explicit instruction to cancel this order"}, "false": {"evidence": "A hypothetical, a quote, or a request for information"}}
+          }
+        }
+      }
+    }
+  ]
+}

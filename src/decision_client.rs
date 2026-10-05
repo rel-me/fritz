@@ -13,7 +13,7 @@ pub async fn evaluate_with_input(
     executable: &Path,
     input: HarnessInput,
 ) -> Result<DecisionResponse> {
-    input.request.validate()?;
+    input.validate()?;
     let request = input.request.clone();
     let mut child = tokio::process::Command::new(executable)
         .arg("evaluate")

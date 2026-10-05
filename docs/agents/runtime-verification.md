@@ -39,15 +39,21 @@ For native project-tool checks, `python3 tests/coding_provider.py` provides
 a local mock of Jev's typed API using a dummy key, including answer validation
 and pipe cancellation. No TypeSafe credential is needed. The same suite checks Ollaya provider separation
 and missing-model behavior without downloading weights. After explicitly installing
-Laya into an isolated `FRITZ_DATA_DIR`, run:
+Laya or Kev into an isolated `FRITZ_MODELS_DIR`, run:
 
 ```sh
-python3 tests/local_decision_inference.py --data-dir "$fritz_test_data" --bin-dir dist/Fritz.app/Contents/Resources
+python3 tests/local_decision_inference.py --data-dir "$fritz_test_data" --models-dir "$fritz_test_data/Models" --model laya-en --bin-dir dist/Fritz.app/Contents/Resources
 ```
 
 This opt-in check evaluates a fixed English reminder-intent set, all three answer
 types, structured score legends, context rejection, and cancellation while native
 model loading/inference is active. It never downloads models or uses remote keys.
+It flushes an in-flight and terminal JSON receipt for every attempt to stdout,
+including the raw event, usage, elapsed time, and owned-child cleanup. Redirect
+stdout and stderr into a new run directory so failures retain earlier outcomes.
+The outer event wait is 125 seconds so the unchanged 120-second child deadline
+can emit its terminal error first. A failure stops the cohort; reruns are separate
+recorded attempts, never replacements for failed measurements.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
 `dist/FritzDebug.app` bundle in the primary repository checkout on any branch,

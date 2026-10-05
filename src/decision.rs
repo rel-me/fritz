@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::BTreeMap, future::Future, pin::Pin, time::Duration};
 
+pub mod harness;
 pub mod local;
 
 pub type DecisionFuture<'a> = Pin<Box<dyn Future<Output = Result<DecisionResponse>> + Send + 'a>>;
@@ -29,6 +30,9 @@ pub struct HarnessInput {
     pub request: DecisionRequest,
     pub backend: HarnessBackend,
     pub api_key: Option<String>,
+    /// Explicit local paths owned by the host. Remote requests must omit this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_store: Option<local::ModelStoreConfiguration>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -36,6 +40,29 @@ pub struct HarnessInput {
 pub enum HarnessBackend {
     Jev { endpoint: Option<String> },
     Ollaya,
+}
+
+impl HarnessInput {
+    pub fn validate(&self) -> Result<()> {
+        self.request.validate()?;
+        match self.backend {
+            HarnessBackend::Jev { .. } if self.model_store.is_some() => {
+                bail!("Remote decisions do not use a local modelStore.");
+            }
+            HarnessBackend::Ollaya => {
+                if self.api_key.is_some() {
+                    bail!("Local decision models do not use an API key.");
+                }
+                local::ModelStore::from_configuration(
+                    self.model_store
+                        .clone()
+                        .context("Local decisions require an explicit modelStore.")?,
+                )?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
