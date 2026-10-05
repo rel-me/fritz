@@ -178,14 +178,17 @@ Protocol references used for the adapters:
 [OpenRouter reasoning preservation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens),
 and [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling).
 
-Local decision connections use provider `ollaya`, model `laya-en`, no endpoint,
+Local decision connections use provider `ollaya`, an installed local decision model ID, no endpoint,
 and no API key. A saved Ollaya `connectionId` selects the local harness backend;
 explicit host requests use `backend: {"kind":"ollaya"}` and omit `apiKey`.
 Downloads use the same `progress` shape as `localModels.install`, with byte counts
 aggregated across the model artifacts. Listing and evaluation never download files.
 The harness requires the model artifacts to be present in the shared Models
-directory, uses CPU inference, rejects truncated state, and
-returns a resolved `laya-en@<revision>` ID. Score legends preserve JSON criteria,
+directory and returns a resolved `<model>@<revision>` ID. Laya and Kev use ONNX
+CPU inference; experimental Bosun uses the pinned GGUF/Metal decision-slot
+readout with no generated output. Each engine rejects its context overflow
+without truncating state. Confidence formulas remain engine-specific; see the
+[decision-harness guide](decision-harness.md). Score legends preserve JSON criteria,
 including objects. All decision requests have a 120-second harness deadline;
 closing stdin or sending SIGTERM/SIGINT cancels native loading/inference too.
 

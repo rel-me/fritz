@@ -31,6 +31,9 @@ test-runtime:
 	python3 tests/test_dev_runtime.py
 	python3 tests/test_tool_evals.py
 	python3 tests/test_local_decision_inference.py
+	python3 tests/test_local_browser_pairing.py
+	python3 tests/test_bosun_browser_pairing.py
+	python3 tests/test_bosun_transport.py
 
 test-swift:
 	swift test --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"

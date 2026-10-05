@@ -114,6 +114,63 @@
           "sha256": "5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d"
         }
       ]
+    },
+    {
+      "id": "bosun-v3.1-0.6b-f16",
+      "name": "Bosun 3.1 0.6B F16 (Experimental)",
+      "family": "Bosun",
+      "category": "decision",
+      "engine": "bosun",
+      "entry_file": "bosun-v3.1-0.6b-F16.gguf",
+      "size": 1209659891,
+      "memory_gb": 16,
+      "memory_basis": "unmeasured engineering floor; 2048 token cap; 24-GB qualification pending",
+      "license_url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/blob/2afeaccc760165386c2dd52e78b851b1b53cb752/LICENSE",
+      "revision": "977dd19615ca452899988d03c1c4f7e29bdda3e5",
+      "source_revision": "2afeaccc760165386c2dd52e78b851b1b53cb752",
+      "compiler_sha256": "c04ab1c7929d41185d3c80e61ae0088a47a2c66438947f9dcc499b020f2b4cb5",
+      "typed_mapping_revision": "431b8e1ecc501cdb76c118fe58907a0a004d6fc0",
+      "engine_revision": "4400935451da5e2dc7379a3f92fbbada66557f6c",
+      "max_prompt_tokens": 2048,
+      "qualification": "Experimental; workflow qualification requires cohort-specific native parity and quality evidence.",
+      "files": [
+        {
+          "file": "bosun-v3.1-0.6b-F16.gguf",
+          "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b-GGUF/resolve/977dd19615ca452899988d03c1c4f7e29bdda3e5/bosun-v3.1-0.6b-F16.gguf",
+          "size": 1198160608,
+          "sha256": "f65d9aaf894e5ee98cf9adece2aed99099d84d97f226abced13352f51820cd75"
+        },
+        {
+          "file": "bosun-v3.1-0.6b.tokenizer.json",
+          "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/tokenizer/tokenizer.json",
+          "size": 11472062,
+          "sha256": "7d3acd3a7d8f4f180f5331a87c004402188745c5a719aee456d9cb8cb9b34168"
+        },
+        {
+          "file": "bosun-v3.1-0.6b.serving.json",
+          "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/serving.json",
+          "size": 11546,
+          "sha256": "16688211da16636715a8ca3784652f9954b2e1fd93513a75e59914626c750e3c"
+        },
+        {
+          "file": "bosun-v3.1-0.6b.chat_template.jinja",
+          "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/tokenizer/chat_template.jinja",
+          "size": 4168,
+          "sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8"
+        },
+        {
+          "file": "bosun-v3.1-0.6b.LICENSE",
+          "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/LICENSE",
+          "size": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "file": "bosun-v3.1-0.6b.NOTICE",
+          "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/NOTICE",
+          "size": 149,
+          "sha256": "708eedeba4ab0765268ed7c763da0f622aafd7e66faaf5d765c8717dae917168"
+        }
+      ]
     }
   ]
 }

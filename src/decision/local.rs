@@ -1,4 +1,4 @@
-//! Ollaya inference runs only in the private decision harness. Installation is explicit.
+//! Local typed inference runs only in the private decision harness. Installation is explicit.
 use super::{DecisionFuture, DecisionModel, DecisionRequest, DecisionResponse, Usage};
 use crate::local::models::download_file;
 use anyhow::{Context, Result, bail};
@@ -7,12 +7,26 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::PathBuf};
 
+mod bosun;
+
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum Engine {
+    #[default]
+    Ollaya,
+    Bosun,
+}
+
 #[derive(Deserialize)]
 pub struct Manifest {
     pub id: String,
     pub name: String,
     pub size: u64,
     revision: String,
+    #[serde(default)]
+    engine: Engine,
+    #[serde(default)]
+    entry_file: Option<String>,
     files: Vec<ModelFile>,
 }
 
@@ -143,7 +157,7 @@ impl ModelStore {
             let installed = self.is_installed(pin).await;
             models.push(json!({"id":pin.id,"name":pin.name,"size":pin.size,
                 "installed":installed,
-                "path":installed.then(|| self.directory_for(&pin.id).join(format!("{}.onnx", pin.id))),
+                "path":installed.then(|| self.directory_for(&pin.id).join(pin.entry_file.clone().unwrap_or_else(|| format!("{}.onnx", pin.id)))),
                 "directory":self.directory_for(&pin.id)}));
         }
         Ok(json!({"models":models}))
@@ -180,6 +194,12 @@ impl DecisionModel for Ollaya {
         Box::pin(async move {
             request.validate()?;
             let pin = manifest(&request.model)?;
+            if pin.engine == Engine::Bosun {
+                let directory = self.store.installed_path(&request.model).await?;
+                let response = bosun::evaluate(pin, directory, request.clone()).await?;
+                response.validate_for(request)?;
+                return Ok(response);
+            }
             let questions =
                 ollaya_decision::parse_questions(&serde_json::to_value(&request.questions)?)?;
             let directory = self.store.installed_path(&request.model).await?;
@@ -359,6 +379,8 @@ mod tests {
             name: "Fixture".into(),
             size: 8,
             revision: "revision".into(),
+            engine: Engine::Ollaya,
+            entry_file: None,
             files: Vec::new(),
         };
         std::fs::create_dir_all(data.path()).unwrap();

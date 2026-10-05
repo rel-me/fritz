@@ -23,7 +23,27 @@ and option descriptions short because Ollaya applies its model-specific head bud
 
 Kev 4B pins checkpoint `139fdd94f1b6a6ad80cc15e08fcb99cac885a101` and Qwen3.5-4B base `1001bb4d826a52d1f399e183466143f4da7b741b`. Its ONNX export contains the unmerged LoRA and pointer readout, referencing the original base shards, adapter and head under their digest filenames. Both its state and whole state/question/options row are bounded at 8,192 tokens. Inference never replaces the requested model or downloads missing files.
 
-Every local engine's raw logits pass through the pinned calibration artifact before typed rendering. Kev's fitted temperature is `2.406050072164233`. Shared Fritz Choice and Score confidence remains `(K*p_max-1)/(K-1)`; Kev 1.0 uses a different Score confidence formula. For probabilities `[0.1, 0.1, 0.8]`, Fritz returns Score confidence `0.70` and Kev 1.0's renderer returns `0.55`. Agreement on raw probabilities does not establish confidence parity. This adapter preserves Fritz's existing typed semantics and does not claim full upstream Score-response parity. Kev remains experimental; availability is separate from workflow quality and calibration qualification.
+Laya and Kev raw logits pass through their pinned calibration artifacts before typed rendering. Kev's fitted temperature is `2.406050072164233`. Fritz's Laya and Kev Choice and Score confidence remains `(K*p_max-1)/(K-1)`; Kev 1.0 uses a different Score confidence formula. For probabilities `[0.1, 0.1, 0.8]`, Fritz returns Score confidence `0.70` and Kev 1.0's renderer returns `0.55`. Agreement on raw probabilities does not establish confidence parity. This adapter preserves Fritz's existing typed semantics and does not claim full upstream Score-response parity. Kev remains experimental; availability is separate from workflow quality and calibration qualification.
+
+Bosun 3.1 0.6B F16 is another experimental engine under the existing local
+`ollaya` provider and wire identifier. Fritz loads its installed GGUF through the
+bundled mistral.rs Metal runtime, pinned at
+`4400935451da5e2dc7379a3f92fbbada66557f6c`. The catalog pins the original compiler,
+serving contract, tokenizer, template, license and merged GGUF by revision and
+checksum. Inference needs no separate base or LoRA download. Its exact compiler
+assigns presented candidate slots, and its readout uses final-prompt logits for
+eligible learned decision tokens at temperature 1. No answer tokens are generated.
+Choice confidence is the chosen option probability; Score confidence is the
+maximum option probability. These semantics do not inherit Kev or Jev thresholds.
+
+Bosun rejects more than 2,048 rendered prompt tokens or 255 options without
+truncating state or dropping candidates. The pinned raw API copies all prompt
+logits to CPU; one maximum-sized FP32 payload is 1,244,569,600 bytes, excluding
+weights and other memory. The catalog's 16 GB floor is an unmeasured engineering
+estimate, not 24 GB pairing qualification. The adapter stays experimental until
+its separately frozen compiler, official CPU reference and native probability
+checks pass; workflow quality is a further evaluation. It retains the same owned
+child cancellation and request deadline. Models remain cold per request.
 
 The first local release is an explicitly invoked backend. See
 [local decision evaluation](agents/local-decision-evaluation.md) for the measured
