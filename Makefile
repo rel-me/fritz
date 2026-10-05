@@ -34,6 +34,7 @@ test-runtime:
 	python3 tests/test_local_browser_pairing.py
 	python3 tests/test_bosun_browser_pairing.py
 	python3 tests/test_bosun_transport.py
+	python3 tests/test_milestone_selection_eval.py
 
 test-swift:
 	swift test --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"

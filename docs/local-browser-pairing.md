@@ -102,16 +102,20 @@ runs the host first and adds a decision checker; its costs do not estimate a
 replacement policy. A frozen structural gate and independent calibration cohort
 are needed before introducing probability thresholds.
 
-Frequent local decisions need a persistent serial worker beside the current
-one-shot interface. Bind it to explicit model-store and artifact identity, use
-versioned private messages with request IDs, admit one request at a time, and
-keep weights resident with independent state and no cross-request history or KV
-reuse. Parent deadlines include loading; EOF, cancellation or deadline must
-terminate and reap the owned process group. Expose loading, readiness, inference,
-shutdown and idle unloading. This worker is proposed, not implemented here.
+The explicit `fritz-decision-harness resident` mode now supplies a serial local
+ONNX worker beside the unchanged one-shot interface. It binds an explicit model
+store and catalog identity, uses versioned correlated messages, admits one
+request at a time and keeps weights/calibration resident with fresh state and
+no cross-request history or KV reuse. Opening reports `loaded: false`; first
+inference includes loading. The bounded runner closes on EOF, cancellation,
+overlap, deadline or failure; the parent must terminate and reap the owned group.
+Installed file presence is separate from the eval's independent artifact hashes.
+Bosun and Jev residency are explicitly unsupported. See the
+[worker contract](decision-harness.md#explicit-resident-local-worker).
 
-Worker reuse does not remove the current raw API's whole-vocabulary/all-position
-CPU copy. A supported final-position/eligible-slot readout is another efficiency
+Bosun's current raw API copies whole-vocabulary/all-position logits to CPU;
+its residency is not supported by the ONNX worker. A supported
+final-position/eligible-slot readout is another efficiency
 target, requiring the same official probability checks and memory measurements.
 The current adapter narrows after that copy and retains its explicit tensor cap.
 
@@ -121,6 +125,73 @@ evidence coverage, native action success, fallback, cold/warm latency and actual
 combined physical footprint with browser and operating-system headroom. Serialize
 compute initially, then repeat on real 24 GB hardware. A model card or mock
 provider check cannot substitute for these measurements.
+
+## Resident decision follow-up
+
+A separate frozen ten-state corpus tests positive completion evidence, stale
+approval, repeated source labels, exact values, access blocks and incomplete
+coverage. It planned thirty attempts: ten host, ten Kev cold and ten Kev resident.
+All twenty Kev judgments were typed, raw-correct and cleanly closed. Each arm
+reported 4,233 input tokens and zero output; all ten paired full probability
+vectors and request hashes matched exactly against a fixed 0.000001 tolerance.
+
+| Measurement | Result |
+| --- | --- |
+| Ten cold requests | Median 28.426414 s; total 277.968217 s |
+| Resident first request, including load | 25.389543 s |
+| Nine resident warm requests | Median 12.871436 s; total 115.875075 s |
+| Complete resident session | 141.433075 s |
+| Largest cold child RSS | 8,437,235,712 bytes (7.86 GiB) |
+| Resident whole-session peak RSS | 9,233,973,248 bytes (8.60 GiB) |
+
+The reuse latency benefit is material, with uncontrolled OS caches and fixed arm
+order; Kev loading was not separately timed. Warm CPU decisions still take
+roughly 11–15 seconds. Resident RSS is a session peak, not per-request allocation
+or a combined host/browser footprint. This remains a 32 GiB component test.
+
+The host arm incorrectly called `fritz-harness evaluate`; its supported command
+is `chat`. All ten children exited 2 before inference, and the cohort evaluator
+exited 1. Their failures, stderr, unknown usage and clean process-group exits
+remain retained. The published one-line command repair and owning real mocked-child
+regression do not rescore or repeat those attempts. The regression fails before
+the repair; all eight affected contracts pass after it. The cohort supplies no
+new LLM comparison, native action execution, planning or 24 GB qualification.
+The new states have clearer goal/evidence structure than the previous captures.
+
+Preflight review also fixed strict integer response-version handling and checking
+the attested readiness timestamp instead of validation-start time. The worker
+was signed/staged at 02:53:26 UTC, with verified opening/shutdown at 02:54:41,
+before the fixed 02:55 cutoff. Both the original failed preflight and a separate
+five-second malformed-input admission failure remain recorded. No native model
+root cause is inferred from that short-bound failure.
+
+A separate first-request cancellation check verified all Kev artifacts, observed
+128 MiB of RSS growth after evaluation began, and sent one owned SIGTERM.
+The correlated generation-one cancellation arrived in 0.000811 seconds; exit
+and whole-group cleanup were clean without forced kill. Partial usage remains
+unknown. This qualifies observed first-request allocation/cancellation, not every
+native phase or low-level future cancellation.
+
+## Bosun phase timing
+
+Two repetitions of the first official 188-token CPU-reference request shared one
+loaded Bosun model. The load/contract/tokenizer path took 32.032613 seconds;
+raw request/await took 0.297347 then 0.128313 seconds. Both readouts had identical
+slot logits and probabilities, exact tokens/mapping and zero answer tokens.
+Maximum CPU probability difference was 0.0000436544, below the unchanged 0.005
+limit, with clean owned-group exits. Artifact hashing occurred before the load
+timer. Handle drop does not measure asynchronous teardown; raw timing includes
+inference and whole-prompt CPU transfer without isolating them.
+
+Loading dominates this one cold component case. A separately qualified resident
+Bosun adapter is worthwhile to try, but the current production resident mode
+rejects it and the earlier 6/12 selection quality remains unchanged. The small
+raw readout timing does not establish maximum-context memory, workflow quality,
+combined residency or optimized Release performance.
+
+See the [full follow-up findings and integration design in REL](https://github.com/rel-me/rel/blob/codex/gabriel/feed-collection-evals/docs/investigations/2026-10-04-resident-decisions.md).
+Future experiments retain Qwen3.5 4B alone as the baseline, qualify Kev MLX 0.8B
+and 4B independently, and compare real native tasks on actual 24 GB/32 GB hardware.
 
 ## Reproducibility
 
@@ -145,6 +216,11 @@ The retained evidence hashes are:
 | Twelve-case Bosun report | `a9260b487946bb8e8928e6183775a6fad92f8160e328fed6ed453976b59073ca` |
 | Independent source/model/raw-output/cleanup closure | `f5a85cc1b88778c417d7786620ac0bd6f8ca175d7366a4e96136fbabf6b17ad4` |
 | Terminal inference supervisor receipt | `b5e1640c732271818a27ea8c1f48e10a112b2e2aecf63d124a85e5922ff1b8f6` |
+| Thirty-attempt resident follow-up report | `adc85e0f9d71ae45cac69a899bc6b98051e1525e46cba12855f0087577ce7a6d` |
+| Independent follow-up source/output/cleanup closure | `16f96fccb444c5685b8795c1c950933938573f6fe61594a091d83a3767e94643` |
+| Two-readout Bosun phase receipt | `9fbbfc8fd2bdf49abb8103938876a0c86a3c6b93620090772895e529f146059f` |
+| First-request cancellation receipt | `4c1be39cb7e9beb691838c6b47d502a7cf85932dfc4954db2a019b8c4ea8c5ad` |
+| Command repair/regression evidence | `19317e1d2f0467a96c9a295f3cad7c51cb5105102121d8ff8cf5e813d16e1585` |
 
 The corresponding application architecture, preregistrations and investigation
 are published with [REL PR #632](https://github.com/rel-me/rel/pull/632).

@@ -251,8 +251,20 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `decision::Jev` | Remote TypeSafe adapter; the host supplies a key in memory. Jev is separate from conversational providers. |
 | `decision::local::{ModelStore, ModelStoreConfiguration, Ollaya}` | Supply explicit absolute host model paths. `configuration()` is serialized as local `HarnessInput.model_store`; inference never reads default Fritz state. |
 | `decision::harness::run_stdio` | Call only inside an owned single-request child process. Supplies the shared private-pipe runner, signals/deadline and native cancellation exit. |
+| `decision::local::ResidentOllaya` | Fixed explicit ONNX model/store, serial native admission and retained failures. Reuses weights/calibration with fresh state. The caller owns deadlines and child lifetime; dropping a future does not cancel native work. |
+| `decision::harness::run_resident_stdio` | Owned-child-only versioned serial local runner; 60-second idle, 120-second admission/evaluation and 64-request bounds, correlated replies and native process exit. |
 | `decision_client::evaluate_with_input` | Run the bundled decision harness with a private input pipe and receive one validated result. |
 | `tools::Workspace` | Supply a trusted project directory; commands run with user permissions, not an OS sandbox. |
+
+`ResidentOllaya::open` includes synchronous filesystem admission despite its
+async interface; the bounded private runner schedules opening on a blocking
+worker. The low-level session does not itself enforce that runner's deadlines,
+idle or request limits. Cancelling its evaluation future leaves native work busy
+until completion. Use the owned child boundary for native cancellation and reap
+the whole process group; never invoke a private stdio runner in the host's main
+process. Installed file presence and the returned catalog revision do not verify
+artifact bytes. Opt-in evals independently hash the staged binaries and installed
+model files. See [resident protocol](decision-harness.md#explicit-resident-local-worker).
 
 ```rust
 use fritz::config::RegistryStore;

@@ -999,4 +999,145 @@ mod tests {
         receipt["status"] = json!("complete");
         write_native_receipt(&receipt_path, &receipt, false);
     }
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    #[ignore = "opt-in two-attempt phase diagnostic; requires a separately frozen protocol and owned process supervisor"]
+    async fn profile_first_choice_twice_with_one_loaded_model() {
+        use std::time::{Duration, Instant};
+
+        let directory = PathBuf::from(
+            std::env::var("FRITZ_BOSUN_MODELS_DIR")
+                .expect("explicit FRITZ_BOSUN_MODELS_DIR is required"),
+        );
+        let cpu_path = PathBuf::from(
+            std::env::var("FRITZ_BOSUN_CPU_REFERENCE")
+                .expect("explicit FRITZ_BOSUN_CPU_REFERENCE is required"),
+        );
+        let receipt_path = PathBuf::from(
+            std::env::var("FRITZ_BOSUN_PROFILE_RECEIPT")
+                .expect("explicit FRITZ_BOSUN_PROFILE_RECEIPT is required"),
+        );
+        assert!(directory.is_absolute() && cpu_path.is_absolute());
+        assert!(receipt_path.is_absolute() && !receipt_path.exists());
+        let started = Instant::now();
+        let executable = std::env::current_exe().unwrap();
+        let mut receipt = json!({
+            "schema":"fritz-bosun-phase-profile-v1", "status":"running", "phase":"preflight",
+            "protocol_sha256":std::env::var("FRITZ_BOSUN_PROFILE_PROTOCOL_SHA256").unwrap(),
+            "source_commit":std::env::var("FRITZ_BOSUN_SOURCE_COMMIT").unwrap(),
+            "source_dirty":std::env::var("FRITZ_BOSUN_SOURCE_DIRTY").unwrap()=="true",
+            "binary_sha256":std::env::var("FRITZ_BOSUN_STAGED_HARNESS_SHA256").unwrap(),
+            "test_executable_path":executable,"test_executable_sha256":file_hash(&executable),
+            "source_sha256":{
+                "bosun":format!("{:x}",Sha256::digest(include_bytes!("bosun.rs"))),
+                "local":format!("{:x}",Sha256::digest(include_bytes!("../local.rs"))),
+                "harness":format!("{:x}",Sha256::digest(include_bytes!("../harness.rs"))),
+                "catalog":format!("{:x}",Sha256::digest(include_bytes!("../../../Sources/Fritz/DecisionModels.json")))
+            },
+            "cpu_reference_path":cpu_path,"cpu_reference_sha256":null,
+            "compiler_reference_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../tests/fixtures/bosun-compiler-reference.json"))),
+            "model":"bosun-v3.1-0.6b-f16", "engine_revision":mistralrs::MISTRALRS_GIT_REVISION,
+            "artifacts":[],"planned_attempts":2,"attempts":[],"cleanup":null,
+            "phase_scope":"raw_await includes pinned engine inference, full-logit CPU copy, and final-slot extraction; timing has no pass threshold"
+        });
+        write_native_receipt(&receipt_path, &receipt, true);
+        let result: Result<()> = async {
+            let reference: Value = serde_json::from_slice(&std::fs::read(&cpu_path)?)?;
+            ensure!(reference["schema"] == "fritz-bosun-cpu-reference-v1" && reference["status"] == "complete", "A complete frozen CPU reference is required.");
+            let cpu_hash = file_hash(&cpu_path);
+            ensure!(cpu_hash == "ee98e277a9b48e00758e57c21d0a4aa120fc4d0c35865830aaf0c1308c330c34", "The CPU reference differs from the frozen five-case cohort.");
+            receipt["cpu_reference_sha256"] = json!(cpu_hash);
+            let compiler = compiler_reference();
+            ensure!(reference["compiler_reference_sha256"] == receipt["compiler_reference_sha256"], "The compiler pin differs from the CPU reference.");
+            let gold = &compiler["rows"][0];
+            let oracle = &reference["rows"][0];
+            for field in ["case_id", "request", "prompt", "token_ids", "candidate_to_slot"] {
+                ensure!(gold[field] == oracle[field], "First-case CPU/compiler mismatch: {field}");
+            }
+            ensure!(gold["token_ids"].as_array().context("Missing golden tokens")?.len() == 188, "The fixed first-case prompt must contain 188 tokens.");
+            let pin = super::super::manifest("bosun-v3.1-0.6b-f16")?;
+            receipt["revision"] = json!(pin.revision);
+            for artifact in &pin.files {
+                let path = directory.join(&artifact.file);
+                let hash = file_hash(&path);
+                let size = std::fs::metadata(path)?.len();
+                receipt["artifacts"].as_array_mut().unwrap().push(json!({"file":artifact.file,"size":size,"sha256":hash}));
+                write_native_receipt(&receipt_path, &receipt, false);
+                ensure!(hash == artifact.sha256 && size == artifact.size, "Artifact integrity mismatch: {}", artifact.file);
+            }
+            receipt["phase"] = json!("load");
+            write_native_receipt(&receipt_path, &receipt, false);
+            let phase = Instant::now();
+            let loaded = load(pin, &directory).await;
+            receipt["load_seconds"] = json!(phase.elapsed().as_secs_f64());
+            write_native_receipt(&receipt_path, &receipt, false);
+            let model = loaded?;
+            let expected: Vec<f64> = serde_json::from_value(oracle["probabilities"].clone())?;
+            ensure!(!expected.is_empty() && expected.iter().all(|value| value.is_finite()), "CPU probabilities must be complete and finite.");
+            let best = |values: &[f64]| {
+                let mut index = 0;
+                for next in 1..values.len() {
+                    if values[next] > values[index] { index = next; }
+                }
+                index
+            };
+            for attempt in 0..2 {
+                receipt["phase"] = json!("tokenize_admit");
+                receipt["attempts"].as_array_mut().unwrap().push(json!({"attempt":attempt+1,"status":"inflight","case_id":gold["case_id"],"request":gold["request"],"prompt":gold["prompt"],"reference_probabilities":expected}));
+                write_native_receipt(&receipt_path, &receipt, false);
+                let phase = Instant::now();
+                let request: DecisionRequest = serde_json::from_value(gold["request"].clone())?;
+                let mut rows = compile(&request)?;
+                ensure!(rows.len() == 1, "The diagnostic must retain its single Choice head.");
+                let row = rows.pop().unwrap();
+                ensure!(matches!(row.question, Question::Choice { .. }), "The fixed first case must remain a Choice.");
+                let tokens = row_tokens(&model, &row).await?;
+                ensure!(serde_json::to_value(&tokens)? == gold["token_ids"] && json!(&row.prompt) == gold["prompt"], "The fixed prompt/token IDs changed.");
+                let mapping: BTreeMap<_, _> = row.presentation_order.iter().enumerate().map(|(slot,index)|(row.candidates[*index].id.clone(),slot)).collect();
+                ensure!(serde_json::to_value(&mapping)? == gold["candidate_to_slot"], "The fixed candidate mapping changed.");
+                receipt["attempts"][attempt]["tokenize_admit_seconds"] = json!(phase.elapsed().as_secs_f64());
+                receipt["attempts"][attempt]["token_ids"] = json!(tokens);
+                receipt["attempts"][attempt]["candidate_to_slot"] = json!(mapping);
+                receipt["attempts"][attempt]["expected_raw_payload_bytes"] = json!(tokens.len()*VOCAB_SIZE*4);
+                receipt["phase"] = json!("raw_await");
+                write_native_receipt(&receipt_path, &receipt, false);
+                let phase = Instant::now();
+                let logits = tokio::time::timeout(Duration::from_secs(120), slot_logits(&model,&tokens,row.candidates.len())).await.context("Bosun profiling raw-readout deadline")??;
+                receipt["attempts"][attempt]["raw_await_seconds"] = json!(phase.elapsed().as_secs_f64());
+                receipt["phase"] = json!("render");
+                receipt["attempts"][attempt]["slot_logits"] = json!(logits);
+                write_native_receipt(&receipt_path, &receipt, false);
+                let phase = Instant::now();
+                let actual = serde_json::to_value(answer(&row,&logits)?)?;
+                let aligned: Vec<f64> = row.candidates.iter().map(|candidate| actual["probabilities"][&candidate.id].as_f64().context("Missing original-candidate probability")).collect::<Result<_>>()?;
+                ensure!(aligned.len() == expected.len() && aligned.iter().all(|value|value.is_finite()), "Native probabilities must be complete and finite.");
+                let error = aligned.iter().zip(&expected).map(|(actual,expected)|(actual-expected).abs()).fold(0f64,f64::max);
+                let passed = error <= 0.005 && best(&aligned) == best(&expected);
+                receipt["attempts"][attempt]["render_seconds"] = json!(phase.elapsed().as_secs_f64());
+                receipt["attempts"][attempt]["probabilities"] = json!(aligned);
+                receipt["attempts"][attempt]["max_absolute_probability_error"] = json!(error);
+                receipt["attempts"][attempt]["selected_index"] = json!(best(&aligned));
+                receipt["attempts"][attempt]["reference_selected_index"] = json!(best(&expected));
+                receipt["attempts"][attempt]["usage"] = json!({"input_tokens":tokens.len(),"output_tokens":0});
+                receipt["attempts"][attempt]["passed"] = json!(passed);
+                receipt["attempts"][attempt]["status"] = json!(if passed {"complete"} else {"failed"});
+                write_native_receipt(&receipt_path, &receipt, false);
+                ensure!(passed, "Fixed-case probability/argmax parity failed on attempt {}.",attempt+1);
+            }
+            receipt["phase"] = json!("drop_model");
+            write_native_receipt(&receipt_path, &receipt, false);
+            let phase = Instant::now();
+            drop(model);
+            receipt["drop_model_seconds"] = json!(phase.elapsed().as_secs_f64());
+            Ok(())
+        }.await;
+        receipt["elapsed_seconds"] = json!(started.elapsed().as_secs_f64());
+        receipt["status"] = json!(if result.is_ok() { "complete" } else { "failed" });
+        if let Err(error) = &result {
+            receipt["error"] = json!(format!("{error:#}"));
+        }
+        write_native_receipt(&receipt_path, &receipt, false);
+        result.unwrap();
+    }
 }

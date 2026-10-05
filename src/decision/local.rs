@@ -8,6 +8,8 @@ use serde_json::{Value, json};
 use std::{collections::BTreeMap, path::PathBuf};
 
 mod bosun;
+mod resident;
+pub use resident::ResidentOllaya;
 
 #[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -222,47 +224,72 @@ impl DecisionModel for Ollaya {
 }
 
 fn infer(
-    pin: &Manifest,
+    pin: &'static Manifest,
     directory: PathBuf,
     state: Value,
     questions: ollaya_decision::Questions,
 ) -> Result<DecisionResponse> {
-    let files = ModelFiles {
-        graph: directory.join(format!("{}.onnx", pin.id)),
-        tokenizer: directory.join(format!("{}.tokenizer.json", pin.id)),
-        decision: directory.join(format!("{}.json", pin.id)),
-        calibration: Some(directory.join(format!("{}.calibration.json", pin.id))),
-        arch: None,
-        weights: None,
-    };
-    let calibration: ollaya_decision::CalibrationFile = serde_json::from_slice(&std::fs::read(
-        files
-            .calibration
-            .as_ref()
-            .context("Missing calibration path.")?,
-    )?)
-    .context("Invalid local decision calibration.")?;
-    let calibration = ollaya_decision::Calibration::from_file(&calibration);
-    let model = ollaya_runner::engine::load(&files, Device::Cpu, Some(4))
-        .context("Could not load the local decision model.")?;
-    let mut answers = BTreeMap::new();
-    let mut input_tokens = 0;
-    // One row at a time bounds native attention memory even for 64 questions.
-    for (id, question) in questions {
-        let single = ollaya_decision::Questions::from_iter([(id.clone(), question)]);
-        let output = model.run(&state, &single)?;
-        let question = &single[&id];
-        answers.insert(id, render_output(question, &calibration, &output)?);
-        input_tokens += output.input_tokens as u64;
+    LoadedModel::load(pin, &directory)?.infer(state, questions)
+}
+
+/// A scoped loaded ONNX engine. Each run receives fresh state and question tensors.
+struct LoadedModel {
+    pin: &'static Manifest,
+    model: Box<dyn ollaya_runner::engine::Engine>,
+    calibration: ollaya_decision::Calibration,
+}
+
+impl LoadedModel {
+    fn load(pin: &'static Manifest, directory: &std::path::Path) -> Result<Self> {
+        let files = ModelFiles {
+            graph: directory.join(format!("{}.onnx", pin.id)),
+            tokenizer: directory.join(format!("{}.tokenizer.json", pin.id)),
+            decision: directory.join(format!("{}.json", pin.id)),
+            calibration: Some(directory.join(format!("{}.calibration.json", pin.id))),
+            arch: None,
+            weights: None,
+        };
+        let calibration: ollaya_decision::CalibrationFile = serde_json::from_slice(&std::fs::read(
+            files
+                .calibration
+                .as_ref()
+                .context("Missing calibration path.")?,
+        )?)
+        .context("Invalid local decision calibration.")?;
+        let calibration = ollaya_decision::Calibration::from_file(&calibration);
+        let model = ollaya_runner::engine::load(&files, Device::Cpu, Some(4))
+            .context("Could not load the local decision model.")?;
+        Ok(Self {
+            pin,
+            model,
+            calibration,
+        })
     }
-    Ok(DecisionResponse {
-        model: format!("{}@{}", pin.id, pin.revision),
-        answers,
-        usage: Some(Usage {
-            input_tokens,
-            output_tokens: 0,
-        }),
-    })
+
+    fn infer(
+        &self,
+        state: Value,
+        questions: ollaya_decision::Questions,
+    ) -> Result<DecisionResponse> {
+        let mut answers = BTreeMap::new();
+        let mut input_tokens = 0;
+        // One row at a time bounds native attention memory even for 64 questions.
+        for (id, question) in questions {
+            let single = ollaya_decision::Questions::from_iter([(id.clone(), question)]);
+            let output = self.model.run(&state, &single)?;
+            let question = &single[&id];
+            answers.insert(id, render_output(question, &self.calibration, &output)?);
+            input_tokens += output.input_tokens as u64;
+        }
+        Ok(DecisionResponse {
+            model: format!("{}@{}", self.pin.id, self.pin.revision),
+            answers,
+            usage: Some(Usage {
+                input_tokens,
+                output_tokens: 0,
+            }),
+        })
+    }
 }
 
 fn render_output(

@@ -234,6 +234,12 @@ fritz decide --connection 'Local decisions' request.json
 
 Use `-` (the default filename) to read JSON from stdin. The model is loaded for each request; expect seconds of cold-start latency. The initial reminder-routing quality gate did **not** pass; use this experimental backend for explicit evaluation, not automatic reminder actions. See the [evaluation results](docs/agents/local-decision-evaluation.md) before designing a policy around its probabilities. The [local model comparison](docs/local-browser-pairing.md) records frozen selection measurements and their limits. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
 
+Hosts can explicitly start the bundled `fritz-decision-harness resident` for
+serial Laya/Kev decisions using a versioned private pipe. It reuses weights with
+fresh request state, has bounded lifetime and requires host-owned process-group
+cleanup. It does not change `fritz decide`, chat, or app decision calls. Bosun
+and Jev residency are unsupported. See [messages and lifecycle](docs/decision-harness.md#explicit-resident-local-worker).
+
 To install the compact experimental engine explicitly, use
 `fritz decision-models install bosun-v3.1-0.6b-f16`, then add an Ollaya connection
 with that model ID. It remains separate from the default chat provider.

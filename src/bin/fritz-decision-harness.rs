@@ -14,12 +14,18 @@ struct Cli {
 enum Command {
     /// Evaluate typed questions. Keep stdin open; closing it cancels the request.
     Evaluate,
+    /// Keep one local ONNX engine resident. Versioned, serial private requests only.
+    Resident,
 }
 
 #[tokio::main]
 async fn main() {
-    let _cli = Cli::parse();
-    if let Err(error) = fritz::decision::harness::run_stdio().await {
+    let cli = Cli::parse();
+    let result = match cli.command {
+        Command::Evaluate => fritz::decision::harness::run_stdio().await,
+        Command::Resident => fritz::decision::harness::run_resident_stdio().await,
+    };
+    if let Err(error) = result {
         println!(
             "{}",
             serde_json::json!({"type":"error","message":error.to_string()})

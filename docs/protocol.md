@@ -211,3 +211,26 @@ Shared `ModelsStore` requires an explicit Keychain service for key-inclusive exp
 `local::generate_with_engine` uses a host-created engine without default cache access.
 
 Local decision private inputs require `modelStore: {"directory": "/absolute/host/Models", "modelDirectories": {}}` and no API key. An optional per-model absolute directory overrides the default. Saved Fritz connections resolve their configured paths in the supervising CLI before spawning; hosts supply their own paths. Jev private inputs reject modelStore. The shared `decision::harness::run_stdio` runner is used only in owned child processes because native cancellation can exit that child.
+
+### Resident decision child
+
+The separately invoked `fritz-decision-harness resident` calls
+`decision::harness::run_resident_stdio`. Its version 1 protocol opens a fixed
+explicit local model/store, accepts consecutive uniquely identified evaluations
+1 through 64, and closes through a uniquely identified shutdown. The opening
+response has `loaded: false`: the first evaluation includes engine loading.
+Admitted evaluation responses bind `id`, `sessionId`, `generation` and the normal
+typed result. Admission or malformed-message diagnostics can have a null ID
+without session/generation, including after opening.
+Send one message and wait for its response before sending the next.
+
+Laya and Kev reuse loaded ONNX weights and calibration with fresh state and
+questions. Jev, Bosun, credentials, top-level conversation/history and a changed
+model or store are rejected. Arbitrary supplied `state` remains unchanged; no
+history is automatically retained. Opening/between-request idle limits are 60 seconds; admission
+and evaluations each have a 120-second limit. EOF, signals, overlap or errors
+stop the child, with already observable cancellation/overlap/expiry taking
+priority over a ready admission or evaluation result. The host owns a transport
+watchdog, drains both pipes and reaps the entire process group. Native shutdown
+can exit with `_exit`; neither shared stdio runner is safe in the host process.
+See [the exact messages and lifecycle](decision-harness.md#explicit-resident-local-worker).
