@@ -226,13 +226,17 @@ struct ChatModelPickerPopover: View {
 
     var body: some View {
         FritzUI.ModelPickerPopover(
-            models: models.map(Self.item), recentModels: recentModels.map(Self.item),
+            models: chatModels.map(Self.item), recentModels: recentModels.map(Self.item),
             modelProviders: (modelProviders + AIProviderKind.allCases).map(\.rawValue),
             selectedModelID: selectedModelID,
             selectModel: { selectModel($0.value) }, configureModels: configureModels,
             recommendationLimit: 8, initialSearchText: initialSearchText
         )
         .fritzPickerStyle(PickerStyle(background: Color(nsColor: .textBackgroundColor)))
+    }
+
+    private var chatModels: [ChatModelOption] {
+        models.filter { $0.provider != .openAI || $0.capabilities.isRecommendedInChatPicker }
     }
 
     static func item(_ model: ChatModelOption) -> ModelPickerItem<ChatModelOption> {

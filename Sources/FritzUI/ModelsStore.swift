@@ -61,7 +61,8 @@ import Security
                     guard refreshID == revision else { return }
                     nextCatalog[connection.id] = response.models
                     if connection.category == .llm {
-                        nextModels += response.models.map { ChatModelOption(connection: connection, model: $0) }
+                        nextModels += DiscoveredAIModel.preferredOrder(response.models, provider: connection.provider)
+                            .map { ChatModelOption(connection: connection, model: $0) }
                     }
                     if connection.provider.isNative, response.models.isEmpty {
                         nextErrors[connection.id] = "No local models installed."

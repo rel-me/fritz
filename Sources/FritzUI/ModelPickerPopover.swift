@@ -207,6 +207,9 @@ public struct ModelPickerPopover<Value>: View {
     }
 
     guard !query.isEmpty else {
+      if selectedProvider != nil {
+        return providerModels
+      }
       return ModelPickerData<Value>.recommendations(
         from: providerModels,
         providerOrder: selectedProvider.map { [$0.groupID] } ?? modelProviders,
