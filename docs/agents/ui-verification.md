@@ -59,12 +59,12 @@ or cancellable work is in progress when those states are affected.
 ## Shared UI snapshots
 
 `tests/FritzUISnapshotTests` compares the public FritzUI controls using
-[swiftui-snapshot-testing](https://github.com/gabriel/swiftui-snapshot-testing).
+[swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing).
 The dependency is test-only. The test harness settles native controls in an
 offscreen AppKit window with
-explicit appearance, sRGB color space, and 2× backing pixels, then passes that
-rendered surface through its `assertSnapshot(view:device:)` API. This captures the native appearance before the package’s light-only host
-compares the pixels; it does not replace controls with stand-ins. Fixtures set a
+explicit appearance, sRGB color space, and a fixed 2× window backing scale. It
+captures a 2× bitmap and passes it directly through `assertSnapshot(of:as:)`. Comparing the
+bitmap avoids resampling it at the attached display's backing scale. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
 indicators, with synthetic model/provider values and no network or credentials.
 Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so

@@ -3,7 +3,7 @@ import AppKit
 import Fritz
 import Observation
 import SwiftUI
-import SwiftUISnapshotTesting
+import SnapshotTesting
 import XCTest
 
 @MainActor
@@ -250,12 +250,11 @@ final class SharedControlSnapshots: XCTestCase {
                     .environment(\.controlActiveState, .key)
                     .scrollIndicators(.hidden)
                     .tint(.blue), appearance: scheme == .dark ? .darkAqua : .aqua, size: size, settleDuration: settleDuration)
-            // The package compares the fully rendered native surface. Its detached
-            // host forces light AppKit appearance and does not settle native controls.
-            SwiftUISnapshotTesting.assertSnapshot(
-                view: Image(nsImage: image).resizable().interpolation(.none),
-                device: .macOS(width: size.width, height: size.height), named: appearance,
-                record: recordsSnapshot, file: file, testName: name, line: line)
+            // Compare the fixed 2x bitmap directly. Hosting it in another view
+            // would resample it at the attached display's backing scale.
+            SnapshotTesting.assertSnapshot(
+                of: image, as: .image, named: appearance,
+                record: recordsSnapshot, file: file, testName: "\(name)-macOS", line: line)
         }
     }
 
@@ -272,7 +271,7 @@ final class SharedControlSnapshots: XCTestCase {
         host.appearance = appearance
         host.wantsLayer = true
         host.layer?.contentsScale = 2
-        let window = NSWindow(contentRect: bounds, styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = SnapshotWindow(contentRect: bounds, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.colorSpace = .sRGB
@@ -324,6 +323,12 @@ final class SharedControlSnapshots: XCTestCase {
         return image
     }
 
+}
+
+// AppKit and SwiftUI must rasterize at the same scale as the snapshot bitmap,
+// including on CI displays whose native backing scale is 1x.
+@MainActor private final class SnapshotWindow: NSWindow {
+    override var backingScaleFactor: CGFloat { 2 }
 }
 
 @MainActor @Observable private final class ModelsFixture: ModelsProviderStore {

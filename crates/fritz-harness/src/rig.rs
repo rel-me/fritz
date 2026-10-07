@@ -7,7 +7,7 @@ use rig_agent::{
     agent::{AgentRunner, CompletionCall, MultiTurnStreamItem, PromptResponse, StreamingError},
     completion::PromptError,
 };
-use rig_core::completion::CompletionError;
+use rig_core::error::ProviderError;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 /// A host receives completion accounting before the next model/tool step.
@@ -15,22 +15,23 @@ use tokio::sync::mpsc::UnboundedReceiver;
 pub async fn run(
     runner: AgentRunner,
     mut completion: impl FnMut(&CompletionCall) -> Result<(), PromptError>,
-) -> Result<PromptResponse, PromptError> {
-    let mut stream = runner.stream().await;
+) -> Result<PromptResponse, Box<PromptError>> {
+    let mut stream = runner.stream();
     while let Some(item) = stream.next().await {
         match item {
             Ok(MultiTurnStreamItem::CompletionCall(call)) => completion(&call)?,
             Ok(MultiTurnStreamItem::FinalResponse(response)) => return Ok(response),
             Err(StreamingError::Completion(error)) => {
-                return Err(PromptError::CompletionError(error));
+                return Err(Box::new(PromptError::CompletionError(error)));
             }
-            Err(StreamingError::Prompt(error)) => return Err(*error),
+            Err(StreamingError::Prompt(error)) => return Err(Box::new(error)),
+            Err(StreamingError::Report(error)) => return Err(Box::new(PromptError::Report(error))),
             _ => {}
         }
     }
-    Err(PromptError::CompletionError(
-        CompletionError::ResponseError("The model stream ended without a final response.".into()),
-    ))
+    Err(Box::new(PromptError::CompletionError(
+        ProviderError::Response("The model stream ended without a final response.".into()),
+    )))
 }
 
 /// Drive a run while forwarding host-defined progress to its transport.
@@ -42,7 +43,7 @@ pub async fn run_with_progress<E, X>(
     completion: impl FnMut(&CompletionCall) -> Result<(), PromptError>,
     events: &mut UnboundedReceiver<E>,
     mut emit: impl FnMut(E) -> Result<(), X>,
-) -> Result<Result<PromptResponse, PromptError>, X> {
+) -> Result<Result<PromptResponse, Box<PromptError>>, X> {
     let request = run(runner, completion);
     tokio::pin!(request);
     let mut events_open = true;
