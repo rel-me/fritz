@@ -2,11 +2,14 @@
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
 locks. It needs full Xcode with Swift 6.3+, Rust 1.95+ with rustfmt and Clippy,
-CMake for a native TLS dependency, and Python 3. With rustup, the repository's
-`rust-toolchain.toml` selects Rust 1.95.0 with rustfmt and Clippy; rustup installs
-missing toolchain components when invoked. The setup script itself does not install toolchains, change Git
-branches, copy local credentials, build an app, or launch one. XcodeGen is needed only when regenerating
-`app/Fritz.xcodeproj` from `app/project.yml`.
+CMake for a native TLS dependency, Python 3, and mise. The repository's
+`mise.toml` pins Rust 1.95.0 with rustfmt and Clippy. Trust this checkout's config
+with `mise trust mise.toml` before the first setup. `make setup` runs
+`mise install rust` and then resolves package dependencies. Rust commands in
+Make targets, build scripts, and CI use `mise exec`; shell activation is optional.
+Setup does not change Git branches, copy local credentials, build an app, or
+launch one. XcodeGen is needed only when regenerating `app/Fritz.xcodeproj`
+from `app/project.yml`.
 
 The [Codex environment](../../.codex/environments/environment.toml)
 defines Fritz's local setup and actions. Setup runs `make setup`; the toolbar actions
@@ -89,6 +92,8 @@ distribution signing or notarization.
 
 ## CI
 
+CI installs mise and the Rust toolchain from `mise.toml` before computing the
+build-storage fingerprint or running Rust commands.
 CI runs for PRs authored by `gabriel`, pushes to `main`, and manual dispatches.
 PRs by other authors skip every job, including the final check; rerunning one as
 `gabriel` does not change eligibility. Feature-branch pushes do not start a
@@ -183,15 +188,16 @@ For direct commands, enter the wrapper rather than accessing shared Cargo output
 without the lock:
 
 ```sh
-python3 scripts/build-cache.py cargo build --locked
+python3 scripts/build-cache.py mise exec -- cargo build --locked
 python3 scripts/build-cache.py python3 tests/integration.py
 ```
 
 The wrapper exports `CARGO_TARGET_DIR`, `FRITZ_TEST_BIN_DIR`,
 `FRITZ_SWIFT_BUILD`, `FRITZ_APP_SWIFT_BUILD`, `FRITZ_SWIFT_CACHE`,
 `FRITZ_DERIVED_DATA`, and `FRITZ_XCODE_CACHE`. Make configures the Swift and Xcode
-commands with these paths. Plain `cargo`/`swift` commands outside the wrapper
-continue using their normal defaults. To get the resolved DerivedData path
+commands with these paths. Use `mise exec -- cargo ...` for the pinned Rust
+toolchain in direct commands. Commands outside the build wrapper use their normal
+build-storage defaults. To get the resolved DerivedData path
 without building, use `python3 scripts/build-cache.py --derived-data`.
 The setup script uses `--setup` to configure these same paths with only the
 checkout lock; reserve that mode for dependency resolution without compilation

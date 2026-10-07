@@ -138,7 +138,7 @@ to increase deletion counts.
 Follow Fritz's `AGENTS.md` and [runtime verification](../../../docs/agents/runtime-verification.md).
 Never edit source or tests while a test run is using the checkout.
 
-1. Run the smallest owner and sibling tests: `cargo test -p <crate> <filter>`,
+1. Run the smallest owner and sibling tests: `python3 scripts/build-cache.py mise exec -- cargo test -p <crate> <filter>`,
    `swift test --filter <Target>`, or `swift test --package-path app --filter <Target>`.
 2. For removed source greps or plan assertions, run the executable script or
    dry-run that owns the real contract.

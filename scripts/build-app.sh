@@ -10,11 +10,11 @@ source scripts/release-config.sh
 case "$configuration" in
   debug)
     source scripts/dev-runtime.sh
-    cargo build --locked
+    mise exec -- cargo build --locked
     xcode_configuration=Debug
     ;;
   release)
-    cargo build --locked --release
+    mise exec -- cargo build --locked --release
     xcode_configuration=Release
     app_name=Fritz
     bundle_id=dev.fritz.app

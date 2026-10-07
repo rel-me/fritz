@@ -21,8 +21,8 @@ run dev-open: build
 test: test-runtime test-swift
 
 test-runtime:
-	cargo test --workspace --all-features --locked
-	cargo build --locked
+	mise exec -- cargo test --workspace --all-features --locked
+	mise exec -- cargo build --locked
 	python3 tests/integration.py
 	python3 tests/coding_integration.py
 	python3 tests/decision_integration.py
@@ -44,8 +44,8 @@ check-ui-snapshots:
 	./scripts/check-ui-snapshots.sh
 
 check:
-	cargo fmt --all --check
-	cargo clippy --workspace --all-features --locked --all-targets -- -D warnings
+	mise exec -- cargo fmt --all --check
+	mise exec -- cargo clippy --workspace --all-features --locked --all-targets -- -D warnings
 
 install-cli:
 	@CONFIGURATION=release $(MAKE) --no-print-directory build

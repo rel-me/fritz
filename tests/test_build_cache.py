@@ -97,6 +97,11 @@ class BuildCacheTests(unittest.TestCase):
             tool = tools / name
             tool.write_text("#!/bin/sh\nexit 0\n")
             tool.chmod(0o755)
+        mise = tools / "mise"
+        mise.write_text("#!/bin/sh\n"
+                        "if [ \"$1\" = install ]; then exit 0; fi\n"
+                        "shift 2\nexec \"$@\"\n")
+        mise.chmod(0o755)
         environment = dict(self.environment, PATH=f"{tools}{os.pathsep}{os.environ['PATH']}")
         started = self.root / "build-started"
         release = self.root / "build-release"

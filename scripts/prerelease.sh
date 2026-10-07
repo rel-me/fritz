@@ -7,7 +7,7 @@ case "$channel" in
   *) echo "error: use make beta or make staging" >&2; exit 64 ;;
 esac
 # Resolve the repository's Rust toolchain before release preparation or npm work.
-cargo --version
+mise exec -- cargo --version
 export FRITZ_DISTRIBUTION=1
 explicit_version="${FRITZ_VERSION:+--explicit-version}"
 explicit_build="${FRITZ_BUILD_NUMBER:+--explicit-build}"

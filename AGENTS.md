@@ -20,7 +20,7 @@ Fritz is a native macOS personal assistant. Keep the current product focused on 
 
 ## Build and runtime verification
 
-- `make setup` checks the local toolchain and resolves locked dependencies. Codex uses `.codex/environments/environment.toml` for setup and Run, Build, Test, and Check actions.
+- `make setup` installs the Rust toolchain pinned in `mise.toml`, checks the local toolchain, and resolves locked dependencies. Rust commands use `mise exec` without requiring shell activation. Codex uses `.codex/environments/environment.toml` for setup and Run, Build, Test, and Check actions.
 - `make build` stages and signs `dist/Fritz.app`; `make dev-open` builds and launches it. Use these entry points so verification includes the Rust agent and bundled Markdown resources. A SwiftPM build alone does not verify the complete app.
 - The checked-in Xcode project is generated from `app/project.yml` using XcodeGen. Update both when project structure changes. Preserve the declared platform and language settings and committed dependency locks.
 - For runtime, agent, or packaging changes, read [runtime verification](docs/agents/runtime-verification.md). Run `make test` and `make check`, then build the staged app and exercise the affected workflow. Documentation and skill-only changes do not require an app build.

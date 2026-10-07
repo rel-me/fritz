@@ -36,7 +36,6 @@ jobs:
           git clean -ffdx
       - name: Locate local build tools
         run: |
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           echo /opt/homebrew/bin >> "$GITHUB_PATH"
       - name: Select installed Swift 6.3 or newer
         run: |
@@ -55,15 +54,25 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
+      - name: Set up mise
+        uses: jdx/mise-action@v4
+        with:
+          version: 2026.8.8
+          install: false
+          cache: false
+      - name: Install pinned Rust toolchain
+        run: |
+          mise trust mise.toml
+          mise install rust
       - name: Select runner-local build storage for this toolchain
         run: |
-          fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
+          fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; mise exec -- rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
           echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/$RUNNER_NAME/$fingerprint" >> "$GITHUB_ENV"
       - name: Check toolchains
         run: |
           xcodebuild -version
           swift --version
-          cargo --version
+          mise exec -- cargo --version
           cmake --version
       - name: Test Rust, runtime, libraries, and application
         # Serialize tests within the dedicated CI account's login session.

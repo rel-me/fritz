@@ -43,12 +43,14 @@ disk image, then open Fritz from Applications.
 
 Requires macOS 15+, Xcode / Swift 6.3, Rust 1.95+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
 
-With rustup, `rust-toolchain.toml` selects Rust 1.95.0 and its rustfmt and Clippy
-components for this checkout, independently of your global default. Install it
-ahead of time with `rustup toolchain install 1.95.0 --profile minimal --component rustfmt --component clippy`.
+Install [mise](https://mise.jdx.dev/getting-started.html) for Rust toolchain management.
+`mise.toml` pins Rust 1.95.0 with rustfmt and Clippy. Make targets and build scripts
+use `mise exec` so they select the pin without shell activation or changing your
+global Rust default. `make setup` installs the pinned Rust toolchain.
 
 ```sh
-make setup     # check tools and resolve committed dependency versions
+mise trust mise.toml
+make setup     # install pinned Rust, check tools, and resolve locked dependencies
 make dev-open
 ```
 
