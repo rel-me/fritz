@@ -151,8 +151,6 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
-    @State private var rightPanelWidth: CGFloat = 260
-    @State private var rightPanelToggleWidth: CGFloat = 24
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -204,7 +202,6 @@ private struct FritzWorkspaceView: View {
                 isRightPanelPresented = false
             }
             .inspectorColumnWidth(min: 220, ideal: 260, max: 400)
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightPanelWidth = $0 }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -218,27 +215,14 @@ private struct FritzWorkspaceView: View {
                 Button("Models", systemImage: "cpu") { openProviders() }
                     .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Models")
             }
-            if #available(macOS 26.0, *) {
-                ToolbarItem(placement: .primaryAction) {
-                    newThreadToolbarButton
-                        .padding(.trailing, newChatToolbarTrailingSpace)
-                }
-                .sharedBackgroundVisibility(.hidden)
-            } else {
-                ToolbarItem(placement: .primaryAction) {
-                    newThreadToolbarButton
-                        .padding(.trailing, newChatToolbarTrailingSpace)
-                }
-            }
             ToolbarItemGroup(placement: .primaryAction) {
+                newThreadToolbarButton
                 Button("Toggle Right Panel", systemImage: "sidebar.right") {
                     isRightPanelPresented.toggle()
                 }
-                .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar))
-                .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
+                .labelStyle(.iconOnly)
                 .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
                 .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightPanelToggleWidth = $0 }
             }
         }
         .fritzWindowBackground()
@@ -263,15 +247,9 @@ private struct FritzWorkspaceView: View {
         }
     }
 
-    // The toggle occupies the trailing toolbar slot. Reserve the rest of the
-    // native inspector's measured width so New Chat follows the chat divider.
-    private var newChatToolbarTrailingSpace: CGFloat {
-        isRightPanelPresented ? max(0, rightPanelWidth - rightPanelToggleWidth - 12) : 0
-    }
-
     private var newThreadToolbarButton: some View {
         Button("New Chat", systemImage: "square.and.pencil", action: state.newThread)
-            .buttonStyle(FritzButtonStyle(.toolbar)).help("New Chat (⌘N)")
+            .labelStyle(.iconOnly).help("New Chat (⌘N)")
             .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
     }
 
