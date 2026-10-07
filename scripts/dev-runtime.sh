@@ -19,7 +19,7 @@ fi
 bundle_id="dev.fritz.FrizDebug.$path_hash"
 data_directory="$HOME/Library/Application Support/FritzDebug-$path_hash/Data"
 keychain_service="dev.fritz.provider-credentials.$path_hash"
-models_directory="/Library/Application Support/Fritz/Data/Models"
+models_directory="$HOME/Models"
 
 if [[ "${1:-}" == "--print" ]]; then
   printf 'app_name=%s\nbundle_id=%s\ndata_directory=%s\nkeychain_service=%s\nmodels_directory=%s\n' \

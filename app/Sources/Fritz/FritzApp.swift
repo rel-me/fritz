@@ -151,61 +151,61 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
+    @State private var rightPanelWidth: CGFloat = 260
+    @State private var rightPanelToggleWidth: CGFloat = 24
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             ProjectsSidebar(workspace: state.workspace)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                .frame(minWidth: 240, idealWidth: 280, maxWidth: 360)
+                .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
-            HStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    if let error = state.workspace.error {
-                        Label(error, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange).textSelection(.enabled).padding(12)
-                    }
-                    if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
-                        let chatView = ChatView(store: chat, providers: state.providers,
-                                                openProviders: openProviders,
-                                                addProvider: { state.editor = ProviderEditorSelection() })
-                            .id(thread.id)
-                        Group {
-                            if #available(macOS 26.0, *) {
-                                chatView
-                                    .safeAreaBar(edge: .top, spacing: 0) {
-                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
-                                                   threadTitle: thread.title)
-                                    }
-                                    .scrollEdgeEffectStyle(.soft, for: .top)
-                            } else {
-                                chatView
-                                    .safeAreaInset(edge: .top, spacing: 0) {
-                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
-                                                   threadTitle: thread.title)
-                                    }
-                            }
-                        }
-                        .background(FritzWindowStyle.workspaceBackground)
-                    } else {
-                        FritzWindowStyle.workspaceBackground
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+            VStack(spacing: 0) {
+                if let error = state.workspace.error {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if isRightPanelPresented {
-                    Rectangle().fill(.separator).frame(width: 0.5)
-                    WorkspaceRightPanel {
-                        isRightPanelPresented = false
+                if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
+                    let chatView = ChatView(store: chat, providers: state.providers,
+                                            openProviders: openProviders,
+                                            addProvider: { state.editor = ProviderEditorSelection() })
+                        .id(thread.id)
+                    Group {
+                        if #available(macOS 26.0, *) {
+                            chatView
+                                .safeAreaBar(edge: .top, spacing: 0) {
+                                    chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                               threadTitle: thread.title)
+                                }
+                                .scrollEdgeEffectStyle(.soft, for: .top)
+                        } else {
+                            chatView
+                                .safeAreaInset(edge: .top, spacing: 0) {
+                                    chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                               threadTitle: thread.title)
+                                }
+                        }
                     }
-                    .frame(width: 260)
+                    .background(FritzWindowStyle.workspaceBackground)
+                } else {
+                    FritzWindowStyle.workspaceBackground
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
             .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
         .navigationSplitViewStyle(.prominentDetail)
+        .inspector(isPresented: $isRightPanelPresented) {
+            WorkspaceRightPanel {
+                isRightPanelPresented = false
+            }
+            .inspectorColumnWidth(min: 220, ideal: 260, max: 400)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightPanelWidth = $0 }
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,
@@ -221,11 +221,13 @@ private struct FritzWorkspaceView: View {
             if #available(macOS 26.0, *) {
                 ToolbarItem(placement: .primaryAction) {
                     newThreadToolbarButton
+                        .padding(.trailing, newChatToolbarTrailingSpace)
                 }
                 .sharedBackgroundVisibility(.hidden)
             } else {
                 ToolbarItem(placement: .primaryAction) {
                     newThreadToolbarButton
+                        .padding(.trailing, newChatToolbarTrailingSpace)
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
@@ -236,6 +238,7 @@ private struct FritzWorkspaceView: View {
                 .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
                 .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
                 .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightPanelToggleWidth = $0 }
             }
         }
         .fritzWindowBackground()
@@ -258,6 +261,12 @@ private struct FritzWorkspaceView: View {
                 Rectangle().fill(.ultraThinMaterial)
             }
         }
+    }
+
+    // The toggle occupies the trailing toolbar slot. Reserve the rest of the
+    // native inspector's measured width so New Chat follows the chat divider.
+    private var newChatToolbarTrailingSpace: CGFloat {
+        isRightPanelPresented ? max(0, rightPanelWidth - rightPanelToggleWidth - 12) : 0
     }
 
     private var newThreadToolbarButton: some View {

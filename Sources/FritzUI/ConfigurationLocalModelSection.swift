@@ -1,8 +1,6 @@
 import Fritz
-import FritzUI
 import SwiftUI
 
-typealias NativeModelInstallState = LocalModelInstallState
 
 struct NativeModelFilters: Equatable {
     var category: AIModelCategory?
@@ -15,12 +13,12 @@ struct NativeModelFilters: Equatable {
     }
 }
 
-struct NativeLocalModelSection: View {
+struct ConfigurationLocalModelSection: View {
     private let filterStyle = PickerStyle()
     @State private var hoveredFilter: String?
     @Binding var filters: NativeModelFilters
     @Binding var modelID: String
-    let state: NativeModelInstallState
+    let state: LocalModelInstallState
     let hardware: LocalModelHardware
     let catalog: [NativeModelDescriptor]
 

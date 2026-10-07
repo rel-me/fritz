@@ -1,6 +1,7 @@
 # Native UI verification
 
-Build the complete staged app and use the mock-provider setup in
+Use `make build` for incremental Debug builds of the complete staged app during
+UI development and verification. Use the mock-provider setup in
 [runtime verification](runtime-verification.md). Inspect the actual native
 surface affected by the change; process launch and compilation do not verify
 layout, focus, command routing, or state restoration.
@@ -22,9 +23,11 @@ the following surfaces, include these behaviors:
   thread exists, with creation available from the toolbar and menu. Check stable
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
   model settings, and launch restoration. Main chat has no tab strip. Check that
-  the right panel opens without tabs, closes from its button, and can be hidden
-  and reopened without changing the selected conversation. Check the panel toggle
-  at minimum window width; there is no bottom panel or chat-tab keyboard commands.
+  the native right inspector opens without tabs, resizes using its divider, closes
+  from its button, and can be hidden and reopened without changing the selected conversation. Check the panel toggle
+  at minimum window width. New Chat stays at the trailing edge of the main chat
+  toolbar when the inspector opens and resizes; there is no bottom panel or
+  chat-tab keyboard commands.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams. A new thread
@@ -64,8 +67,12 @@ rendered bitmap directly through its `assertSnapshot(of:as:)` API. Comparing the
 bitmap avoids resampling it at the attached display's backing scale. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
 indicators, with synthetic model/provider values and no network or credentials.
+Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so
+memory warnings and hardware summaries do not depend on the runner's Mac.
 The harness also pins each AppKit scroll view to overlay scrollers: hiding
 indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
+Native table column widths are rounded up to whole points before capture to avoid
+a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
 Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
 same command and uploads mismatches from `dist/snapshot-failures`. Ordinary
@@ -80,6 +87,10 @@ failure, then record only the affected tests:
 FRITZ_SNAPSHOT_MODE=record swift test --filter SharedControlSnapshots/testModelPickerPopulated
 make check-ui-snapshots
 ```
+
+Use `FRITZ_SNAPSHOT_RECORD_PREFIX=models-download-` when recording that family
+in the full suite's AppKit initialization context. Unmatched snapshots still
+compare; comparison mode ignores this recording selector.
 
 Recording intentionally reports test failures while writing references. Review
 every new/changed PNG in `tests/FritzUISnapshotTests/__Snapshots__` before the

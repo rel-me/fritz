@@ -4,6 +4,32 @@ import FritzUpdates
 @testable import FritzApp
 
 final class ModelTests: XCTestCase {
+    @MainActor func testDiscoveredChatCatalogRanksCurrentModelsWithoutTruncating() async throws {
+        let script = #"""
+        import json, sys
+        connection = {'id': '00000000-0000-0000-0000-000000000001', 'name': 'Test',
+                      'provider': 'openai', 'modelId': 'gpt-4.1'}
+        ids = ['gpt-3.5-turbo', 'gpt-4.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
+               'gpt-5.1', 'gpt-5.2', 'gpt-6', 'gpt-6-mini', 'gpt-6-pro', 'o3', 'o4-mini']
+        for line in sys.stdin:
+            r = json.loads(line)
+            result = {'version': 1, 'connections': [connection]} if r['method'] == 'providers.list' else {
+                'models': [{'id': id, 'displayName': id} for id in sorted(ids)]}
+            print(json.dumps({'id': r['id'], 'type': 'result', 'result': result}), flush=True)
+        """#
+        let agent = AgentClient(executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
+                                arguments: ["-u", "-c", script], environment: ["PATH": "/usr/bin:/bin"])
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { agent.stop(); try? FileManager.default.removeItem(at: directory) }
+        let store = ProviderStore(agent: agent, database: AppDatabase(directory: directory))
+        agent.start()
+        await store.refresh()
+        XCTAssertTrue(store.discoveryErrors.isEmpty)
+        XCTAssertEqual(store.models.count, 12)
+        XCTAssertEqual(Array(store.models.prefix(3).map(\.modelID)), ["gpt-6-pro", "gpt-6", "gpt-6-mini"])
+        XCTAssertEqual(store.models.last?.modelID, "gpt-3.5-turbo")
+    }
+
     func testRecentModelsExcludeRemovedConnections() {
         let first = ChatModelOption(id: "one", displayName: "One", provider: .openAI, modelID: "gpt-5")
         let removed = ChatModelOption(id: "old", displayName: "Old", provider: .anthropic, modelID: "claude")

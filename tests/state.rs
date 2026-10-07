@@ -108,7 +108,7 @@ fn registry_ignores_legacy_files_and_serializes_concurrent_updates() {
         connection
             .query_row("PRAGMA user_version", [], |r| r.get::<_, u32>(0))
             .unwrap(),
-        1
+        2
     );
 }
 

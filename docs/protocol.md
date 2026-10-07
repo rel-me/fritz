@@ -8,22 +8,32 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.list` | `{}` | Registry |
 | `providers.save` | `connection`, optional `apiKey`, `makeDefault` | Updated registry |
 | `providers.import` | `providers`: array of `connection` and optional `apiKey` | Updated registry; permits missing keys |
+| `providers.migrate` | `migrationId`, `providers` containing `connection` and optional `credentialSource` (`service`, UUID `account`), optional `defaultConnectionId` | Original-to-destination UUID map (`connectionIds`) |
+| `providers.migrationStatus` | `migrationId` | `migration`: committed UUID map or null if incomplete |
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
-| `localModels.list` | Optional `modelId` | Pinned catalog entries with `id`, `name`, `size`, file-presence `installed` status, and `path` (installed GGUF path or null) |
-| `localModels.install` | `modelId` | Download progress, then `modelId` and `installed: true` |
+| `localModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned catalog entries with `id`, `name`, `size`, download `directory`, file-presence `installed` status, and `path` (installed GGUF path or null) |
+| `localModels.install` | `modelId`, optional absolute `directory` | Download progress, then `modelId` and `installed: true`; saves the selected folder after success |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
-| `decisionModels.list` | Optional `modelId` | Pinned local decision catalog, file-presence installation status, and `path` (installed ONNX graph path or null) |
-| `decisionModels.install` | `modelId` | Explicit verified download, progress events, and installed result |
+| `decisionModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned local decision catalog, download `directory`, file-presence installation status, and `path` (installed ONNX graph path or null) |
+| `decisionModels.install` | `modelId`, optional absolute `directory` | Explicit verified download, progress events, and installed result; saves the selected folder after success |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
+Local-model folder choices are stored per model in the profile's `model_locations.sqlite`.
+Without an explicit directory, inventory, downloads, discovery and inference use
+the saved folder or the default model root. Listing an explicit folder does not
+save it; only a successful install does. Failed or cancelled installs preserve
+the previous choice. Existing files are not moved.
 TypeSafe connections retain the wire identifier `jev` for compatibility, use model `jev-latest`, and have no configurable endpoint. Providers have LLM or Decision model categories. Only LLM connections can be the default chat provider or be used by `chat`.
 
-Provider import validates every connection before saving, then saves in order. A storage or Keychain failure reports how many entries were saved. Missing keys are allowed during import and discovery reports that setup is needed. Existing keys are preserved when omitted; changing an endpoint with a saved key requires a replacement key. Existing default selection is preserved; the first LLM becomes default if none exists. The UI resolves Skip/Overwrite by service, preserving existing IDs and connection names, and refuses ambiguous overwrites. Export is a UI operation: metadata is encoded as version 1 `fritz.provider` or `fritz.providers` JSON; the importer also accepts REL's corresponding envelopes. An explicit key-inclusive export reads Fritz's Keychain in the app process, never through an agent response.
-Provider import validates every connection before saving, then saves in order. A storage or Keychain failure reports how many entries were saved. Missing keys are allowed during import and discovery reports that setup is needed. Existing keys are preserved when omitted; changing an endpoint with a saved key requires a replacement key. Saving or importing rejects another connection with the same provider kind and endpoint, or the same Fritz/Ollaya local model. Existing default selection is preserved; the first LLM becomes default if none exists. The UI resolves Skip/Overwrite by service, preserving existing IDs and connection names, and refuses ambiguous overwrites. Export is a UI operation: metadata is encoded as version 1 `fritz.provider` or `fritz.providers` JSON; the importer also accepts REL's corresponding envelopes. An explicit key-inclusive export reads Fritz's Keychain in the app process, never through an agent response.
+Provider import validates every connection before saving, then saves in order. A storage or Keychain failure reports how many entries were saved. Missing keys are allowed during import and discovery reports that setup is needed. Existing keys are preserved when omitted; changing an endpoint with a saved key requires a replacement key. Saving or importing rejects another connection with the same provider kind and endpoint, or the same Fritz/Ollaya local model. Existing default selection is preserved; the first LLM becomes default if none exists. The UI resolves Skip/Overwrite by service, preserving existing IDs and connection names, and refuses ambiguous overwrites.
+
+Import and export text uses cURL only; JSON envelopes are not supported. Export generates a bounded GET request to the HTTP provider’s model-list endpoint (`models`, or `api/tags` for Ollama). TypeSafe uses `/v1/models` with its fixed decision endpoint retained on import. Quoted stdin configuration comments preserve provider kind, connection name, and model; default-provider status is omitted. Import parses these exports and ordinary cURL GET checks to model-list or health endpoints, without executing shell text, expanding substitutions, reading files, or accepting unsupported request options. `YOUR_API_KEY` is treated as a missing key. An explicit key-inclusive export reads Fritz's Keychain in the app process, never through an agent response.
+
+Provider migration is a one-time host import with no API keys in its payload or result. Rust copies the referenced Keychain items into the destination namespace without deleting the sources or replacing existing destination keys. The full batch is validated before copying. Provider records, default selection, UUID mappings, and completion commit in one SQLite transaction. A credential/storage failure leaves the migration incomplete and retryable. Already configured connections are preserved; duplicate targets map to the existing UUID. Name or identity conflicts with a different target stop the migration. An existing default is preserved; otherwise the imported LLM default is selected. Retrying a completed `migrationId` returns the original mapping without reading source credentials or overwriting subsequent user changes.
 
 Events are `delta` with `text`, `usage` with provider usage metadata, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
 
@@ -168,13 +178,59 @@ Protocol references used for the adapters:
 [OpenRouter reasoning preservation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens),
 and [Ollama tool calling](https://docs.ollama.com/capabilities/tool-calling).
 
-Local decision connections use provider `ollaya`, model `laya-en`, no endpoint,
+Local decision connections use provider `ollaya`, an installed local decision model ID, no endpoint,
 and no API key. A saved Ollaya `connectionId` selects the local harness backend;
 explicit host requests use `backend: {"kind":"ollaya"}` and omit `apiKey`.
 Downloads use the same `progress` shape as `localModels.install`, with byte counts
 aggregated across the model artifacts. Listing and evaluation never download files.
 The harness requires the model artifacts to be present in the shared Models
-directory, uses CPU inference, rejects truncated state, and
-returns a resolved `laya-en@<revision>` ID. Score legends preserve JSON criteria,
+directory and returns a resolved `<model>@<revision>` ID. Laya and Kev use ONNX
+CPU inference; experimental Bosun uses the pinned GGUF/Metal decision-slot
+readout with no generated output. Each engine rejects its context overflow
+without truncating state. Confidence formulas remain engine-specific; see the
+[decision-harness guide](decision-harness.md). Score legends preserve JSON criteria,
 including objects. All decision requests have a 120-second harness deadline;
 closing stdin or sending SIGTERM/SIGINT cancels native loading/inference too.
+
+## Embedded host storage
+
+`ModelsService::new` receives a `RegistryStore::with_storage` implementation,
+explicit `CredentialStore`, explicit chat/decision `ModelStore` instances, and a
+`ModelLocationStore::with_storage` implementation for the host `model_locations`
+table (`model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL`).
+`ProviderStorage::open` supplies a host-initialized SQLite connection containing
+`config::PROVIDER_SCHEMA`; the host owns schema migration, locking and versioning.
+Fritz does not change that connection's `user_version` or initialize another file.
+Registry updates and provider migration completion still share one transaction.
+`models_service::run_stdio` supplies the same cancellable Models protocol for a
+host-owned backend. Its methods cover providers and models; chat policy remains
+with the host. Standalone Fritz chooses its own storage in its app/CLI composition.
+Shared `ModelsStore` requires an explicit Keychain service for key-inclusive export.
+`ModelsLocalRuntime` accepts a host executable, arguments and environment.
+`local::ollama::serve_in` receives host-owned download-location storage, and
+`local::generate_with_engine` uses a host-created engine without default cache access.
+
+Local decision private inputs require `modelStore: {"directory": "/absolute/host/Models", "modelDirectories": {}}` and no API key. An optional per-model absolute directory overrides the default. Saved Fritz connections resolve their configured paths in the supervising CLI before spawning; hosts supply their own paths. Jev private inputs reject modelStore. The shared `decision::harness::run_stdio` runner is used only in owned child processes because native cancellation can exit that child.
+
+### Resident decision child
+
+The separately invoked `fritz-decision-harness resident` calls
+`decision::harness::run_resident_stdio`. Its version 1 protocol opens a fixed
+explicit local model/store, accepts consecutive uniquely identified evaluations
+1 through 64, and closes through a uniquely identified shutdown. The opening
+response has `loaded: false`: the first evaluation includes engine loading.
+Admitted evaluation responses bind `id`, `sessionId`, `generation` and the normal
+typed result. Admission or malformed-message diagnostics can have a null ID
+without session/generation, including after opening.
+Send one message and wait for its response before sending the next.
+
+Laya and Kev reuse loaded ONNX weights and calibration with fresh state and
+questions. Jev, Bosun, credentials, top-level conversation/history and a changed
+model or store are rejected. Arbitrary supplied `state` remains unchanged; no
+history is automatically retained. Opening/between-request idle limits are 60 seconds; admission
+and evaluations each have a 120-second limit. EOF, signals, overlap or errors
+stop the child, with already observable cancellation/overlap/expiry taking
+priority over a ready admission or evaluation result. The host owns a transport
+watchdog, drains both pipes and reaps the entire process group. Native shutdown
+can exit with `_exit`; neither shared stdio runner is safe in the host process.
+See [the exact messages and lifecycle](decision-harness.md#explicit-resident-local-worker).

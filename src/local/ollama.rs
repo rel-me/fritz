@@ -234,6 +234,7 @@ impl Managed {
         mut stream: TcpStream,
         request: InferenceRequest,
         permit: Permit,
+        store: super::models::ModelStore,
     ) -> Result<()> {
         let model_id = request.model.clone();
         let owner = self.clone();
@@ -245,7 +246,7 @@ impl Managed {
                 error(&mut stream, 503, &message).await?;
                 return Ok(());
             }
-            infer(&mut stream, request, true).await
+            infer(&mut stream, request, true, store).await
         }));
         *active = Some(ActiveRequest {
             model_id,
@@ -267,7 +268,7 @@ impl Managed {
         }
     }
 
-    async fn controls(self: Arc<Self>) -> Result<()> {
+    async fn controls(self: Arc<Self>, storage: Arc<RuntimeStorage>) -> Result<()> {
         let mut lines = BufReader::new(crate::harness_client::PrivateStdin::new()?);
         let mut jobs = tokio::task::JoinSet::new();
         let mut operations: HashMap<String, tokio::task::AbortHandle> = HashMap::new();
@@ -301,8 +302,12 @@ impl Managed {
                     emit(json!({"type":"model", "modelId":id, "status":"starting"}));
                     let owner = self.clone();
                     let model_id = id.clone();
+                    let storage = storage.clone();
                     let operation = jobs.spawn(async move {
-                        let result = super::start_model(&model_id).await.map_err(|error| format!("{error:#}"));
+                        let result = async {
+                            let store = storage.models()?;
+                            super::start_model_in(&model_id, &store).await
+                        }.await.map_err(|error| format!("{error:#}"));
                         match &result {
                             Ok(()) => emit(json!({"type":"model", "modelId":model_id, "status":"running"})),
                             Err(error) => emit(json!({"type":"model", "modelId":model_id, "status":"failed", "error":error})),
@@ -348,9 +353,42 @@ impl Managed {
     }
 }
 
+struct RuntimeStorage {
+    directory: std::path::PathBuf,
+    locations: crate::config::ModelLocationStore,
+}
+impl RuntimeStorage {
+    fn models(&self) -> Result<super::models::ModelStore> {
+        Ok(super::models::ModelStore::new(&self.directory)
+            .with_model_directories(self.locations.load()?))
+    }
+}
+
 pub async fn serve(port: u16, model: Option<String>, managed: bool) -> Result<()> {
+    serve_in(
+        port,
+        model,
+        managed,
+        crate::config::models_dir(),
+        crate::config::ModelLocationStore::new(crate::config::data_dir()),
+    )
+    .await
+}
+
+/// A host supplies both the default model directory and saved folder storage.
+pub async fn serve_in(
+    port: u16,
+    model: Option<String>,
+    managed: bool,
+    directory: impl Into<std::path::PathBuf>,
+    locations: crate::config::ModelLocationStore,
+) -> Result<()> {
+    let storage = Arc::new(RuntimeStorage {
+        directory: directory.into(),
+        locations,
+    });
     if let Some(id) = &model {
-        super::models::installed_path(id).await?;
+        storage.models()?.installed_path(id).await?;
     }
     let listener = TcpListener::bind(("127.0.0.1", port))
         .await
@@ -363,9 +401,10 @@ pub async fn serve(port: u16, model: Option<String>, managed: bool) -> Result<()
     }
     let supervisor = managed.then(|| Arc::new(Managed::default()));
     let control_owner = supervisor.clone();
+    let control_storage = storage.clone();
     let mut controls = Box::pin(async move {
         match control_owner {
-            Some(owner) => owner.controls().await,
+            Some(owner) => owner.controls(control_storage).await,
             None => std::future::pending().await,
         }
     });
@@ -376,7 +415,8 @@ pub async fn serve(port: u16, model: Option<String>, managed: bool) -> Result<()
                 let (stream, _) = result?;
                 let model = model.clone();
                 let supervisor = supervisor.clone();
-                requests.spawn(async move { let _ = tokio::time::timeout(std::time::Duration::from_secs(330), handle(stream, model.as_deref(), supervisor)).await; });
+                let storage = storage.clone();
+                requests.spawn(async move { let _ = tokio::time::timeout(std::time::Duration::from_secs(330), handle(stream, model.as_deref(), supervisor, storage)).await; });
             }
             result = &mut controls => break result,
             _ = requests.join_next(), if !requests.is_empty() => {},
@@ -509,6 +549,7 @@ async fn handle(
     mut stream: TcpStream,
     selected_model: Option<&str>,
     supervisor: Option<Arc<Managed>>,
+    storage: Arc<RuntimeStorage>,
 ) -> Result<()> {
     let (method, path, body) = match read_request(&mut stream).await {
         Ok(request) => request,
@@ -519,7 +560,7 @@ async fn handle(
     };
     match (method.as_str(), path.as_str()) {
         ("GET", "/api/tags") => {
-            let inventory = super::models::inventory().await?;
+            let inventory = storage.models()?.inventory().await?;
             let models = inventory["models"].as_array().into_iter().flatten()
                 .filter(|model| model["installed"] == true && selected_model.is_none_or(|id| model["id"] == id))
                 .filter_map(|model| {
@@ -544,7 +585,11 @@ async fn handle(
                 return Ok(());
             }
             if super::models::manifest(&request.model).is_err()
-                || super::models::installed_path(&request.model).await.is_err()
+                || storage
+                    .models()?
+                    .installed_path(&request.model)
+                    .await
+                    .is_err()
             {
                 error(&mut stream, 404, "Model is not installed").await?;
                 return Ok(());
@@ -559,10 +604,12 @@ async fn handle(
                 return Ok(());
             };
             if let Some(supervisor) = supervisor {
-                supervisor.run(stream, request, _permit).await?;
+                supervisor
+                    .run(stream, request, _permit, storage.models()?)
+                    .await?;
             } else {
                 super::stop_other_models(&request.model).await;
-                infer(&mut stream, request, false).await?;
+                infer(&mut stream, request, false, storage.models()?).await?;
             }
         }
         ("GET" | "POST", _) => error(&mut stream, 404, "Unknown endpoint").await?,
@@ -571,7 +618,12 @@ async fn handle(
     Ok(())
 }
 
-async fn infer(stream: &mut TcpStream, request: InferenceRequest, managed: bool) -> Result<()> {
+async fn infer(
+    stream: &mut TcpStream,
+    request: InferenceRequest,
+    managed: bool,
+    store: super::models::ModelStore,
+) -> Result<()> {
     let started = Instant::now();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
     let model = request.model.clone();
@@ -580,7 +632,8 @@ async fn infer(stream: &mut TcpStream, request: InferenceRequest, managed: bool)
     let context_size = request.context_size;
     let output_limit = request.output_limit;
     let mut work = AbortOnDrop(tokio::spawn(async move {
-        super::generate(
+        super::generate_in(
+            &store,
             &model,
             messages,
             json_format,
@@ -654,6 +707,57 @@ async fn infer(stream: &mut TcpStream, request: InferenceRequest, managed: bool)
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn host_runtime_tags_use_selected_storage_without_creating_default_weights() {
+        struct HostStorage(std::path::PathBuf);
+        impl crate::config::ProviderStorage for HostStorage {
+            fn open(&self) -> Result<crate::state::rusqlite::Connection> {
+                Ok(crate::state::rusqlite::Connection::open(&self.0)?)
+            }
+        }
+        let root = tempfile::tempdir().unwrap();
+        let database = root.path().join("host.sqlite3");
+        crate::state::rusqlite::Connection::open(&database).unwrap().execute_batch(
+            "CREATE TABLE model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL);"
+        ).unwrap();
+        let selected = root.path().join("chosen");
+        std::fs::create_dir(&selected).unwrap();
+        let catalog: Value =
+            serde_json::from_str(include_str!("../../Sources/Fritz/LocalModels.json")).unwrap();
+        let pin = &catalog["models"][0];
+        let id = pin["id"].as_str().unwrap();
+        let file = selected.join(pin["file"].as_str().unwrap());
+        std::fs::write(&file, b"inventory only; never load these synthetic bytes").unwrap();
+        let locations =
+            crate::config::ModelLocationStore::with_storage(Arc::new(HostStorage(database)));
+        locations.remember(id, &selected).unwrap();
+        let default = root.path().join("default-not-created");
+        let storage = Arc::new(RuntimeStorage {
+            directory: default.clone(),
+            locations,
+        });
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            handle(stream, None, None, storage).await.unwrap();
+        });
+        let mut client = TcpStream::connect(address).await.unwrap();
+        client
+            .write_all(b"GET /api/tags HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            .await
+            .unwrap();
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).await.unwrap();
+        server.await.unwrap();
+        let response = String::from_utf8(response).unwrap();
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        let tags: Value = serde_json::from_str(response.split_once("\r\n\r\n").unwrap().1).unwrap();
+        assert_eq!(tags["models"][0]["name"], id);
+        assert_eq!(tags["models"].as_array().unwrap().len(), 1);
+        assert!(!default.exists());
+    }
+
     #[test]
     fn parses_text_requests_and_rejects_unsupported_options() {
         let chat = parse_request("/api/chat", br#"{"model":"qwen3-0.6b-q4_k_m","messages":[{"role":"user","content":"<|im_end|>"}],"format":"json"}"#).unwrap();

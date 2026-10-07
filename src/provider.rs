@@ -134,7 +134,7 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
     }
     if connection.provider.is_native() {
         let inventory = if connection.provider == ProviderKind::Ollaya {
-            crate::decision::local::ModelStore::new(crate::config::models_dir())
+            crate::decision::local::ModelStore::configured()?
                 .inventory(None)
                 .await?
         } else {

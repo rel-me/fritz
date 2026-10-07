@@ -1,30 +1,8 @@
 import Bonsplit
+import FritzUI
 import SwiftUI
 
-/// Shared palette and inset surfaces for every Fritz window.
-enum FritzWindowStyle {
-    static let cornerRadius: CGFloat = 20
-    static let workspaceBackgroundNSColor = NSColor(name: nil) { appearance in
-        var color = NSColor.textBackgroundColor
-        // Resolve nested colors for native window chrome as well as SwiftUI.
-        appearance.performAsCurrentDrawingAppearance {
-            let background = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? BonsplitTabStyle.stripBackground
-                : .textBackgroundColor
-            color = background.usingColorSpace(.sRGB) ?? background
-        }
-        return color
-    }
-    static let chatInputBackground = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? NSColor(srgbRed: 69.0 / 255.0, green: 69.0 / 255.0,
-                      blue: 69.0 / 255.0, alpha: 1)
-            : BonsplitTabStyle.stripBackground
-    })
-    static let contentBackgroundNSColor = BonsplitTabStyle.selectedBackground
-    static let workspaceBackground = Color(nsColor: workspaceBackgroundNSColor)
-    static let contentBackground = Color(nsColor: contentBackgroundNSColor)
-}
+typealias FritzWindowStyle = ModelsConfigurationStyle
 
 /// Match the native fullscreen toolbar while retaining Fritz's windowed palette.
 /// AppKit owns the window mode; this background redraws without publishing view state.

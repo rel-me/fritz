@@ -33,7 +33,13 @@ def managed_local_api():
     """Test real listener ownership and private-pipe model admission, without weights."""
     with tempfile.TemporaryDirectory(prefix="fritz-api-test-") as directory:
         models = Path(directory) / "Models"
-        env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_MODELS_DIR=str(models))
+        env = dict(os.environ, HOME=directory, FRITZ_DATA_DIR=str(Path(directory) / "Data"))
+        env.pop("FRITZ_MODELS_DIR", None)
+        for command in ["local-models", "decision-models"]:
+            inventory = subprocess.run([str(EXECUTABLE), command, "list"], env=env,
+                                       check=True, capture_output=True, text=True)
+            assert all(item["directory"] == str(models) for item in json.loads(inventory.stdout)["models"])
+        assert not models.exists(), "Listing models must not create ~/Models"
         process = subprocess.Popen([str(EXECUTABLE), "local-models", "serve", "--port", "0", "--managed"],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True, env=env)
@@ -128,11 +134,81 @@ def managed_local_api():
         print("PASS: empty local API, private model admission/cancellation, loader failure, stop, EOF and SIGTERM shutdown")
 
 
+def provider_migration(endpoint):
+    """Copy only referenced synthetic keys, commit once, and survive process restart."""
+    with tempfile.TemporaryDirectory(prefix="fritz-migration-") as directory:
+        root = Path(directory)
+        source_service = f"dev.fritz.provider-credentials.test-{uuid.uuid4()}"
+        target_service = f"dev.fritz.provider-credentials.test-{uuid.uuid4()}"
+        source_env = dict(os.environ, FRITZ_DATA_DIR=str(root / "source"), FRITZ_KEYCHAIN_SERVICE=source_service)
+        target_env = dict(os.environ, FRITZ_DATA_DIR=str(root / "target"), FRITZ_KEYCHAIN_SERVICE=target_service)
+
+        def cli(env, *args, input=None):
+            result = subprocess.run([str(EXECUTABLE), *args], input=input, env=env,
+                                    capture_output=True, text=True, timeout=15)
+            assert result.returncode == 0, result.stderr
+            return json.loads(result.stdout) if result.stdout.strip() else None
+
+        source = cli(source_env, "add-provider", "--name", "Migrated", "--provider", "openai-compatible",
+                     "--base-url", endpoint.replace("/v1", "/authenticated/v1"), "--model", "fritz-test",
+                     "--api-key-stdin", input="synthetic-import-key")["connections"][0]
+        duplicate = dict(source, id=str(uuid.uuid4()), name="Same endpoint", modelId="slow-test")
+        other = dict(source, id=str(uuid.uuid4()), name="Other", baseUrl=endpoint)
+        request = dict(migrationId="fixture-v1", defaultConnectionId=duplicate["id"], providers=[
+            dict(connection=source, credentialSource=dict(service=source_service, account=source["id"])),
+            dict(connection=duplicate), dict(connection=other)])
+
+        def migrate(payload, method="providers.migrate"):
+            result = subprocess.run([str(EXECUTABLE), "--agent"], env=target_env, text=True,
+                                    input=json.dumps(dict(id="migration", method=method, params=payload)) + "\n",
+                                    capture_output=True, timeout=15)
+            assert result.returncode == 0, result.stderr
+            events = [json.loads(line) for line in result.stdout.splitlines()]
+            assert len(events) == 1 and "synthetic-import-key" not in result.stdout
+            return events[0]
+
+        try:
+            status = dict(migrationId=request["migrationId"])
+            initial = migrate(status, "providers.migrationStatus")
+            assert initial["type"] == "result", initial
+            assert initial["result"]["migration"] is None
+            invalid = dict(request, providers=request["providers"] + [dict(connection=dict(other, id=str(uuid.uuid4()), baseUrl="invalid"))])
+            assert migrate(invalid)["type"] == "error"
+            assert cli(target_env, "providers")["connections"] == []
+            with sqlite3.connect(root / "target/providers.sqlite") as database:
+                assert database.execute("SELECT COUNT(*) FROM provider_migrations").fetchone()[0] == 0
+            event = migrate(request)
+            assert event["type"] == "result", event
+            mapping = event["result"]["connectionIds"]
+            assert migrate(status, "providers.migrationStatus")["result"]["migration"] == event["result"]
+            assert mapping[source["id"]] == source["id"] == mapping[duplicate["id"]]
+            assert len(cli(target_env, "providers")["connections"]) == 2
+            assert cli(target_env, "providers")["defaultConnectionId"] == source["id"]
+            assert cli(target_env, "providers")["connections"][0]["modelId"] == duplicate["modelId"]
+            # A new process authenticates using the destination namespace, and the
+            # source still authenticates independently after copying.
+            assert len(cli(target_env, "models", "--connection", source["id"])) == 4
+            assert len(cli(source_env, "models", "--connection", source["id"])) == 4
+            cli(target_env, "default-provider", other["id"])
+            assert migrate(request)["result"] == event["result"]
+            assert cli(target_env, "providers")["defaultConnectionId"] == other["id"]
+            with sqlite3.connect(root / "target/providers.sqlite") as database:
+                assert database.execute("SELECT COUNT(*) FROM provider_migrations").fetchone()[0] == 1
+                for table in ["providers", "provider_migrations"]:
+                    assert all("synthetic-import-key" not in row[0] for row in database.execute(f"SELECT payload FROM {table}"))
+        finally:
+            for env in [source_env, target_env]:
+                for item in cli(env, "providers")["connections"]:
+                    cli(env, "remove-provider", item["id"])
+    print("PASS: atomic provider migration, Rust credential copying, deduplication, default, restart and one-time completion")
+
+
 def main():
     managed_local_api()
     server = ThreadingHTTPServer(("127.0.0.1", 0), AuthenticatedProvider)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     endpoint = f"http://127.0.0.1:{server.server_address[1]}/v1"
+    provider_migration(endpoint)
     with tempfile.TemporaryDirectory(prefix="fritz-test-") as directory:
         keychain_service = f"dev.fritz.provider-credentials.test-{uuid.uuid4()}"
         env = dict(os.environ, FRITZ_DATA_DIR=directory, FRITZ_MODELS_DIR=str(Path(directory) / "Models"), FRITZ_KEYCHAIN_SERVICE=keychain_service)
@@ -243,6 +319,56 @@ def main():
         assert event["id"] == local_list and event["result"]["models"][0]["installed"] is False
         send("localModels.install", {"modelId": "unknown"})
         assert receive()["type"] == "error"
+        # Model-specific folders travel through the real pipe and survive a fresh
+        # process. Existing file-presence installations avoid network/weight downloads.
+        llm_pin = next(pin for pin in json.loads((ROOT / "Sources/Fritz/LocalModels.json").read_text())["models"] if pin["id"] == native_id)
+        decision_pin = json.loads((ROOT / "Sources/Fritz/DecisionModels.json").read_text())["models"][0]
+        for prefix, command, kind, pin, filenames in [
+            ("localModels", "local-models", "fritz", llm_pin, [llm_pin["file"]]),
+            ("decisionModels", "decision-models", "ollaya", decision_pin, [item["file"] for item in decision_pin["files"]]),
+        ]:
+            custom = Path(directory) / f"Selected {prefix}"
+            custom.mkdir()
+            for filename in filenames:
+                (custom / filename).write_bytes(b"synthetic file-presence fixture")
+            for invalid in ["relative/folder", str(custom / filenames[0])]:
+                send(f"{prefix}.install", {"modelId": pin["id"], "directory": invalid})
+                assert receive()["type"] == "error"
+            send(f"{prefix}.list", {"modelId": pin["id"], "directory": str(custom)})
+            assert receive()["result"]["models"][0]["installed"] is True
+            send(f"{prefix}.list", {"modelId": pin["id"]})
+            before = receive()["result"]["models"][0]
+            assert before["installed"] is False and before["directory"] == env["FRITZ_MODELS_DIR"]
+            send(f"{prefix}.install", {"modelId": "unknown", "directory": str(custom)})
+            assert receive()["type"] == "error"
+            send(f"{prefix}.install", {"modelId": pin["id"], "directory": str(custom)})
+            event = receive()
+            while event["type"] == "progress":
+                event = receive()
+            assert event["type"] == "result" and event["result"]["installed"] is True, event
+            # Fresh CLI processes use the saved path in both inventory and provider discovery.
+            installed = json.loads(cli(command, "list", pin["id"]).stdout)["models"][0]
+            assert installed["directory"] == str(custom.resolve()) and installed["installed"] is True
+            assert Path(installed["path"]).parent == custom.resolve()
+            draft = dict(connection, id=str(uuid.uuid4()), name="Custom folder", provider=kind,
+                         baseUrl="", modelId=pin["id"])
+            send("models.list", {"connection": draft})
+            assert pin["id"] in [model["id"] for model in receive()["result"]["models"]]
+            send(f"{prefix}.install", {"modelId": pin["id"], "directory": str(custom / filenames[0] / "Blocked")})
+            event = receive()
+            while event["type"] == "progress":
+                event = receive()
+            assert event["type"] == "error", event
+            assert json.loads(cli(command, "list", pin["id"]).stdout)["models"][0]["directory"] == str(custom.resolve())
+            # Missing custom storage must not silently load a copy from the default folder.
+            default = Path(env["FRITZ_MODELS_DIR"])
+            default.mkdir(exist_ok=True)
+            for filename in filenames:
+                (default / filename).write_bytes(b"default copy must not be selected")
+            (custom / filenames[0]).unlink()
+            assert json.loads(cli(command, "list", pin["id"]).stdout)["models"][0]["installed"] is False
+        unchanged = next(model for model in json.loads(cli("local-models", "list").stdout)["models"] if model["id"] == other_native_id)
+        assert unchanged["directory"] == env["FRITZ_MODELS_DIR"] and unchanged["installed"] is False
         chat = send("chat", {"connectionId": connection["id"].upper(), "model": "slow-test", "messages": [{"role": "user", "content": "Hello"}]})
         event = receive()
         while event["type"] == "activity":

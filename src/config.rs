@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+pub mod migration;
+mod model_locations;
+pub use model_locations::ModelLocationStore;
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, clap::ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProviderKind {
@@ -144,6 +148,8 @@ pub struct Registry {
     pub version: u32,
     pub connections: Vec<Connection>,
     pub default_connection_id: Option<Uuid>,
+    #[serde(default)]
+    pub model_directories: std::collections::BTreeMap<String, PathBuf>,
 }
 impl Default for Registry {
     fn default() -> Self {
@@ -151,6 +157,7 @@ impl Default for Registry {
             version: 1,
             connections: vec![],
             default_connection_id: None,
+            model_directories: Default::default(),
         }
     }
 }
@@ -168,15 +175,24 @@ pub fn data_dir() -> PathBuf {
 pub fn models_dir() -> PathBuf {
     std::env::var_os("FRITZ_MODELS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| data_dir().join("Models"))
+        .unwrap_or_else(|| {
+            PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join("Models")
+        })
+}
+
+pub fn model_directories() -> Result<std::collections::BTreeMap<String, PathBuf>> {
+    ModelLocationStore::new(data_dir()).load()
+}
+
+pub fn remember_model_directory(model_id: &str, directory: &std::path::Path) -> Result<()> {
+    ModelLocationStore::new(data_dir()).remember(model_id, directory)
 }
 
 pub fn load() -> Result<Registry> {
     load_from(&data_dir())
 }
 fn load_from(dir: &std::path::Path) -> Result<Registry> {
-    let mut database = provider_database(dir)?;
-    database.transaction(|transaction| read_registry(transaction))
+    RegistryStore::new(dir).load()
 }
 
 fn provider_database(dir: &std::path::Path) -> Result<Database> {
@@ -184,7 +200,7 @@ fn provider_database(dir: &std::path::Path) -> Result<Database> {
         CREATE TABLE providers (id TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
         CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id = 1), default_connection_id TEXT REFERENCES providers(id) ON DELETE SET NULL);
         INSERT INTO registry VALUES (1, NULL);
-    "], &[("providers", &["id", "position", "payload"]), ("registry", &["id", "default_connection_id"])])
+    ", "CREATE TABLE provider_migrations (id TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));"], &[("providers", &["id", "position", "payload"]), ("registry", &["id", "default_connection_id"]), ("provider_migrations", &["id", "payload"])])
 }
 
 fn read_registry(connection: &rusqlite::Connection) -> Result<Registry> {
@@ -214,6 +230,7 @@ fn read_registry(connection: &rusqlite::Connection) -> Result<Registry> {
         version: 1,
         connections,
         default_connection_id: default.map(|id| Uuid::parse_str(&id)).transpose()?,
+        model_directories: Default::default(),
     })
 }
 
@@ -221,60 +238,116 @@ pub fn update(f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
     RegistryStore::new(data_dir()).update(f)
 }
 
-/// A host-owned provider registry. Construct separate stores instead of changing process environment.
-#[derive(Clone, Debug)]
-pub struct RegistryStore {
+/// The host owns connection opening, schema migrations, locking and lifetime.
+/// This connection must contain the provider tables declared by PROVIDER_SCHEMA.
+pub trait ProviderStorage: Send + Sync {
+    fn open(&self) -> Result<rusqlite::Connection>;
+}
+
+pub const PROVIDER_SCHEMA: &str = "
+    CREATE TABLE providers (id TEXT PRIMARY KEY NOT NULL, position INTEGER NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
+    CREATE TABLE registry (id INTEGER PRIMARY KEY CHECK(id = 1), default_connection_id TEXT REFERENCES providers(id) ON DELETE SET NULL);
+    INSERT INTO registry VALUES (1, NULL);
+    CREATE TABLE provider_migrations (id TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL CHECK(json_valid(payload)));
+";
+
+struct FritzProviderStorage {
     directory: PathBuf,
+}
+impl ProviderStorage for FritzProviderStorage {
+    fn open(&self) -> Result<rusqlite::Connection> {
+        Ok(provider_database(&self.directory)?.into_connection())
+    }
+}
+
+/// Provider algorithms operate on an injected host storage implementation.
+#[derive(Clone)]
+pub struct RegistryStore {
+    storage: std::sync::Arc<dyn ProviderStorage>,
 }
 
 impl RegistryStore {
+    /// Fritz's standalone convenience store. Embedded hosts use with_storage.
     pub fn new(directory: impl Into<PathBuf>) -> Self {
-        Self {
+        Self::with_storage(std::sync::Arc::new(FritzProviderStorage {
             directory: directory.into(),
-        }
+        }))
+    }
+
+    pub fn with_storage(storage: std::sync::Arc<dyn ProviderStorage>) -> Self {
+        Self { storage }
+    }
+
+    pub(crate) fn transaction<T>(
+        &self,
+        action: impl FnOnce(&rusqlite::Transaction<'_>) -> Result<T>,
+    ) -> Result<T> {
+        let mut connection = self.storage.open()?;
+        let transaction =
+            connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let result = action(&transaction)?;
+        transaction.commit()?;
+        Ok(result)
     }
 
     pub fn load(&self) -> Result<Registry> {
-        load_from(&self.directory)
+        self.transaction(|transaction| read_registry(transaction))
     }
 
-    pub fn update(&self, f: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
-        let mut database = provider_database(&self.directory)?;
-        database.transaction(|transaction| {
+    pub fn find(&self, selector: Option<&str>) -> Result<Connection> {
+        let registry = self.load()?;
+        registry
+            .connections
+            .into_iter()
+            .find(|connection| match selector {
+                Some(value) => {
+                    Uuid::parse_str(value).ok() == Some(connection.id) || connection.name == value
+                }
+                None => Some(connection.id) == registry.default_connection_id,
+            })
+            .context("No provider selected. Add a connection in Models.")
+    }
+
+    pub fn update(&self, action: impl FnOnce(&mut Registry) -> Result<()>) -> Result<Registry> {
+        self.transaction(|transaction| {
             let mut registry = read_registry(transaction)?;
-            f(&mut registry)?;
-            if let Some(default_id) = registry.default_connection_id
-                && !registry.connections.iter().any(|connection| {
-                    connection.id == default_id
-                        && connection.provider.category() == ModelCategory::Llm
-                })
-            {
-                bail!("The default chat provider must be an LLM connection.");
-            }
-            transaction.execute("DELETE FROM providers", [])?;
-            for (position, connection) in registry.connections.iter().enumerate() {
-                connection.validate()?;
-                transaction.execute(
-                    "INSERT INTO providers VALUES (?1, ?2, ?3)",
-                    params![
-                        connection.id.to_string(),
-                        position,
-                        serde_json::to_string(connection)?
-                    ],
-                )?;
-            }
-            transaction.execute(
-                "UPDATE registry SET default_connection_id = ?1 WHERE id = 1",
-                [registry.default_connection_id.map(|id| id.to_string())],
-            )?;
+            action(&mut registry)?;
+            write_registry(transaction, &registry)?;
             Ok(registry)
         })
     }
 }
 
+fn write_registry(transaction: &rusqlite::Connection, registry: &Registry) -> Result<()> {
+    if let Some(default_id) = registry.default_connection_id
+        && !registry.connections.iter().any(|connection| {
+            connection.id == default_id && connection.provider.category() == ModelCategory::Llm
+        })
+    {
+        bail!("The default chat provider must be an LLM connection.");
+    }
+    transaction.execute("DELETE FROM providers", [])?;
+    for (position, connection) in registry.connections.iter().enumerate() {
+        connection.validate()?;
+        transaction.execute(
+            "INSERT INTO providers VALUES (?1, ?2, ?3)",
+            params![
+                connection.id.to_string(),
+                position,
+                serde_json::to_string(connection)?
+            ],
+        )?;
+    }
+    transaction.execute(
+        "UPDATE registry SET default_connection_id = ?1 WHERE id = 1",
+        [registry.default_connection_id.map(|id| id.to_string())],
+    )?;
+    Ok(())
+}
+
 const KEYCHAIN_SERVICE: &str = "dev.fritz.provider-credentials";
 
-fn keychain_service() -> String {
+pub fn keychain_service() -> String {
     std::env::var("FRITZ_KEYCHAIN_SERVICE")
         .ok()
         .filter(|value| {

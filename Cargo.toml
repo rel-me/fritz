@@ -39,6 +39,7 @@ libc = "0.2"
 tempfile = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+either = "=1.18.0"
 security-framework = "=3.7.0"
 sha2 = { version = "0.10", features = ["asm"] }
 mistralrs = { git = "https://github.com/EricLBuehler/mistral.rs", rev = "4400935451da5e2dc7379a3f92fbbada66557f6c", features = ["metal"] }

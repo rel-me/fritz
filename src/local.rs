@@ -16,11 +16,11 @@ use tokio::sync::Mutex;
 // The API retains explicitly started models independently of chat harnesses.
 static API_ENGINES: Mutex<Option<HashMap<String, inference::Engine>>> = Mutex::const_new(None);
 
-pub(crate) async fn start_model(model_id: &str) -> Result<()> {
+pub(crate) async fn start_model_in(model_id: &str, store: &models::ModelStore) -> Result<()> {
     let mut engines = API_ENGINES.lock().await;
     let engines = engines.get_or_insert_with(HashMap::new);
     if !engines.contains_key(model_id) {
-        let engine = inference::Engine::installed(model_id).await?;
+        let engine = inference::Engine::installed_in(store, model_id).await?;
         engine.model().await?;
         engines.insert(model_id.to_owned(), engine);
     }
@@ -224,7 +224,29 @@ pub async fn generate(
     output_limit: usize,
     output: tokio::sync::mpsc::UnboundedSender<String>,
 ) -> Result<(u64, u64, bool)> {
-    use mistralrs::Constraint;
+    generate_in(
+        &models::ModelStore::configured()?,
+        model_id,
+        messages,
+        json_format,
+        context_size,
+        output_limit,
+        output,
+    )
+    .await
+}
+
+/// Generate through the local API using the host's explicit model store.
+#[allow(clippy::too_many_arguments)]
+pub async fn generate_in(
+    store: &models::ModelStore,
+    model_id: &str,
+    messages: Vec<(String, String)>,
+    json_format: bool,
+    context_size: usize,
+    output_limit: usize,
+    output: tokio::sync::mpsc::UnboundedSender<String>,
+) -> Result<(u64, u64, bool)> {
     let mut active = API_ENGINES.lock().await;
     let engines = active.get_or_insert_with(HashMap::new);
     if engines
@@ -234,11 +256,31 @@ pub async fn generate(
         if let Some(previous) = engines.remove(model_id) {
             previous.unload().await;
         }
-        let engine = inference::Engine::installed_with_context(model_id, context_size).await?;
+        let engine =
+            inference::Engine::installed_in_with_context(store, model_id, context_size).await?;
         engine.model().await?;
         engines.insert(model_id.to_owned(), engine);
     }
-    let engine = &engines[model_id];
+    generate_with_engine(
+        &engines[model_id],
+        messages,
+        json_format,
+        output_limit,
+        output,
+    )
+    .await
+}
+
+/// Generate with a host-created engine; no Fritz default store or Keychain is read.
+pub async fn generate_with_engine(
+    engine: &inference::Engine,
+    messages: Vec<(String, String)>,
+    json_format: bool,
+    output_limit: usize,
+    output: tokio::sync::mpsc::UnboundedSender<String>,
+) -> Result<(u64, u64, bool)> {
+    use mistralrs::Constraint;
+    let model_id = engine.model_id();
     let mut request = RequestBuilder::new().set_sampler_max_len(output_limit);
     if models::manifest(model_id)?.disable_thinking {
         request = request.with_reasoning_effort(ReasoningEffort::Off);

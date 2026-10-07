@@ -111,152 +111,24 @@ enum DecisionModelCommand {
     Install { model: String },
 }
 
+fn models_service() -> Result<fritz::models_service::ModelsService> {
+    Ok(fritz::models_service::ModelsService::new(
+        config::RegistryStore::new(config::data_dir()),
+        config::CredentialStore::new(config::keychain_service())?,
+        local::models::ModelStore::new(config::models_dir()),
+        decision::local::ModelStore::new(config::models_dir()),
+        config::ModelLocationStore::new(config::data_dir()),
+    ))
+}
 fn save(
     connection: Connection,
     api_key: Option<String>,
     make_default: bool,
 ) -> Result<config::Registry> {
-    save_provider(connection, api_key, make_default, true)
+    models_service()?.save(connection, api_key, make_default)
 }
-
-fn save_provider(
-    connection: Connection,
-    api_key: Option<String>,
-    make_default: bool,
-    requires_key: bool,
-) -> Result<config::Registry> {
-    let api_key = api_key
-        .map(|key| key.trim().to_owned())
-        .filter(|key| !key.is_empty());
-    connection.validate()?;
-    if make_default && connection.provider.category() != config::ModelCategory::Llm {
-        bail!("Only an LLM provider can be the default chat provider.");
-    }
-    if connection.provider.is_native() && api_key.as_deref().is_some_and(|key| !key.is_empty()) {
-        bail!("Fritz local models do not use an API key.");
-    }
-    config::update(|registry| {
-        if registry
-            .connections
-            .iter()
-            .any(|c| c.id != connection.id && c.name.eq_ignore_ascii_case(&connection.name))
-        {
-            bail!("A connection with that name already exists.");
-        }
-        if let Some(existing) = registry
-            .connections
-            .iter()
-            .find(|c| c.id != connection.id && c.has_same_target(&connection))
-        {
-            if connection.provider.is_native() {
-                bail!(
-                    "This local model already exists as {}. Edit that provider instead.",
-                    existing.name
-                );
-            }
-            bail!(
-                "This provider and endpoint already exists as {}. Edit that provider instead.",
-                existing.name
-            );
-        }
-        if connection.provider.is_native() {
-            config::delete_key(connection.id)?;
-        }
-        if let Some(old) = registry.connections.iter().find(|c| c.id == connection.id)
-            && (old.provider != connection.provider || old.base_url() != connection.base_url())
-            && api_key.as_deref().is_none_or(str::is_empty)
-            && config::key(old.id)?.is_some()
-        {
-            bail!("Enter a key again when changing the provider or endpoint.");
-        }
-        if let Some(key) = api_key {
-            config::set_key(connection.id, key.trim())?;
-        }
-        if requires_key
-            && connection.provider.requires_key()
-            && config::key(connection.id)?.is_none()
-        {
-            bail!("This provider requires an API key.");
-        }
-        if make_default
-            || registry.default_connection_id.is_none()
-                && connection.provider.category() == config::ModelCategory::Llm
-        {
-            registry.default_connection_id = Some(connection.id);
-        }
-        if registry.default_connection_id == Some(connection.id)
-            && connection.provider.category() != config::ModelCategory::Llm
-        {
-            registry.default_connection_id = registry
-                .connections
-                .iter()
-                .find(|candidate| {
-                    candidate.id != connection.id
-                        && candidate.provider.category() == config::ModelCategory::Llm
-                })
-                .map(|candidate| candidate.id);
-        }
-        if let Some(old) = registry
-            .connections
-            .iter_mut()
-            .find(|c| c.id == connection.id)
-        {
-            *old = connection;
-        } else {
-            registry.connections.push(connection);
-        }
-        Ok(())
-    })
-}
-
-fn import_providers(params: &Value) -> Result<config::Registry> {
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct ImportItem {
-        connection: Connection,
-        api_key: Option<String>,
-    }
-    if serde_json::to_vec(params)?.len() > 1_048_576 {
-        bail!("The configuration must be no larger than 1 MB.");
-    }
-    let items: Vec<ImportItem> = serde_json::from_value(params["providers"].clone())
-        .map_err(|_| anyhow::anyhow!("Invalid provider import configuration."))?;
-    // Validate the entire payload before writing any connections or credentials.
-    for item in &items {
-        item.connection.validate()?;
-        if item.connection.provider.is_native()
-            && item.api_key.as_deref().is_some_and(|key| !key.is_empty())
-        {
-            bail!("Fritz local models do not use an API key.");
-        }
-    }
-    let mut registry = config::load()?;
-    for (count, item) in items.into_iter().enumerate() {
-        registry = save_provider(item.connection, item.api_key, false, false).map_err(|error| {
-            anyhow::anyhow!(
-                "Imported {count} provider(s). Could not import the next provider: {error}"
-            )
-        })?;
-    }
-    Ok(registry)
-}
-
 fn remove(id: Uuid) -> Result<config::Registry> {
-    config::update(|registry| {
-        if !registry.connections.iter().any(|c| c.id == id) {
-            bail!("Provider not found.");
-        }
-        config::delete_key(id)?;
-        registry.connections.retain(|c| c.id != id);
-        if registry.default_connection_id == Some(id) {
-            registry.default_connection_id = registry
-                .connections
-                .iter()
-                .find(|c| c.provider.category() == config::ModelCategory::Llm)
-                .map(|c| c.id);
-        }
-        Ok(())
-    })
+    models_service()?.remove(id)
 }
 
 #[derive(Deserialize)]
@@ -269,69 +141,16 @@ struct Request {
 
 async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Value> {
     let params = &request.params;
+    if let Some(result) = models_service()?
+        .dispatch(&request.method, params, &emit)
+        .await?
+    {
+        return Ok(result);
+    }
     match request.method.as_str() {
         "health" => Ok(
             json!({"name":"fritz","version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"harness":"fritz-harness"}),
         ),
-        "localModels.list" => match params["modelId"].as_str() {
-            Some(id) => local::models::inventory_model(id).await,
-            None => local::models::inventory().await,
-        },
-        "localModels.install" => {
-            let id = params["modelId"]
-                .as_str()
-                .context("Choose a local model.")?;
-            local::models::download(id, &emit).await?;
-            Ok(json!({"modelId":id,"installed":true}))
-        }
-        "decisionModels.list" => {
-            decision::local::ModelStore::new(config::models_dir())
-                .inventory(params["modelId"].as_str())
-                .await
-        }
-        "decisionModels.install" => {
-            let id = params["modelId"]
-                .as_str()
-                .context("Choose a local decision model.")?;
-            decision::local::ModelStore::new(config::models_dir())
-                .download(id, &emit)
-                .await?;
-            Ok(json!({"modelId":id,"installed":true}))
-        }
-        "providers.list" => Ok(serde_json::to_value(config::load()?)?),
-        "providers.import" => Ok(serde_json::to_value(import_providers(params)?)?),
-        "providers.save" => Ok(serde_json::to_value(save(
-            serde_json::from_value(params["connection"].clone())?,
-            params["apiKey"].as_str().map(str::to_string),
-            params["makeDefault"] == true,
-        )?)?),
-        "providers.remove" => Ok(serde_json::to_value(remove(serde_json::from_value(
-            params["id"].clone(),
-        )?)?)?),
-        "providers.default" => {
-            let id: Uuid = serde_json::from_value(params["id"].clone())?;
-            Ok(serde_json::to_value(config::update(|registry| {
-                let connection = registry
-                    .connections
-                    .iter()
-                    .find(|c| c.id == id)
-                    .context("Provider not found.")?;
-                if connection.provider.category() != config::ModelCategory::Llm {
-                    bail!("Only an LLM provider can be the default chat provider.");
-                }
-                registry.default_connection_id = Some(id);
-                Ok(())
-            })?)?)
-        }
-        "models.list" => {
-            let connection = if params["connection"].is_object() {
-                serde_json::from_value(params["connection"].clone())?
-            } else {
-                config::find(params["connectionId"].as_str())?
-            };
-            let models = provider::discover(&connection, params["apiKey"].as_str()).await?;
-            Ok(json!({"models":models}))
-        }
         "chat" => {
             harness_client::chat(serde_json::from_value(params.clone())?, emit).await?;
             Ok(json!({}))
@@ -363,6 +182,11 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
                 };
                 decision::HarnessInput {
                     request,
+                    model_store: if matches!(backend, decision::HarnessBackend::Ollaya) {
+                        Some(decision::local::ModelStore::configured()?.configuration())
+                    } else {
+                        None
+                    },
                     backend,
                     api_key,
                 }
@@ -496,7 +320,7 @@ async fn run() -> Result<()> {
             } => local::ollama::serve(port, model, managed).await?,
         },
         Some(Command::DecisionModels { command }) => {
-            let store = decision::local::ModelStore::new(config::models_dir());
+            let store = decision::local::ModelStore::configured()?;
             match command {
                 DecisionModelCommand::List { model } => println!(
                     "{}",

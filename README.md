@@ -11,8 +11,8 @@ Fritz currently groups conversations under folders in the sidebar. Folder-attach
 
 ## Right panel
 
-The toolbar toggles a blank right panel. Conversations stay in the main chat
-area and are selected from the project sidebar. There is no bottom panel.
+The toolbar toggles a blank native inspector on the right, with a resizable
+divider. Conversations stay in the main chat area and are selected from the project sidebar. There is no bottom panel.
 
 ## Open source and shared libraries
 
@@ -80,9 +80,9 @@ Chat uses REL’s native conversation layout: a floating composer, compact live 
 
 The **+** and **File** menus also offer **New Model** to add a connection and **New Local Model** to open the download chooser in Settings.
 
-In **Settings → Models**, click **+** and choose any LLM or decision provider from **Provider**. Search or use the System1 / Local / Remote / Frontier / Hosted / Custom filters; System1 shows TypeSafe and Ollaya decision models. Enter an API key if needed. The list shows both model categories together; open a provider from the list to edit it and change its service using the **Provider** dropdown. A provider and endpoint can be added once; Fritz and Ollaya connections are unique per local model. Model catalogs are discovered automatically, and the provider editor can retry discovery. Click **Show Models** on the Models row to browse and search the discovered models; recently selected models from that provider appear first. Click the **Advanced** section header to show or hide optional Gateway URLs, connection naming, and default/manual model choices. Gateway URL shows the provider’s default endpoint as its placeholder; leave it blank to use that default. OpenAI-compatible connections require a Gateway URL in the main section. Hosted presets supply their own default URLs. TypeSafe also exposes its optional Gateway URL under Advanced. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
+In **Settings → Models**, click **+** and choose any LLM or decision provider from **Provider**. New Models initially selects the first LLM provider preset that has not been added, or OpenAI if all LLM presets are already present. Search or use the System1 / Local / Remote / Frontier / Hosted / Custom filters; System1 shows TypeSafe and Ollaya decision models. Enter an API key if needed. The list shows both model categories together; open a provider from the list to edit it and change its service using the **Provider** dropdown. A provider and endpoint can be added once; Fritz and Ollaya connections are unique per local model. Duplicate selections show a warning and cannot be added. Model catalogs are discovered automatically, and the provider editor can retry discovery. The Models table summary and Show Models list put newer chat families and flagship variants first, with legacy and specialty models later; this is a display heuristic, not a model-quality evaluation. Click **Show Models** on the Models row to browse and search the discovered models; recently selected models from that provider appear first. Click the **Advanced** section header to show or hide optional Gateway URLs, connection naming, and default/manual model choices. Gateway URL shows the provider’s default endpoint as its placeholder; leave it blank to use that default. OpenAI-compatible connections require a Gateway URL in the main section. Hosted presets supply their own default URLs. TypeSafe also exposes its optional Gateway URL under Advanced. Supported LLM adapters: OpenAI (Responses), OpenRouter, Anthropic, Google Gemini, Ollama, and OpenAI-compatible services. Fireworks, Amazon Bedrock Mantle, and Baseten have endpoint presets. The generic endpoint expects the OpenAI chat completions protocol. Ollama uses its native API. Catalogs are discovered live; a manual model ID also supports services without a catalog endpoint.
 
-The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. The selected model’s provider appears first in the provider filters and provider sections. Recent stays above the provider sections and shows up to five available models, excluding the current selection; Fritz remembers the last eight distinct selections. The message field receives focus when opening or switching threads, without a focus border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a chat, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Models page directly. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
+The composer includes model search, provider filtering, recent selections, and reasoning/speed options for recognized OpenAI models. Provider sections show up to five recommended models, ordered by current model family and tier rather than alphabetically. Selecting a provider shows its full catalog without a result limit; OpenAI chat choices exclude known specialty and legacy completion models. This ordering is a display heuristic, not a measured popularity or quality ranking. Its text-only model selector shows the reasoning level and any nonstandard speed (Fast or Flex) beside the model name. The selected model’s provider appears first in the provider filters and provider sections. Recent stays above the provider sections and shows up to five available models, excluding the current selection; Fritz remembers the last eight distinct selections. The message field receives focus when opening or switching threads, without a focus border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N creates a chat, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its Models page directly. Projects and the selected thread are restored on the next launch. Switching threads keeps an in-progress response attached to its original thread.
 
 Every conversation runs through Rig 0.43's agent runtime inside the bundled
 `fritz-harness` process. Fritz supplies the provider adapters, local inference,
@@ -92,13 +92,20 @@ to the attached folder, with `.` identifying its root.
 
 ## Download local models
 
-Choose **New Local Model** from the **+** or **File** menu to download
+Click the download icon at the top of **Settings → Models**, or choose
+**New Local Model** from the **+** or **File** menu, to download
 a Fritz model from a selectable list with Name, Type, Size / Status, and Hardware
 Requirements columns. Use the type (LLM or Decision) and model-family capsules
 to combine filters; click a selected capsule to remove it, or All to reset.
-The downloadable catalog contains LLMs and experimental Laya decision models;
-Jev remains a remote Decision Model. Provider-specific download sheets show only
-that provider’s model category. The sheet shows the selected model’s license, download
+The downloadable catalog contains LLMs and experimental Laya, Kev and Bosun decision models;
+Jev remains a remote Decision Model. In New Models or Edit Models, selecting an
+uninstalled Fritz or Ollaya model shows **Download**, which installs that model
+directly with progress and cancellation. Installed models have no Download button.
+Where Download appears, **Download to** shows its folder; **Choose…** selects
+a different folder for that model. Fritz remembers the folder after installation
+and uses it for discovery and loading across launches. Other models keep their
+own locations; choosing a folder does not move previously downloaded files.
+The download catalog shows the selected model’s license, download
 progress, and installation status. Cancel stops the download; Retry starts a fresh
 attempt. Once the model is installed, add or edit a **Fritz** provider in
 **Settings → Models** and select it.
@@ -108,14 +115,15 @@ provider leaves downloaded weights available for reuse.
 Downloads are pinned to repository revisions, file sizes,
 and SHA-256 hashes. Models run inside the per-chat Rust harness using
 mistral.rs 0.9.4 and Metal, without Ollama or a local HTTP service. No API key is needed. Listing
-models or sending a chat never starts a download. Weights live under
-`~/Library/Application Support/Fritz/Data/Models/` in the regular app. All Debug apps
-share `/Library/Application Support/Fritz/Data/Models/`, while their provider and
-conversation databases remain separate. This system-wide directory must exist
-with write access for your account; Fritz reports a storage error if it cannot
-create or write it. `FRITZ_MODELS_DIR` explicitly overrides model storage for tests
-or CLI use. Chat GGUFs and decision artifacts are flat files in the same Models
-directory. A model is installed when its required files are present, regardless
+models or sending a chat never starts a download. By default, weights live under
+`~/Models/` in both regular and Debug apps. Fritz creates that folder only when
+you first download a model. Debug provider and conversation databases remain
+separate. Fritz reports a storage error if it cannot create or write the selected
+folder. `FRITZ_MODELS_DIR` overrides the default model folder for tests
+or CLI use. A model's saved download folder takes precedence over that default.
+Folder choices are stored in the profile's `model_locations.sqlite` database.
+Chat GGUFs and decision artifacts are flat files in their selected folder.
+A model is installed when its required files are present, regardless
 of size, checksum, or optional metadata. Decision configuration uses the matching
 model filename with a `.json` extension (for example, `laya-en.onnx` and
 `laya-en.json`). New downloads still validate size and SHA-256 before atomic
@@ -207,7 +215,7 @@ The app has no embedded web engine or browser runtime. Its Rust runtime handles 
 
 ## Decision models
 
-Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya on CPU inside its decision harness; no Ollaya installation or server is needed. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
+Under **Settings → Models**, click **+**, filter **Provider** by **System1**, and add **TypeSafe** with a TypeSafe API key. **Jev** (`jev-latest`) is its decision model. Fritz stores the key in Keychain and shows TypeSafe alongside LLM providers; Jev never appears in the chat model picker or becomes the default chat provider. Its separate private-pipe harness accepts Choice, Score, and Noul questions and returns validated answers with probabilities. The agent exposes this runtime through `decisions.evaluate`; chat does not invoke it automatically. For offline decisions, choose **Ollaya**, download **Laya English (Experimental)** (about 850 MB) or **Kev 1.0 4B (Experimental)** (9.49 GB, 32 GB RAM recommended), and add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya and Kev on CPU inside its decision harness; no Ollaya installation or server is needed. The same local provider also includes **Bosun 3.1 0.6B F16 (Experimental)**, a 1.21 GB download using Fritz's bundled mistral.rs Metal runtime. Bosun returns learned decision-slot probabilities with a 2,048-token rendered-prompt limit; it does not generate chat replies. Its catalog RAM floor is provisional, and workflow quality and 24 GB pairing remain unqualified. Weights download only when explicitly requested. File presence determines installation; new downloads are checked before publication. Local decisions are separate from chat, with a 120-second request limit and explicit errors for state exceeding the model context.
 
 The CLI uses the same provider and harness:
 
@@ -224,9 +232,19 @@ fritz decide --connection 'Local decisions' request.json
 {"model":"laya-en","state":{"message":"Remind me tomorrow to call Sam"},"questions":{"reminder":{"type":"noul","instructions":"Is the user asking to create a reminder?"}}}
 ```
 
-Use `-` (the default filename) to read JSON from stdin. The model is loaded for each request; expect seconds of cold-start latency. The initial reminder-routing quality gate did **not** pass; use this experimental backend for explicit evaluation, not automatic reminder actions. See the [evaluation results](docs/agents/local-decision-evaluation.md) before designing a policy around its probabilities. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
+Use `-` (the default filename) to read JSON from stdin. The model is loaded for each request; expect seconds of cold-start latency. The initial reminder-routing quality gate did **not** pass; use this experimental backend for explicit evaluation, not automatic reminder actions. See the [evaluation results](docs/agents/local-decision-evaluation.md) before designing a policy around its probabilities. The [local model comparison](docs/local-browser-pairing.md) records frozen selection measurements and their limits. See [decision-harness architecture](docs/decision-harness.md) and the [personal assistant plan](docs/personal-assistant-plan.md).
 
-Use the **Import and Export** menu beside **+** to paste a provider configuration or export selected providers as JSON. Command-click to select multiple providers. Import accepts version 1 Fritz and REL provider exports for supported services; REL-only settings such as pairings and maximum turns are not imported. **Skip** leaves matching services alone; **Overwrite** updates a single matching connection while preserving its identity and saved key when the endpoint is unchanged. Ambiguous matches require removing duplicates first. Imports without keys show **Needs Setup** until a key is added. Export offers **Without Keys** or **Including API Keys**; included keys are readable in the copied JSON. The default chat provider preference and downloaded model files are not exported.
+Hosts can explicitly start the bundled `fritz-decision-harness resident` for
+serial Laya/Kev decisions using a versioned private pipe. It reuses weights with
+fresh request state, has bounded lifetime and requires host-owned process-group
+cleanup. It does not change `fritz decide`, chat, or app decision calls. Bosun
+and Jev residency are unsupported. See [messages and lifecycle](docs/decision-harness.md#explicit-resident-local-worker).
+
+To install the compact experimental engine explicitly, use
+`fritz decision-models install bosun-v3.1-0.6b-f16`, then add an Ollaya connection
+with that model ID. It remains separate from the default chat provider.
+
+Use the **Import and Export** menu beside **+** to import or export providers as cURL. Command-click to select multiple providers. Import accepts cURL exports and GET checks to `models`, `api/tags`, or `health` endpoints with standard API key headers; it parses text without executing shell commands. JSON configurations are not supported. **Overwrite existing** is checked by default and updates a single matching service while preserving its identity and saved key when the endpoint is unchanged. Uncheck it to leave matching services alone. Ambiguous matches require removing duplicates first. Imports without required keys show **Needs Setup** until a key is added. Export offers **Without Keys** or **Including API Keys** and generates a GET request to the provider’s model list, without requiring a model or running inference. cURL comments preserve the provider, connection name, and selected model for import. Commands read their options from stdin, and required omitted keys use `YOUR_API_KEY`, which import treats as missing. Native local model connections without an HTTP endpoint cannot be exported as cURL. Included keys are readable in the copied command. The default chat provider preference and downloaded model files are not exported.
 
 ## Current folder access and limits
 

@@ -24,10 +24,14 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
 
         public static func inferred(provider: AIProviderKind, modelID: String) -> Self {
             let modelID = modelID.lowercased()
-            let isSpecializedModel = [
+            let isLegacyCompletion = provider == .openAI && (
+                modelID.contains("instruct")
+                    || ["ada", "babbage", "curie", "davinci", "text-davinci"].contains { modelID.hasPrefix($0) }
+            )
+            let isSpecializedModel = isLegacyCompletion || [
                 "audio", "computer-use", "dall-e", "embed", "guard", "image",
                 "live", "moderation", "realtime", "rerank", "search-preview", "sora",
-                "speech", "transcribe", "tts", "video", "whisper",
+                "speech", "transcribe", "tts", "video", "whisper", "deep-research",
             ].contains { modelID.contains($0) }
             guard provider == .openAI else {
                 return Self(

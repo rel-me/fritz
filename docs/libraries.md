@@ -25,6 +25,7 @@ SwiftPM resources using their normal Xcode/SwiftPM build integration.
 | Module | Public infrastructure |
 | --- | --- |
 | `Fritz` | Provider connections and registry wire models, endpoint presets/categories, discovered models, model capabilities and picker grouping, pinned local-model descriptors and hardware information, appearance, CLI symlink installation, private-pipe agent client |
+| `FritzUI` | Shared native controls, complete Models screen/editor/download/import/export flow, observable `ModelsStore` and `ModelsLocalRuntime` owners |
 | `FritzState` | Host-owned SQLite connections, bound values, transactions, ordered migrations and schema validation; no app models, Sparkle or inference dependency |
 | `FritzUpdates` | Sparkle configuration validation, updater lifecycle and required-update state, release/beta/staging channels, Check for Updates command |
 | `FritzApp` | Executable module: scenes, project/thread persistence, observable app stores, settings and chat UI, app-specific process configuration |
@@ -61,8 +62,8 @@ Info.plist.
 
 ## Shared macOS views
 
-The `FritzUI` product provides SwiftUI controls without depending on Fritz's
-provider protocols, stores, transport, updater, or persistence. Both the Fritz
+The `FritzUI` product provides SwiftUI controls and the complete Models configuration flow, including Fritz's
+provider registry store, native model installer, and local model process owner. Both the Fritz
 app and REL consume the same views. Add `.product(name: "FritzUI", package: "fritz")`
 to the host target and `import FritzUI` where needed.
 
@@ -105,6 +106,34 @@ Supply every filter category shown by the provider picker, including `.all`.
 Model/provider lists remain in host order before the documented grouping or
 alphabetical provider search. The library never starts processes or reads settings.
 
+## Host-owned Models storage
+
+Embed the complete Models flow with `ModelsConfigurationScreen` and a
+`ModelsStore` backed by an explicitly configured `AgentClient`. Pass the host's
+`keychainService` to `ModelsStore`; credential export uses that reference. Pass
+an executable URL and environment to `ModelsLocalRuntime` so the host controls
+its bundled runtime and model directory.
+
+On the Rust side, implement `config::ProviderStorage::open` to return a connection
+to the host-owned SQLite database. The host installs `config::PROVIDER_SCHEMA`
+through its own schema migrations and retains ownership of `user_version`,
+locking, recovery, and unrelated tables. Construct `RegistryStore::with_storage`
+and `ModelsService::new` with that store, an explicit `CredentialStore`, a
+`ModelLocationStore::with_storage` for the host
+`model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL)`
+table, and
+explicit chat/decision `ModelStore` directories. `models_service::run_stdio`
+serves the shared private Models protocol, including per-model download folders.
+`ModelsService::dispatch` also allows
+an existing host agent to route Models requests itself. Neither constructor
+selects Fritz's default database, Keychain service, or model directory.
+
+Legacy provider migration uses the injected registry transaction and credential
+store, persists its source-ID mapping, and retains completion state across
+restarts. See [the private protocol](protocol.md) for migration requests.
+For native inference, `Engine::installed_in_with_context` accepts an explicit
+model store, and `local::generate_with_engine` uses that host-created engine.
+
 ## Tabs and split panes
 
 The root package also exports `Bonsplit`, the self-contained MIT-licensed package
@@ -138,7 +167,8 @@ with a Welcome tab; hosts can close it before restoring their own records.
 The library reads no settings and starts no processes.
 
 Fritz's app currently has no tab strip. The main chat retains its project/thread
-header and sidebar navigation, and the right panel is blank.
+header and sidebar navigation, with a blank, resizable native SwiftUI inspector
+on the right.
 
 ## SQLite state
 
@@ -220,8 +250,22 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `decision::{DecisionModel, DecisionRequest, DecisionResponse}` | Evaluate typed Choice, Score, and Noul questions through a backend-neutral contract. A local model can implement the trait. |
 | `config::{ModelCategory, ProviderKind}` and Swift `AIModelCategory` | Keep LLM and Decision connections distinct; TypeSafe supplies the Jev decision model and cannot be selected for chat. The `jev` wire identifier is preserved for compatibility. |
 | `decision::Jev` | Remote TypeSafe adapter; the host supplies a key in memory. Jev is separate from conversational providers. |
+| `decision::local::{ModelStore, ModelStoreConfiguration, Ollaya}` | Supply explicit absolute host model paths. `configuration()` is serialized as local `HarnessInput.model_store`; inference never reads default Fritz state. |
+| `decision::harness::run_stdio` | Call only inside an owned single-request child process. Supplies the shared private-pipe runner, signals/deadline and native cancellation exit. |
+| `decision::local::ResidentOllaya` | Fixed explicit ONNX model/store, serial native admission and retained failures. Reuses weights/calibration with fresh state. The caller owns deadlines and child lifetime; dropping a future does not cancel native work. |
+| `decision::harness::run_resident_stdio` | Owned-child-only versioned serial local runner; 60-second idle, 120-second admission/evaluation and 64-request bounds, correlated replies and native process exit. |
 | `decision_client::evaluate_with_input` | Run the bundled decision harness with a private input pipe and receive one validated result. |
 | `tools::Workspace` | Supply a trusted project directory; commands run with user permissions, not an OS sandbox. |
+
+`ResidentOllaya::open` includes synchronous filesystem admission despite its
+async interface; the bounded private runner schedules opening on a blocking
+worker. The low-level session does not itself enforce that runner's deadlines,
+idle or request limits. Cancelling its evaluation future leaves native work busy
+until completion. Use the owned child boundary for native cancellation and reap
+the whole process group; never invoke a private stdio runner in the host's main
+process. Installed file presence and the returned catalog revision do not verify
+artifact bytes. Opt-in evals independently hash the staged binaries and installed
+model files. See [resident protocol](decision-harness.md#explicit-resident-local-worker).
 
 ```rust
 use fritz::config::RegistryStore;
@@ -474,3 +518,40 @@ listener remains opt-in and lasts only for the service lifetime. Pairing expires
 after five minutes, device access after seven days; revocation rejects new work
 but cannot undo a command already executing. See
 [integration services](integrations.md) for the transport and security contracts.
+
+### Models configuration and runtime
+
+`ModelsConfigurationScreen(store:runtime:)` is the Models page used by Fritz's
+Settings. It owns editor presentation and uses `ModelsProviderEditor` for both
+remote and local providers. Local models are managed inside that editor; they
+are not a separate Settings page. `ModelsDownloadSheet(store:modelID:category:)`
+provides the same filtered catalog and cancellable installer used by Fritz.
+
+Create one `ModelsStore` and one `ModelsLocalRuntime` per app with the same
+`AgentClient`. `ModelsPreferences` supplies the app's existing nonsecret settings
+persistence for recent selections and startup policies. Provider records and
+credential updates go through the bundled Fritz agent and its Rust registry.
+Start the agent, call `startService()` and `startAtAppLaunch(_:)`, and call
+`stopAll()` and `agent.stop()` at shutdown. The runtime uses the bundled `fritz`
+executable and the app's `FritzDataDirectory`, `FritzModelsDirectory`, and
+`FritzKeychainService` bundle configuration; keep each Debug checkout isolated.
+
+The lower-level `ModelsConfigurationView`, `ModelsProviderStore`, and
+`ModelsRuntimeStore` contracts let native hosts route presentation through their
+own scene owners. They do not require a fork of the editor or download UI.
+
+For a one-time import, call `ModelsStore.migrate(_:)` with a `ProviderMigration`
+and nonsecret `ProviderMigrationItem.CredentialSource` references. Rust performs
+the Keychain copies and commits the records and completion together. Preserve the
+source until this succeeds; use the returned UUID map to resolve saved selections.
+A repeated migration returns its original map and preserves later edits.
+`migrationResult(id:)` method reads the committed map without accessing the
+previous records or credentials, so a completed import can retire its old input.
+The `AgentClient(bundle:)` initializer uses the same bundle storage configuration in
+all native hosts.
+
+Embedded hosts can use `local::ollama::serve_in` with their explicit model directory
+and `ModelLocationStore` to supervise the shared local API without accessing
+Fritz's default databases. `ModelsLocalRuntime` accepts the bundled executable,
+arguments, and environment for this host composition. Saved per-model folders
+are read on inventory and model admission, including context-size reloads.

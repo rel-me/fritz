@@ -84,17 +84,18 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
       ModelManagementHeader("Models", background: background) {
         if page == .providers {
           transferActions
+        }
+        Button("Download Models", systemImage: "arrow.down", action: downloadModels)
+          .labelStyle(.iconOnly)
+          .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
+          .controlSize(actionControlSize)
+          .help("Download Models")
+        if page == .providers {
           Button("Add Provider", systemImage: "plus", action: addProvider)
             .labelStyle(.iconOnly)
             .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
             .controlSize(actionControlSize)
             .help("Add Provider")
-        } else {
-          Button("Download Models", systemImage: "arrow.down", action: downloadModels)
-            .labelStyle(.iconOnly)
-            .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-            .controlSize(actionControlSize)
-            .help("Download Models")
         }
       }
       if showsLocalModels {
@@ -124,10 +125,10 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
               Divider()
             }
             if ids.count == 1, let id = ids.first, providers.contains(where: { $0.id == id }) {
-              Button("Delete Provider", role: .destructive) { deleteProvider(id) }
+              Button("Delete", role: .destructive) { deleteProvider(id) }
             }
             if !ids.isEmpty {
-              Button(ids.count == 1 ? "Export Provider" : "Export Providers",
+              Button("Export",
                      systemImage: "square.and.arrow.up") { exportProviders(ids) }
             }
           } primaryAction: { ids in

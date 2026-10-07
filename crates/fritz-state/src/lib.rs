@@ -60,6 +60,11 @@ impl Database {
         Ok(Self { connection })
     }
 
+    /// Hand an initialized connection to a host-selected storage service.
+    pub fn into_connection(self) -> Connection {
+        self.connection
+    }
+
     pub fn connection(&self) -> &Connection {
         &self.connection
     }
