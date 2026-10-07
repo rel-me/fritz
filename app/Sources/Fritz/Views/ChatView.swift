@@ -68,7 +68,9 @@ struct ChatView: View {
 
     private var transcript: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+            // Markdown reflows when the window or inspector changes width. Measure
+            // every row so scroll bounds and bottom anchoring use actual heights.
+            VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
                 ForEach(store.messages) { message in
                     ChatMessageRow(
                         message: message,
@@ -118,14 +120,17 @@ struct ChatView: View {
                 viewportHeight: geometry.containerSize.height,
                 visibleBottom: geometry.visibleRect.maxY
             )
-        } action: { _, new in
+        } action: { old, new in
             scrollState.update(to: new, isUserScrolling: isScrollingTranscript)
+            if old.contentHeight != new.contentHeight || old.viewportHeight != new.viewportHeight {
+                scrollToLatestIfFollowing()
+            }
         }
         .overlay(alignment: .bottom) {
             if !scrollState.followsLatest {
                 Button {
                     scrollState = ChatScrollState()
-                    scrollPosition.scrollTo(id: Self.transcriptBottomID, anchor: .bottom)
+                    scrollPosition.scrollTo(edge: .bottom)
                 } label: {
                     Label("Jump", systemImage: "arrow.down")
                         .padding(.horizontal, 12)
@@ -141,7 +146,7 @@ struct ChatView: View {
 
     private func scrollToLatestIfFollowing() {
         guard scrollState.followsLatest, !isScrollingTranscript else { return }
-        scrollPosition.scrollTo(id: Self.transcriptBottomID, anchor: .bottom)
+        scrollPosition.scrollTo(edge: .bottom)
     }
 
     private func synchronizeModel() {

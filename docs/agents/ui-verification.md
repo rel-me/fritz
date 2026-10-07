@@ -26,13 +26,17 @@ the following surfaces, include these behaviors:
   model settings, and launch restoration. Main chat has no tab strip. Check that
   the native right inspector opens without tabs, resizes using its divider, closes
   from its button, and can be hidden and reopened without changing the selected conversation. Check the panel toggle
-  at minimum window width. New Chat stays at the trailing edge of the main chat
-  toolbar when the inspector opens and resizes; there is no bottom panel or
+  at minimum window width. New Chat and the panel toggle use native toolbar
+  placement and styling when the inspector opens and resizes; there is no bottom panel or
   chat-tab keyboard commands.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams. A new thread
   shows only the composer, without an empty conversation message.
+  With a long Markdown transcript, resize between minimum and wide window sizes
+  and open/close the inspector, both at the bottom and while reading history.
+  Verify messages remain visible, the latest message stays above the composer
+  when following, and scrolling reaches both ends without blank overscroll.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
   selected page; shared title-free unified toolbar, native traffic lights, a
   persistent sidebar without a toggle, and a rounded detail surface that begins
