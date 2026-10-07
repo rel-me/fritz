@@ -151,6 +151,8 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
+    @State private var rightPanelWidth: CGFloat = 260
+    @State private var rightPanelToggleWidth: CGFloat = 24
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -201,6 +203,7 @@ private struct FritzWorkspaceView: View {
                 isRightPanelPresented = false
             }
             .inspectorColumnWidth(min: 220, ideal: 260, max: 400)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightPanelWidth = $0 }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -217,11 +220,13 @@ private struct FritzWorkspaceView: View {
             if #available(macOS 26.0, *) {
                 ToolbarItem(placement: .primaryAction) {
                     newThreadToolbarButton
+                        .padding(.trailing, newChatToolbarTrailingSpace)
                 }
                 .sharedBackgroundVisibility(.hidden)
             } else {
                 ToolbarItem(placement: .primaryAction) {
                     newThreadToolbarButton
+                        .padding(.trailing, newChatToolbarTrailingSpace)
                 }
             }
             ToolbarItemGroup(placement: .primaryAction) {
@@ -232,6 +237,7 @@ private struct FritzWorkspaceView: View {
                 .foregroundStyle(isRightPanelPresented ? Color.accentColor : .secondary)
                 .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
                 .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightPanelToggleWidth = $0 }
             }
         }
         .fritzWindowBackground()
@@ -254,6 +260,12 @@ private struct FritzWorkspaceView: View {
                 Rectangle().fill(.ultraThinMaterial)
             }
         }
+    }
+
+    // The toggle occupies the trailing toolbar slot. Reserve the rest of the
+    // native inspector's measured width so New Chat follows the chat divider.
+    private var newChatToolbarTrailingSpace: CGFloat {
+        isRightPanelPresented ? max(0, rightPanelWidth - rightPanelToggleWidth - 12) : 0
     }
 
     private var newThreadToolbarButton: some View {
