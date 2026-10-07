@@ -78,6 +78,43 @@ import FritzUpdates
         XCTAssertEqual(workspace.projects.count, 1)
     }
 
+    func testDefaultProjectFolderNamesStayWithinDocumentsFritz() {
+        let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents/Fritz")
+        for (name, leaf) in [
+            ("  My Project  ", "My-Project"),
+            ("Notes/2026: plans\\draft?*<>|\"", "Notes-2026-plans-draft-"),
+            ("Two\twords\nnext\u{0000}part", "Two-words-next-part"),
+            ("../Outside", "-Outside"),
+            (".", "Project"),
+            ("..", "Project"),
+            ("Café 日記", "Café-日記"),
+        ] {
+            XCTAssertEqual(WorkspaceStore.defaultProjectDirectory(name: name).path,
+                           root.appendingPathComponent(leaf).path, name)
+        }
+    }
+
+    func testProjectWithoutChosenFolderCreatesAndPersistsDefaultDirectory() throws {
+        let data = try directory()
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: data)
+        let prefix = "Fritz-test-\(UUID())"
+        let folder = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents/Fritz/\(prefix)-My-Project")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+        addTeardownBlock { try? FileManager.default.removeItem(at: folder) }
+        let projectID = try workspace.createProject(name: "\(prefix) My/Project")
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory))
+        XCTAssertTrue(isDirectory.boolValue)
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: data)
+        XCTAssertEqual(restored.selectedProject?.id, projectID)
+        XCTAssertEqual(restored.selectedProject?.name, "\(prefix) My/Project")
+        XCTAssertEqual(restored.selectedChat?.projectPath, folder.resolvingSymlinksInPath().path)
+        // Distinct display names can normalize to the same folder; do not add it twice.
+        XCTAssertThrowsError(try workspace.createProject(name: "\(prefix) My:Project"))
+        XCTAssertEqual(workspace.projects.count, 1)
+    }
+
     func testProjectThreadsKeepTheirOwnWorkspace() throws {
         let root = try directory()
         let firstFolder = root.appendingPathComponent("first")

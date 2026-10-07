@@ -227,8 +227,8 @@ enum ProviderConfigurationTransfer {
                 baseURL = base.absoluteString.hasSuffix("/") ? String(base.absoluteString.dropLast()) : base.absoluteString
             }
             let preset = AIProviderPreset.matching(provider: provider, baseURL: baseURL)
-            let model = metadata["model"] ?? (provider == .jev ? "jev-latest" : "")
-            guard provider != .jev || model.isEmpty || model == "jev-latest" else { throw invalidCURL() }
+            let model = metadata["model"] ?? provider.decisionModelID
+            guard provider.decisionModelID.isEmpty || model.isEmpty || model == provider.decisionModelID else { throw invalidCURL() }
             let name = metadata["name"] ?? preset.name
             guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw invalidCURL() }
             return Configuration(ProviderConnection(name: name, provider: provider, baseURL: baseURL, modelID: model),

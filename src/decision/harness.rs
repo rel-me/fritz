@@ -36,6 +36,18 @@ pub async fn run_stdio() -> Result<()> {
                 };
                 decision::evaluate(&backend, &config.request).await
             }
+            decision::HarnessBackend::Openai { endpoint } => {
+                let key = config
+                    .api_key
+                    .context("OpenAI Decisions requires an API key.")?;
+                let backend = decision::openai::OpenAI::with_endpoint(
+                    key,
+                    endpoint
+                        .as_deref()
+                        .unwrap_or("https://api.openai.com/v1/decisions"),
+                )?;
+                decision::evaluate(&backend, &config.request).await
+            }
             decision::HarnessBackend::Ollaya => {
                 anyhow::ensure!(
                     config.api_key.is_none(),

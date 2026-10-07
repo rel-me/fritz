@@ -15,6 +15,7 @@ pub use model_locations::ModelLocationStore;
 #[serde(rename_all = "kebab-case")]
 pub enum ProviderKind {
     Openai,
+    OpenaiDecisions,
     OpenaiCompatible,
     Openrouter,
     Anthropic,
@@ -35,7 +36,7 @@ pub enum ModelCategory {
 impl ProviderKind {
     pub fn category(self) -> ModelCategory {
         match self {
-            Self::Jev | Self::Ollaya => ModelCategory::Decision,
+            Self::Jev | Self::Ollaya | Self::OpenaiDecisions => ModelCategory::Decision,
             _ => ModelCategory::Llm,
         }
     }
@@ -50,7 +51,7 @@ impl ProviderKind {
     }
     pub fn default_url(self) -> &'static str {
         match self {
-            Self::Openai => "https://api.openai.com/v1",
+            Self::Openai | Self::OpenaiDecisions => "https://api.openai.com/v1",
             Self::OpenaiCompatible => "",
             Self::Openrouter => "https://openrouter.ai/api/v1",
             Self::Anthropic => "https://api.anthropic.com/v1",
@@ -122,6 +123,12 @@ impl Connection {
                 bail!("Jev currently supports the jev-latest model.");
             }
             return Ok(());
+        }
+        if self.provider == ProviderKind::OpenaiDecisions
+            && !self.model_id.is_empty()
+            && self.model_id != "gpt-6-luna"
+        {
+            bail!("OpenAI Decisions currently supports gpt-6-luna.");
         }
         let url = reqwest::Url::parse(self.base_url()).context("Enter a valid endpoint URL.")?;
         if !matches!(url.scheme(), "https" | "http")

@@ -5,6 +5,38 @@ import XCTest
 
 /// Intentionally no @testable import: these APIs must work for a separate host app.
 final class PublicAPITests: XCTestCase {
+    func testOpenAIModelPresentationPreservesIDsAndUsesReviewedCapabilities() throws {
+        let sol = ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6.1-sol"))
+        XCTAssertEqual(sol.displayName, "GPT-6.1 Sol")
+        XCTAssertEqual(sol.modelID, "gpt-6.1-sol")
+        XCTAssertEqual(sol.status, .active)
+        XCTAssertEqual(sol.defaultReasoning, .medium)
+        XCTAssertEqual(sol.defaultSpeed, .standard)
+        XCTAssertEqual(sol.capabilities.reasoningEfforts, [.low, .medium, .high, .xhigh, .max])
+        XCTAssertEqual(sol.capabilities.supportedSpeeds, [.standard, .priority, .flex])
+        let luna = ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6-luna"))
+        XCTAssertEqual(luna.displayName, "GPT-6 Luna")
+        XCTAssertEqual(luna.capabilities.reasoningEfforts.first, ChatReasoningEffort.none)
+        let unknown = ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-7-sol"))
+        XCTAssertEqual(unknown.displayName, "GPT-7 Sol")
+        XCTAssertFalse(unknown.capabilities.supportsReasoningEffort)
+        XCTAssertNil(unknown.status)
+        XCTAssertNil(unknown.defaultReasoning)
+        XCTAssertEqual(unknown.capabilities.supportedSpeeds, [.standard])
+        let named = ChatModelOption(id: "custom", displayName: "Team model", provider: .openAI, modelID: "gpt-6.1-sol")
+        XCTAssertEqual(named.displayName, "Team model")
+        let compatible = ChatModelOption(connection: ProviderConnection(name: "Gateway", provider: .openAICompatible, modelID: "gpt-6.1-sol"))
+        XCTAssertEqual(compatible.displayName, "gpt-6.1-sol")
+        XCTAssertFalse(compatible.capabilities.supportsReasoningEffort)
+        let encoded = try JSONEncoder().encode(sol)
+        XCTAssertEqual(try JSONDecoder().decode(ChatModelOption.self, from: encoded), sol)
+        // Saved capabilities from older Fritz versions have no per-model effort list.
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacy["capabilities"] = ["supportsReasoningEffort": true, "supportedSpeeds": ["standard"], "isRecommendedInChatPicker": true]
+        let restored = try JSONDecoder().decode(ChatModelOption.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(restored.capabilities.reasoningEfforts, [.low, .medium, .high])
+    }
+
     func testCatalogResourceAndProviderWireFormatAreAvailableOutsideTheApp() throws {
         let model = try XCTUnwrap(NativeModelDescriptor.catalog.first)
         let connection = ProviderConnection(name: "Library fixture", provider: .fritz, modelID: model.id)

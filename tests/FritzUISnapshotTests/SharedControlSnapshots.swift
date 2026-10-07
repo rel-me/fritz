@@ -109,7 +109,9 @@ final class SharedControlSnapshots: XCTestCase {
 
     func testUnifiedModelsEditor() throws {
         let store = ModelsFixture(state: "populated")
-        for provider in [AIProviderKind.openAI, .ollama, .fritz, .jev, .ollaya] {
+        // Resolve fixture identities at runtime instead of caching enum case positions.
+        for providerID in ["openai", "ollama", "fritz", "jev", "ollaya"] {
+            let provider = try XCTUnwrap(AIProviderKind(rawValue: providerID))
             let connection = store.connection(provider)
             try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(), existing: connection),
                          name: "models-editor-\(provider.rawValue)", size: .init(width: 600, height: 560), settleDuration: 0.45)
@@ -117,8 +119,9 @@ final class SharedControlSnapshots: XCTestCase {
         try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(), existing: nil),
                      name: "models-editor-new", size: .init(width: 600, height: 560), settleDuration: 0.45)
         let availableStore = ModelsFixture(state: "available")
+        let localProvider = try XCTUnwrap(AIProviderKind(rawValue: "fritz"))
         try snapshot(ModelsProviderEditor(store: availableStore, localModels: RuntimeFixture(installed: false),
-                                          existing: availableStore.connection(.fritz)),
+                                          existing: availableStore.connection(localProvider)),
                      name: "models-editor-fritz-available", size: .init(width: 600, height: 560), settleDuration: 0.45)
     }
 
@@ -346,7 +349,7 @@ final class SharedControlSnapshots: XCTestCase {
     init(state: String) { self.state = state; error = state == "error" ? "The provider is unavailable." : nil }
     func connection(_ provider: AIProviderKind) -> ProviderConnection {
         .init(id: connectionID, name: "Test", provider: provider,
-              modelID: provider == .ollaya ? NativeModelDescriptor.decisionCatalog[0].id : "qwen2.5-1.5b-instruct-q4_k_m")
+              modelID: provider.rawValue == "ollaya" ? NativeModelDescriptor.decisionCatalog[0].id : "qwen2.5-1.5b-instruct-q4_k_m")
     }
     func refresh() async {}
     func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws {}

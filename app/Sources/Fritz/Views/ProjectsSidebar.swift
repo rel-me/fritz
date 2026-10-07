@@ -96,15 +96,15 @@ struct NewProjectSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            FritzManagementHeader("New Project", description: "Choose a folder and start a thread.")
+            FritzManagementHeader("New Project")
             Form {
                 TextField("Name", text: $name, prompt: Text("Project name"))
                 LabeledContent("Folder") {
                     HStack {
-                        if let directory {
-                            Text(directory.abbreviatedPath)
-                                .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                        }
+                        Text((directory ?? WorkspaceStore.defaultProjectDirectory(name: name)).abbreviatedPath)
+                            .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            .help((directory ?? WorkspaceStore.defaultProjectDirectory(name: name)).path)
+                        if directory != nil { Button("Use Default") { directory = nil } }
                         Button("Choose…", action: chooseFolder)
                     }
                 }
@@ -116,7 +116,7 @@ struct NewProjectSheet: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Create Project", action: create)
                     .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
-                    .disabled(directory == nil || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave)
             }
             .padding(16)
             .background(FritzWindowStyle.workspaceBackground)
@@ -136,7 +136,6 @@ struct NewProjectSheet: View {
         }
     }
     private func create() {
-        guard let directory else { return }
         do { try workspace.createProject(name: name, directory: directory); dismiss() }
         catch { self.error = error.localizedDescription }
     }

@@ -15,6 +15,7 @@ public enum AIModelCategory: String, CaseIterable, Codable, Hashable, Identifiab
 
 public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
     case openAI = "openai"
+    case openAIDecisions = "openai-decisions"
     case openAICompatible = "openai-compatible"
     case openRouter = "openrouter"
     case anthropic, gemini, ollama, fritz, jev, ollaya
@@ -22,6 +23,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
     public var name: String {
         switch self {
         case .openAI: "OpenAI"
+        case .openAIDecisions: "OpenAI Decisions"
         case .openAICompatible: "OpenAI-compatible"
         case .openRouter: "OpenRouter"
         case .anthropic: "Anthropic"
@@ -34,7 +36,8 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
     }
     public var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && !isNative }
     public var isNative: Bool { self == .fritz || self == .ollaya }
-    public var category: AIModelCategory { self == .jev || self == .ollaya ? .decision : .llm }
+    public var category: AIModelCategory { self == .jev || self == .ollaya || self == .openAIDecisions ? .decision : .llm }
+    public var decisionModelID: String { self == .openAIDecisions ? "gpt-6-luna" : self == .jev ? "jev-latest" : "" }
     public var systemImage: String {
         switch self {
         case .openAI: "sparkles"
@@ -44,12 +47,12 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .gemini: "diamond"
         case .ollama: "desktopcomputer"
         case .fritz, .ollaya: "cpu"
-        case .jev: "checkmark.seal"
+        case .jev, .openAIDecisions: "checkmark.seal"
         }
     }
     public var endpoint: String {
         switch self {
-        case .openAI: "https://api.openai.com/v1"
+        case .openAI, .openAIDecisions: "https://api.openai.com/v1"
         case .openAICompatible: ""
         case .openRouter: "https://openrouter.ai/api/v1"
         case .anthropic: "https://api.anthropic.com/v1"
@@ -109,9 +112,9 @@ public struct DiscoveredAIModel: Codable, Equatable, Identifiable, Sendable {
 public struct ModelCatalog: Decodable { public let models: [DiscoveredAIModel] }
 public enum AIModelVerification: String, Codable, Sendable { case unverified, compatible }
 public enum ChatReasoningEffort: String, CaseIterable, Codable, Identifiable, Sendable {
-    case low, medium, high
+    case low, medium, high, none, xhigh, max
     public var id: String { rawValue }
-    public var displayName: String { rawValue.capitalized }
+    public var displayName: String { self == .xhigh ? "Extra High" : rawValue.capitalized }
 }
 public enum ChatSpeed: String, CaseIterable, Codable, Identifiable, Sendable {
     case standard, priority, flex

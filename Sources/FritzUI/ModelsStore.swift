@@ -59,9 +59,10 @@ import Security
                 do {
                     let response: ModelCatalog = try await agent.request("models.list", params: ["connectionId": connection.id.uuidString])
                     guard refreshID == revision else { return }
-                    nextCatalog[connection.id] = response.models
+                    let available = presentedModels(response.models, provider: connection.provider)
+                    nextCatalog[connection.id] = available
                     if connection.category == .llm {
-                        nextModels += DiscoveredAIModel.preferredOrder(response.models, provider: connection.provider)
+                        nextModels += DiscoveredAIModel.preferredOrder(available, provider: connection.provider)
                             .map { ChatModelOption(connection: connection, model: $0) }
                     }
                     if connection.provider.isNative, response.models.isEmpty {
@@ -73,7 +74,8 @@ import Security
                 }
                 // A manually configured model supports endpoints that have no catalog API.
                 if connection.category == .llm, !connection.provider.isNative, !connection.modelID.isEmpty && !nextModels.contains(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) {
-                    nextModels.append(ChatModelOption(connection: connection))
+                    let model = ChatModelOption(connection: connection)
+                    if model.status != .retired { nextModels.append(model) }
                 }
             }
             guard refreshID == revision else { return }
@@ -162,7 +164,14 @@ extension ModelsStore {
         var params: [String: Any] = ["connection": try connection.jsonObject()]
         if !key.isEmpty { params["apiKey"] = key }
         let response: ModelCatalog = try await agent.request("models.list", params: params)
-        return response.models
+        return presentedModels(response.models, provider: connection.provider)
+    }
+
+    private func presentedModels(_ models: [DiscoveredAIModel], provider: AIProviderKind) -> [DiscoveredAIModel] {
+        guard provider == .openAI else { return models }
+        return models.filter { ChatModelOption(id: $0.id, displayName: $0.displayName,
+            provider: provider, modelID: $0.id).status != .retired }.map { DiscoveredAIModel(id: $0.id,
+            displayName: OpenAIModelCatalog.displayName(modelID: $0.id, fallback: $0.displayName)) }
     }
     public func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {

@@ -36,7 +36,7 @@ For native project-tool checks, `python3 tests/coding_provider.py` provides
 `coding-test` (edits `hello.txt` from `before` to `after` and verifies it) and
 `cancel-command` (runs a cancellable sleep). Use a temporary project folder.
 `tests/decision_integration.py` exercises the separate decision harness against
-a local mock of Jev's typed API using a dummy key, including answer validation
+local mocks of Jev and OpenAI Decisions using dummy keys, including wire translation, refusals, answer validation
 and pipe cancellation. No TypeSafe credential is needed. The same suite checks Ollaya provider separation
 and missing-model behavior without downloading weights. After explicitly installing
 Laya or Kev into an isolated `FRITZ_MODELS_DIR`, run:

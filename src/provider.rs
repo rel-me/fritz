@@ -4,7 +4,7 @@ use futures_util::StreamExt;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{collections::HashMap, sync::OnceLock, time::Duration};
 
 pub(crate) const SYSTEM: &str = "You are Fritz, a personal assistant in a native macOS app. Help the user answer questions, think through everyday tasks, organize ideas, and draft text. Be clear and accurate. You have no access to personal data beyond what the user shares in this conversation. No tools are available for this request. Do not claim to inspect or change files, run local processes, or access other apps or services.";
 
@@ -39,6 +39,69 @@ fn default_max_turns() -> usize {
 pub struct Model {
     pub id: String,
     pub display_name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum OpenAIModelStatus {
+    Active,
+    Deprecated,
+    Retired,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenAIModelMetadata {
+    display_name: String,
+    reasoning_efforts: Vec<String>,
+    speeds: Vec<String>,
+    status: OpenAIModelStatus,
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    default_reasoning: Option<String>,
+    default_speed: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenAIModelCatalog {
+    schema_version: u32,
+    revision: u64,
+    models: HashMap<String, OpenAIModelMetadata>,
+}
+
+fn parse_openai_catalog(data: &str) -> Result<OpenAIModelCatalog> {
+    let catalog: OpenAIModelCatalog = serde_json::from_str(data)?;
+    if catalog.schema_version != 1 || catalog.revision == 0 || catalog.models.is_empty() {
+        bail!("Unsupported or empty OpenAI model catalog");
+    }
+    for entry in catalog.models.values() {
+        if entry.display_name.is_empty()
+            || !entry.speeds.contains(&entry.default_speed)
+            || !entry.reasoning_efforts.iter().all(|value| {
+                ["none", "low", "medium", "high", "xhigh", "max"].contains(&value.as_str())
+            })
+            || !entry
+                .speeds
+                .iter()
+                .all(|value| ["standard", "priority", "flex"].contains(&value.as_str()))
+            || !match &entry.default_reasoning {
+                Some(value) => entry.reasoning_efforts.contains(value),
+                None => entry.reasoning_efforts.is_empty(),
+            }
+        {
+            bail!("Model defaults must be supported capabilities");
+        }
+    }
+    Ok(catalog)
+}
+
+fn openai_metadata(model: &str) -> Option<&'static OpenAIModelMetadata> {
+    static CATALOG: OnceLock<OpenAIModelCatalog> = OnceLock::new();
+    let catalog = CATALOG.get_or_init(|| {
+        parse_openai_catalog(include_str!("../Sources/Fritz/OpenAIModels.json"))
+            .expect("Invalid bundled OpenAI model catalog")
+    });
+    catalog.models.get(model)
 }
 
 pub(crate) fn client() -> Result<Client> {
@@ -126,6 +189,12 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
 /// The built-in Fritz provider uses Fritz's default model cache; use ModelStore for another host.
 pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
+    if connection.provider == ProviderKind::OpenaiDecisions {
+        return Ok(vec![Model {
+            id: "gpt-6-luna".into(),
+            display_name: "GPT-6 Luna".into(),
+        }]);
+    }
     if connection.provider == ProviderKind::Jev {
         return Ok(vec![Model {
             id: "jev-latest".into(),
@@ -193,12 +262,24 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
                 continue;
             };
             let id = id.trim_start_matches("models/").to_string();
-            let display_name = entry["display_name"]
+            if connection.provider == ProviderKind::Openai
+                && openai_metadata(&id)
+                    .is_some_and(|entry| matches!(entry.status, OpenAIModelStatus::Retired))
+            {
+                continue;
+            }
+            let mut display_name = entry["display_name"]
                 .as_str()
                 .or_else(|| entry["displayName"].as_str())
                 .or_else(|| entry["name"].as_str())
                 .unwrap_or(&id)
                 .to_string();
+            if connection.provider == ProviderKind::Openai
+                && display_name == id
+                && let Some(metadata) = openai_metadata(&id)
+            {
+                display_name.clone_from(&metadata.display_name);
+            }
             models.insert(id.clone(), Model { id, display_name });
         }
         next_page = match connection.provider {
@@ -252,25 +333,27 @@ pub(crate) fn payload(
         ProviderKind::Openai => {
             let mut body = json!({"model":request.model,"instructions":SYSTEM,"input":request.messages,"stream":true,"store":false});
             let model = request.model.to_lowercase();
-            let fixed = model.contains("-pro")
-                || model.contains("deep-research")
-                || model.contains("-chat");
-            let reasoning = model.starts_with("gpt-5")
-                || model.as_bytes().get(1).is_some_and(u8::is_ascii_digit)
-                    && model.starts_with('o');
-            if reasoning
-                && !fixed
-                && let Some(effort) = &request.effort
-            {
-                if !["low", "medium", "high"].contains(&effort.as_str()) {
+            let metadata = openai_metadata(&model);
+            if metadata.is_some_and(|entry| matches!(entry.status, OpenAIModelStatus::Retired)) {
+                bail!("This model is retired. Choose another model.");
+            }
+            if let Some(effort) = &request.effort {
+                let supported =
+                    metadata.is_some_and(|entry| entry.reasoning_efforts.contains(effort));
+                if !supported {
                     bail!("Unsupported reasoning effort.");
                 }
                 body["reasoning"] = json!({"effort":effort});
             }
-            if !fixed && let Some(speed) = &request.speed {
+            if let Some(speed) = &request.speed {
+                if speed != "standard"
+                    && !metadata.is_some_and(|entry| entry.speeds.contains(speed))
+                {
+                    bail!("Unsupported speed for this model.");
+                }
                 match speed.as_str() {
                     "priority" | "flex" => body["service_tier"] = json!(speed),
-                    "standard" => {}
+                    "standard" => body["service_tier"] = json!("default"),
                     _ => bail!("Unsupported speed."),
                 }
             }
@@ -545,6 +628,92 @@ mod tests {
             .is_err()
         );
     }
+    #[test]
+    fn openai_catalog_rejects_incompatible_schema_and_unsupported_defaults() {
+        let valid = json!({"schemaVersion":1,"revision":1,"models":{"test":{
+            "displayName":"Test", "status":"active", "reasoningEfforts":["medium"],
+            "speeds":["standard"], "defaultReasoning":"medium", "defaultSpeed":"standard"
+        }}});
+        for status in ["active", "deprecated", "retired"] {
+            let mut data = valid.clone();
+            data["models"]["test"]["status"] = json!(status);
+            assert!(parse_openai_catalog(&data.to_string()).is_ok());
+        }
+        for (field, value) in [
+            ("status", json!("unknown")),
+            ("defaultReasoning", json!("high")),
+            ("defaultReasoning", Value::Null),
+            ("defaultSpeed", json!("priority")),
+            ("reasoningEfforts", json!(["medium", "future"])),
+            ("speeds", json!(["standard", "future"])),
+        ] {
+            let mut data = valid.clone();
+            data["models"]["test"][field] = value;
+            assert!(parse_openai_catalog(&data.to_string()).is_err(), "{field}");
+        }
+        let mut data = valid.clone();
+        data["schemaVersion"] = json!(2);
+        assert!(parse_openai_catalog(&data.to_string()).is_err());
+        data = valid.clone();
+        data["models"]["test"]
+            .as_object_mut()
+            .unwrap()
+            .remove("defaultReasoning");
+        assert!(parse_openai_catalog(&data.to_string()).is_err());
+        data["models"]["test"]["defaultReasoning"] = Value::Null;
+        data["models"]["test"]["reasoningEfforts"] = json!([]);
+        assert!(parse_openai_catalog(&data.to_string()).is_ok());
+    }
+
+    #[test]
+    fn reviewed_openai_options_reach_the_api_and_reject_unsupported_efforts() {
+        let connection = Connection {
+            id: uuid::Uuid::new_v4(),
+            name: "test".into(),
+            provider: ProviderKind::Openai,
+            base_url: Some("http://localhost/v1".into()),
+            model_id: String::new(),
+        };
+        let mut request = ChatRequest {
+            connection_id: connection.id.to_string(),
+            model: "gpt-6.1-sol".into(),
+            messages: vec![Message {
+                role: "user".into(),
+                content: "Hi".into(),
+            }],
+            effort: Some("max".into()),
+            speed: Some("priority".into()),
+            project_path: None,
+            max_turns: 24,
+        };
+        for (model, effort, speed) in [
+            ("gpt-6.1-sol", "max", "priority"),
+            ("gpt-6-astra", "xhigh", "flex"),
+            ("gpt-6-luna", "none", "standard"),
+        ] {
+            request.model = model.into();
+            request.effort = Some(effort.into());
+            request.speed = Some(speed.into());
+            let (path, body) = payload(&connection, &request).unwrap();
+            assert_eq!(path, "responses");
+            assert_eq!(body["model"], model);
+            assert_eq!(body["reasoning"]["effort"], effort);
+            if speed != "standard" {
+                assert_eq!(body["service_tier"], speed);
+            } else {
+                assert_eq!(body["service_tier"], "default");
+            }
+        }
+        request.model = "gpt-6.1-sol".into();
+        request.effort = Some("none".into());
+        assert!(
+            payload(&connection, &request)
+                .unwrap_err()
+                .to_string()
+                .contains("Unsupported reasoning effort")
+        );
+    }
+
     #[test]
     fn compatible_requests_do_not_receive_openai_options() {
         let connection = Connection {

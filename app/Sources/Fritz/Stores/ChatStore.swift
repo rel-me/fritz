@@ -80,8 +80,12 @@ struct ChatPreferences: Codable {
 
     func select(_ model: ChatModelOption) {
         guard !isResponding else { return }
+        let isInitialSelection = selectedModel == nil
         selectedModel = model
-        if !model.capabilities.supportedSpeeds.contains(speed) { speed = .standard }
+        if isInitialSelection || (model.capabilities.supportsReasoningEffort && !model.capabilities.reasoningEfforts.contains(effort)) {
+            effort = model.defaultReasoning ?? .medium
+        }
+        if isInitialSelection || !model.capabilities.supportedSpeeds.contains(speed) { speed = model.defaultSpeed }
         savePreferences()
     }
 
