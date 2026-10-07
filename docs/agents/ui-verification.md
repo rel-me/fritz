@@ -23,9 +23,11 @@ the following surfaces, include these behaviors:
   thread exists, with creation available from the toolbar and menu. Check stable
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
   model settings, and launch restoration. Main chat has no tab strip. Check that
-  the right panel opens without tabs, closes from its button, and can be hidden
-  and reopened without changing the selected conversation. Check the panel toggle
-  at minimum window width; there is no bottom panel or chat-tab keyboard commands.
+  the native right inspector opens without tabs, resizes using its divider, closes
+  from its button, and can be hidden and reopened without changing the selected conversation. Check the panel toggle
+  at minimum window width. New Chat stays at the trailing edge of the main chat
+  toolbar when the inspector opens and resizes; there is no bottom panel or
+  chat-tab keyboard commands.
 - **Composer and chat:** model search/filter/recent choices, Return to send,
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams. A new thread

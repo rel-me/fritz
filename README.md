@@ -11,8 +11,8 @@ Fritz currently groups conversations under folders in the sidebar. Folder-attach
 
 ## Right panel
 
-The toolbar toggles a blank right panel. Conversations stay in the main chat
-area and are selected from the project sidebar. There is no bottom panel.
+The toolbar toggles a blank native inspector on the right, with a resizable
+divider. Conversations stay in the main chat area and are selected from the project sidebar. There is no bottom panel.
 
 ## Open source and shared libraries
 
