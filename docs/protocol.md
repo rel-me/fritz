@@ -27,7 +27,8 @@ OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/OpenAIModels.json` catalog. Efforts are model-specific subsets of
 `none`, `low`, `medium`, `high`, `xhigh`, and `max`; speeds are `standard`,
 `priority` (Fast), and `flex`. Unknown model IDs work with these optional
-parameters omitted. Unsupported explicit options return an error. Display names
+parameters omitted. Unsupported explicit options and retired models return an error. Catalog entries
+use `schemaVersion`, `revision`, lifecycle status, and validated per-model defaults. Display names
 are presentation only; `model` always carries the provider's exact API ID.
 
 Local-model folder choices are stored per model in the profile's `model_locations.sqlite`.

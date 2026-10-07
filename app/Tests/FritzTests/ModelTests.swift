@@ -9,6 +9,8 @@ final class ModelTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = ChatStore(agent: AgentClient(), database: AppDatabase(directory: root), threadID: UUID())
         store.select(ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6-luna")))
+        XCTAssertEqual(store.effort, .medium)
+        XCTAssertEqual(store.speed, .standard)
         store.effort = .none
         store.speed = .priority
         store.select(ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6.1-sol")))

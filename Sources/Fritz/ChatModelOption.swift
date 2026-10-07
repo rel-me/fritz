@@ -29,7 +29,7 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
             let modelID = modelID.lowercased()
             if provider == .openAI, let entry = OpenAIModelCatalog.entry(for: modelID) {
                 return Self(supportsReasoningEffort: !entry.reasoningEfforts.isEmpty,
-                            supportedSpeeds: entry.speeds, isRecommendedInChatPicker: true,
+                            supportedSpeeds: entry.speeds, isRecommendedInChatPicker: entry.status == .active,
                             reasoningEfforts: entry.reasoningEfforts)
             }
             let isLegacyCompletion = provider == .openAI && (
@@ -53,6 +53,15 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
     }
 
     public let id: String
+    public var status: OpenAIModelCatalog.Status? {
+        provider == .openAI ? OpenAIModelCatalog.entry(for: modelID)?.status : nil
+    }
+    public var defaultReasoning: ChatReasoningEffort? {
+        provider == .openAI ? OpenAIModelCatalog.entry(for: modelID)?.defaultReasoning : nil
+    }
+    public var defaultSpeed: ChatSpeed {
+        (provider == .openAI ? OpenAIModelCatalog.entry(for: modelID)?.defaultSpeed : nil) ?? .standard
+    }
     public let displayName: String
     public let provider: AIProviderKind
     public let modelID: String

@@ -1,5 +1,6 @@
 {
-  "version": 1,
+  "schemaVersion": 1,
+  "revision": 1,
   "reviewedAt": "2026-10-07",
   "models": {
     "gpt-6.1-sol": {
@@ -16,7 +17,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-6.1-sol"
+      "source": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-6-astra": {
       "displayName": "GPT-6 Astra",
@@ -32,7 +36,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-6-astra"
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-astra",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-6-sol": {
       "displayName": "GPT-6 Sol",
@@ -49,7 +56,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-6-sol"
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-sol",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-6-luna": {
       "displayName": "GPT-6 Luna",
@@ -66,7 +76,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-6-luna"
+      "source": "https://developers.openai.com/api/docs/models/gpt-6-luna",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.6-sol": {
       "displayName": "GPT-5.6 Sol",
@@ -83,7 +96,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.6-terra": {
       "displayName": "GPT-5.6 Terra",
@@ -100,7 +116,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-terra"
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.6-luna": {
       "displayName": "GPT-5.6 Luna",
@@ -117,7 +136,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.6": {
       "displayName": "GPT-5.6",
@@ -134,7 +156,10 @@
         "priority",
         "flex"
       ],
-      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol"
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5": {
       "displayName": "GPT-5",
@@ -147,7 +172,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5-mini": {
       "displayName": "GPT-5 Mini",
@@ -160,7 +188,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5-nano": {
       "displayName": "GPT-5 Nano",
@@ -173,7 +204,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.1": {
       "displayName": "GPT-5.1",
@@ -186,7 +220,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.2": {
       "displayName": "GPT-5.2",
@@ -199,7 +236,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.4": {
       "displayName": "GPT-5.4",
@@ -212,7 +252,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.4-mini": {
       "displayName": "GPT-5.4 Mini",
@@ -225,7 +268,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.4-nano": {
       "displayName": "GPT-5.4 Nano",
@@ -238,7 +284,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-5.5": {
       "displayName": "GPT-5.5",
@@ -251,7 +300,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "o1": {
       "displayName": "o1",
@@ -262,7 +314,10 @@
       ],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "o1-mini": {
       "displayName": "o1-mini",
@@ -273,7 +328,10 @@
       ],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "o3": {
       "displayName": "o3",
@@ -286,7 +344,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "o3-mini": {
       "displayName": "o3-mini",
@@ -297,7 +358,10 @@
       ],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "o4-mini": {
       "displayName": "o4-mini",
@@ -310,7 +374,10 @@
         "standard",
         "priority",
         "flex"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": "medium",
+      "defaultSpeed": "standard"
     },
     "gpt-4.1": {
       "displayName": "GPT-4.1",
@@ -318,7 +385,10 @@
       "speeds": [
         "standard",
         "priority"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-4.1-mini": {
       "displayName": "GPT-4.1 Mini",
@@ -326,7 +396,10 @@
       "speeds": [
         "standard",
         "priority"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-4.1-nano": {
       "displayName": "GPT-4.1 Nano",
@@ -334,7 +407,10 @@
       "speeds": [
         "standard",
         "priority"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-4o": {
       "displayName": "GPT-4o",
@@ -342,7 +418,10 @@
       "speeds": [
         "standard",
         "priority"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-4o-mini": {
       "displayName": "GPT-4o Mini",
@@ -350,42 +429,60 @@
       "speeds": [
         "standard",
         "priority"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-5-pro": {
       "displayName": "GPT-5 Pro",
       "reasoningEfforts": [],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-5.2-pro": {
       "displayName": "GPT-5.2 Pro",
       "reasoningEfforts": [],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-5.4-pro": {
       "displayName": "GPT-5.4 Pro",
       "reasoningEfforts": [],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-5.5-pro": {
       "displayName": "GPT-5.5 Pro",
       "reasoningEfforts": [],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     },
     "gpt-5-chat-latest": {
       "displayName": "GPT-5 Chat Latest",
       "reasoningEfforts": [],
       "speeds": [
         "standard"
-      ]
+      ],
+      "status": "active",
+      "defaultReasoning": null,
+      "defaultSpeed": "standard"
     }
   }
 }

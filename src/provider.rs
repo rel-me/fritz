@@ -42,29 +42,64 @@ pub struct Model {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum OpenAIModelStatus {
+    Active,
+    Deprecated,
+    Retired,
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenAIModelMetadata {
     display_name: String,
     reasoning_efforts: Vec<String>,
     speeds: Vec<String>,
+    status: OpenAIModelStatus,
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    default_reasoning: Option<String>,
+    default_speed: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenAIModelCatalog {
+    schema_version: u32,
+    revision: u64,
+    models: HashMap<String, OpenAIModelMetadata>,
+}
+
+fn parse_openai_catalog(data: &str) -> Result<OpenAIModelCatalog> {
+    let catalog: OpenAIModelCatalog = serde_json::from_str(data)?;
+    if catalog.schema_version != 1 || catalog.revision == 0 || catalog.models.is_empty() {
+        bail!("Unsupported or empty OpenAI model catalog");
+    }
+    for entry in catalog.models.values() {
+        if entry.display_name.is_empty()
+            || !entry.speeds.contains(&entry.default_speed)
+            || !entry.reasoning_efforts.iter().all(|value| {
+                ["none", "low", "medium", "high", "xhigh", "max"].contains(&value.as_str())
+            })
+            || !entry
+                .speeds
+                .iter()
+                .all(|value| ["standard", "priority", "flex"].contains(&value.as_str()))
+            || !match &entry.default_reasoning {
+                Some(value) => entry.reasoning_efforts.contains(value),
+                None => entry.reasoning_efforts.is_empty(),
+            }
+        {
+            bail!("Model defaults must be supported capabilities");
+        }
+    }
+    Ok(catalog)
 }
 
 fn openai_metadata(model: &str) -> Option<&'static OpenAIModelMetadata> {
-    #[derive(Deserialize)]
-    struct Catalog {
-        version: u32,
-        models: HashMap<String, OpenAIModelMetadata>,
-    }
-    static CATALOG: OnceLock<Catalog> = OnceLock::new();
+    static CATALOG: OnceLock<OpenAIModelCatalog> = OnceLock::new();
     let catalog = CATALOG.get_or_init(|| {
-        let catalog: Catalog =
-            serde_json::from_str(include_str!("../Sources/Fritz/OpenAIModels.json"))
-                .expect("Invalid bundled OpenAI model catalog");
-        assert_eq!(
-            catalog.version, 1,
-            "Unsupported OpenAI model catalog version"
-        );
-        catalog
+        parse_openai_catalog(include_str!("../Sources/Fritz/OpenAIModels.json"))
+            .expect("Invalid bundled OpenAI model catalog")
     });
     catalog.models.get(model)
 }
@@ -227,6 +262,12 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
                 continue;
             };
             let id = id.trim_start_matches("models/").to_string();
+            if connection.provider == ProviderKind::Openai
+                && openai_metadata(&id)
+                    .is_some_and(|entry| matches!(entry.status, OpenAIModelStatus::Retired))
+            {
+                continue;
+            }
             let mut display_name = entry["display_name"]
                 .as_str()
                 .or_else(|| entry["displayName"].as_str())
@@ -293,6 +334,9 @@ pub(crate) fn payload(
             let mut body = json!({"model":request.model,"instructions":SYSTEM,"input":request.messages,"stream":true,"store":false});
             let model = request.model.to_lowercase();
             let metadata = openai_metadata(&model);
+            if metadata.is_some_and(|entry| matches!(entry.status, OpenAIModelStatus::Retired)) {
+                bail!("This model is retired. Choose another model.");
+            }
             if let Some(effort) = &request.effort {
                 let supported =
                     metadata.is_some_and(|entry| entry.reasoning_efforts.contains(effort));
@@ -584,6 +628,43 @@ mod tests {
             .is_err()
         );
     }
+    #[test]
+    fn openai_catalog_rejects_incompatible_schema_and_unsupported_defaults() {
+        let valid = json!({"schemaVersion":1,"revision":1,"models":{"test":{
+            "displayName":"Test", "status":"active", "reasoningEfforts":["medium"],
+            "speeds":["standard"], "defaultReasoning":"medium", "defaultSpeed":"standard"
+        }}});
+        for status in ["active", "deprecated", "retired"] {
+            let mut data = valid.clone();
+            data["models"]["test"]["status"] = json!(status);
+            assert!(parse_openai_catalog(&data.to_string()).is_ok());
+        }
+        for (field, value) in [
+            ("status", json!("unknown")),
+            ("defaultReasoning", json!("high")),
+            ("defaultReasoning", Value::Null),
+            ("defaultSpeed", json!("priority")),
+            ("reasoningEfforts", json!(["medium", "future"])),
+            ("speeds", json!(["standard", "future"])),
+        ] {
+            let mut data = valid.clone();
+            data["models"]["test"][field] = value;
+            assert!(parse_openai_catalog(&data.to_string()).is_err(), "{field}");
+        }
+        let mut data = valid.clone();
+        data["schemaVersion"] = json!(2);
+        assert!(parse_openai_catalog(&data.to_string()).is_err());
+        data = valid.clone();
+        data["models"]["test"]
+            .as_object_mut()
+            .unwrap()
+            .remove("defaultReasoning");
+        assert!(parse_openai_catalog(&data.to_string()).is_err());
+        data["models"]["test"]["defaultReasoning"] = Value::Null;
+        data["models"]["test"]["reasoningEfforts"] = json!([]);
+        assert!(parse_openai_catalog(&data.to_string()).is_ok());
+    }
+
     #[test]
     fn reviewed_openai_options_reach_the_api_and_reject_unsupported_efforts() {
         let connection = Connection {

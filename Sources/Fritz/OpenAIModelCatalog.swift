@@ -2,14 +2,42 @@ import Foundation
 
 /// Reviewed API capabilities shared with the Rust request builder.
 public enum OpenAIModelCatalog {
+    public enum Status: String, Decodable, Sendable {
+        case active, deprecated, retired
+    }
+
     struct Entry: Decodable, Sendable {
         let displayName: String
         let reasoningEfforts: [ChatReasoningEffort]
         let speeds: [ChatSpeed]
+        let status: Status
+        let defaultReasoning: ChatReasoningEffort?
+        let defaultSpeed: ChatSpeed
+
+        private enum CodingKeys: CodingKey {
+            case displayName, reasoningEfforts, speeds, status, defaultReasoning, defaultSpeed
+        }
+
+        init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            displayName = try values.decode(String.self, forKey: .displayName)
+            reasoningEfforts = try values.decode([ChatReasoningEffort].self, forKey: .reasoningEfforts)
+            speeds = try values.decode([ChatSpeed].self, forKey: .speeds)
+            status = try values.decode(Status.self, forKey: .status)
+            // Required key; null means this model has no configurable reasoning.
+            defaultReasoning = try values.decode(ChatReasoningEffort?.self, forKey: .defaultReasoning)
+            defaultSpeed = try values.decode(ChatSpeed.self, forKey: .defaultSpeed)
+            guard !displayName.isEmpty, speeds.contains(defaultSpeed),
+                  defaultReasoning.map({ reasoningEfforts.contains($0) }) ?? reasoningEfforts.isEmpty else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
+                    debugDescription: "Model defaults must be supported capabilities"))
+            }
+        }
     }
 
     private struct Catalog: Decodable {
-        let version: Int
+        let schemaVersion: Int
+        let revision: Int
         let models: [String: Entry]
     }
 
@@ -17,7 +45,7 @@ public enum OpenAIModelCatalog {
         guard let url = Bundle.module.url(forResource: "OpenAIModels", withExtension: "json"),
               let data = try? Data(contentsOf: url),
               let catalog = try? JSONDecoder().decode(Catalog.self, from: data),
-              catalog.version == 1, !catalog.models.isEmpty else {
+              catalog.schemaVersion == 1, catalog.revision > 0, !catalog.models.isEmpty else {
             preconditionFailure("Missing or invalid bundled OpenAI model catalog")
         }
         return catalog.models
