@@ -11,7 +11,8 @@ relevant light/dark, empty, populated, loading, and error states. For changes to
 the following surfaces, include these behaviors:
 
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
-  persistent sidebar without a toggle, + menu, New Project folder selection/cancel, and Settings
+  persistent sidebar without a toggle, + menu, New Project default folder creation,
+  custom folder selection/cancel, and Settings
   opening with Command-comma. The toolbar opens the Models page in Settings.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
   should match the workspace surround in both modes. Preserve the sidebar's rounded

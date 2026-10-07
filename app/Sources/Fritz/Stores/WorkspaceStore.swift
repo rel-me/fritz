@@ -49,16 +49,21 @@ import Observation
     }
 
     @discardableResult
-    func createProject(name: String, directory: URL) throws -> UUID {
+    func createProject(name: String, directory: URL? = nil) throws -> UUID {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw AgentFailure(message: "Enter a project name.") }
-        let directory = directory.standardizedFileURL.resolvingSymlinksInPath()
+        guard canSave else { throw AgentFailure(message: "The workspace could not be loaded. The database has been preserved.") }
+        let usesDefault = directory == nil
+        let directory = (directory ?? Self.defaultProjectDirectory(name: name)).standardizedFileURL.resolvingSymlinksInPath()
+        guard !projects.contains(where: { $0.directory == directory.path }) else {
+            throw AgentFailure(message: "This folder is already in your projects.")
+        }
+        if usesDefault {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw AgentFailure(message: "Choose an existing project folder.")
-        }
-        guard !projects.contains(where: { $0.directory == directory.path }) else {
-            throw AgentFailure(message: "This folder is already in your projects.")
         }
         let thread = ProjectThread()
         let project = FritzProject(name: name, directory: directory.path, threads: [thread])
@@ -68,6 +73,19 @@ import Observation
         next.selectedThreadID = thread.id
         try commit(next)
         return project.id
+    }
+
+    static func defaultProjectDirectory(name: String) -> URL {
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent("Fritz", isDirectory: true)
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return root }
+        // Keep the display name intact while preventing separators, control characters,
+        // and special path components from becoming the folder name.
+        let safeName = name.replacingOccurrences(of: #"[\s/\\:<>"|?*\p{Cc}]+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        return root.appendingPathComponent(safeName.isEmpty ? "Project" : safeName, isDirectory: true)
     }
 
     func createThread(in projectID: UUID) {
