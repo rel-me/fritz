@@ -15,22 +15,22 @@ use tokio::sync::mpsc::UnboundedReceiver;
 pub async fn run(
     runner: AgentRunner,
     mut completion: impl FnMut(&CompletionCall) -> Result<(), PromptError>,
-) -> Result<PromptResponse, PromptError> {
+) -> Result<PromptResponse, Box<PromptError>> {
     let mut stream = runner.stream();
     while let Some(item) = stream.next().await {
         match item {
             Ok(MultiTurnStreamItem::CompletionCall(call)) => completion(&call)?,
             Ok(MultiTurnStreamItem::FinalResponse(response)) => return Ok(response),
             Err(StreamingError::Completion(error)) => {
-                return Err(PromptError::CompletionError(error));
+                return Err(Box::new(PromptError::CompletionError(error)));
             }
-            Err(StreamingError::Prompt(error)) => return Err(error),
-            Err(StreamingError::Report(error)) => return Err(PromptError::Report(error)),
+            Err(StreamingError::Prompt(error)) => return Err(Box::new(error)),
+            Err(StreamingError::Report(error)) => return Err(Box::new(PromptError::Report(error))),
             _ => {}
         }
     }
-    Err(PromptError::CompletionError(ProviderError::Response(
-        "The model stream ended without a final response.".into(),
+    Err(Box::new(PromptError::CompletionError(
+        ProviderError::Response("The model stream ended without a final response.".into()),
     )))
 }
 
@@ -43,7 +43,7 @@ pub async fn run_with_progress<E, X>(
     completion: impl FnMut(&CompletionCall) -> Result<(), PromptError>,
     events: &mut UnboundedReceiver<E>,
     mut emit: impl FnMut(E) -> Result<(), X>,
-) -> Result<Result<PromptResponse, PromptError>, X> {
+) -> Result<Result<PromptResponse, Box<PromptError>>, X> {
     let request = run(runner, completion);
     tokio::pin!(request);
     let mut events_open = true;

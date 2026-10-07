@@ -329,6 +329,9 @@ This crate requires Rust 1.95 or newer. With Rig 0.43, construct the runner with
 failures use `rig_core::error::ProviderError`, and structured stream reports are
 returned as `PromptError::Report`. Tool names and call IDs use Rig's typed
 identities; keep the call ID intact when constructing tool-result receipts.
+Both adapter functions return model and policy failures as `Box<PromptError>`
+to keep the result small; dereference the error to match its variants. The
+completion callback still returns Rig's unboxed `PromptError`.
 Rig 0.43's high-level runtime buffers tool-call argument fragments until the
 call is complete and validated. Its `on_tool_call_delta` hook therefore does
 not provide progress while incomplete arguments are still arriving. Host

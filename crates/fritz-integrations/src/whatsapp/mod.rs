@@ -462,7 +462,7 @@ impl Service {
                     let mut s = status.lock().unwrap();
                     if !s.enabled { return; }
                     match &*event {
-                        Event::Disconnected(_) => { if s.phase == "connected" { s.phase = "connecting".into(); reconnect_started.store(now(), std::sync::atomic::Ordering::Relaxed); } },
+                        Event::Disconnected(_) if s.phase == "connected" => { s.phase = "connecting".into(); reconnect_started.store(now(), std::sync::atomic::Ordering::Relaxed); },
                         Event::PairingQrCodesExhausted(_) => { s.phase = "expired".into(); s.qr = None; s.expires_at = None; s.message = Some("Pairing expired. Request a new QR code.".into()); },
                         Event::LoggedOut(_) => { s.phase = "error".into(); s.qr = None; s.expires_at = None; s.message = Some("This device was unlinked. Remove the saved connection and pair again.".into()); },
                         Event::PairError(_) => { s.phase = "error".into(); s.qr = None; s.expires_at = None; s.message = Some("Pairing failed. Try again.".into()); },

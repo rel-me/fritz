@@ -279,9 +279,7 @@ impl Managed {
                     line = &mut next_line => break line?,
                     joined = jobs.join_next_with_id(), if !jobs.is_empty() => {
                         match joined {
-                            Some(Ok((task, id))) => {
-                                if operations.get(&id).is_some_and(|operation| operation.id() == task) { operations.remove(&id); }
-                            }
+                            Some(Ok((task, id))) if operations.get(&id).is_some_and(|operation| operation.id() == task) => { operations.remove(&id); }
                             Some(Err(error)) if !error.is_cancelled() => return Err(error.into()),
                             _ => {}
                         }
