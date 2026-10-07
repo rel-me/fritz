@@ -1,5 +1,5 @@
 {
-  "originHash" : "61a2ccd9302f1911bd95eebaaa22482196936b414404f6ff6539b4cbc19ebb7e",
+  "originHash" : "fd426e32c803f57bcf53d26fcc8ac7eae5f7513444832eab323e550f05c754d4",
   "pins" : [
     {
       "identity" : "sparkle",
@@ -53,15 +53,6 @@
       "state" : {
         "revision" : "0b5c2cfaaec8d6193db206f675048eeb5ce95f71",
         "version" : "0.1.0"
-      }
-    },
-    {
-      "identity" : "swiftui-snapshot-testing",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/gabriel/swiftui-snapshot-testing",
-      "state" : {
-        "revision" : "b9786eec445e30d323147de221b80dcd734af954",
-        "version" : "0.1.12"
       }
     },
     {
