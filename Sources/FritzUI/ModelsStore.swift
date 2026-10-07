@@ -59,7 +59,7 @@ import Security
                 do {
                     let response: ModelCatalog = try await agent.request("models.list", params: ["connectionId": connection.id.uuidString])
                     guard refreshID == revision else { return }
-                    nextCatalog[connection.id] = response.models
+                    nextCatalog[connection.id] = presentedModels(response.models, provider: connection.provider)
                     if connection.category == .llm {
                         nextModels += DiscoveredAIModel.preferredOrder(response.models, provider: connection.provider)
                             .map { ChatModelOption(connection: connection, model: $0) }
@@ -162,7 +162,13 @@ extension ModelsStore {
         var params: [String: Any] = ["connection": try connection.jsonObject()]
         if !key.isEmpty { params["apiKey"] = key }
         let response: ModelCatalog = try await agent.request("models.list", params: params)
-        return response.models
+        return presentedModels(response.models, provider: connection.provider)
+    }
+
+    private func presentedModels(_ models: [DiscoveredAIModel], provider: AIProviderKind) -> [DiscoveredAIModel] {
+        guard provider == .openAI else { return models }
+        return models.map { DiscoveredAIModel(id: $0.id,
+            displayName: OpenAIModelCatalog.displayName(modelID: $0.id, fallback: $0.displayName)) }
     }
     public func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {

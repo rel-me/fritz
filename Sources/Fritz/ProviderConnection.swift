@@ -112,9 +112,9 @@ public struct DiscoveredAIModel: Codable, Equatable, Identifiable, Sendable {
 public struct ModelCatalog: Decodable { public let models: [DiscoveredAIModel] }
 public enum AIModelVerification: String, Codable, Sendable { case unverified, compatible }
 public enum ChatReasoningEffort: String, CaseIterable, Codable, Identifiable, Sendable {
-    case low, medium, high
+    case low, medium, high, none, xhigh, max
     public var id: String { rawValue }
-    public var displayName: String { rawValue.capitalized }
+    public var displayName: String { self == .xhigh ? "Extra High" : rawValue.capitalized }
 }
 public enum ChatSpeed: String, CaseIterable, Codable, Identifiable, Sendable {
     case standard, priority, flex

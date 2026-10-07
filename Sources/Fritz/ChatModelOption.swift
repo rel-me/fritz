@@ -11,11 +11,14 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         public let supportsReasoningEffort: Bool
         public let supportedSpeeds: [ChatSpeed]
         public let isRecommendedInChatPicker: Bool
+        private let configuredReasoningEfforts: [ChatReasoningEffort]?
 
-        public init(supportsReasoningEffort: Bool, supportedSpeeds: [ChatSpeed], isRecommendedInChatPicker: Bool) {
+        public init(supportsReasoningEffort: Bool, supportedSpeeds: [ChatSpeed], isRecommendedInChatPicker: Bool,
+                    reasoningEfforts: [ChatReasoningEffort]? = nil) {
             self.supportsReasoningEffort = supportsReasoningEffort
             self.supportedSpeeds = supportedSpeeds
             self.isRecommendedInChatPicker = isRecommendedInChatPicker
+            self.configuredReasoningEfforts = reasoningEfforts
         }
 
         public var supportsSpeed: Bool {
@@ -24,6 +27,11 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
 
         public static func inferred(provider: AIProviderKind, modelID: String) -> Self {
             let modelID = modelID.lowercased()
+            if provider == .openAI, let entry = OpenAIModelCatalog.entry(for: modelID) {
+                return Self(supportsReasoningEffort: !entry.reasoningEfforts.isEmpty,
+                            supportedSpeeds: entry.speeds, isRecommendedInChatPicker: true,
+                            reasoningEfforts: entry.reasoningEfforts)
+            }
             let isLegacyCompletion = provider == .openAI && (
                 modelID.contains("instruct")
                     || ["ada", "babbage", "curie", "davinci", "text-davinci"].contains { modelID.hasPrefix($0) }
@@ -33,65 +41,14 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
                 "live", "moderation", "realtime", "rerank", "search-preview", "sora",
                 "speech", "transcribe", "tts", "video", "whisper", "deep-research",
             ].contains { modelID.contains($0) }
-            guard provider == .openAI else {
-                return Self(
-                    supportsReasoningEffort: false,
-                    supportedSpeeds: [.standard],
-                    isRecommendedInChatPicker: !isSpecializedModel
-                )
-            }
-
-            let hasFixedReasoningEffort = modelID.contains("-pro")
-                || modelID.contains("deep-research")
-            let isReasoningModel = modelID.hasPrefix("gpt-5")
-                || Self.hasOSeriesPrefix(modelID)
-            let isConfigurableReasoningModel = isReasoningModel
-                && !hasFixedReasoningEffort
-                && !isSpecializedModel
-                && !modelID.contains("-chat")
-            let canChooseServiceTier = !hasFixedReasoningEffort
-                && !isSpecializedModel
-                && !modelID.contains("-chat")
-            let supportsPrioritySpeed = canChooseServiceTier
-                && (modelID.hasPrefix("gpt-5")
-                    || modelID.hasPrefix("gpt-4.1")
-                    || modelID.hasPrefix("gpt-4o")
-                    || modelID == "o3"
-                    || modelID.hasPrefix("o3-")
-                    || modelID == "o4-mini"
-                    || modelID.hasPrefix("o4-mini-"))
-            let supportsFlexSpeed = canChooseServiceTier
-                && ((modelID.hasPrefix("gpt-5") && !modelID.contains("-codex"))
-                || modelID == "o3"
-                || modelID.hasPrefix("o3-")
-                || modelID == "o4-mini"
-                || modelID.hasPrefix("o4-mini-"))
-            var supportedSpeeds: [ChatSpeed] = [.standard]
-            if supportsPrioritySpeed {
-                supportedSpeeds.append(.priority)
-            }
-            if supportsFlexSpeed {
-                supportedSpeeds.append(.flex)
-            }
-
-            return Self(
-                supportsReasoningEffort: isConfigurableReasoningModel,
-                supportedSpeeds: supportedSpeeds,
-                isRecommendedInChatPicker: !isSpecializedModel
-            )
+            // Discovery does not describe capabilities. Unknown IDs remain selectable
+            // without speculating about their reasoning or service-tier support.
+            return Self(supportsReasoningEffort: false, supportedSpeeds: [.standard],
+                        isRecommendedInChatPicker: !isSpecializedModel)
         }
 
         public var reasoningEfforts: [ChatReasoningEffort] {
-            supportsReasoningEffort ? [.low, .medium, .high] : []
-        }
-
-        private static func hasOSeriesPrefix(_ modelID: String) -> Bool {
-            guard modelID.first == "o",
-                  let series = modelID.dropFirst().first,
-                  series.isNumber else {
-                return false
-            }
-            return true
+            configuredReasoningEfforts ?? (supportsReasoningEffort ? [.low, .medium, .high] : [])
         }
     }
 
@@ -125,7 +82,8 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         baseURL: String? = nil
     ) {
         self.id = id
-        self.displayName = displayName
+        self.displayName = provider == .openAI
+            ? OpenAIModelCatalog.displayName(modelID: modelID, fallback: displayName) : displayName
         self.provider = provider
         self.modelID = modelID
         self.connectionName = connectionName

@@ -4,6 +4,23 @@ import FritzUpdates
 @testable import FritzApp
 
 final class ModelTests: XCTestCase {
+    @MainActor func testChangingModelsKeepsOnlySupportedReasoningAndSpeedSettings() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ChatStore(agent: AgentClient(), database: AppDatabase(directory: root), threadID: UUID())
+        store.select(ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6-luna")))
+        store.effort = .none
+        store.speed = .priority
+        store.select(ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6.1-sol")))
+        XCTAssertEqual(store.effort, .medium)
+        XCTAssertEqual(store.speed, .priority)
+        store.effort = .max
+        store.select(ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-5")))
+        XCTAssertEqual(store.effort, .medium)
+        store.select(ChatModelOption(connection: ProviderConnection(name: "Gateway", provider: .openAICompatible, modelID: "gpt-6.1-sol")))
+        XCTAssertEqual(store.speed, .standard)
+    }
+
     @MainActor func testDiscoveredChatCatalogRanksCurrentModelsWithoutTruncating() async throws {
         let script = #"""
         import json, sys

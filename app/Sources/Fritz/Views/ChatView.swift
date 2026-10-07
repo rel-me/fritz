@@ -146,7 +146,11 @@ struct ChatView: View {
 
     private func synchronizeModel() {
         guard providers.hasLoadedModels, !store.isResponding else { return }
-        if let selected = store.selectedModel, providers.models.contains(where: { $0.id == selected.id }) { return }
-        store.selectedModel = providers.defaultModel
+        if let selected = store.selectedModel, let current = providers.models.first(where: { $0.id == selected.id }) {
+            if current != selected { store.select(current) }
+            return
+        }
+        if let model = providers.defaultModel { store.select(model) }
+        else { store.selectedModel = nil }
     }
 }

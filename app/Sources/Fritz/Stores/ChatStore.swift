@@ -81,6 +81,9 @@ struct ChatPreferences: Codable {
     func select(_ model: ChatModelOption) {
         guard !isResponding else { return }
         selectedModel = model
+        if model.capabilities.supportsReasoningEffort, !model.capabilities.reasoningEfforts.contains(effort) {
+            effort = .medium
+        }
         if !model.capabilities.supportedSpeeds.contains(speed) { speed = .standard }
         savePreferences()
     }

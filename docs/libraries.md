@@ -22,6 +22,10 @@ Requires Swift 6.3 and macOS 15. The `Fritz` product has no Sparkle or Textual
 target dependency. Its model catalog is a package resource; hosts must bundle
 SwiftPM resources using their normal Xcode/SwiftPM build integration.
 
+OpenAI chat capabilities come from the shared `OpenAIModels.json` resource,
+also embedded by Rust. See [catalog maintenance](agents/model-capabilities.md)
+for adding verified model IDs and the proposed rel.me distribution format.
+
 | Module | Public infrastructure |
 | --- | --- |
 | `Fritz` | Provider connections and registry wire models, endpoint presets/categories, discovered models, model capabilities and picker grouping, pinned local-model descriptors and hardware information, appearance, CLI symlink installation, private-pipe agent client |

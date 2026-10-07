@@ -22,6 +22,14 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
+
+OpenAI chat `effort` and `speed` are validated against the bundled
+`Sources/Fritz/OpenAIModels.json` catalog. Efforts are model-specific subsets of
+`none`, `low`, `medium`, `high`, `xhigh`, and `max`; speeds are `standard`,
+`priority` (Fast), and `flex`. Unknown model IDs work with these optional
+parameters omitted. Unsupported explicit options return an error. Display names
+are presentation only; `model` always carries the provider's exact API ID.
+
 Local-model folder choices are stored per model in the profile's `model_locations.sqlite`.
 Without an explicit directory, inventory, downloads, discovery and inference use
 the saved folder or the default model root. Listing an explicit folder does not
