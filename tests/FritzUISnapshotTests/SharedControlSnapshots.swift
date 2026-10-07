@@ -271,7 +271,7 @@ final class SharedControlSnapshots: XCTestCase {
         host.appearance = appearance
         host.wantsLayer = true
         host.layer?.contentsScale = 2
-        let window = NSWindow(contentRect: bounds, styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = SnapshotWindow(contentRect: bounds, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.colorSpace = .sRGB
@@ -323,6 +323,12 @@ final class SharedControlSnapshots: XCTestCase {
         return image
     }
 
+}
+
+// AppKit and SwiftUI must rasterize at the same scale as the snapshot bitmap,
+// including on CI displays whose native backing scale is 1x.
+@MainActor private final class SnapshotWindow: NSWindow {
+    override var backingScaleFactor: CGFloat { 2 }
 }
 
 @MainActor @Observable private final class ModelsFixture: ModelsProviderStore {
