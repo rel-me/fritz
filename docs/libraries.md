@@ -167,7 +167,8 @@ with a Welcome tab; hosts can close it before restoring their own records.
 The library reads no settings and starts no processes.
 
 Fritz's app currently has no tab strip. The main chat retains its project/thread
-header and sidebar navigation, and the right panel is blank.
+header and sidebar navigation, with a blank, resizable native SwiftUI inspector
+on the right.
 
 ## SQLite state
 

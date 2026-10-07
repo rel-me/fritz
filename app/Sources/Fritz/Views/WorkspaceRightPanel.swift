@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A blank auxiliary surface. Conversations remain in the main workspace.
+/// A blank native inspector. Conversations remain in the main workspace.
 struct WorkspaceRightPanel: View {
     let close: () -> Void
 
@@ -12,5 +12,8 @@ struct WorkspaceRightPanel: View {
                     .modifier(FritzPanelIconControl())
                     .padding(8)
             }
+            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+            .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            .background { FritzWorkspaceBackground().ignoresSafeArea() }
     }
 }
