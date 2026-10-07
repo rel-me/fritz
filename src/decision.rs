@@ -8,6 +8,7 @@ use std::{collections::BTreeMap, future::Future, pin::Pin, time::Duration};
 
 pub mod harness;
 pub mod local;
+pub mod openai;
 
 pub type DecisionFuture<'a> = Pin<Box<dyn Future<Output = Result<DecisionResponse>> + Send + 'a>>;
 
@@ -39,6 +40,7 @@ pub struct HarnessInput {
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum HarnessBackend {
     Jev { endpoint: Option<String> },
+    Openai { endpoint: Option<String> },
     Ollaya,
 }
 
@@ -46,7 +48,9 @@ impl HarnessInput {
     pub fn validate(&self) -> Result<()> {
         self.request.validate()?;
         match self.backend {
-            HarnessBackend::Jev { .. } if self.model_store.is_some() => {
+            HarnessBackend::Jev { .. } | HarnessBackend::Openai { .. }
+                if self.model_store.is_some() =>
+            {
                 bail!("Remote decisions do not use a local modelStore.");
             }
             HarnessBackend::Ollaya => {

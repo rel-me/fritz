@@ -147,13 +147,14 @@ final class ProviderTransferTests: XCTestCase {
     func testMultiProviderExportsRoundTripWithFixedDecisionEndpoint() throws {
         let connections = [
             ProviderConnection(name: "Decisions", provider: .jev, modelID: "jev-latest"),
+            ProviderConnection(name: "OpenAI Decisions", provider: .openAIDecisions, modelID: "gpt-6-luna"),
             ProviderConnection(name: "Local chat", provider: .ollama, baseURL: "http://localhost:11434", modelID: "sample"),
         ]
         let text = try ProviderConfigurationTransfer.exportCURL(connections.map { .init($0) })
         let items = try ProviderConfigurationTransfer.plan(ProviderConfigurationTransfer.decode(text), existing: [], policy: .overwrite)
-        XCTAssertEqual(items.map(\.connection.name), ["Decisions", "Local chat"])
-        XCTAssertEqual(items.map(\.connection.provider), [.jev, .ollama])
-        XCTAssertEqual(items.map(\.connection.modelID), ["jev-latest", "sample"])
+        XCTAssertEqual(items.map(\.connection.name), ["Decisions", "OpenAI Decisions", "Local chat"])
+        XCTAssertEqual(items.map(\.connection.provider), [.jev, .openAIDecisions, .ollama])
+        XCTAssertEqual(items.map(\.connection.modelID), ["jev-latest", "gpt-6-luna", "sample"])
         XCTAssertNil(items[0].connection.baseURL)
         XCTAssertNil(items[0].apiKey)
         XCTAssertNil(items[1].apiKey)

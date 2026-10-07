@@ -1,4 +1,4 @@
-"""Exercise the bundled decision harness against a deterministic Jev-shaped endpoint."""
+"""Exercise decision transports and provider boundaries without remote credentials."""
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -18,6 +18,8 @@ class DecisionEndpoint(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
+        if self.path == "/v1/decisions":
+            return self.openai_decision()
         assert self.path == "/v1/systemone"
         assert self.headers["Authorization"] == "Bearer test-key"
         request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -44,6 +46,105 @@ class DecisionEndpoint(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    def openai_decision(self):
+        assert self.headers["Authorization"] == "Bearer test-key"
+        request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        type(self).requests.append(request)
+        assert request["model"] == "gpt-6-luna"
+        assert [q["name"] for q in request["questions"]] == ["intent", "priority", "time_sensitive"]
+        assert request["questions"][0] == {
+            "type": "choice", "name": "intent", "instructions": "What is requested?",
+            "choices": [{"value": "other", "description": "Something else"},
+                        {"value": "reminder", "description": "A reminder"}],
+        }
+        assert request["questions"][1]["levels"] == [
+            {"label": "0", "description": '{"urgency":"low"}'},
+            {"label": "1", "description": '{"urgency":"high"}'},
+        ]
+        assert request["questions"][2]["type"] == "predicate"
+        state = json.loads(request["input"])
+        answers = [
+            {"type": "choice", "name": "intent", "choice": "reminder", "confidence": 0.8,
+             "probabilities": [{"value": "reminder", "probability": 0.9}, {"value": "other", "probability": 0.1}]},
+            {"type": "score", "name": "priority", "score": 0.3, "confidence": 0.4,
+             "probabilities": [{"value": 0, "label": "0", "probability": 0.7}, {"value": 1, "label": "1", "probability": 0.3}]},
+            {"type": "predicate", "name": "time_sensitive", "probability": 0.3},
+        ]
+        failure = state.get("failure")
+        if failure == "refusal": answers[0] = {"type": "refusal", "name": "intent"}
+        if failure == "name": answers[0]["name"] = "wrong"
+        if failure == "order": answers.reverse()
+        if failure == "duplicate": answers[0]["probabilities"][1]["value"] = "reminder"
+        if failure == "score_label": answers[1]["probabilities"][1]["label"] = "wrong"
+        if failure == "score_value": answers[1]["probabilities"][1]["value"] = 8
+        if failure == "distribution": answers[0]["probabilities"][1]["probability"] = 0.8
+        if failure == "missing": answers.pop()
+        body = json.dumps({"model": "gpt-6-luna", "answers": answers,
+                           "usage": {"input_tokens": 24, "output_tokens": 0, "total_tokens": 24}}).encode()
+        self.send_response(429 if failure == "http" else 200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        try: self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError): pass
+
+
+def openai_transport(endpoint):
+    def run(state=None, key="test-key", cancel=False, model="gpt-6-luna"):
+        payload = decision_input(endpoint, state, key)
+        payload["backend"]["kind"] = "openai"
+        payload["request"]["model"] = model
+        child = subprocess.Popen([str(BIN), "evaluate"], stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        child.stdin.write(json.dumps(payload) + "\n")
+        child.stdin.flush()
+        if cancel: child.stdin.close()
+        result = json.loads(child.stdout.readline())
+        if not cancel: child.stdin.close()
+        child.wait(timeout=15)
+        assert child.stdout.readline() == "", "Expected one terminal event"
+        return result
+    agent_result = evaluate_via_agent(endpoint, openai=True)
+    assert agent_result["type"] == "result", agent_result
+    assert agent_result["result"]["model"] == "gpt-6-luna"
+    result = run()
+    assert result["type"] == "result", result
+    answers = result["result"]["answers"]
+    assert answers["intent"]["choice"] == "reminder"
+    assert answers["time_sensitive"] == {"type": "noul", "noul": 0.3}
+    assert answers["priority"]["legend"] == {"0": {"urgency": "low"}, "1": {"urgency": "high"}}
+    assert answers["priority"]["score"] == 0.3
+    assert result["result"]["usage"] == {"input_tokens": 24, "output_tokens": 0}
+    for failure in ["refusal", "name", "order", "duplicate", "score_label", "score_value", "distribution", "missing", "http"]:
+        assert run({"failure": failure})["type"] == "error", failure
+    assert "requires an API key" in run(key=None)["message"]
+    assert "gpt-6-luna" in run(model="chat-model")["message"]
+    assert run(cancel=True)["type"] == "cancelled"
+    with tempfile.TemporaryDirectory(prefix="fritz-openai-decisions-") as data:
+        env = dict(os.environ, FRITZ_DATA_DIR=data)
+        def cli(*args, ok=True, input=None):
+            result = subprocess.run([str(BIN.with_name("fritz")), *args], env=env, input=input,
+                                    capture_output=True, text=True, timeout=20)
+            assert (result.returncode == 0) == ok, result.stderr
+            return result
+        registry = json.loads(cli("add-provider", "--name", "OpenAI Decisions", "--provider", "openai-decisions",
+                                  "--model", "gpt-6-luna", "--base-url", endpoint.removesuffix("/decisions"),
+                                  "--api-key-stdin", input="test-key").stdout)
+        connection = registry["connections"][0]["id"]
+        try:
+            assert registry["defaultConnectionId"] is None
+            assert json.loads(cli("models", "--connection", connection).stdout) == [{"id": "gpt-6-luna", "displayName": "GPT-6 Luna"}]
+            request = decision_input(endpoint)["request"]
+            request["model"] = "gpt-6-luna"
+            saved_result = json.loads(cli("decide", "--connection", connection, input=json.dumps(request)).stdout)
+            assert saved_result["answers"]["intent"]["choice"] == "reminder"
+            assert "LLM" in cli("default-provider", connection, ok=False).stderr
+            assert "LLM" in cli("chat", "Hello", "--connection", connection, ok=False).stderr
+            cli("add-provider", "--name", "Invalid model", "--provider", "openai-decisions", "--model", "chat-model", ok=False)
+        finally:
+            cli("remove-provider", connection)
+    print("PASS: OpenAI Decisions wire translation, refusals, invalid answers, usage, cancellation, and chat/default exclusion")
 
 
 def decision_input(endpoint, state=None, key="test-key"):
@@ -77,7 +178,7 @@ def evaluate(endpoint, state=None, key="test-key", cancel=False):
     return result
 
 
-def evaluate_via_agent(endpoint):
+def evaluate_via_agent(endpoint, openai=False):
     with tempfile.TemporaryDirectory(prefix="fritz-decision-test-") as data:
         env = os.environ.copy()
         env["FRITZ_DATA_DIR"] = data
@@ -89,18 +190,23 @@ def evaluate_via_agent(endpoint):
             "id": "e2aa77fb-18e9-42c8-9e47-45798368ab35",
             "name": "Jev", "provider": "jev", "modelId": "jev-latest",
         }
+        payload = decision_input(endpoint)
+        if openai:
+            jev_connection.update(name="OpenAI Decisions", provider="openai-decisions", modelId="gpt-6-luna")
+            payload["backend"]["kind"] = "openai"
+            payload["request"]["model"] = "gpt-6-luna"
         child.stdin.write(json.dumps({"id": "catalog-1", "method": "models.list",
                                       "params": {"connection": jev_connection,
                                                  "apiKey": "test-key"}}) + "\n")
         child.stdin.write(json.dumps({"id": "decision-1", "method": "decisions.evaluate",
-                                      "params": decision_input(endpoint)}) + "\n")
+                                      "params": payload}) + "\n")
         child.stdin.flush()
         events = [json.loads(child.stdout.readline()) for _ in range(2)]
         child.stdin.close()
         child.wait(timeout=15)
         assert child.returncode == 0, child.stderr.read()
         catalog = next(event for event in events if event["id"] == "catalog-1")
-        assert catalog["result"]["models"][0]["id"] == "jev-latest", catalog
+        assert catalog["result"]["models"][0]["id"] == ("gpt-6-luna" if openai else "jev-latest"), catalog
         return next(event for event in events if event["id"] == "decision-1")
 
 
@@ -170,6 +276,7 @@ def main():
     thread.start()
     endpoint = f"http://127.0.0.1:{server.server_port}/v1/systemone"
     try:
+        openai_transport(endpoint.replace("systemone", "decisions"))
         result = evaluate(endpoint)
         assert result["type"] == "result", result
         assert result["result"]["answers"]["intent"]["choice"] == "reminder"

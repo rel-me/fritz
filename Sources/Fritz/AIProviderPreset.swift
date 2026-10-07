@@ -103,7 +103,7 @@ public enum AIProviderCategory: String, CaseIterable, Identifiable {
     public var help: String {
         switch self {
         case .all: "Show all providers"
-        case .system1: "TypeSafe and Ollaya decision models"
+        case .system1: "OpenAI, TypeSafe, and Ollaya decision models"
         case .local: "Fritz, Ollama, and Ollaya"
         case .remote: "Remote services and configurable API endpoints"
         case .frontier: "OpenAI, Anthropic, and Google Gemini"

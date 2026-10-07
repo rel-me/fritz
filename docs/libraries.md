@@ -247,7 +247,8 @@ an accidental crates.io upload; Git and path dependencies are supported.
 | `harness::run` | Supply the connection, chat request and credential in memory. Fritz owns its conversation and action policy. |
 | `harness_client::chat_with_input` | Supply a bundled harness executable and explicit input; transport is private pipes. Dropping the future closes stdin for cancellation. |
 | `decision::{DecisionModel, DecisionRequest, DecisionResponse}` | Evaluate typed Choice, Score, and Noul questions through a backend-neutral contract. A local model can implement the trait. |
-| `config::{ModelCategory, ProviderKind}` and Swift `AIModelCategory` | Keep LLM and Decision connections distinct; TypeSafe supplies the Jev decision model and cannot be selected for chat. The `jev` wire identifier is preserved for compatibility. |
+| `config::{ModelCategory, ProviderKind}` and Swift `AIModelCategory` | Keep LLM and Decision connections distinct; OpenAI Decisions and TypeSafe supply remote decision models and cannot be selected for chat. The `jev` wire identifier is preserved for compatibility. |
+| `decision::openai::OpenAI` | OpenAI Decisions adapter for GPT-6 Luna, translating the shared Noul/Choice/Score contract and rejecting refusals explicitly. |
 | `decision::Jev` | Remote TypeSafe adapter; the host supplies a key in memory. Jev is separate from conversational providers. |
 | `decision::local::{ModelStore, ModelStoreConfiguration, Ollaya}` | Supply explicit absolute host model paths. `configuration()` is serialized as local `HarnessInput.model_store`; inference never reads default Fritz state. |
 | `decision::harness::run_stdio` | Call only inside an owned single-request child process. Supplies the shared private-pipe runner, signals/deadline and native cancellation exit. |

@@ -91,10 +91,10 @@ its old API model. Chat and decision harness ownership remains unchanged.
 `request`, `backend`, and optional `apiKey`. It returns one terminal `result`,
 `error`, or `cancelled` event. The backend does not produce chat deltas or execute
 folder actions. Closing stdin cancels it. The [decision-harness guide](decision-harness.md)
-documents its contract, Jev adapter, Ollaya local backend, and how to pair a
+documents its contract, OpenAI Decisions and Jev adapters, Ollaya local backend, and how to pair a
 judgment with a separate conversational run.
 The agent's `decisions.evaluate` method supervises this child and returns its
-typed result under the request ID. For a saved Jev `connectionId`, the agent
+typed result under the request ID. For a saved remote decision `connectionId`, the agent
 retrieves its key from Keychain and passes it to the child over the private
 pipe. Host integrations can still supply explicit backend input and an `apiKey`.
 Neither path returns the key.
@@ -210,7 +210,7 @@ Shared `ModelsStore` requires an explicit Keychain service for key-inclusive exp
 `local::ollama::serve_in` receives host-owned download-location storage, and
 `local::generate_with_engine` uses a host-created engine without default cache access.
 
-Local decision private inputs require `modelStore: {"directory": "/absolute/host/Models", "modelDirectories": {}}` and no API key. An optional per-model absolute directory overrides the default. Saved Fritz connections resolve their configured paths in the supervising CLI before spawning; hosts supply their own paths. Jev private inputs reject modelStore. The shared `decision::harness::run_stdio` runner is used only in owned child processes because native cancellation can exit that child.
+Local decision private inputs require `modelStore: {"directory": "/absolute/host/Models", "modelDirectories": {}}` and no API key. An optional per-model absolute directory overrides the default. Saved Fritz connections resolve their configured paths in the supervising CLI before spawning; hosts supply their own paths. Remote private inputs reject modelStore. OpenAI Decisions uses backend `{"kind":"openai"}` with an optional full Decisions endpoint, model `gpt-6-luna`, and a private API key. Saved `openai-decisions` connections resolve the endpoint and Keychain credential in the supervising CLI. Its Noul/Choice/Score mappings and refusal behavior are documented in [decision-harness](decision-harness.md#openai-decisions-mapping). The shared `decision::harness::run_stdio` runner is used only in owned child processes because native cancellation can exit that child.
 
 ### Resident decision child
 

@@ -174,7 +174,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         _name = State(initialValue: existing?.name ?? initialName)
         _preset = State(initialValue: initialPreset)
         _endpoint = State(initialValue: existing?.baseURL ?? initialPreset.baseURL)
-        _modelID = State(initialValue: existing?.modelID ?? (category == .decision ? "jev-latest" : ""))
+        _modelID = State(initialValue: existing?.modelID ?? initialPreset.provider.decisionModelID)
         _makeDefault = State(initialValue: category == .llm &&
                              (existing?.id == store.defaultConnectionID || store.defaultConnectionID == nil))
     }
@@ -307,7 +307,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             }
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
-            modelID = new.category == .decision ? "jev-latest" : ""
+            modelID = new.provider.decisionModelID
             models = []; error = nil; discoveryError = nil; discoveryFinished = false; refreshID = 0
             showsModels = false
         }
@@ -374,7 +374,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 }
             }
             if category == .decision {
-                LabeledContent("Model", value: "Jev · jev-latest")
+                LabeledContent("Model", value: preset.provider == .openAIDecisions ? "GPT-6 Luna · gpt-6-luna" : "Jev · jev-latest")
                 TextField("Connection name", text: $name)
             } else {
                 LabeledContent("Models") {
@@ -504,7 +504,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     private var connection: ProviderConnection {
         ProviderConnection(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines), provider: preset.provider,
                            baseURL: managesLocalModels || resolvedEndpoint.isEmpty ? nil : resolvedEndpoint,
-                           modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? "jev-latest" : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
+                           modelID: managesLocalModels ? nativeModel.selectedModelID : category == .decision ? preset.provider.decisionModelID : modelID.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     private var duplicateConnection: ProviderConnection? {
         let candidate = connection

@@ -6,6 +6,7 @@ The `fritz-decision-harness evaluate` process uses one request per process, a bo
 
 ## Backends
 
+- **OpenAI Decisions:** The remote adapter calls `POST /v1/decisions` with `gpt-6-luna` and a Keychain-backed OpenAI Decisions connection. It stays separate from OpenAI chat. See [OpenAI’s Decisions guide](https://developers.openai.com/api/docs/guides/decisions).
 - **Jev:** The bundled remote adapter calls TypeSafe's `POST /v1/systemone` with a bearer key. The key is supplied by the host for this request and is never written to the request log or registry. The default endpoint is TypeSafe's HTTPS API; an explicit loopback endpoint supports isolated tests.
 - **Ollaya (local):** The bundled `ollaya-runner` and `ollaya-decision` crates implement `decision::DecisionModel` with Laya English and Kev 1.0 4B on ONNX Runtime CPU. Both crates are pinned to commit `152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4`. `Sources/Fritz/DecisionModels.json` pins the fp32 graph, upstream weights, tokenizer, layout, calibration, and license by URL, size, and SHA-256. Artifacts are downloaded explicitly as flat files in the same Models directory as chat GGUFs. Regular and Debug apps default to `~/Models/`, created only when downloading a model. The graph is `laya-en.onnx` with configuration in `laya-en.json` and companion tokenizer/calibration files. The external weights retain the filename referenced by the graph. File presence determines installation; new downloads validate size and SHA-256 before publication. Laya's revision identifies the Ollaya artifact recipe; Kev's revision identifies its checkpoint, with `engine_revision` recording the recipe. The weights URLs pin author commits. Ollaya's daemon, desktop app, registry service, and MLX backend are not used.
 
@@ -63,6 +64,14 @@ model out of chat selection. The agent's `decisions.evaluate` method can resolve
 that saved connection by `connectionId`, fetch its key, and run the decision
 harness. Decisions are not called automatically for every chat. Ollaya belongs to the same category and uses the same typed contract.
 
+## OpenAI Decisions mapping
+
+The `openai-decisions` provider has a fixed catalog entry, `gpt-6-luna`; catalog presence does not establish account access to the beta API. A saved connection resolves its key through Fritz’s Keychain namespace and its base URL plus `/decisions`. The private backend is `{"kind":"openai"}` with an optional full `endpoint` URL for a host-managed gateway or loopback mock. HTTPS is required for remote endpoints, redirects are disabled, and local modelStore is rejected. The existing 60-second transport timeout, 120-second harness deadline, cancellation, and 2 MB response limit apply.
+
+The adapter serializes JSON state as text evidence (a string state is passed directly). Structured instructions and criterion descriptions become JSON text. Named questions are sent in sorted name order and replies must match that order and names. Noul becomes `predicate`; its optional criteria are appended to instructions as `Criteria: …`, and `probability` returns as `noul`. Choice criteria become string-valued choices with descriptions. Score criteria become ordered levels labeled `0` through `n-1`; the API’s probability-weighted score and confidence pass through, while Fritz restores the original structured criteria as the legend. Duplicate, missing, unknown, or invalid probability entries are rejected. Any refusal fails the whole request explicitly; Fritz does not substitute a probability or retry with chat. Usage preserves input and output token counts.
+
+This adapter uses Fritz’s text/state contract, without inline image inputs or boolean choice values. Decisions remain caller-invoked and unqualified for automatic personal-assistant routing; evaluate thresholds on the intended workflow rather than transferring Jev or local-model thresholds.
+
 ## Pairing with chat
 
 1. Fritz constructs state from information the user authorized for the task and asks narrow questions together when they share that state.
@@ -74,7 +83,7 @@ For example, a future reminder workflow could ask whether a message requests a r
 
 ## Private protocol
 
-The decision input has `request` (`state`, `model`, `questions`), `backend` (`{"kind":"jev"}` with optional `endpoint`, or `{"kind":"ollaya"}`), optional `apiKey` (Jev only), and `modelStore` (local only). A local modelStore contains an absolute `directory` and optional `modelDirectories` map of model IDs to absolute directories. The host resolves paths before starting the child; local inference never reads Fritz's registry or Keychain. Remote inputs reject modelStore, and local inputs reject any API key. The TypeSafe question and answer shapes are preserved. The harness emits exactly one of `{"type":"result","result":...}`, `{"type":"error","message":"..."}`, or `{"type":"cancelled"}`. A successful result includes the resolved model, named answers, and token usage when supplied by the backend. See [TypeSafe's API reference](https://docs.typesafe.ai/api) for Jev's current wire format.
+The decision input has `request` (`state`, `model`, `questions`), `backend` (`{"kind":"jev"}` or `{"kind":"openai"}` with optional `endpoint`, or `{"kind":"ollaya"}`), optional `apiKey` (remote only), and `modelStore` (local only). A local modelStore contains an absolute `directory` and optional `modelDirectories` map of model IDs to absolute directories. The host resolves paths before starting the child; local inference never reads Fritz's registry or Keychain. Remote inputs reject modelStore, and local inputs reject any API key. The TypeSafe question and answer shapes are preserved. The harness emits exactly one of `{"type":"result","result":...}`, `{"type":"error","message":"..."}`, or `{"type":"cancelled"}`. A successful result includes the resolved model, named answers, and token usage when supplied by the backend. See [TypeSafe's API reference](https://docs.typesafe.ai/api) for Jev's current wire format.
 
 ## Explicit resident local worker
 

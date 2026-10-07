@@ -126,6 +126,12 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
 /// The built-in Fritz provider uses Fritz's default model cache; use ModelStore for another host.
 pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
+    if connection.provider == ProviderKind::OpenaiDecisions {
+        return Ok(vec![Model {
+            id: "gpt-6-luna".into(),
+            display_name: "GPT-6 Luna".into(),
+        }]);
+    }
     if connection.provider == ProviderKind::Jev {
         return Ok(vec![Model {
             id: "jev-latest".into(),

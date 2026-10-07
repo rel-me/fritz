@@ -174,6 +174,18 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
                             config::key(connection.id)?,
                         )
                     }
+                    ProviderKind::OpenaiDecisions => {
+                        anyhow::ensure!(
+                            request.model == "gpt-6-luna",
+                            "OpenAI Decisions currently supports gpt-6-luna."
+                        );
+                        (
+                            decision::HarnessBackend::Openai {
+                                endpoint: Some(format!("{}/decisions", connection.base_url())),
+                            },
+                            config::key(connection.id)?,
+                        )
+                    }
                     ProviderKind::Ollaya => {
                         decision::local::manifest(&request.model)?;
                         (decision::HarnessBackend::Ollaya, None)
