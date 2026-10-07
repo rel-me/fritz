@@ -157,7 +157,8 @@ private struct FritzWorkspaceView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             ProjectsSidebar(workspace: state.workspace)
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
+                .frame(minWidth: 240, idealWidth: 280, maxWidth: 360)
+                .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
             VStack(spacing: 0) {
