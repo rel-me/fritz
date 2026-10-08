@@ -55,10 +55,12 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
-      - name: Select runner-local build storage for this toolchain
+      - name: Select shared build storage for this toolchain
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
-          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/$RUNNER_NAME/$fingerprint" >> "$GITHUB_ENV"
+          # build-cache.py holds the shared lock through builds, tests, and staging.
+          # SwiftPM scratch and DerivedData remain isolated by checkout path.
+          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/shared/$fingerprint" >> "$GITHUB_ENV"
       - name: Check toolchains
         run: |
           xcodebuild -version

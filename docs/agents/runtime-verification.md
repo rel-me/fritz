@@ -137,12 +137,21 @@ The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
 The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-The Mini uses `~/Builds/Fritz/ci/<runner-name>/<toolchain-fingerprint>` across CI runs. The
+The Mini uses `~/Builds/Fritz/ci/shared/<toolchain-fingerprint>` across CI runs. The
 fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
-change selects fresh storage. Runner-specific roots keep concurrent jobs' mutable
-build outputs separate. Source cleanup does not touch these directories.
-There is no remote cache transfer. Old toolchain directories can be removed when
-no build is using them.
+change selects fresh storage. All runners in the dedicated CI account share Cargo
+outputs and package caches. `scripts/build-cache.py` holds the root's exclusive
+lock through compilation, tests, and staging, so competing commands wait until
+the owner exits. SwiftPM scratch directories and Xcode DerivedData remain keyed
+by checkout path. The login-session lock still protects Keychain and UI tests.
+Source cleanup does not touch these directories, and there is no remote cache
+transfer. Sharing storage serializes commands that consume compiled outputs;
+it does not allow parallel writers to the Cargo target directory.
+
+Existing runner-specific caches are not moved or deleted automatically. After
+this workflow is deployed, retire them only while the runners are idle and no
+older workflow is using them. Old shared toolchain directories can likewise be
+removed when no build is using them. Removing a cache makes the next build cold.
 
 ## Build storage
 
