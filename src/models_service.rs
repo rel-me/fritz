@@ -216,6 +216,8 @@ impl ModelsService {
                 .map(|model| provider::Model {
                     id: model["id"].as_str().unwrap_or_default().into(),
                     display_name: model["name"].as_str().unwrap_or_default().into(),
+                    created_at: None,
+                    supports_tools: None,
                 })
                 .collect());
         }

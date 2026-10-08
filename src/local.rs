@@ -70,16 +70,33 @@ pub async fn shutdown() {
     }
 }
 
+enum Record {
+    User(String),
+    Assistant(String),
+    Tools(
+        String,
+        Vec<ToolCallResponse>,
+        Vec<(Call, fritz_harness::ToolResult)>,
+    ),
+}
+
 pub(crate) struct Session {
     engine: inference::Engine,
     messages: RequestBuilder,
     pending: Vec<ToolCallResponse>,
     pending_text: String,
+    initial: Vec<crate::provider::Message>,
+    rounds: Vec<Record>,
+    output_limit: usize,
 }
 
 impl Session {
-    pub(crate) async fn new(request: &ChatRequest, system: &str) -> Result<Self> {
-        let engine = inference::Engine::installed(&request.model).await?;
+    pub(crate) async fn new_in(
+        request: &ChatRequest,
+        system: &str,
+        store: &models::ModelStore,
+    ) -> Result<Self> {
+        let engine = inference::Engine::installed_in(store, &request.model).await?;
         let mut messages = RequestBuilder::new().add_message(TextMessageRole::System, system);
         for message in &request.messages {
             let role = match message.role.as_str() {
@@ -94,7 +111,70 @@ impl Session {
             messages,
             pending: Vec::new(),
             pending_text: String::new(),
+            initial: request.messages.clone(),
+            rounds: Vec::new(),
+            output_limit: 2048,
         })
+    }
+
+    pub(crate) fn replace_result(
+        &mut self,
+        id: &str,
+        replacement: fritz_harness::ToolResult,
+    ) -> Result<()> {
+        if !replacement.images.is_empty() {
+            bail!("The local text model does not support image tool results.");
+        }
+        for record in &mut self.rounds {
+            if let Record::Tools(_, _, results) = record {
+                for (_, result) in results.iter_mut().filter(|(call, _)| call.id == id) {
+                    result.value = replacement.value.clone();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn configure(&mut self, system: &str, output_limit: Option<usize>) {
+        let mut messages = RequestBuilder::new().add_message(TextMessageRole::System, system);
+        for message in &self.initial {
+            messages = messages.add_message(
+                if message.role == "assistant" {
+                    TextMessageRole::Assistant
+                } else {
+                    TextMessageRole::User
+                },
+                &message.content,
+            );
+        }
+        for record in &self.rounds {
+            match record {
+                Record::User(text) => messages = messages.add_message(TextMessageRole::User, text),
+                Record::Assistant(text) => {
+                    messages = messages.add_message(TextMessageRole::Assistant, text)
+                }
+                Record::Tools(text, calls, results) => {
+                    messages = messages.add_message_with_tool_call(
+                        TextMessageRole::Assistant,
+                        text,
+                        calls.clone(),
+                    );
+                    for (call, result) in results {
+                        messages = messages.add_tool_message(&result.value, &call.id);
+                    }
+                }
+            }
+        }
+        self.messages = messages;
+        self.output_limit = output_limit.unwrap_or(2048);
+    }
+
+    pub(crate) fn append_user(&mut self, content: &str) {
+        self.rounds.push(Record::User(content.into()));
+        self.messages = self
+            .messages
+            .clone()
+            .add_message(TextMessageRole::User, content);
     }
 
     pub(crate) async fn turn(
@@ -102,7 +182,7 @@ impl Session {
         definitions: &[fritz_harness::ToolDefinition],
         emit: &(impl Fn(Value) + Sync),
     ) -> Result<Vec<Call>> {
-        let mut request = self.messages.clone().set_sampler_max_len(2048);
+        let mut request = self.messages.clone().set_sampler_max_len(self.output_limit);
         if models::manifest(self.engine.model_id())?.disable_thinking {
             request = request.with_reasoning_effort(ReasoningEffort::Off);
         }
@@ -179,6 +259,7 @@ impl Session {
             bail!("The local model returned an incomplete tool call. No tools were executed.");
         }
         if calls.is_empty() {
+            self.rounds.push(Record::Assistant(text.clone()));
             self.messages = self
                 .messages
                 .clone()
@@ -201,6 +282,11 @@ impl Session {
         if results.iter().any(|(_, result)| !result.images.is_empty()) {
             bail!("The local text model does not support image tool results.");
         }
+        self.rounds.push(Record::Tools(
+            self.pending_text.clone(),
+            self.pending.clone(),
+            results.to_vec(),
+        ));
         self.messages = self.messages.clone().add_message_with_tool_call(
             TextMessageRole::Assistant,
             std::mem::take(&mut self.pending_text),

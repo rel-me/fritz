@@ -243,3 +243,34 @@ priority over a ready admission or evaluation result. The host owns a transport
 watchdog, drains both pipes and reaps the entire process group. Native shutdown
 can exit with `_exit`; neither shared stdio runner is safe in the host process.
 See [the exact messages and lifecycle](decision-harness.md#explicit-resident-local-worker).
+
+## Embedded application hosts
+
+Rust applications can use `harness::Session` for Fritz-owned native provider
+execution and opaque tool history, wrapping it with `harness_core::Model` and
+calling `harness_core::run`. The model's `prepare` hook runs before each tool
+selection and provider request; errors stop the run before either operation.
+Applications supply their own connection, credential, instructions, tool host,
+limits, and optional `ModelStore` through `harness::Options`. `configure` updates
+instructions between turns without rewriting signed provider reasoning.
+`append_user` continues the native conversation; `replace_tool_results` replaces
+selected tool bodies with host receipts while preserving call IDs, failure flags,
+and opaque reasoning. No folder tools or Fritz provider storage are installed.
+
+`OutputLimit::Native` retains Fritz's application defaults. `Tokens` supplies a
+positive explicit limit; `Unbounded` omits the remote output limit. Anthropic
+requires a positive ceiling, available through `provider::output_ceiling` from
+its model metadata. Local text models retain a 2,048-token default and explicitly
+reject image results. Remote images use each provider's native representation.
+`request_byte_limit` can supply a positive host bound for serialized remote
+requests; omitting it retains the app's 2 MB limit. `strict_tools` opts into
+Rig's sanitized OpenAI strict schemas. Compatible chat protocols carry image evidence in a user message following the
+paired tool receipts.
+
+Explicit `provider_parameters` accept only generation, reasoning, tier, routing,
+and cache settings; they cannot replace conversation, tools, model, streaming,
+or instructions, and response storage must remain disabled. OpenAI, Anthropic,
+and compatible streams emit bounded `tool_preview` events before execution.
+Hosts must redact these untrusted argument previews for display. Initial HTTP
+429 responses may be retried once, honoring a provider delay up to 15 seconds
+or using one second when absent. Partial streams are never replayed.

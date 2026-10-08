@@ -39,6 +39,10 @@ fn default_max_turns() -> usize {
 pub struct Model {
     pub id: String,
     pub display_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supports_tools: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -159,6 +163,10 @@ pub(crate) async fn checked(request: RequestBuilder) -> Result<reqwest::Response
         .send()
         .await
         .context("Could not connect to the provider.")?;
+    check_response(response)
+}
+
+fn check_response(response: reqwest::Response) -> Result<reqwest::Response> {
     let status = response.status();
     if !status.is_success() {
         let detail = match status.as_u16() {
@@ -193,12 +201,16 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
         return Ok(vec![Model {
             id: "gpt-6-luna".into(),
             display_name: "GPT-6 Luna".into(),
+            created_at: None,
+            supports_tools: None,
         }]);
     }
     if connection.provider == ProviderKind::Jev {
         return Ok(vec![Model {
             id: "jev-latest".into(),
             display_name: "Jev".into(),
+            created_at: None,
+            supports_tools: None,
         }]);
     }
     if connection.provider.is_native() {
@@ -217,6 +229,8 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             .map(|model| Model {
                 id: model["id"].as_str().unwrap().into(),
                 display_name: model["name"].as_str().unwrap().into(),
+                created_at: None,
+                supports_tools: None,
             })
             .collect());
     }
@@ -280,7 +294,17 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             {
                 display_name.clone_from(&metadata.display_name);
             }
-            models.insert(id.clone(), Model { id, display_name });
+            models.insert(
+                id.clone(),
+                Model {
+                    id,
+                    display_name,
+                    created_at: entry["created"].as_u64(),
+                    supports_tools: entry["supported_parameters"]
+                        .as_array()
+                        .map(|parameters| parameters.iter().any(|parameter| parameter == "tools")),
+                },
+            );
         }
         next_page = match connection.provider {
             ProviderKind::Gemini => data["nextPageToken"].as_str().map(str::to_owned),
@@ -294,6 +318,33 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
         }
     }
     bail!("The model catalog exceeded the pagination limit.")
+}
+
+/// Retrieve the selected Messages model's advertised output ceiling. Never
+/// substitute an arbitrary cap for absent provider metadata.
+pub async fn output_ceiling(
+    connection: &Connection,
+    key: Option<&str>,
+    model: &str,
+) -> Result<usize> {
+    connection.validate()?;
+    if connection.provider != ProviderKind::Anthropic {
+        bail!("Output metadata lookup requires a Messages provider.");
+    }
+    let mut url = reqwest::Url::parse(&format!("{}/models/", connection.base_url()))?;
+    url.path_segments_mut()
+        .map_err(|_| anyhow::anyhow!("Invalid provider endpoint"))?
+        .pop_if_empty()
+        .push(model);
+    let metadata: Value = checked(authenticate(
+        client()?.get(url).timeout(Duration::from_secs(30)),
+        connection.provider,
+        key,
+    ))
+    .await?
+    .json()
+    .await?;
+    metadata["max_tokens"].as_u64().filter(|limit| *limit > 0).and_then(|limit| usize::try_from(limit).ok()).context("Anthropic model metadata must advertise a positive max_tokens ceiling; no smaller output cap will be substituted.")
 }
 
 pub(crate) fn payload(
@@ -476,6 +527,145 @@ fn decode_event(kind: ProviderKind, value: &Value, emit: &impl Fn(Value)) -> Res
     Ok(complete)
 }
 
+/// Retry only the initial connection, once and for at most 15 seconds. No
+/// streamed text or tool calls are replayed. Error-body hints are bounded and
+/// never returned to the host or logged.
+async fn stream_response(request: RequestBuilder) -> Result<reqwest::Response> {
+    let retry = request
+        .try_clone()
+        .context("Provider request cannot be replayed.")?;
+    let response = request
+        .send()
+        .await
+        .context("Could not connect to the provider.")?;
+    if response.status().as_u16() != 429 {
+        return check_response(response);
+    }
+    let header_delay = response
+        .headers()
+        .get("retry-after")
+        .and_then(|value| value.to_str().ok())
+        .and_then(duration_at_start);
+    let mut body = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        if body.len().saturating_add(chunk.len()) > 64 * 1024 {
+            bail!("The provider rate limit response exceeded its size limit (HTTP 429).");
+        }
+        body.extend_from_slice(&chunk);
+    }
+    let delay = header_delay
+        .or_else(|| {
+            std::str::from_utf8(&body)
+                .ok()
+                .and_then(retry_delay_from_provider_body)
+        })
+        .unwrap_or(Duration::from_secs(1));
+    if delay > Duration::from_secs(15) {
+        bail!("The provider requested a rate-limit wait longer than 15 seconds (HTTP 429).");
+    }
+    tokio::time::sleep(delay).await;
+    check_response(
+        retry
+            .send()
+            .await
+            .context("Could not connect to the provider.")?,
+    )
+}
+
+fn retry_delay_from_provider_body(body: &str) -> Option<Duration> {
+    if let Ok(value) = serde_json::from_str::<Value>(body) {
+        for pointer in [
+            "/retry_after_ms",
+            "/error/retry_after_ms",
+            "/retry-after-ms",
+            "/error/retry-after-ms",
+        ] {
+            if let Some(delay) = value.pointer(pointer).and_then(duration_from_milliseconds) {
+                return Some(delay);
+            }
+        }
+        for pointer in [
+            "/retry_after",
+            "/error/retry_after",
+            "/retry_after_seconds",
+            "/error/retry_after_seconds",
+            "/retry-after",
+            "/error/retry-after",
+        ] {
+            if let Some(delay) = value.pointer(pointer).and_then(duration_from_seconds) {
+                return Some(delay);
+            }
+        }
+        for pointer in ["/error/message", "/message"] {
+            if let Some(delay) = value
+                .pointer(pointer)
+                .and_then(Value::as_str)
+                .and_then(duration_from_retry_message)
+            {
+                return Some(delay);
+            }
+        }
+    }
+    duration_from_retry_message(body)
+}
+
+fn duration_from_milliseconds(value: &Value) -> Option<Duration> {
+    value
+        .as_f64()
+        .and_then(|milliseconds| duration_from_secs_f64(milliseconds / 1_000.0))
+        .or_else(|| {
+            let value = value.as_str()?;
+            value
+                .parse::<f64>()
+                .ok()
+                .and_then(|milliseconds| duration_from_secs_f64(milliseconds / 1_000.0))
+                .or_else(|| duration_at_start(value))
+        })
+}
+
+fn duration_from_seconds(value: &Value) -> Option<Duration> {
+    value
+        .as_f64()
+        .and_then(duration_from_secs_f64)
+        .or_else(|| value.as_str().and_then(duration_at_start))
+}
+
+fn duration_from_retry_message(message: &str) -> Option<Duration> {
+    let message = message.to_ascii_lowercase();
+    ["try again in", "retry after"]
+        .into_iter()
+        .find_map(|marker| {
+            let start = message.find(marker)? + marker.len();
+            duration_at_start(message[start..].trim_start())
+        })
+}
+
+fn duration_at_start(value: &str) -> Option<Duration> {
+    let number_end = value
+        .char_indices()
+        .take_while(|(_, character)| character.is_ascii_digit() || *character == '.')
+        .map(|(index, character)| index + character.len_utf8())
+        .last()?;
+    let amount = value[..number_end].parse::<f64>().ok()?;
+    let unit = value[number_end..].trim_start().to_ascii_lowercase();
+    let seconds = if unit.starts_with("ms") {
+        amount / 1_000.0
+    } else if unit.starts_with('m') {
+        amount * 60.0
+    } else {
+        amount
+    };
+    duration_from_secs_f64(seconds)
+}
+
+fn duration_from_secs_f64(seconds: f64) -> Option<Duration> {
+    (seconds.is_finite() && seconds >= 0.0)
+        .then(|| Duration::try_from_secs_f64(seconds).ok())
+        .flatten()
+}
+
 pub(crate) async fn stream_body(
     connection: &Connection,
     key: Option<&str>,
@@ -494,7 +684,7 @@ pub(crate) async fn stream_body(
             .push(&format!("{model}:streamGenerateContent"));
         url.query_pairs_mut().append_pair("alt", "sse");
     }
-    let response = checked(authenticate(
+    let response = stream_response(authenticate(
         client()?.post(url).json(body),
         connection.provider,
         key,
@@ -556,6 +746,88 @@ pub(crate) async fn stream_body(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn initial_rate_limits_retry_the_same_request_once_and_respect_long_waits() {
+        use std::io::{Read, Write};
+        for (status, retry_after, expected_requests) in
+            [(429, "0", 2), (429, "16", 1), (401, "0", 1)]
+        {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = std::thread::spawn(move || {
+                let mut requests = Vec::new();
+                for index in 0..expected_requests {
+                    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+                    let mut stream = loop {
+                        match listener.accept() {
+                            Ok((stream, _)) => break stream,
+                            Err(error)
+                                if error.kind() == std::io::ErrorKind::WouldBlock
+                                    && std::time::Instant::now() < deadline =>
+                            {
+                                std::thread::sleep(Duration::from_millis(5))
+                            }
+                            Err(error) => panic!("Missing provider request: {error}"),
+                        }
+                    };
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(2)))
+                        .unwrap();
+                    let mut bytes = Vec::new();
+                    let mut buffer = [0; 4096];
+                    loop {
+                        let count = stream.read(&mut buffer).unwrap();
+                        assert!(count > 0);
+                        bytes.extend_from_slice(&buffer[..count]);
+                        let text = String::from_utf8_lossy(&bytes);
+                        if let Some((headers, body)) = text.split_once("\r\n\r\n") {
+                            let length = headers
+                                .lines()
+                                .find_map(|line| {
+                                    line.to_lowercase()
+                                        .strip_prefix("content-length:")
+                                        .map(|value| value.trim().parse::<usize>().unwrap())
+                                })
+                                .unwrap();
+                            if body.len() >= length {
+                                break;
+                            }
+                        }
+                    }
+                    requests.push(bytes);
+                    let code = if index == 0 { status } else { 200 };
+                    let response = format!(
+                        "HTTP/1.1 {code} Test\r\nRetry-After: {retry_after}\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}"
+                    );
+                    stream.write_all(response.as_bytes()).unwrap();
+                }
+                requests
+            });
+            let result = stream_response(
+                client()
+                    .unwrap()
+                    .post(format!("http://{address}/chat"))
+                    .json(&json!({"messages":[{"role":"user","content":"Continue"}]})),
+            )
+            .await;
+            assert_eq!(result.is_ok(), expected_requests == 2);
+            let requests = server.join().unwrap();
+            assert_eq!(requests.len(), expected_requests);
+            if requests.len() == 2 {
+                assert_eq!(requests[0], requests[1]);
+            }
+        }
+        assert_eq!(
+            retry_delay_from_provider_body(r#"{"error":{"message":"Try again in 250ms"}}"#),
+            Some(Duration::from_millis(250))
+        );
+        assert_eq!(
+            retry_delay_from_provider_body(r#"{"retry_after":0.125}"#),
+            Some(Duration::from_millis(125))
+        );
+    }
+
     #[tokio::test]
     async fn jev_has_a_decision_catalog_and_cannot_chat() {
         let connection = Connection {

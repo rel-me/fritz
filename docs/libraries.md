@@ -361,8 +361,20 @@ The full `fritz` crate additionally exposes `harness::run_with_host(input, instr
 host, emit)` for its existing native provider adapters, including its local text
 model. This path does not install folder tools or read project guidance. It
 retains Fritz's 40-turn maximum, 64-tool budget and ten-minute deadline. These
-native adapters currently accept JSON tool results and explicitly reject image
-results; they do not silently turn image bytes into model-facing text.
+remote adapters accept JSON, text, and typed image results using each provider's
+native wire representation. Local text models explicitly reject image results.
+
+Embedding hosts that need per-turn policies can use `harness::Session` with
+`harness::Options`, implement `harness_core::Model` by delegating `conversation`,
+`turn`, and `results`, and execute through the same `harness_core::run` engine.
+`Model::prepare` runs before tool selection or provider IO, allowing host budget
+checks and dynamic instructions. `Session::configure` changes instructions while
+retaining opaque native reasoning; `replace_tool_results` replaces selected bodies
+with host receipts while preserving native call pairing, and `append_user`
+continues the same conversation. The host supplies its own model store, selected
+output and request limits, strict OpenAI tools, and allowed provider settings.
+No application registry, folder tools, or project guidance is installed.
+See [the embedding settings and events](protocol.md#embedded-application-hosts).
 
 The optional `rig` module additionally drives an existing `AgentRunner` with
 host-registered `Tool` implementations and `AgentHook` policy. `rig::run` reports completion
