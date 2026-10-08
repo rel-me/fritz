@@ -56,8 +56,9 @@ errors retain validated data and remain available through the catalog's `error`.
 Hosts supply isolated cache paths. Without a path, the cache lives in memory.
 
 `web/model-catalog.mjs` serves the canonical file with a content-derived ETag and
-conditional GET/HEAD support. The rel.me host must mount this exported handler
-at `/supported-models.json`; deployment belongs to that host. Clients never query
+conditional GET/HEAD support. It also exports `serveModelCatalogPage` for a minimal
+HTML view at `/catalog`, including filtering and expandable full model metadata.
+The rel.me host mounts these exported handlers; deployment belongs to that host. Clients never query
 Models.dev. Before that host adopts the new representation, remote refresh reports
 a schema error and the explicitly bundled metadata remains available.
 
