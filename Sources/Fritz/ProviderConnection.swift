@@ -27,7 +27,7 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
         case .openAICompatible: "OpenAI-compatible"
         case .openRouter: "OpenRouter"
         case .anthropic: "Anthropic"
-        case .gemini: "Google Gemini"
+        case .gemini: "Google"
         case .ollama: "Ollama"
         case .fritz: "Fritz"
         case .jev: "TypeSafe"

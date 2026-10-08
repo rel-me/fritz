@@ -105,7 +105,7 @@ public enum AIProviderCategory: String, CaseIterable, Identifiable {
         case .system1: "OpenAI, TypeSafe, and Ollaya decision models"
         case .local: "Fritz, Ollama, and Ollaya"
         case .remote: "Remote services and configurable API endpoints"
-        case .frontier: "OpenAI, Anthropic, and Google Gemini"
+        case .frontier: "OpenAI, Anthropic, and Google"
         case .hosted: "OpenRouter, Fireworks, Amazon Bedrock, and Baseten"
         case .custom: "Configure an OpenAI-compatible endpoint"
         }

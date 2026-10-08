@@ -97,17 +97,25 @@ public struct ModelPickerPopover<Value>: View {
         ) {
           provider in
           let filterID = provider.id
+          let opensSetup = !configuredProviderIDs.contains(provider.id) && addProvider != nil
           let isSelected = selectedProvider == provider
           let isHovered = hoveredProviderFilterID == filterID
 
           Button {
-            if !configuredProviderIDs.contains(provider.id), let addProvider {
+            if opensSetup, let addProvider {
               addProvider(provider)
             } else {
               selectedProvider = isSelected ? nil : provider
             }
           } label: {
-            Text(provider.displayName)
+            HStack(spacing: 4) {
+              Text(provider.displayName)
+              if opensSetup {
+                Image(systemName: "arrow.up.right")
+                  .font(.system(size: 8, weight: .semibold))
+                  .accessibilityHidden(true)
+              }
+            }
               .font(.callout)
               .foregroundStyle(isSelected ? .primary : .secondary)
               .padding(.horizontal, 10)
@@ -130,8 +138,9 @@ public struct ModelPickerPopover<Value>: View {
           .buttonStyle(FritzButtonStyle(.inline))
           .accessibilityAddTraits(isSelected ? .isSelected : [])
           .accessibilityIdentifier("chat-model-provider-filter-\(filterID)")
+          .accessibilityHint(opensSetup ? "Opens provider setup in a new window" : "")
           .help(
-            !configuredProviderIDs.contains(provider.id) && addProvider != nil
+            opensSetup
               ? "Set up \(provider.displayName)"
               : isSelected
               ? "Show models from all providers"
