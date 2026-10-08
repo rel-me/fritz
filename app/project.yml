@@ -6,8 +6,6 @@ options:
 packages:
   Fritz:
     path: ..
-  NativeMarkup:
-    path: ../Packages/NativeMarkup
   Textual:
     url: https://github.com/gonzalezreal/textual
     exactVersion: 0.5.0
@@ -40,10 +38,6 @@ targets:
       - package: Fritz
         product: FritzState
       - package: Textual
-      - package: NativeMarkup
-        product: NativeMarkupUI
-      - package: NativeMarkup
-        product: NativeMarkupDevelopment
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fritz.app

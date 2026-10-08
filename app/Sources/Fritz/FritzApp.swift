@@ -9,7 +9,6 @@ import SwiftUI
     let workspace: WorkspaceStore
     let localModels: LocalModelRuntimeStore
     let settings: AppSettings
-    let markupPanel = MarkupPanelStore()
     var settingsTab: FritzSettingsTab {
         settings.selectedTab == "localModels" ? .providers : FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
     }
@@ -68,7 +67,6 @@ import SwiftUI
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        FritzState.shared.markupPanel.stop()
         FritzState.shared.workspace.shutdown()
         FritzState.shared.localModels.stopAll()
         FritzState.shared.agent.stop()
@@ -197,7 +195,7 @@ private struct FritzWorkspaceView: View {
 
                 if isRightPanelPresented {
                     Rectangle().fill(.separator).frame(width: 0.5)
-                    WorkspaceRightPanel(store: state.markupPanel) {
+                    WorkspaceRightPanel {
                         isRightPanelPresented = false
                     }
                     .frame(width: 260)

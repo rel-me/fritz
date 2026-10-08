@@ -34,14 +34,11 @@
 		7A7D36A32CBEC67C5684F50D /* ChatMessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A721DA543AEE01311130E2D /* ChatMessageRow.swift */; };
 		7DB130067F16C96A2ED867E8 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2449C729E0450165B195C266 /* ChatComposer.swift */; };
 		89B6D813E2FBEBA2A97810EB /* ProvidersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18739264547CAB0D6256B2E5 /* ProvidersView.swift */; };
-		8DDFD3E78BC0C05278E5EBC0 /* NativeMarkupUI in Frameworks */ = {isa = PBXBuildFile; productRef = 621DD21031A5F9C8DF0FECCB /* NativeMarkupUI */; };
 		8F147A4C15E74308B8D82119 /* FritzUpdates in Frameworks */ = {isa = PBXBuildFile; productRef = 63772291272E2EF06FD92CDD /* FritzUpdates */; };
 		9059AEEE3D804A479CB20541 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 68687E6286C4B45962191548 /* AppIcon.icon */; };
 		955EF7C684AAAAFCB7FA6A07 /* CommandLineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */; };
-		9863D8EAF30616BDE1E49DB7 /* NativeMarkupDevelopment in Frameworks */ = {isa = PBXBuildFile; productRef = BB3805457CE519A7C77BCB1C /* NativeMarkupDevelopment */; };
 		9CE52D82C7FF3C4602E3CAC9 /* Bonsplit in Frameworks */ = {isa = PBXBuildFile; productRef = DF707874F5442E6BB1553D9D /* Bonsplit */; };
 		A8BDF4E8FA544859D0934804 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = F8FC8A9558DA38A6831276EC /* Textual */; };
-		B1861D5AFE2C0DA4973FBF2E /* MarkupPanelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEE06D4E75450E9B6A4C2EB4 /* MarkupPanelStore.swift */; };
 		CDD5ED6B822EA484C1C8DF65 /* FritzListSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3713CACF28037690000DB8 /* FritzListSurface.swift */; };
 		D24E860A2FED1AFC46F9E8AE /* NativeLocalModelSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9419DE0BB26DAD25C8EFAA /* NativeLocalModelSection.swift */; };
 		D639AECA5A25873C26188693 /* ProviderConfigurationTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763BFEFEDC9ED3D7920497C4 /* ProviderConfigurationTransfer.swift */; };
@@ -90,10 +87,8 @@
 		BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
 		C276B44B2FB70A4B459E4D10 /* ChatToolDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolDetails.swift; sourceTree = "<group>"; };
 		C37E7E4E113B1ACCA1BC3B39 /* AIProviderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderPicker.swift; sourceTree = "<group>"; };
-		CEE06D4E75450E9B6A4C2EB4 /* MarkupPanelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkupPanelStore.swift; sourceTree = "<group>"; };
 		D074B702DF3BED67BF3C8EB4 /* Fritz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fritz.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC9419DE0BB26DAD25C8EFAA /* NativeLocalModelSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLocalModelSection.swift; sourceTree = "<group>"; };
-		E9262DDA77D03CB3483B4186 /* NativeMarkup */ = {isa = PBXFileReference; lastKnownFileType = folder; name = NativeMarkup; path = ../Packages/NativeMarkup; sourceTree = SOURCE_ROOT; };
 		F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResponseClipboard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -108,8 +103,6 @@
 				8F147A4C15E74308B8D82119 /* FritzUpdates in Frameworks */,
 				26EF816CE646BE429E794CA3 /* FritzState in Frameworks */,
 				A8BDF4E8FA544859D0934804 /* Textual in Frameworks */,
-				8DDFD3E78BC0C05278E5EBC0 /* NativeMarkupUI in Frameworks */,
-				9863D8EAF30616BDE1E49DB7 /* NativeMarkupDevelopment in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,7 +129,6 @@
 				1AB65E88BEA21E9ECFE860AE /* AppSettings.swift */,
 				4B07E94B391896D246239ED0 /* ChatStore.swift */,
 				30CE32C5162893FA5F689978 /* LocalModelRuntimeStore.swift */,
-				CEE06D4E75450E9B6A4C2EB4 /* MarkupPanelStore.swift */,
 				24FDD47C29522CFAC24A8A67 /* NativeLocalModel.swift */,
 				2F63B541A22F41ADBBFA229D /* ProviderStore.swift */,
 				73835E7146A92557D60E42ED /* WorkspaceStore.swift */,
@@ -186,7 +178,6 @@
 			isa = PBXGroup;
 			children = (
 				B638E68FE104CA235307DFBB /* Fritz */,
-				E9262DDA77D03CB3483B4186 /* NativeMarkup */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -250,8 +241,6 @@
 				63772291272E2EF06FD92CDD /* FritzUpdates */,
 				C7548171F5DA5137E90765D8 /* FritzState */,
 				F8FC8A9558DA38A6831276EC /* Textual */,
-				621DD21031A5F9C8DF0FECCB /* NativeMarkupUI */,
-				BB3805457CE519A7C77BCB1C /* NativeMarkupDevelopment */,
 			);
 			productName = FritzApp;
 			productReference = D074B702DF3BED67BF3C8EB4 /* Fritz.app */;
@@ -283,7 +272,6 @@
 			packageReferences = (
 				7B1FC3347CE9B6665A97E18D /* XCRemoteSwiftPackageReference "textual" */,
 				4873AF2189688B5BD73634CB /* XCLocalSwiftPackageReference ".." */,
-				8F73C933F34A0A74B90F4C69 /* XCLocalSwiftPackageReference "../Packages/NativeMarkup" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B95C419B4F2B2E104305E902 /* Products */;
@@ -336,7 +324,6 @@
 				63B5F03EEED5EB17667FD289 /* FritzWindowStyle.swift in Sources */,
 				7168C2B2CF92A715B4B2061B /* LocalModelDownloadSheet.swift in Sources */,
 				36F4A560A30974915C4101A1 /* LocalModelRuntimeStore.swift in Sources */,
-				B1861D5AFE2C0DA4973FBF2E /* MarkupPanelStore.swift in Sources */,
 				10149F57CD4EDCFB9E4249E3 /* NativeLocalModel.swift in Sources */,
 				D24E860A2FED1AFC46F9E8AE /* NativeLocalModelSection.swift in Sources */,
 				5CA3881D23D40ED4FDD3498F /* Project.swift in Sources */,
@@ -538,10 +525,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ..;
 		};
-		8F73C933F34A0A74B90F4C69 /* XCLocalSwiftPackageReference "../Packages/NativeMarkup" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Packages/NativeMarkup;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -556,10 +539,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		621DD21031A5F9C8DF0FECCB /* NativeMarkupUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = NativeMarkupUI;
-		};
 		63772291272E2EF06FD92CDD /* FritzUpdates */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FritzUpdates;
@@ -567,10 +546,6 @@
 		B6EFA99501077DBF8872E6C4 /* Fritz */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Fritz;
-		};
-		BB3805457CE519A7C77BCB1C /* NativeMarkupDevelopment */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = NativeMarkupDevelopment;
 		};
 		C7548171F5DA5137E90765D8 /* FritzState */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -61,24 +61,6 @@ Info.plist.
 
 ## Shared macOS views
 
-### Independent markup renderer
-
-[`Packages/NativeMarkup`](../Packages/NativeMarkup/README.md) is a standalone
-Swift package consumed directly by the app through SwiftPM and Xcode. It exposes
-`NativeMarkupCore`, `NativeMarkupUI`, and `NativeMarkupDevelopment` and has no
-Fritz dependency. Hosts register typed bindings, actions, and components; they
-retain ownership of application state, tasks, and persistence. The optional
-loader watches only an explicitly selected local file. Fritz uses the package
-in its right panel, with transient demonstration state separate from chat.
-
-The initial runtime interprets supported XML and pure scalar expressions using
-compiled native views. Arbitrary Swift execution, action scripts, navigation,
-and scene builders are not implemented. See the package guide for the extension
-contract and feature roadmap. `make test-swift` runs the standalone package's
-tests alongside the existing Swift tests.
-
-### Shared controls
-
 The `FritzUI` product provides SwiftUI controls without depending on Fritz's
 provider protocols, stores, transport, updater, or persistence. Both the Fritz
 app and REL consume the same views. Add `.product(name: "FritzUI", package: "fritz")`
