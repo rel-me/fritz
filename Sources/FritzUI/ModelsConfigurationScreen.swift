@@ -13,7 +13,7 @@ public struct ModelsConfigurationScreen: View {
     public var body: some View {
         ModelsConfigurationView(store: store, localModels: runtime, editor: $editor)
             .sheet(item: $editor) {
-                ModelsProviderEditor(store: store, localModels: runtime, existing: $0.connection)
+                ModelsProviderEditor(store: store, localModels: runtime, existing: $0.connection, initialPreset: $0.preset)
             }
             .task { await store.refresh(); await runtime.refresh() }
     }

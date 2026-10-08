@@ -1,3 +1,4 @@
+import Fritz
 import SwiftUI
 
 /// A display identity may differ from its adapter group (for example Bedrock
@@ -111,5 +112,36 @@ extension EnvironmentValues {
 extension View {
   public func fritzPickerStyle(_ style: PickerStyle) -> some View {
     environment(\.fritzPickerStyle, style)
+  }
+}
+
+// Chat exposes only language-model providers; decision models have their own configuration.
+extension PickerProvider {
+  public static var chatProviders: [Self] {
+    AIProviderPreset.allCases.filter { $0.category == .llm }.map {
+      Self(id: $0.id, displayName: $0.displayName, groupID: $0.provider.rawValue)
+    }
+  }
+}
+
+/// Compact composer display shared by hosts, with optional thinking/speed details.
+public struct ModelPickerLabel: View {
+  let title: String
+  let details: [String]
+  public init(title: String, details: [String] = []) {
+    self.title = title; self.details = details
+  }
+  public var body: some View {
+    HStack(spacing: 6) {
+      Text(title).lineLimit(1).truncationMode(.tail)
+      ForEach(Array(details.enumerated()), id: \.offset) { _, detail in
+        Text(detail).foregroundStyle(.secondary).fixedSize()
+      }
+      Image(systemName: "chevron.down")
+        .font(.caption).foregroundStyle(.secondary).fixedSize()
+    }
+    .font(.body).foregroundStyle(.primary)
+    .padding(.horizontal, 5).padding(.vertical, 4)
+    .contentShape(Rectangle())
   }
 }

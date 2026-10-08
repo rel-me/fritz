@@ -618,3 +618,5 @@ Estimates price each model call independently, including cache writes and contex
 thresholds. Complete provider-reported costs take precedence; local inference is
 free. Missing counters/rates and unsupported service tiers show unavailable cost.
 Total-only usage can still show tokens without inventing input/output costs.
+
+`ModelPickerPopover` accepts `supportedProviders`, `configuredProviderIDs`, and an `addProvider` callback to expose setup from provider filters. Pass configured IDs from saved connections rather than discovered models. `PickerProvider.chatProviders` supplies the supported language-model presets. `ModelsProviderEditor(initialPreset:)` selects a preset for a new connection; an existing connection retains its saved provider. `ModelPickerLabel` shares the compact composer display.

@@ -12,11 +12,12 @@ public struct ModelPickerSection<Value>: Identifiable {
 
 public enum ModelPickerData<Value> {
   public static func providers(
-    from models: [ModelPickerItem<Value>], providerOrder: [String], selectedModelID: String? = nil
+    from models: [ModelPickerItem<Value>], providerOrder: [String], selectedModelID: String? = nil,
+    supportedProviders: [PickerProvider] = []
   ) -> [PickerProvider] {
     var seen = Set<String>()
-    var providers = (providerOrder + models.map { $0.displayProvider.groupID }).flatMap { group in
-      models.filter { $0.displayProvider.groupID == group }.map(\.displayProvider)
+    var providers = (providerOrder + supportedProviders.map(\.groupID) + models.map { $0.displayProvider.groupID }).flatMap { group in
+      (supportedProviders + models.map(\.displayProvider)).filter { $0.groupID == group }
     }.filter { seen.insert($0.id).inserted }
     if let selectedProvider = models.first(where: { $0.id == selectedModelID })?.displayProvider,
       let index = providers.firstIndex(where: { $0.id == selectedProvider.id })

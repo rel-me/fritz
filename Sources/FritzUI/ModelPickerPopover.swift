@@ -2,6 +2,9 @@ import SwiftUI
 
 public struct ModelPickerPopover<Value>: View {
   @Environment(\.fritzPickerStyle) private var style
+  let supportedProviders: [PickerProvider]
+  let configuredProviderIDs: Set<String>
+  let addProvider: ((PickerProvider) -> Void)?
   let recommendationLimit: Int
   let models: [ModelPickerItem<Value>]
   let recentModels: [ModelPickerItem<Value>]
@@ -22,8 +25,14 @@ public struct ModelPickerPopover<Value>: View {
     selectModel: @escaping (ModelPickerItem<Value>) -> Void,
     configureModels: @escaping () -> Void,
     recommendationLimit: Int = 8,
-    initialSearchText: String = ""
+    initialSearchText: String = "",
+    supportedProviders: [PickerProvider] = [],
+    configuredProviderIDs: Set<String> = [],
+    addProvider: ((PickerProvider) -> Void)? = nil
   ) {
+    self.supportedProviders = supportedProviders
+    self.configuredProviderIDs = configuredProviderIDs
+    self.addProvider = addProvider
     self.recommendationLimit = recommendationLimit
     self.models = models
     self.recentModels = recentModels
@@ -83,7 +92,8 @@ public struct ModelPickerPopover<Value>: View {
       PickerFilterFlowLayout(spacing: 6) {
         ForEach(
           ModelPickerData<Value>.providers(
-            from: models, providerOrder: modelProviders, selectedModelID: selectedModelID)
+            from: models, providerOrder: modelProviders, selectedModelID: selectedModelID,
+            supportedProviders: supportedProviders)
         ) {
           provider in
           let filterID = provider.id
@@ -91,7 +101,11 @@ public struct ModelPickerPopover<Value>: View {
           let isHovered = hoveredProviderFilterID == filterID
 
           Button {
-            selectedProvider = isSelected ? nil : provider
+            if !configuredProviderIDs.contains(provider.id), let addProvider {
+              addProvider(provider)
+            } else {
+              selectedProvider = isSelected ? nil : provider
+            }
           } label: {
             Text(provider.displayName)
               .font(.callout)
@@ -117,7 +131,9 @@ public struct ModelPickerPopover<Value>: View {
           .accessibilityAddTraits(isSelected ? .isSelected : [])
           .accessibilityIdentifier("chat-model-provider-filter-\(filterID)")
           .help(
-            isSelected
+            !configuredProviderIDs.contains(provider.id) && addProvider != nil
+              ? "Set up \(provider.displayName)"
+              : isSelected
               ? "Show models from all providers"
               : "Show only \(provider.displayName) models"
           )

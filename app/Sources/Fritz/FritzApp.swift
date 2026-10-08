@@ -167,7 +167,7 @@ private struct FritzWorkspaceView: View {
                 if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             openProviders: openProviders,
-                                            addProvider: { state.editor = ProviderEditorSelection() })
+                                            addProvider: { state.editor = ProviderEditorSelection(preset: $0) })
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
@@ -228,7 +228,7 @@ private struct FritzWorkspaceView: View {
         .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
-        .sheet(item: $state.editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection) }
+        .sheet(item: $state.editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection, initialPreset: $0.preset) }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {
