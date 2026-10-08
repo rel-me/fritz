@@ -74,7 +74,8 @@ struct OpenAIModelCatalog {
 }
 
 fn parse_openai_catalog(data: &str) -> Result<OpenAIModelCatalog> {
-    let catalog: OpenAIModelCatalog = serde_json::from_str(data)?;
+    let value: Value = serde_json::from_str(data)?;
+    let catalog: OpenAIModelCatalog = serde_json::from_value(value["reviewed_openai"].clone())?;
     if catalog.schema_version != 1 || catalog.revision == 0 || catalog.models.is_empty() {
         bail!("Unsupported or empty OpenAI model catalog");
     }
@@ -102,7 +103,7 @@ fn parse_openai_catalog(data: &str) -> Result<OpenAIModelCatalog> {
 fn openai_metadata(model: &str) -> Option<&'static OpenAIModelMetadata> {
     static CATALOG: OnceLock<OpenAIModelCatalog> = OnceLock::new();
     let catalog = CATALOG.get_or_init(|| {
-        parse_openai_catalog(include_str!("../Sources/Fritz/OpenAIModels.json"))
+        parse_openai_catalog(include_str!("../Sources/Fritz/ModelCatalog.json"))
             .expect("Invalid bundled OpenAI model catalog")
     });
     catalog.models.get(model)
@@ -911,7 +912,7 @@ mod tests {
         for status in ["active", "deprecated", "retired"] {
             let mut data = valid.clone();
             data["models"]["test"]["status"] = json!(status);
-            assert!(parse_openai_catalog(&data.to_string()).is_ok());
+            assert!(parse_openai_catalog(&json!({"reviewed_openai":data}).to_string()).is_ok());
         }
         for (field, value) in [
             ("status", json!("unknown")),
@@ -923,20 +924,23 @@ mod tests {
         ] {
             let mut data = valid.clone();
             data["models"]["test"][field] = value;
-            assert!(parse_openai_catalog(&data.to_string()).is_err(), "{field}");
+            assert!(
+                parse_openai_catalog(&json!({"reviewed_openai":data}).to_string()).is_err(),
+                "{field}"
+            );
         }
         let mut data = valid.clone();
         data["schemaVersion"] = json!(2);
-        assert!(parse_openai_catalog(&data.to_string()).is_err());
+        assert!(parse_openai_catalog(&json!({"reviewed_openai":data}).to_string()).is_err());
         data = valid.clone();
         data["models"]["test"]
             .as_object_mut()
             .unwrap()
             .remove("defaultReasoning");
-        assert!(parse_openai_catalog(&data.to_string()).is_err());
+        assert!(parse_openai_catalog(&json!({"reviewed_openai":data}).to_string()).is_err());
         data["models"]["test"]["defaultReasoning"] = Value::Null;
         data["models"]["test"]["reasoningEfforts"] = json!([]);
-        assert!(parse_openai_catalog(&data.to_string()).is_ok());
+        assert!(parse_openai_catalog(&json!({"reviewed_openai":data}).to_string()).is_ok());
     }
 
     #[test]

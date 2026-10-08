@@ -23,6 +23,9 @@ struct ChatMessageRow: View {
                 if !message.isComplete && !isActive {
                     ChatStatusMessage(content: "Response interrupted")
                 }
+                if !isActive, let summary = message.usageSummary {
+                    FritzUI.ChatResponseUsageFooter(summary: summary)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
