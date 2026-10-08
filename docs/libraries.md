@@ -590,3 +590,9 @@ instructions remain outside the compacted prefix. A large recent suffix may
 still exceed the provider limit; compaction does not truncate active tool pairs
 or replace provider context errors. This is deterministic transcript reduction,
 not an additional model request.
+
+Local text inference escapes literal `<|` chat-template delimiters in supplied
+message text, tool arguments/results and tool descriptions/schema data before
+the model template is rendered. Native role and call metadata remains structured;
+stored transcript text and UI output remain unchanged. Remote provider messages
+retain their original text.
