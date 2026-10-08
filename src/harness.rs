@@ -467,13 +467,25 @@ impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
     async fn turn(&mut self, tools: &[ToolDefinition]) -> Result<Turn> {
         self.turn += 1;
         (self.emit)(json!({"type":"activity","message":format!("Thinking · step {}",self.turn)}));
-        self.session
+        // Providers can split or repeat usage across stream frames. Publish one
+        // merged record per model call so hosts do not count fragments twice.
+        let usage = Mutex::new(serde_json::Map::new());
+        let result = self
+            .session
             .turn(tools, &|event| {
-                if event["type"] != "tool_preview" {
+                if event["type"] == "usage" {
+                    if let Some(fragment) = event["usage"].as_object() {
+                        usage.lock().unwrap().extend(fragment.clone());
+                    }
+                } else if event["type"] != "tool_preview" {
                     (self.emit)(event);
                 }
             })
-            .await
+            .await;
+        (self.emit)(
+            json!({"type":"usage","model_call":self.turn,"usage":usage.into_inner().unwrap()}),
+        );
+        result
     }
     fn results(&mut self, results: Vec<(Call, ToolResult)>) -> Result<()> {
         self.session.results(results)?;

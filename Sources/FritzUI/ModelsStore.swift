@@ -14,13 +14,15 @@ import Security
     public var recentIDs: [String] = []
     private let database: any ModelsPreferences
     public let agent: AgentClient
+    public let modelCatalog: RemoteModelCatalog
     private let keychainService: String
     @ObservationIgnored private var refreshID = UUID()
 
-    public init(agent: AgentClient, preferences: any ModelsPreferences, keychainService: String) {
+    public init(agent: AgentClient, preferences: any ModelsPreferences, keychainService: String, modelCatalog: RemoteModelCatalog? = nil) {
         self.agent = agent
         self.keychainService = keychainService
         self.database = preferences
+        self.modelCatalog = modelCatalog ?? RemoteModelCatalog()
         do { recentIDs = try preferences.setting("recentModelIDs") ?? [] }
         catch { self.error = error.localizedDescription }
     }
@@ -44,6 +46,7 @@ import Security
     }
 
     public func refresh() async {
+        async let catalogRefresh: Void = modelCatalog.refresh()
         let revision = UUID()
         refreshID = revision
         isLoading = true; error = nil
@@ -81,6 +84,7 @@ import Security
             guard refreshID == revision else { return }
             models = nextModels; catalog = nextCatalog; discoveryErrors = nextErrors
             hasLoadedModels = true
+            await catalogRefresh
         } catch { if refreshID == revision { self.error = error.localizedDescription } }
     }
 

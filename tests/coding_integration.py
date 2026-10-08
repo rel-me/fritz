@@ -91,6 +91,12 @@ def main():
             (project / "hello.txt").write_text("before\n")
             events = run(config(kind))
             assert events[-1]["type"] == "result", (kind, events)
+            usage_events = [event for event in events if event["type"] == "usage"]
+            assert len(usage_events) >= 2, (kind, usage_events)
+            assert [event["model_call"] for event in usage_events] == list(range(1, len(usage_events) + 1)), (kind, usage_events)
+            if kind == "anthropic":
+                assert all(event["usage"].get("input_tokens") == 10 and event["usage"].get("output_tokens") == 32 for event in usage_events), usage_events
+
             assert (project / "hello.txt").read_text() == "after\n", kind
             assert len([e for e in events if e["type"] == "tool_start"]) == 3, kind
             assert all(e["success"] for e in events if e["type"] == "tool_end"), kind

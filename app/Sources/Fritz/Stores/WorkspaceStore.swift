@@ -7,12 +7,14 @@ import Observation
     var error: String?
     private(set) var canSave = true
     let database: AppDatabase
+    let modelCatalog: RemoteModelCatalog
     @ObservationIgnored private let agent: AgentClient
     @ObservationIgnored private var chats: [UUID: ChatStore] = [:]
 
     init(agent: AgentClient, dataDirectory: URL = FritzPaths.data) {
         self.agent = agent
         self.database = AppDatabase(directory: dataDirectory)
+        self.modelCatalog = RemoteModelCatalog(cacheURL: dataDirectory.appendingPathComponent("model-catalog-cache.json"))
         do {
             document = try database.loadWorkspace()
         } catch {
@@ -34,7 +36,7 @@ import Observation
     func chat(for id: UUID) -> ChatStore {
         if let chat = chats[id] { return chat }
         let project = projects.first { $0.threads.contains { $0.id == id } }
-        let chat = ChatStore(agent: agent, database: database, threadID: id, projectPath: project?.directory)
+        let chat = ChatStore(agent: agent, database: database, threadID: id, projectPath: project?.directory, modelCatalog: modelCatalog)
         chat.onFirstPrompt = { [weak self] prompt in self?.nameThread(id, from: prompt) }
         chats[id] = chat
         return chat

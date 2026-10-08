@@ -8,6 +8,24 @@ import XCTest
 
 @MainActor
 final class SharedControlSnapshots: XCTestCase {
+    func testResponseUsageFooter() throws {
+        let call = ChatUsageCall(reported: true, inputTokens: 12_000, outputTokens: 340, totalTokens: 12_340, cachedInputTokens: 8_000)
+        let partial = ChatUsageCall(reported: false, inputTokens: 100, outputTokens: 0, totalTokens: 100)
+        for width in [260, 620] {
+            let view = VStack(alignment: .leading, spacing: 24) {
+                ChatAssistantMessage(copy: { true }) { Text("The requested work is complete.") }
+                ChatResponseUsageFooter(summary: .init(usage: ChatUsage(calls: [call]), modelName: "Fixture", costUSD: 0.0123, costSource: "rel.me"))
+                ChatResponseUsageFooter(summary: .init(usage: ChatUsage(calls: [call]), modelName: "Local", costUSD: 0, costSource: "local"))
+                ChatResponseUsageFooter(summary: .init(usage: ChatUsage(calls: [call]), modelName: "Provider", costUSD: 0.00002, costSource: "provider"))
+                ChatErrorMessage(content: "The provider is unavailable.")
+                ChatResponseUsageFooter(summary: .init(usage: ChatUsage(), modelName: "Unknown", costUSD: nil, costSource: nil))
+                ChatStatusMessage(content: "Response interrupted")
+                ChatResponseUsageFooter(summary: .init(usage: ChatUsage(calls: [partial]), modelName: "Partial", costUSD: nil, costSource: nil))
+            }.padding(16)
+            try snapshot(view, name: "response-usage-\(width)", size: .init(width: width, height: 640))
+        }
+    }
+
     private let providers: [PickerProvider] = [
         .init(id: "fritz", displayName: "Fritz", groupID: "local"),
         .init(id: "bedrock", displayName: "Bedrock", groupID: "compatible"),

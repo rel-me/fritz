@@ -1,6 +1,6 @@
 # OpenAI model capabilities
 
-`Sources/Fritz/OpenAIModels.json` is the bundled source for OpenAI chat model
+`Sources/Fritz/ModelCatalog.json` is the bundled source for OpenAI chat model
 names, reasoning efforts, and selectable speeds. Swift loads it as a package
 resource; Rust embeds that same file in its request builder. Discovery controls
 which models the account can use. Catalog entries do not add connections or
@@ -37,21 +37,29 @@ entry. Unknown IDs can be selected and sent without optional reasoning or speed
 parameters. Explicit unsupported parameters produce an error rather than being
 silently discarded. Refreshing discovery updates metadata for saved selections.
 
-## Proposed rel.me distribution
+## Supplemental metadata and pricing
 
-A versioned static endpoint such as `https://rel.me/fritz/models/v1.json` could
-publish this format to update capabilities between app releases. It is not
-deployed or fetched by Fritz today. Introduce remote refresh as a separate
-runtime change: HTTPS, bounded downloads/timeouts, schema and value validation,
-reviewed or signed releases, and an atomic last-known-good cache with the bundled
-catalog available offline. Treat each successful download as a complete
-replacement, rather than merging it with old or bundled entries, so omitted
-entries are actually removed. Validate before replacing the last-good version.
-One Rust-owned catalog version must supply metadata
-to Swift and validate the harness request, so a refresh cannot leave the UI and
-request builder using different rules. Unknown enum values or schema versions
-must not silently enable controls. Keep API endpoints, credentials, executable
-code, and account/model selection out of catalog updates.
+The same file includes `model_info`: full provider/model metadata imported from
+Models.dev, with USD-per-million-token prices and import provenance. Refresh it
+with `python3 scripts/update-model-catalog.py` and review the diff. Imports preserve
+`reviewed_openai` and the verified-model inventory; they never enable optional
+request parameters or mark a model verified. The Rust request builder and Swift
+controls continue using the same bundled reviewed capabilities.
+
+`RemoteModelCatalog` seeds from this bundled file and revalidates supplemental
+metadata at `https://rel.me/supported-models.json` on each Models load. Provider
+APIs still determine availability; metadata lookup never adds an account's models.
+Concurrent loads share one bounded-time request. ETag / If-None-Match avoids
+redownloading unchanged data, with Last-Modified used when ETag is absent. Valid
+responses atomically replace a host-supplied cache, preserving the complete JSON;
+errors retain validated data and remain available through the catalog's `error`.
+Hosts supply isolated cache paths. Without a path, the cache lives in memory.
+
+`web/model-catalog.mjs` serves the canonical file with a content-derived ETag and
+conditional GET/HEAD support. The rel.me host must mount this exported handler
+at `/supported-models.json`; deployment belongs to that host. Clients never query
+Models.dev. Before that host adopts the new representation, remote refresh reports
+a schema error and the explicitly bundled metadata remains available.
 
 Use official docs as evidence, not model-name guesses or automatic paid probes.
 Run `make test`, `make check`, UI snapshot comparisons, and the staged native

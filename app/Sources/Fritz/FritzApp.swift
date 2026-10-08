@@ -20,7 +20,7 @@ import SwiftUI
         let agent = AgentClient()
         self.agent = agent
         workspace = WorkspaceStore(agent: agent)
-        providers = ProviderStore(agent: agent, database: workspace.database)
+        providers = ProviderStore(agent: agent, database: workspace.database, modelCatalog: workspace.modelCatalog)
         settings = AppSettings(database: workspace.database)
         localModels = LocalModelRuntimeStore(agent: agent, database: workspace.database)
     }

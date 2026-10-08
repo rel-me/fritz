@@ -161,13 +161,16 @@ import FritzUpdates
         let legacy = Data(#"{"id":"00000000-0000-0000-0000-000000000001","role":"assistant","content":"Done","isComplete":true,"tools":[{"id":"call","name":"read_file","summary":"notes.txt","arguments":"{}","result":"Notes","success":true}]}"#.utf8)
         var message = try JSONDecoder().decode(ChatMessage.self, from: legacy)
         XCTAssertNil(message.elapsedTime)
+        XCTAssertNil(message.usageSummary)
         let database = AppDatabase(directory: try directory())
         let thread = ProjectThread()
         try database.saveWorkspace(WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id))
         message.elapsedTime = 12.5
+        message.usageSummary = ChatResponseUsageSummary(usage: ChatUsage(calls: [ChatUsageCall(reported: true, inputTokens: 100, outputTokens: 20, totalTokens: 120, cachedInputTokens: 50)]), modelName: "Fixture", costUSD: 0.0123, costSource: "provider")
         try database.save(messages: [message], preferences: ChatPreferences(draft: "", effort: .medium, speed: .standard), for: thread.id)
         let restored = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
         XCTAssertEqual(restored.messages.first?.elapsedTime, 12.5)
+        XCTAssertEqual(restored.messages.first?.usageSummary, message.usageSummary)
         XCTAssertEqual(restored.messages.first?.tools?.first?.result, "Notes")
         XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("Notes") == true)
     }

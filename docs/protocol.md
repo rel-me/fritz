@@ -24,7 +24,7 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
 
 OpenAI chat `effort` and `speed` are validated against the bundled
-`Sources/Fritz/OpenAIModels.json` catalog. Efforts are model-specific subsets of
+`Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of
 `none`, `low`, `medium`, `high`, `xhigh`, and `max`; speeds are `standard`,
 `priority` (Fast), and `flex`. Unknown model IDs work with these optional
 parameters omitted. Unsupported explicit options and retired models return an error. Catalog entries
@@ -44,7 +44,7 @@ Import and export text uses cURL only; JSON envelopes are not supported. Export 
 
 Provider migration is a one-time host import with no API keys in its payload or result. Rust copies the referenced Keychain items into the destination namespace without deleting the sources or replacing existing destination keys. The full batch is validated before copying. Provider records, default selection, UUID mappings, and completion commit in one SQLite transaction. A credential/storage failure leaves the migration incomplete and retryable. Already configured connections are preserved; duplicate targets map to the existing UUID. Name or identity conflicts with a different target stop the migration. An existing default is preserved; otherwise the imported LLM default is selected. Retrying a completed `migrationId` returns the original mapping without reading source credentials or overwriting subsequent user changes.
 
-Events are `delta` with `text`, `usage` with provider usage metadata, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
+Events are `delta` with `text`, `usage` with one merged provider usage record and a 1-based `model_call` per model turn, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
 
 Local installs also emit `progress` with `status` (`checking`, `downloading`,
 `ready`), `downloaded`, and `total` byte counts. `ready` precedes the terminal

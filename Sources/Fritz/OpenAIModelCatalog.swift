@@ -40,11 +40,12 @@ public enum OpenAIModelCatalog {
         let revision: Int
         let models: [String: Entry]
     }
+    private struct RootCatalog: Decodable { let reviewed_openai: Catalog }
 
     private static let models: [String: Entry] = {
-        guard let url = Bundle.module.url(forResource: "OpenAIModels", withExtension: "json"),
+        guard let url = Bundle.module.url(forResource: "ModelCatalog", withExtension: "json"),
               let data = try? Data(contentsOf: url),
-              let catalog = try? JSONDecoder().decode(Catalog.self, from: data),
+              let catalog = try? JSONDecoder().decode(RootCatalog.self, from: data).reviewed_openai,
               catalog.schemaVersion == 1, catalog.revision > 0, !catalog.models.isEmpty else {
             preconditionFailure("Missing or invalid bundled OpenAI model catalog")
         }

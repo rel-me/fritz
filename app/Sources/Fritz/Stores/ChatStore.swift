@@ -9,6 +9,7 @@ struct ChatMessage: Codable, Identifiable, Equatable, Sendable {
     var isComplete = true
     var tools: [ChatToolActivity]?
     var elapsedTime: TimeInterval?
+    var usageSummary: ChatResponseUsageSummary?
 
     var contextContent: String {
         let records = (tools ?? []).map { tool in
@@ -55,8 +56,13 @@ struct ChatPreferences: Codable {
     private let database: AppDatabase
     private let threadID: UUID
     private var canSave = true
+    private let modelCatalog: RemoteModelCatalog
+    @ObservationIgnored private var responseUsage = ChatUsage()
+    @ObservationIgnored private var responseModel: ChatModelOption?
+    @ObservationIgnored private var responseSpeed: ChatSpeed = .standard
 
-    init(agent: AgentClient, database: AppDatabase, threadID: UUID, projectPath: String? = nil) {
+    init(agent: AgentClient, database: AppDatabase, threadID: UUID, projectPath: String? = nil, modelCatalog: RemoteModelCatalog? = nil) {
+        self.modelCatalog = modelCatalog ?? RemoteModelCatalog()
         self.agent = agent
         self.database = database
         self.threadID = threadID
@@ -92,6 +98,7 @@ struct ChatPreferences: Codable {
     func send() {
         guard canSend, let model = selectedModel, let connectionID = model.connectionID else { return }
         error = nil; responseTokens = nil; activity = "Starting…"
+        responseUsage = ChatUsage(); responseModel = model; responseSpeed = speed
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         if !messages.contains(where: { $0.role == "user" }) { onFirstPrompt?(prompt) }
         messages.append(ChatMessage(role: "user", content: prompt))
@@ -124,8 +131,8 @@ struct ChatPreferences: Codable {
                     }
                     if event.type == "usage", let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                        let usage = object["usage"] as? [String: Any] {
-                        responseTokens = usage["total_tokens"] as? Int ?? usage["totalTokenCount"] as? Int
-                            ?? usage["output_tokens"] as? Int ?? usage["completion_tokens"] as? Int
+                        responseUsage.append(ChatUsageCall(provider: model.provider, rawUsage: usage))
+                        responseTokens = Int(clamping: responseUsage.knownTokens)
                     }
                 }
                 guard requestID == id else { return }
@@ -140,7 +147,7 @@ struct ChatPreferences: Codable {
             guard requestID == id else { return }
             finishTiming()
             isResponding = false; requestID = nil; responseTask = nil; activity = nil
-            messages.removeAll { $0.id == assistantID && $0.content.isEmpty && ($0.tools ?? []).isEmpty }
+            // Keep the completion record even when no content or usage was returned.
             persist()
         }
     }
@@ -152,7 +159,6 @@ struct ChatPreferences: Codable {
         responseTask?.cancel(); responseTask = nil
         agent.cancel(id)
         isResponding = false; activity = nil
-        messages.removeAll { $0.role == "assistant" && $0.content.isEmpty && ($0.tools ?? []).isEmpty }
         persist()
     }
 
@@ -160,6 +166,9 @@ struct ChatPreferences: Codable {
         if let responseStartedAt, let index = messages.indices.last,
            messages[index].role == "assistant" {
             messages[index].elapsedTime = max(0, Date().timeIntervalSince(responseStartedAt))
+            if let model = responseModel {
+                messages[index].usageSummary = modelCatalog.summary(usage: responseUsage, provider: model.provider, modelID: model.modelID, modelName: model.displayName, speed: responseSpeed)
+            }
         }
         responseStartedAt = nil
     }

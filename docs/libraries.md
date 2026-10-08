@@ -22,9 +22,9 @@ Requires Swift 6.3 and macOS 15. The `Fritz` product has no Sparkle or Textual
 target dependency. Its model catalog is a package resource; hosts must bundle
 SwiftPM resources using their normal Xcode/SwiftPM build integration.
 
-OpenAI chat capabilities come from the shared `OpenAIModels.json` resource,
+OpenAI chat capabilities come from the shared `ModelCatalog.json` resource,
 also embedded by Rust. See [catalog maintenance](agents/model-capabilities.md)
-for adding verified model IDs and the proposed rel.me distribution format.
+for adding verified model IDs and the rel.me distribution format.
 
 | Module | Public infrastructure |
 | --- | --- |
@@ -596,3 +596,25 @@ message text, tool arguments/results and tool descriptions/schema data before
 the model template is rendered. Native role and call metadata remains structured;
 stored transcript text and UI output remain unchanged. Remote provider messages
 retain their original text.
+
+## Response usage and supplemental model metadata
+
+The single `Sources/Fritz/ModelCatalog.json` combines reviewed request capabilities
+with provider metadata and pricing. Models.dev is an import source used by the
+repository maintenance script; apps fetch only the rel.me representation. Provider
+APIs always remain the authority for account-visible models.
+
+A host can pass `RemoteModelCatalog(cacheURL: ...)` to `ModelsStore`. Every Models
+refresh revalidates it, sharing in-flight requests and sending saved ETags. The
+catalog exposes `metadata(provider:modelID:)`, `pricing(provider:modelID:)`, and
+`summary(usage:provider:modelID:modelName:speed:)`. `ChatUsageCall` accepts either
+normalized counters from a host or merged provider usage metadata. Persist each
+`ChatResponseUsageSummary` with its completed, failed, or stopped response, then
+render `FritzUI.ChatResponseUsageFooter(summary:)`. It adapts to narrow widths and
+supports text selection and accessibility. Summaries retain completion-time prices
+when subsequent requests, model selections, or catalog updates occur.
+
+Estimates price each model call independently, including cache writes and context
+thresholds. Complete provider-reported costs take precedence; local inference is
+free. Missing counters/rates and unsupported service tiers show unavailable cost.
+Total-only usage can still show tokens without inventing input/output costs.
