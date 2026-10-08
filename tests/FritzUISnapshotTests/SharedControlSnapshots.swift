@@ -31,7 +31,7 @@ final class SharedControlSnapshots: XCTestCase {
         .init(id: "amazon-bedrock", displayName: "Bedrock", groupID: "openai-compatible"),
         .init(id: "openai-compatible", displayName: "OpenAI-compatible", groupID: "openai-compatible"),
         .init(id: "anthropic", displayName: "Anthropic", groupID: "anthropic"),
-        .init(id: "gemini", displayName: "Google Gemini", groupID: "gemini"),
+        .init(id: "gemini", displayName: "Google", groupID: "gemini"),
         .init(id: "openai", displayName: "OpenAI", groupID: "openai"),
     ]
 
