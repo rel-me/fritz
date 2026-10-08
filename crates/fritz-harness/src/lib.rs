@@ -70,8 +70,13 @@ pub trait Model {
     /// Initial conversation for Rig's run state. Provider-specific history,
     /// including opaque reasoning, remains in the adapter used by `turn`.
     fn conversation(&self) -> Vec<Message>;
-    /// Host policy may inspect the typed conversation before tool selection.
-    /// This hook performs no model IO or tool execution.
+    /// Optional bounded conversation view. Adapters update their native history
+    /// first; the run keeps its tool-resolution state and uses this view for policy.
+    fn compact_conversation(&mut self) -> Result<Option<Vec<Message>>> {
+        Ok(None)
+    }
+    /// Host policy inspects the current typed conversation before tool selection
+    /// or provider IO.
     fn prepare(&mut self, _history: &[Message], _prompt: &Message, _turn: usize) -> Result<()> {
         Ok(())
     }
@@ -127,6 +132,15 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                     history,
                     prompt,
                 } => {
+                    let compacted = model.compact_conversation()?;
+                    let (history, prompt) = if let Some(mut conversation) = compacted {
+                        let prompt = conversation
+                            .pop()
+                            .context("Compacted conversation is empty.")?;
+                        (conversation, prompt)
+                    } else {
+                        (history, prompt)
+                    };
                     model.prepare(&history, &prompt, index)?;
                     let definitions = host.tools()?;
                     let mut names = std::collections::BTreeSet::new();

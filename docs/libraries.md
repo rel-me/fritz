@@ -572,3 +572,21 @@ and `ModelLocationStore` to supervise the shared local API without accessing
 Fritz's default databases. `ModelsLocalRuntime` accepts the bundled executable,
 arguments, and environment for this host composition. Saved per-model folders
 are read on inventory and model admission, including context-size reloads.
+
+Transcript compaction is implemented by Fritz's native session. Set
+`Options::history_compaction` to `Some(Compaction { token_threshold,
+recent_messages, summary_max_chars })` and delegate the model's
+`compact_conversation` hook by calling `Session::compact_conversation` and then returning
+`Some(session.conversation())` on every turn, including turns that need no
+further reduction. Compaction runs before the
+host's `prepare` hook, so budget policy sees the actual bounded request history.
+The Fritz app enables the default 16,000 approximate readable-text token
+threshold, up to eight recent messages, and 4,000-character summary. Embedding hosts
+opt in explicitly. The summary contains bounded excerpts of older user and
+assistant text labeled as untrusted transcript data; it excludes tool payloads,
+images and opaque reasoning. Retained tool receipts keep their complete calls,
+and the native suffix retains exact reasoning/signature fields. Current system
+instructions remain outside the compacted prefix. A large recent suffix may
+still exceed the provider limit; compaction does not truncate active tool pairs
+or replace provider context errors. This is deterministic transcript reduction,
+not an additional model request.

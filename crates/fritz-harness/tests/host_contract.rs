@@ -218,11 +218,20 @@ async fn deadline_drops_in_flight_tool_without_committing_a_result() {
 }
 
 #[tokio::test]
-async fn preparation_can_stop_before_provider_io_or_tool_selection() {
+async fn preparation_sees_compacted_history_and_can_stop_before_io() {
     struct PolicyModel;
     impl Model for PolicyModel {
         fn conversation(&self) -> Vec<fritz_harness::message::Message> {
-            vec![fritz_harness::message::Message::user("Request")]
+            vec![
+                fritz_harness::message::Message::user("Old transcript"),
+                fritz_harness::message::Message::user("Request"),
+            ]
+        }
+        fn compact_conversation(&mut self) -> Result<Option<Vec<fritz_harness::message::Message>>> {
+            Ok(Some(vec![
+                fritz_harness::message::Message::user("Bounded historical summary"),
+                fritz_harness::message::Message::user("Request"),
+            ]))
         }
         fn prepare(
             &mut self,
@@ -230,7 +239,12 @@ async fn preparation_can_stop_before_provider_io_or_tool_selection() {
             _prompt: &fritz_harness::message::Message,
             turn: usize,
         ) -> Result<()> {
-            assert!(history.is_empty());
+            assert_eq!(
+                history,
+                &[fritz_harness::message::Message::user(
+                    "Bounded historical summary"
+                )]
+            );
             assert_eq!(turn, 1);
             anyhow::bail!("Host request budget exhausted")
         }

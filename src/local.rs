@@ -88,6 +88,7 @@ pub(crate) struct Session {
     initial: Vec<crate::provider::Message>,
     rounds: Vec<Record>,
     output_limit: usize,
+    system: String,
 }
 
 impl Session {
@@ -114,7 +115,46 @@ impl Session {
             initial: request.messages.clone(),
             rounds: Vec::new(),
             output_limit: 2048,
+            system: system.into(),
         })
+    }
+
+    pub(crate) fn compact_prefix(&mut self, cut: usize, summary: &str) -> Result<()> {
+        let initial_cut = cut.min(self.initial.len());
+        let mut remaining = cut - initial_cut;
+        let mut records = 0;
+        for record in &self.rounds {
+            if remaining == 0 {
+                break;
+            }
+            let count = if matches!(record, Record::Tools(..)) {
+                2
+            } else {
+                1
+            };
+            if remaining < count {
+                bail!("Compaction would split a local tool pair.");
+            }
+            remaining -= count;
+            records += 1;
+        }
+        if remaining != 0 {
+            bail!("Invalid local compaction boundary.");
+        }
+        self.initial.drain(..initial_cut);
+        self.rounds.drain(..records);
+        self.initial.insert(
+            0,
+            crate::provider::Message {
+                role: "user".into(),
+                content: summary.into(),
+            },
+        );
+        Ok(())
+    }
+
+    pub(crate) fn rebuild(&mut self) {
+        self.configure(&self.system.clone(), Some(self.output_limit));
     }
 
     pub(crate) fn replace_result(
@@ -136,6 +176,7 @@ impl Session {
     }
 
     pub(crate) fn configure(&mut self, system: &str, output_limit: Option<usize>) {
+        self.system = system.into();
         let mut messages = RequestBuilder::new().add_message(TextMessageRole::System, system);
         for message in &self.initial {
             messages = messages.add_message(

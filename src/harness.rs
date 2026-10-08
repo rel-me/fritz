@@ -1,4 +1,6 @@
+mod compaction;
 mod native;
+pub use compaction::Compaction;
 pub(crate) use native::Call;
 
 use crate::{
@@ -73,7 +75,15 @@ pub async fn run_with_host(
     }
     // Include model loading in the same deadline as completion and tool IO.
     let work = async {
-        let session = Session::new(input, system, Options::default()).await?;
+        let session = Session::new(
+            input,
+            system,
+            Options {
+                history_compaction: Some(Compaction::default()),
+                ..Options::default()
+            },
+        )
+        .await?;
         let limits = Limits {
             model_turns: session.input.request.max_turns,
             tool_calls: 64,
@@ -98,6 +108,7 @@ pub async fn run_with_host(
 /// Fritz's app limits; a host can use its selected provider's output ceiling.
 #[derive(Default)]
 pub struct Options {
+    pub history_compaction: Option<Compaction>,
     pub models: Option<crate::local::models::ModelStore>,
     pub output_limit: OutputLimit,
     pub strict_tools: bool,
@@ -124,6 +135,8 @@ pub struct Session {
     remote: Option<native::Session>,
     output_limit: OutputLimit,
     conversation: Vec<fritz_harness::message::Message>,
+    history_compaction: Option<Compaction>,
+    native_boundaries: Vec<usize>,
 }
 impl Session {
     pub async fn new(input: Input, system: &str, options: Options) -> Result<Self> {
@@ -168,6 +181,16 @@ impl Session {
                 .context("Local models do not accept remote provider parameters.")?;
             remote.set_parameters(parameters)?;
         }
+        if let Some(config) = options.history_compaction {
+            config.validate()?;
+        }
+        let native_boundaries = remote
+            .as_ref()
+            .map(|remote| {
+                let offset = remote.history.len() - input.request.messages.len();
+                (offset..=remote.history.len()).collect()
+            })
+            .unwrap_or_default();
         let conversation = input
             .request
             .messages
@@ -182,6 +205,8 @@ impl Session {
             .collect();
         let mut session = Self {
             conversation,
+            history_compaction: options.history_compaction,
+            native_boundaries,
             input,
             local,
             remote,
@@ -189,6 +214,45 @@ impl Session {
         };
         session.configure(system);
         Ok(session)
+    }
+
+    /// Summarize older readable transcript data, retaining complete recent
+    /// tool pairs and the exact native suffix (including opaque reasoning).
+    /// Active instructions live outside the compacted transcript.
+    pub fn compact_conversation(&mut self) -> Result<bool> {
+        let Some(config) = self.history_compaction else {
+            return Ok(false);
+        };
+        let Some((cut, summary)) = config.plan(&self.conversation) else {
+            return Ok(false);
+        };
+        if let Some(remote) = &mut self.remote {
+            let native_cut = self.native_boundaries[cut];
+            let prefix = remote.compact_prefix(native_cut, &summary);
+            self.native_boundaries = std::iter::once(prefix)
+                .chain(
+                    self.native_boundaries[cut..]
+                        .iter()
+                        .map(|index| prefix + 1 + index - native_cut),
+                )
+                .collect();
+        } else {
+            self.local.as_mut().unwrap().compact_prefix(cut, &summary)?;
+        }
+        self.conversation.drain(..cut);
+        self.conversation
+            .insert(0, fritz_harness::message::Message::user(summary));
+        // Rebuild the local request using its current instructions before IO.
+        if let Some(local) = &mut self.local {
+            local.rebuild();
+        }
+        Ok(true)
+    }
+
+    fn record_native_boundary(&mut self) {
+        if let Some(remote) = &self.remote {
+            self.native_boundaries.push(remote.history.len());
+        }
     }
 
     pub fn configure(&mut self, system: &str) {
@@ -297,6 +361,7 @@ impl Session {
         }
         self.conversation
             .push(fritz_harness::message::Message::user(content));
+        self.record_native_boundary();
         Ok(())
     }
 
@@ -343,6 +408,7 @@ impl Session {
         }
         self.conversation
             .push(Message::Assistant { id: None, content });
+        self.record_native_boundary();
         Ok(Turn { calls, text })
     }
 
@@ -380,6 +446,7 @@ impl Session {
             })
             .collect::<Result<Vec<_>>>()?;
         self.conversation.push(Message::User { content });
+        self.record_native_boundary();
         Ok(())
     }
 }
@@ -392,6 +459,10 @@ struct NativeModel<'a, E> {
 impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
     fn conversation(&self) -> Vec<fritz_harness::message::Message> {
         self.session.conversation()
+    }
+    fn compact_conversation(&mut self) -> Result<Option<Vec<fritz_harness::message::Message>>> {
+        self.session.compact_conversation()?;
+        Ok(Some(self.session.conversation()))
     }
     async fn turn(&mut self, tools: &[ToolDefinition]) -> Result<Turn> {
         self.turn += 1;

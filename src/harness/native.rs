@@ -79,6 +79,28 @@ impl Session {
         });
     }
 
+    /// Drop only a complete old prefix; keep system configuration and opaque
+    /// native items in the retained suffix byte-for-byte.
+    pub fn compact_prefix(&mut self, cut: usize, summary: &str) -> usize {
+        let prefix = usize::from(matches!(
+            self.kind,
+            ProviderKind::OpenaiCompatible | ProviderKind::Openrouter | ProviderKind::Ollama
+        ));
+        let summary = match self.kind {
+            ProviderKind::Gemini => json!({"role":"user","parts":[{"text":summary}]}),
+            _ => json!({"role":"user","content":summary}),
+        };
+        self.history.splice(prefix..cut, [summary]);
+        self.receipts.retain(|slot| slot.message >= cut);
+        for slot in &mut self.receipts {
+            slot.message = prefix + 1 + slot.message - cut;
+            if let Some(index) = &mut slot.image_message {
+                *index = prefix + 1 + *index - cut;
+            }
+        }
+        prefix
+    }
+
     pub fn set_request_byte_limit(&mut self, limit: usize) {
         self.request_byte_limit = limit;
     }
@@ -792,6 +814,66 @@ mod tests {
                     .contains("Bounded prior evidence receipt")
             );
             assert!(history.to_string().contains("Continue the conversation."));
+        }
+    }
+
+    #[test]
+    fn compaction_retains_native_suffix_and_reindexes_live_receipts() {
+        for kind in [
+            ProviderKind::Openai,
+            ProviderKind::Anthropic,
+            ProviderKind::Gemini,
+            ProviderKind::OpenaiCompatible,
+            ProviderKind::Openrouter,
+            ProviderKind::Ollama,
+        ] {
+            let prefix = usize::from(matches!(
+                kind,
+                ProviderKind::OpenaiCompatible | ProviderKind::Openrouter | ProviderKind::Ollama
+            ));
+            let mut session = Session {
+                history: Vec::new(),
+                kind,
+                suffix: "",
+                base: json!({"instructions":"active instructions"}),
+                receipts: Vec::new(),
+                strict_tools: false,
+                request_byte_limit: 2_000_000,
+            };
+            if prefix == 1 {
+                session
+                    .history
+                    .push(json!({"role":"system","content":"active instructions"}));
+            }
+            session.append_user("Old data to remove");
+            let cut = session.history.len();
+            let signed = json!({"opaque_reasoning":"signed ciphertext", "tool_call_id":"live"});
+            session.history.push(signed.clone());
+            session
+                .results(&[(
+                    Call {
+                        id: "live".into(),
+                        name: "inspect".into(),
+                        arguments: "{}".into(),
+                    },
+                    ToolResult::json(json!("live evidence"), true),
+                )])
+                .unwrap();
+            let suffix = session.history[cut..].to_vec();
+            session.compact_prefix(cut, "Historical data summary");
+            assert_eq!(session.history[prefix + 1..], suffix);
+            assert_eq!(session.history[prefix + 1], signed);
+            assert_eq!(session.base["instructions"], "active instructions");
+            if prefix == 1 {
+                assert_eq!(session.history[0]["content"], "active instructions");
+            }
+            session
+                .replace_result("live", ToolResult::json(json!("bounded receipt"), false))
+                .unwrap();
+            let encoded = serde_json::to_string(&session.history).unwrap();
+            assert!(encoded.contains("bounded receipt"));
+            assert!(!encoded.contains("live evidence"));
+            assert!(!encoded.contains("Old data to remove"));
         }
     }
 
