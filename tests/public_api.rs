@@ -64,6 +64,16 @@ async fn native_harness_uses_only_host_tools_and_refreshes_them_after_execution(
                 request["messages"][0]["content"],
                 "Fixture host instructions"
             );
+            assert!(
+                request
+                    .to_string()
+                    .contains("HISTORICAL CONVERSATION SUMMARY")
+            );
+            assert!(
+                !request
+                    .to_string()
+                    .contains(&"old transcript ".repeat(5_000))
+            );
             let frame = if turn == 0 {
                 assert_eq!(request["tools"].as_array().unwrap().len(), 1);
                 assert_eq!(request["tools"][0]["function"]["name"], "host_lookup");
@@ -98,10 +108,16 @@ async fn native_harness_uses_only_host_tools_and_refreshes_them_after_execution(
             request: fritz::provider::ChatRequest {
                 connection_id: id.to_string(),
                 model: "fixture".into(),
-                messages: vec![fritz::provider::Message {
-                    role: "user".into(),
-                    content: "Look up the number".into(),
-                }],
+                messages: (0..10)
+                    .map(|index| fritz::provider::Message {
+                        role: "user".into(),
+                        content: if index == 0 {
+                            "old transcript ".repeat(5_000)
+                        } else {
+                            "Look up the number".into()
+                        },
+                    })
+                    .collect(),
                 effort: None,
                 speed: None,
                 project_path: Some(

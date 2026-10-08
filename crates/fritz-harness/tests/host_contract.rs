@@ -216,3 +216,56 @@ async fn deadline_drops_in_flight_tool_without_committing_a_result() {
     assert_eq!(*host.state.borrow(), "dropped");
     assert!(model.results.is_empty());
 }
+
+#[tokio::test]
+async fn preparation_sees_compacted_history_and_can_stop_before_io() {
+    struct PolicyModel;
+    impl Model for PolicyModel {
+        fn conversation(&self) -> Vec<fritz_harness::message::Message> {
+            vec![
+                fritz_harness::message::Message::user("Old transcript"),
+                fritz_harness::message::Message::user("Request"),
+            ]
+        }
+        fn compact_conversation(&mut self) -> Result<Option<Vec<fritz_harness::message::Message>>> {
+            Ok(Some(vec![
+                fritz_harness::message::Message::user("Bounded historical summary"),
+                fritz_harness::message::Message::user("Request"),
+            ]))
+        }
+        fn prepare(
+            &mut self,
+            history: &[fritz_harness::message::Message],
+            _prompt: &fritz_harness::message::Message,
+            turn: usize,
+        ) -> Result<()> {
+            assert_eq!(
+                history,
+                &[fritz_harness::message::Message::user(
+                    "Bounded historical summary"
+                )]
+            );
+            assert_eq!(turn, 1);
+            anyhow::bail!("Host request budget exhausted")
+        }
+        async fn turn(&mut self, _: &[ToolDefinition]) -> Result<Turn> {
+            panic!("provider IO after policy stop")
+        }
+        fn results(&mut self, _: Vec<(ToolCall, ToolResult)>) -> Result<()> {
+            panic!("tool results after policy stop")
+        }
+    }
+    struct NoTools;
+    impl Host for NoTools {
+        fn tools(&self) -> Result<Vec<ToolDefinition>> {
+            panic!("tools selected before host policy")
+        }
+        async fn execute(&self, _: &ToolCall) -> Result<ToolResult> {
+            panic!("tool executed after policy stop")
+        }
+    }
+    let error = run(&mut PolicyModel, &NoTools, limits(2, 1))
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("Host request budget exhausted"));
+}

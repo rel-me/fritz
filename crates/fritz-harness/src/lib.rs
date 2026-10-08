@@ -22,6 +22,7 @@ use std::{
 };
 
 pub use rig_agent::tool as tools;
+pub use rig_core::providers::openai::responses_api::ResponsesToolDefinition;
 pub use rig_core::{completion::ToolDefinition, message};
 
 #[cfg(feature = "rig")]
@@ -69,6 +70,16 @@ pub trait Model {
     /// Initial conversation for Rig's run state. Provider-specific history,
     /// including opaque reasoning, remains in the adapter used by `turn`.
     fn conversation(&self) -> Vec<Message>;
+    /// Optional bounded conversation view. Adapters update their native history
+    /// first; the run keeps its tool-resolution state and uses this view for policy.
+    fn compact_conversation(&mut self) -> Result<Option<Vec<Message>>> {
+        Ok(None)
+    }
+    /// Host policy inspects the current typed conversation before tool selection
+    /// or provider IO.
+    fn prepare(&mut self, _history: &[Message], _prompt: &Message, _turn: usize) -> Result<()> {
+        Ok(())
+    }
     fn turn(&mut self, tools: &[ToolDefinition]) -> impl Future<Output = Result<Turn>>;
     fn results(&mut self, results: Vec<(ToolCall, ToolResult)>) -> Result<()>;
 }
@@ -116,7 +127,21 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
         let mut rejected = HashMap::new();
         loop {
             match run.next_step()? {
-                AgentRunStep::CallModel { turn: index, .. } => {
+                AgentRunStep::CallModel {
+                    turn: index,
+                    history,
+                    prompt,
+                } => {
+                    let compacted = model.compact_conversation()?;
+                    let (history, prompt) = if let Some(mut conversation) = compacted {
+                        let prompt = conversation
+                            .pop()
+                            .context("Compacted conversation is empty.")?;
+                        (conversation, prompt)
+                    } else {
+                        (history, prompt)
+                    };
+                    model.prepare(&history, &prompt, index)?;
                     let definitions = host.tools()?;
                     let mut names = std::collections::BTreeSet::new();
                     for definition in &definitions {
@@ -209,7 +234,10 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                         } else {
                             host.execute(&call).await?
                         };
-                        let mut content = vec![ToolResultContent::json(result.value.clone())];
+                        let mut content = vec![match &result.value {
+                            Value::String(text) => ToolResultContent::text(text),
+                            value => ToolResultContent::json(value.clone()),
+                        }];
                         for image in &result.images {
                             content.push(ToolResultContent::image_base64(
                                 image.base64.clone(),

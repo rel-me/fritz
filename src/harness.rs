@@ -1,4 +1,6 @@
+mod compaction;
 mod native;
+pub use compaction::Compaction;
 pub(crate) use native::Call;
 
 use crate::{
@@ -6,7 +8,7 @@ use crate::{
     provider::{self, ChatRequest},
     tools::{self, Workspace},
 };
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use fritz_harness::{Host, Limits, Model, ToolDefinition, ToolResult, Turn};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -73,29 +75,22 @@ pub async fn run_with_host(
     }
     // Include model loading in the same deadline as completion and tool IO.
     let work = async {
-        let local = if input.connection.provider == ProviderKind::Fritz {
-            Some(crate::local::Session::new(&input.request, system).await?)
-        } else {
-            None
-        };
-        let remote = if local.is_none() {
-            Some(native::Session::new(
-                &input.connection,
-                &input.request,
-                system,
-            )?)
-        } else {
-            None
-        };
+        let session = Session::new(
+            input,
+            system,
+            Options {
+                history_compaction: Some(Compaction::default()),
+                ..Options::default()
+            },
+        )
+        .await?;
         let limits = Limits {
-            model_turns: input.request.max_turns,
+            model_turns: session.input.request.max_turns,
             tool_calls: 64,
             deadline: Duration::from_secs(600),
         };
         let mut model = NativeModel {
-            input: &input,
-            local,
-            remote,
+            session,
             emit,
             turn: 0,
         };
@@ -109,34 +104,272 @@ pub async fn run_with_host(
     }
 }
 
-struct NativeModel<'a, E> {
-    input: &'a Input,
-    local: Option<crate::local::Session>,
-    remote: Option<native::Session>,
-    emit: &'a E,
-    turn: usize,
+/// Provider settings supplied by an embedding application. Defaults retain
+/// Fritz's app limits; a host can use its selected provider's output ceiling.
+#[derive(Default)]
+pub struct Options {
+    pub history_compaction: Option<Compaction>,
+    pub models: Option<crate::local::models::ModelStore>,
+    pub output_limit: OutputLimit,
+    pub strict_tools: bool,
+    /// Serialized remote request bound; None retains the app's 2 MB limit.
+    pub request_byte_limit: Option<usize>,
+    /// Explicit host-owned provider settings. Conversation, tools, model,
+    /// stream and instructions cannot be overridden through this map.
+    pub provider_parameters: Option<Value>,
+}
+#[derive(Clone, Copy, Default)]
+pub enum OutputLimit {
+    #[default]
+    Native,
+    Unbounded,
+    Tokens(usize),
 }
 
-impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
-    fn conversation(&self) -> Vec<fritz_harness::message::Message> {
-        use fritz_harness::message::Message;
-        self.input
+/// Native provider execution and opaque history owned by Fritz. An embedding
+/// application may wrap this in `harness_core::Model` for per-turn policy while
+/// delegating the entire agent loop to `harness_core::run`.
+pub struct Session {
+    input: Input,
+    local: Option<crate::local::Session>,
+    remote: Option<native::Session>,
+    output_limit: OutputLimit,
+    conversation: Vec<fritz_harness::message::Message>,
+    history_compaction: Option<Compaction>,
+    native_boundaries: Vec<usize>,
+}
+impl Session {
+    pub async fn new(input: Input, system: &str, options: Options) -> Result<Self> {
+        input.connection.validate()?;
+        if input.connection.provider.category() != crate::config::ModelCategory::Llm {
+            bail!("Choose an LLM provider for chat.");
+        }
+        if input.connection.id.to_string() != input.request.connection_id.to_lowercase() {
+            bail!("The selected connection does not match the harness request.");
+        }
+        let local = if input.connection.provider == ProviderKind::Fritz {
+            let store = match options.models {
+                Some(store) => store,
+                None => crate::local::models::ModelStore::configured()?,
+            };
+            Some(crate::local::Session::new_in(&input.request, system, &store).await?)
+        } else {
+            None
+        };
+        let mut remote = if local.is_none() {
+            Some(native::Session::new(
+                &input.connection,
+                &input.request,
+                system,
+            )?)
+        } else {
+            None
+        };
+        if let OutputLimit::Tokens(0) = options.output_limit {
+            bail!("Output limit must be positive.");
+        }
+        if options.request_byte_limit == Some(0) {
+            bail!("Request byte limit must be positive.");
+        }
+        if let Some(remote) = &mut remote {
+            remote.set_request_byte_limit(options.request_byte_limit.unwrap_or(2_000_000));
+            remote.set_strict_tools(options.strict_tools);
+        }
+        if let Some(parameters) = options.provider_parameters {
+            let remote = remote
+                .as_mut()
+                .context("Local models do not accept remote provider parameters.")?;
+            remote.set_parameters(parameters)?;
+        }
+        if let Some(config) = options.history_compaction {
+            config.validate()?;
+        }
+        let native_boundaries = remote
+            .as_ref()
+            .map(|remote| {
+                let offset = remote.history.len() - input.request.messages.len();
+                (offset..=remote.history.len()).collect()
+            })
+            .unwrap_or_default();
+        let conversation = input
             .request
             .messages
             .iter()
             .map(|message| {
                 if message.role == "assistant" {
-                    Message::assistant(&message.content)
+                    fritz_harness::message::Message::assistant(&message.content)
                 } else {
-                    Message::user(&message.content)
+                    fritz_harness::message::Message::user(&message.content)
                 }
             })
-            .collect()
+            .collect();
+        let mut session = Self {
+            conversation,
+            history_compaction: options.history_compaction,
+            native_boundaries,
+            input,
+            local,
+            remote,
+            output_limit: options.output_limit,
+        };
+        session.configure(system);
+        Ok(session)
     }
 
-    async fn turn(&mut self, tools: &[ToolDefinition]) -> Result<Turn> {
-        self.turn += 1;
-        (self.emit)(json!({"type":"activity","message":format!("Thinking · step {}", self.turn)}));
+    /// Summarize older readable transcript data, retaining complete recent
+    /// tool pairs and the exact native suffix (including opaque reasoning).
+    /// Active instructions live outside the compacted transcript.
+    pub fn compact_conversation(&mut self) -> Result<bool> {
+        let Some(config) = self.history_compaction else {
+            return Ok(false);
+        };
+        let Some((cut, summary)) = config.plan(&self.conversation) else {
+            return Ok(false);
+        };
+        if let Some(remote) = &mut self.remote {
+            let native_cut = self.native_boundaries[cut];
+            let prefix = remote.compact_prefix(native_cut, &summary);
+            self.native_boundaries = std::iter::once(prefix)
+                .chain(
+                    self.native_boundaries[cut..]
+                        .iter()
+                        .map(|index| prefix + 1 + index - native_cut),
+                )
+                .collect();
+        } else {
+            self.local.as_mut().unwrap().compact_prefix(cut, &summary)?;
+        }
+        self.conversation.drain(..cut);
+        self.conversation
+            .insert(0, fritz_harness::message::Message::user(summary));
+        // Rebuild the local request using its current instructions before IO.
+        if let Some(local) = &mut self.local {
+            local.rebuild();
+        }
+        Ok(true)
+    }
+
+    fn record_native_boundary(&mut self) {
+        if let Some(remote) = &self.remote {
+            self.native_boundaries.push(remote.history.len());
+        }
+    }
+
+    pub fn configure(&mut self, system: &str) {
+        if let Some(local) = &mut self.local {
+            local.configure(
+                system,
+                match self.output_limit {
+                    OutputLimit::Tokens(limit) => Some(limit),
+                    _ => None,
+                },
+            );
+        }
+        if let Some(remote) = &mut self.remote {
+            remote.set_instructions(system);
+            match self.output_limit {
+                OutputLimit::Native => {}
+                OutputLimit::Unbounded => remote.set_output_limit(None),
+                OutputLimit::Tokens(limit) => remote.set_output_limit(Some(limit)),
+            }
+        }
+    }
+
+    /// Replace selected tool bodies with host-owned receipts while retaining
+    /// native call pairing and opaque provider reasoning. Unmentioned results
+    /// remain unchanged, so the latest batch can be consumed in full once.
+    pub fn replace_tool_results(
+        &mut self,
+        history: &[fritz_harness::message::Message],
+    ) -> Result<()> {
+        use fritz_harness::message::{
+            DocumentSourceKind, Message, MimeType, ToolResultContent, UserContent,
+        };
+        for message in history {
+            let Message::User { content } = message else {
+                continue;
+            };
+            for part in content {
+                let UserContent::ToolResult(result) = part else {
+                    continue;
+                };
+                let mut text = Vec::new();
+                let mut images = Vec::new();
+                for part in &result.content {
+                    match part {
+                        ToolResultContent::Text(text_part) => text.push(text_part.text.clone()),
+                        ToolResultContent::Json { value } => text.push(value.to_string()),
+                        ToolResultContent::Image(image) => {
+                            let DocumentSourceKind::Base64(data) = &image.data else {
+                                bail!("Host images must contain base64 bytes.");
+                            };
+                            images.push(fritz_harness::Image {
+                                media_type: image
+                                    .media_type
+                                    .as_ref()
+                                    .context("Missing image media type.")?
+                                    .to_mime_type()
+                                    .into(),
+                                base64: data.clone(),
+                            });
+                        }
+                    }
+                }
+                let text = text.join("\n");
+                let replacement = ToolResult {
+                    value: serde_json::from_str(&text).unwrap_or(Value::String(text)),
+                    images,
+                    failed: false,
+                };
+                for message in &mut self.conversation {
+                    if let Message::User { content } = message {
+                        for item in content {
+                            if let UserContent::ToolResult(previous) = item
+                                && previous.call == result.call
+                            {
+                                *previous = result.clone();
+                            }
+                        }
+                    }
+                }
+                if let Some(local) = &mut self.local {
+                    local.replace_result(&result.call.to_string(), replacement)?;
+                } else {
+                    self.remote
+                        .as_mut()
+                        .unwrap()
+                        .replace_result(&result.call.to_string(), replacement)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn conversation(&self) -> Vec<fritz_harness::message::Message> {
+        self.conversation.clone()
+    }
+
+    /// Start a follow-up using the same native provider history.
+    pub fn append_user(&mut self, content: &str) -> Result<()> {
+        if content.trim().is_empty() {
+            bail!("The prompt must not be empty.");
+        }
+        if let Some(local) = &mut self.local {
+            local.append_user(content);
+        } else {
+            self.remote.as_mut().unwrap().append_user(content);
+        }
+        self.conversation
+            .push(fritz_harness::message::Message::user(content));
+        self.record_native_boundary();
+        Ok(())
+    }
+
+    pub async fn turn(
+        &mut self,
+        tools: &[ToolDefinition],
+        emit: &(impl Fn(Value) + Sync),
+    ) -> Result<Turn> {
         let text = Mutex::new(String::new());
         let observe = |event: Value| {
             if event["type"] == "delta"
@@ -144,7 +377,7 @@ impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
             {
                 text.lock().unwrap().push_str(delta);
             }
-            (self.emit)(event);
+            emit(event);
         };
         let calls = if let Some(local) = &mut self.local {
             local.turn(tools, &observe).await?
@@ -160,18 +393,90 @@ impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
                 )
                 .await?
         };
-        Ok(Turn {
-            calls,
-            text: text.into_inner().unwrap(),
-        })
+        let text = text.into_inner().unwrap();
+        use fritz_harness::message::{AssistantContent, Message, ToolName};
+        let mut content = Vec::new();
+        if !text.is_empty() {
+            content.push(AssistantContent::text(&text));
+        }
+        for call in &calls {
+            content.push(AssistantContent::tool_call(
+                call.id.clone(),
+                ToolName::new(&call.name)?,
+                serde_json::from_str(&call.arguments)?,
+            ));
+        }
+        self.conversation
+            .push(Message::Assistant { id: None, content });
+        self.record_native_boundary();
+        Ok(Turn { calls, text })
     }
 
-    fn results(&mut self, results: Vec<(Call, ToolResult)>) -> Result<()> {
+    pub fn results(&mut self, results: Vec<(Call, ToolResult)>) -> Result<()> {
         if let Some(local) = &mut self.local {
             local.results(&results)?;
         } else {
             self.remote.as_mut().unwrap().results(&results)?;
         }
+        use fritz_harness::message::{
+            ImageMediaType, Message, MimeType, ToolName, ToolResultContent, UserContent,
+        };
+        let content = results
+            .iter()
+            .map(|(call, result)| {
+                let mut content = vec![match &result.value {
+                    Value::String(text) => ToolResultContent::text(text),
+                    value => ToolResultContent::json(value.clone()),
+                }];
+                for image in &result.images {
+                    content.push(ToolResultContent::image_base64(
+                        image.base64.clone(),
+                        Some(
+                            ImageMediaType::from_mime_type(&image.media_type)
+                                .context("Unsupported image media type.")?,
+                        ),
+                        None,
+                    ));
+                }
+                Ok(UserContent::tool_result(
+                    fritz_harness::message::CallId::from_wire(&call.id),
+                    ToolName::new(&call.name)?,
+                    content,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.conversation.push(Message::User { content });
+        self.record_native_boundary();
+        Ok(())
+    }
+}
+
+struct NativeModel<'a, E> {
+    session: Session,
+    emit: &'a E,
+    turn: usize,
+}
+impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
+    fn conversation(&self) -> Vec<fritz_harness::message::Message> {
+        self.session.conversation()
+    }
+    fn compact_conversation(&mut self) -> Result<Option<Vec<fritz_harness::message::Message>>> {
+        self.session.compact_conversation()?;
+        Ok(Some(self.session.conversation()))
+    }
+    async fn turn(&mut self, tools: &[ToolDefinition]) -> Result<Turn> {
+        self.turn += 1;
+        (self.emit)(json!({"type":"activity","message":format!("Thinking · step {}",self.turn)}));
+        self.session
+            .turn(tools, &|event| {
+                if event["type"] != "tool_preview" {
+                    (self.emit)(event);
+                }
+            })
+            .await
+    }
+    fn results(&mut self, results: Vec<(Call, ToolResult)>) -> Result<()> {
+        self.session.results(results)?;
         (self.emit)(json!({"type":"delta","text":"\n\n"}));
         Ok(())
     }
