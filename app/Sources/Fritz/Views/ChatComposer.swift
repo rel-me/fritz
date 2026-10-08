@@ -12,6 +12,7 @@ struct ChatComposer: View {
     let models: [ChatModelOption]
     let recentModels: [ChatModelOption]
     let modelProviders: [AIProviderKind]
+    let configuredProviderIDs: Set<String>
     let hasConfiguredModels: Bool
     let isLoadingModels: Bool
     let selectedModel: ChatModelOption?
@@ -21,7 +22,7 @@ struct ChatComposer: View {
     let selectEffort: (ChatReasoningEffort) -> Void
     let selectSpeed: (ChatSpeed) -> Void
     let configureModels: () -> Void
-    let addProvider: () -> Void
+    let addProvider: (AIProviderPreset?) -> Void
     let send: () -> Void
     let stop: () -> Void
 
@@ -37,6 +38,7 @@ struct ChatComposer: View {
                 models: models,
                 recentModels: recentModels,
                 modelProviders: modelProviders,
+                configuredProviderIDs: configuredProviderIDs,
                 hasConfiguredModels: hasConfiguredModels,
                 isLoadingModels: isLoadingModels,
                 selectedModel: selectedModel,
@@ -57,6 +59,7 @@ private struct ChatModelPicker: View {
     let models: [ChatModelOption]
     let recentModels: [ChatModelOption]
     let modelProviders: [AIProviderKind]
+    let configuredProviderIDs: Set<String>
     let hasConfiguredModels: Bool
     let isLoadingModels: Bool
     let selectedModel: ChatModelOption?
@@ -66,7 +69,7 @@ private struct ChatModelPicker: View {
     let selectEffort: (ChatReasoningEffort) -> Void
     let selectSpeed: (ChatSpeed) -> Void
     let configureModels: () -> Void
-    let addProvider: () -> Void
+    let addProvider: (AIProviderPreset?) -> Void
     @State private var isChoosingModel = false
 
     var body: some View {
@@ -74,33 +77,11 @@ private struct ChatModelPicker: View {
             Button {
                 isChoosingModel = true
             } label: {
-                HStack(spacing: 6) {
-                    Text(selectedModel?.displayName ?? "Choose Model")
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    if selectedModel?.capabilities.supportsReasoningEffort == true {
-                        Text(selectedEffort.displayName)
-                            .foregroundStyle(.secondary)
-                            .fixedSize()
-                    }
-
-                    if let speedTitle {
-                        Text(speedTitle)
-                            .foregroundStyle(.secondary)
-                            .fixedSize()
-                    }
-
-                    Image(systemName: "chevron.down")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
-                }
-                .font(.body)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 4)
-                .contentShape(Rectangle())
+                FritzUI.ModelPickerLabel(
+                    title: selectedModel?.displayName ?? "Choose Model",
+                    details: (selectedModel?.capabilities.supportsReasoningEffort == true
+                        ? [selectedEffort.displayName] : []) + (speedTitle.map { [$0] } ?? [])
+                )
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Model, thinking, and speed")
@@ -118,7 +99,7 @@ private struct ChatModelPicker: View {
                     .foregroundStyle(.secondary)
             }
         } else {
-            FritzUI.ChatProviderSetupButton(action: addProvider)
+            FritzUI.ChatProviderSetupButton(action: { addProvider(nil) })
         }
     }
 
@@ -160,6 +141,8 @@ private struct ChatModelPicker: View {
                 models: models,
                 recentModels: recentModels,
                 modelProviders: modelProviders,
+                configuredProviderIDs: configuredProviderIDs,
+                addProvider: { preset in isChoosingModel = false; addProvider(preset) },
                 selectedModelID: selectedModel?.id,
                 selectModel: selectModel,
                 configureModels: {
@@ -201,6 +184,8 @@ struct ChatModelPickerPopover: View {
     let models: [ChatModelOption]
     let recentModels: [ChatModelOption]
     let modelProviders: [AIProviderKind]
+    let configuredProviderIDs: Set<String>
+    let addProvider: (AIProviderPreset?) -> Void
     let selectedModelID: String?
     let selectModel: (ChatModelOption) -> Void
     let configureModels: () -> Void
@@ -210,6 +195,8 @@ struct ChatModelPickerPopover: View {
         models: [ChatModelOption],
         recentModels: [ChatModelOption],
         modelProviders: [AIProviderKind],
+        configuredProviderIDs: Set<String>,
+        addProvider: @escaping (AIProviderPreset?) -> Void,
         selectedModelID: String?,
         selectModel: @escaping (ChatModelOption) -> Void,
         configureModels: @escaping () -> Void,
@@ -217,6 +204,8 @@ struct ChatModelPickerPopover: View {
     ) {
         self.models = models
         self.recentModels = recentModels
+        self.configuredProviderIDs = configuredProviderIDs
+        self.addProvider = addProvider
         self.modelProviders = modelProviders
         self.selectedModelID = selectedModelID
         self.selectModel = selectModel
@@ -230,7 +219,14 @@ struct ChatModelPickerPopover: View {
             modelProviders: (modelProviders + AIProviderKind.allCases).map(\.rawValue),
             selectedModelID: selectedModelID,
             selectModel: { selectModel($0.value) }, configureModels: configureModels,
-            recommendationLimit: 8, initialSearchText: initialSearchText
+            recommendationLimit: 8, initialSearchText: initialSearchText,
+            supportedProviders: PickerProvider.chatProviders,
+            configuredProviderIDs: configuredProviderIDs,
+            addProvider: { provider in
+                if let preset = AIProviderPreset.allCases.first(where: { $0.id == provider.id }) {
+                    addProvider(preset)
+                }
+            }
         )
         .fritzPickerStyle(PickerStyle(background: Color(nsColor: .textBackgroundColor)))
     }

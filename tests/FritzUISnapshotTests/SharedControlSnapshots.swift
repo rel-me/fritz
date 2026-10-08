@@ -27,11 +27,11 @@ final class SharedControlSnapshots: XCTestCase {
     }
 
     private let providers: [PickerProvider] = [
-        .init(id: "fritz", displayName: "Fritz", groupID: "local"),
-        .init(id: "bedrock", displayName: "Bedrock", groupID: "compatible"),
-        .init(id: "gateway", displayName: "OpenAI-compatible", groupID: "compatible"),
+        .init(id: "fritz", displayName: "Fritz", groupID: "fritz"),
+        .init(id: "amazon-bedrock", displayName: "Bedrock", groupID: "openai-compatible"),
+        .init(id: "openai-compatible", displayName: "OpenAI-compatible", groupID: "openai-compatible"),
         .init(id: "anthropic", displayName: "Anthropic", groupID: "anthropic"),
-        .init(id: "google", displayName: "Google Gemini", groupID: "google"),
+        .init(id: "gemini", displayName: "Google Gemini", groupID: "gemini"),
         .init(id: "openai", displayName: "OpenAI", groupID: "openai"),
     ]
 
@@ -39,8 +39,8 @@ final class SharedControlSnapshots: XCTestCase {
         providers.map { provider in
             .init(id: provider.id, value: provider.id, displayName: "\(provider.displayName) Model",
                   modelID: "model-\(provider.id)", provider: provider,
-                  sourceName: provider.id == "bedrock" ? "Team account" : nil,
-                  badge: provider.id == "gateway" ? .init(systemImage: "wrench.and.screwdriver",
+                  sourceName: provider.id == "amazon-bedrock" ? "Team account" : nil,
+                  badge: provider.id == "openai-compatible" ? .init(systemImage: "wrench.and.screwdriver",
                     help: "Tool compatible", accessibilityLabel: "Tool compatible") : nil)
         }
     }
@@ -167,7 +167,10 @@ final class SharedControlSnapshots: XCTestCase {
                              query: String = "") -> some View {
         ModelPickerPopover(models: models, recentModels: recent,
                            modelProviders: providers.map(\.groupID), selectedModelID: "fritz",
-                           selectModel: { _ in }, configureModels: {}, initialSearchText: query)
+                           selectModel: { _ in }, configureModels: {}, initialSearchText: query,
+                           supportedProviders: PickerProvider.chatProviders,
+                           configuredProviderIDs: Set(models.map { $0.displayProvider.id }),
+                           addProvider: { _ in })
     }
 
     private var categories: [PickerCategory] {

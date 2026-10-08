@@ -26,6 +26,22 @@ final class PickerTests: XCTestCase {
     XCTAssertNotEqual(sections.first?.id, sections.last?.id)
   }
 
+  func testProviderFiltersIncludeUnconfiguredPresetsAndKeepSelectedProviderFirst() {
+    let models = [model("selected", group: "compatible", display: "bedrock")]
+    let supported: [PickerProvider] = [
+      .init(id: "compatible", displayName: "Compatible", groupID: "compatible"),
+      .init(id: "bedrock", displayName: "Bedrock", groupID: "compatible"),
+      .init(id: "anthropic", displayName: "Anthropic", groupID: "anthropic"),
+    ]
+    let filters = ModelPickerData.providers(
+      from: models, providerOrder: ["compatible", "anthropic"],
+      selectedModelID: "selected", supportedProviders: supported)
+    XCTAssertEqual(filters.map(\.id), ["bedrock", "compatible", "anthropic"])
+    XCTAssertEqual(ModelPickerData<String>.providers(
+      from: [], providerOrder: [], supportedProviders: supported).map(\.id),
+      ["compatible", "bedrock", "anthropic"])
+  }
+
   func testSectionsExcludeSelectedModelFromRecents() {
     let models = [model("selected"), model("other")]
     let sections = ModelPickerData.sections(

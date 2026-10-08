@@ -76,5 +76,8 @@ public struct ModelsRuntimeSession {
 public struct ModelsEditorSelection: Identifiable {
     public let id = UUID()
     public var connection: ProviderConnection?
-    public init(connection: ProviderConnection? = nil) { self.connection = connection }
+    public var preset: AIProviderPreset?
+    public init(connection: ProviderConnection? = nil, preset: AIProviderPreset? = nil) {
+        self.connection = connection; self.preset = preset
+    }
 }

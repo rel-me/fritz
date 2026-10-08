@@ -153,12 +153,13 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var startPolicy: ModelsStartPolicy
     @State private var saveTask: Task<Void, Never>?
 
-    public init(store: Store, localModels: Runtime, existing: ProviderConnection?) {
+    public init(store: Store, localModels: Runtime, existing: ProviderConnection?, initialPreset: AIProviderPreset? = nil) {
         self.store = store; self.localModels = localModels; self.existing = existing
         let addedPresets = Set(store.connections.map {
             AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL)
         })
         let initialPreset = existing.map { AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL) }
+            ?? initialPreset
             ?? AIProviderPreset.allCases.first { $0.category == .llm && !addedPresets.contains($0) }
             ?? .adapter(.openAI)
         let category = initialPreset.category

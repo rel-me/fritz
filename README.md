@@ -333,3 +333,5 @@ the rel.me catalog on every Models load with HTTP conditional requests. Provider
 APIs continue to determine which models your account can access. Models.dev is used
 only by the repository's import script, never by the app. The rel.me deployment
 must adopt Fritz's exported catalog handler to serve this new representation.
+
+The chat model picker shows every supported language-model provider. Select an unconfigured provider filter to open New Provider with that provider selected; configured providers filter their models, including while discovery is loading or has failed.

@@ -6,7 +6,7 @@ struct ChatView: View {
     @Bindable var store: ChatStore
     let providers: ProviderStore
     let openProviders: () -> Void
-    let addProvider: () -> Void
+    let addProvider: (AIProviderPreset?) -> Void
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
@@ -28,6 +28,9 @@ struct ChatView: View {
                     models: providers.models,
                     recentModels: providers.recentModels,
                     modelProviders: providers.providerOrder,
+                    configuredProviderIDs: Set(providers.connections.map {
+                        AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL).id
+                    }),
                     hasConfiguredModels: !providers.connections.isEmpty,
                     isLoadingModels: providers.isLoading,
                     selectedModel: store.selectedModel,

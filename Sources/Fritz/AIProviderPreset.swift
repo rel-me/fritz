@@ -45,8 +45,7 @@ public enum AIProviderPreset: Codable, Hashable, Identifiable, Sendable {
     }
 
     public static func displayProvider(provider: AIProviderKind, baseURL: String?) -> Self {
-        matching(provider: provider, baseURL: baseURL) == .amazonBedrock
-            ? .amazonBedrock : .adapter(provider)
+        matching(provider: provider, baseURL: baseURL)
     }
 
     public var requiresAPIKey: Bool {
