@@ -89,12 +89,14 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      PickerFilterFlowLayout(spacing: 6) {
-        ForEach(providerFilters) { provider in
-          providerFilter(provider)
+      ViewThatFits(in: .vertical) {
+        providerFilterRows(providerFilters, showsMore: false)
+        ForEach((0..<providerFilters.count).reversed(), id: \.self) { count in
+          providerFilterRows(Array(providerFilters.prefix(count)), showsMore: true)
         }
       }
-      .fixedSize(horizontal: false, vertical: true)
+      // Two 26-point chip rows plus the six-point row spacing.
+      .frame(height: 58, alignment: .top)
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
 
@@ -150,7 +152,29 @@ public struct ModelPickerPopover<Value>: View {
     }
   }
 
-  // Keep familiar providers first, then expose every remaining chat provider.
+  private func providerFilterRows(_ providers: [PickerProvider], showsMore: Bool) -> some View {
+    PickerFilterFlowLayout(spacing: 6) {
+      ForEach(providers) { provider in
+        providerFilter(provider)
+      }
+      if showsMore {
+        Button(action: configureModels) {
+          Image(systemName: "ellipsis")
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: 30, height: 26)
+            .background(style.quietFill, in: Capsule())
+        }
+        .buttonStyle(FritzButtonStyle(.inline))
+        .accessibilityLabel("Open Models")
+        .accessibilityIdentifier("chat-model-provider-more")
+        .help("Open Models for all providers")
+      }
+    }
+    .fixedSize(horizontal: false, vertical: true)
+  }
+
+  // Keep familiar providers first, then fill up to two rows with the remaining providers.
   private var providerFilters: [PickerProvider] {
     let providers = ModelPickerData<Value>.providers(
       from: models, providerOrder: modelProviders, supportedProviders: supportedProviders)
