@@ -89,31 +89,14 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 6) {
-          ForEach(popularProviders(["openai", "anthropic", "gemini"])) { provider in
-            providerFilter(provider)
-          }
-          Spacer(minLength: 0)
-        }
-        HStack(spacing: 6) {
-          ForEach(popularProviders(["ollama", "openrouter"])) { provider in
-            providerFilter(provider)
-          }
-          Spacer(minLength: 0)
-          Button(action: configureModels) {
-            Image(systemName: "ellipsis")
-              .font(.callout.weight(.semibold))
-              .foregroundStyle(.secondary)
-              .frame(width: 30, height: 26)
-              .background(style.quietFill, in: Capsule())
-          }
-          .buttonStyle(FritzButtonStyle(.inline))
-          .accessibilityLabel("Open Models")
-          .accessibilityIdentifier("chat-model-provider-more")
-          .help("Open Models for all providers")
+      ViewThatFits(in: .vertical) {
+        providerFilterRows(providerFilters, showsMore: false)
+        ForEach((0..<providerFilters.count).reversed(), id: \.self) { count in
+          providerFilterRows(Array(providerFilters.prefix(count)), showsMore: true)
         }
       }
+      // Two 26-point chip rows plus the six-point row spacing.
+      .frame(height: 58, alignment: .top)
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
 
@@ -169,11 +152,35 @@ public struct ModelPickerPopover<Value>: View {
     }
   }
 
-  // Filter prominence is stable; sections and search still include every provider.
-  private func popularProviders(_ ids: [String]) -> [PickerProvider] {
+  private func providerFilterRows(_ providers: [PickerProvider], showsMore: Bool) -> some View {
+    PickerFilterFlowLayout(spacing: 6) {
+      ForEach(providers) { provider in
+        providerFilter(provider)
+      }
+      if showsMore {
+        Button(action: configureModels) {
+          Image(systemName: "ellipsis")
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: 30, height: 26)
+            .background(style.quietFill, in: Capsule())
+        }
+        .buttonStyle(FritzButtonStyle(.inline))
+        .accessibilityLabel("Open Models")
+        .accessibilityIdentifier("chat-model-provider-more")
+        .help("Open Models for all providers")
+      }
+    }
+    .fixedSize(horizontal: false, vertical: true)
+  }
+
+  // Keep familiar providers first, then fill up to two rows with the remaining providers.
+  private var providerFilters: [PickerProvider] {
     let providers = ModelPickerData<Value>.providers(
       from: models, providerOrder: modelProviders, supportedProviders: supportedProviders)
-    return ids.compactMap { id in providers.first { $0.id == id } }
+    let popularIDs = ["openai", "anthropic", "gemini", "ollama", "openrouter"]
+    let popular = popularIDs.compactMap { id in providers.first { $0.id == id } }
+    return popular + providers.filter { !popularIDs.contains($0.id) }
   }
 
   @ViewBuilder
