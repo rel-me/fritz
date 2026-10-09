@@ -9,12 +9,14 @@ if [[ "$(uname -s)" != Darwin ]]; then
   echo "Fritz development requires macOS and full Xcode (Swift 6.3+)." >&2
   exit 1
 fi
-for tool in cargo swift xcodebuild cmake python3; do
+for tool in cargo swift xcodebuild cmake python3 mise; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "Missing $tool. See README.md for Fritz's development requirements." >&2
     exit 1
   fi
 done
+mise trust mise.toml
+mise install
 xcodebuild -version
 swift --version
 cargo --version

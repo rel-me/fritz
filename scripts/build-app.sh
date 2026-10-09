@@ -10,11 +10,11 @@ source scripts/release-config.sh
 case "$configuration" in
   debug)
     source scripts/dev-runtime.sh
-    cargo build --locked
+    cargo_args=(build --locked)
     xcode_configuration=Debug
     ;;
   release)
-    cargo build --locked --release
+    cargo_args=(build --locked --release)
     xcode_configuration=Release
     app_name=Fritz
     bundle_id=dev.fritz.app
@@ -40,7 +40,33 @@ if [[ -n "$feed_url" || -n "$public_key" ]]; then
   fi
 fi
 
-xcodebuild -quiet -project app/Fritz.xcodeproj -scheme Fritz \
+source scripts/compiler-cache.sh
+configure_compiler_cache
+mkdir -p dist
+app_bundle="$PWD/dist/$app_name.app"
+signing_identity="${FRITZ_CODE_SIGN_IDENTITY:--}"
+reuse_settings=("configuration=$configuration" "name=$app_name" "bundle=$bundle_id"
+  "version=$FRITZ_VERSION" "build_number=$FRITZ_BUILD_NUMBER" "identity=$signing_identity"
+  "feed=$feed_url" "public_key=$public_key" "data=${data_directory:-}"
+  "models=${models_directory:-}" "keychain=${keychain_service:-}")
+local_build_settings=()
+if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
+  local_build_settings=(ONLY_ACTIVE_ARCH=YES)
+  if python3 scripts/app-build-reuse.py check "$app_bundle" "${reuse_settings[@]}"; then
+    printf '%s\n' "$app_bundle" > dist/.last-built-app
+    exit 0
+  else
+    status=$?
+    [[ "$status" == 10 ]] || exit "$status"
+  fi
+else
+  # Distribution replaces the same bundle; discard local reuse metadata first.
+  rm -f "dist/.build-reuse-$configuration.json"
+fi
+start_compiler_cache
+python3 scripts/parallel-build.py "$PWD/dist/build-logs" \
+  cargo "${cargo_args[@]}" ::: \
+  xcodebuild -quiet -project app/Fritz.xcodeproj -scheme Fritz \
   -configuration "$xcode_configuration" -derivedDataPath "$FRITZ_DERIVED_DATA" \
   -packageCachePath "$FRITZ_XCODE_CACHE" \
   -destination "platform=macOS,arch=$(uname -m)" \
@@ -48,10 +74,8 @@ xcodebuild -quiet -project app/Fritz.xcodeproj -scheme Fritz \
   FRITZ_PRODUCT_NAME="$app_name" PRODUCT_BUNDLE_IDENTIFIER="$bundle_id" \
   MARKETING_VERSION="$FRITZ_VERSION" \
   CURRENT_PROJECT_VERSION="$FRITZ_BUILD_NUMBER" \
-  CODE_SIGNING_ALLOWED=NO build
+  "${xcode_cache_settings[@]}" "${local_build_settings[@]}" CODE_SIGNING_ALLOWED=NO build
 
-mkdir -p dist
-app_bundle="$PWD/dist/$app_name.app"
 xcode_bundle="$FRITZ_DERIVED_DATA/Build/Products/$xcode_configuration/$app_name.app"
 test -d "$xcode_bundle" || { echo "error: missing $xcode_bundle" >&2; exit 1; }
 if [ -d "$app_bundle" ]; then rm -rf "$app_bundle"; fi
@@ -85,7 +109,6 @@ if [[ -n "$feed_url" ]]; then
   plutil -insert SUEnableAutomaticChecks -bool true "$plist"
 fi
 
-signing_identity="${FRITZ_CODE_SIGN_IDENTITY:--}"
 sign_options=(--sign "$signing_identity")
 if [[ "$signing_identity" != - ]]; then sign_options+=(--options runtime); fi
 sparkle="$app_bundle/Contents/Frameworks/Sparkle.framework"
@@ -100,5 +123,8 @@ codesign --force "${sign_options[@]}" --identifier dev.fritz.decision-harness \
 codesign --force "${sign_options[@]}" --identifier "$bundle_id" \
   "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"
+if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
+  python3 scripts/app-build-reuse.py record "$app_bundle" "${reuse_settings[@]}"
+fi
 printf '%s\n' "$app_bundle" > dist/.last-built-app
 echo "Built $app_bundle"

@@ -41,7 +41,7 @@ disk image, then open Fritz from Applications.
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.95+ with rustfmt and Clippy, CMake (for a native TLS dependency), and Python 3 for build coordination and integration tests.
+Requires macOS 15+, Xcode / Swift 6.3, Rust 1.95+ with rustfmt and Clippy, CMake (for a native TLS dependency), Python 3.11+ for build coordination and integration tests, and mise for the pinned sccache compiler cache.
 
 With rustup, `rust-toolchain.toml` selects Rust 1.95.0 and its rustfmt and Clippy
 components for this checkout, independently of your global default. Install it
@@ -53,6 +53,20 @@ make dev-open
 ```
 
 `make dev-open` builds and opens `dist/FritzDebug.app` in the primary repository checkout on any branch, or on `main` in a linked worktree, without a PR lookup. Other linked branches use `dist/FritzDebug{PR number}.app` when GitHub CLI can resolve a PR; linked branches without a resolvable PR and all detached checkouts use `dist/FritzDebug{checkout hash}.app`. The checkout-path hash still gives each Debug app a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug builds have no update feed. `CONFIGURATION=release make build` stages the optimized `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the Rust agent and Markdown resources and are locally signed by default.
+
+`make release-build` (also `CONFIGURATION=release make build`) stages the
+optimized app at the current source version without selecting a release version,
+installing, launching, notarizing, packaging, or publishing. Rust and Xcode
+compile concurrently, with full logs in `dist/build-logs/`. Local Swift builds
+use only the host architecture; distribution keeps its existing architecture
+settings and always stages a fresh artifact.
+
+`make setup` installs sccache pinned in `mise.toml`. Compiler caches and immutable
+native Metal libraries live under `~/Builds/Fritz/compiler-cache/`. Unchanged
+local builds reuse the signed app after checking source bytes, build settings,
+toolchain identity, bundled file hashes, and signatures. No compiler daemon
+starts on a reuse hit. Delete `dist/.build-reuse-release.json` or
+`dist/.build-reuse-debug.json` to force that configuration to compile and stage.
 
 Build storage lives under `~/Builds/Fritz` by default. Main and worktrees reuse
 Cargo outputs and Swift/Xcode package caches; SwiftPM scratch directories and
