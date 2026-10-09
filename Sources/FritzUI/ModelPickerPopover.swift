@@ -89,31 +89,12 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      VStack(alignment: .leading, spacing: 6) {
-        HStack(spacing: 6) {
-          ForEach(popularProviders(["openai", "anthropic", "gemini"])) { provider in
-            providerFilter(provider)
-          }
-          Spacer(minLength: 0)
-        }
-        HStack(spacing: 6) {
-          ForEach(popularProviders(["ollama", "openrouter"])) { provider in
-            providerFilter(provider)
-          }
-          Spacer(minLength: 0)
-          Button(action: configureModels) {
-            Image(systemName: "ellipsis")
-              .font(.callout.weight(.semibold))
-              .foregroundStyle(.secondary)
-              .frame(width: 30, height: 26)
-              .background(style.quietFill, in: Capsule())
-          }
-          .buttonStyle(FritzButtonStyle(.inline))
-          .accessibilityLabel("Open Models")
-          .accessibilityIdentifier("chat-model-provider-more")
-          .help("Open Models for all providers")
+      PickerFilterFlowLayout(spacing: 6) {
+        ForEach(providerFilters) { provider in
+          providerFilter(provider)
         }
       }
+      .fixedSize(horizontal: false, vertical: true)
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
 
@@ -169,11 +150,13 @@ public struct ModelPickerPopover<Value>: View {
     }
   }
 
-  // Filter prominence is stable; sections and search still include every provider.
-  private func popularProviders(_ ids: [String]) -> [PickerProvider] {
+  // Keep familiar providers first, then expose every remaining chat provider.
+  private var providerFilters: [PickerProvider] {
     let providers = ModelPickerData<Value>.providers(
       from: models, providerOrder: modelProviders, supportedProviders: supportedProviders)
-    return ids.compactMap { id in providers.first { $0.id == id } }
+    let popularIDs = ["openai", "anthropic", "gemini", "ollama", "openrouter"]
+    let popular = popularIDs.compactMap { id in providers.first { $0.id == id } }
+    return popular + providers.filter { !popularIDs.contains($0.id) }
   }
 
   @ViewBuilder
