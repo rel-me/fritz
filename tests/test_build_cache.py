@@ -93,7 +93,7 @@ class BuildCacheTests(unittest.TestCase):
         # and setup entry points with successful dependency-tool commands.
         tools = self.root / "tools"
         tools.mkdir()
-        for name in ("cargo", "swift", "xcodebuild", "cmake"):
+        for name in ("cargo", "swift", "xcodebuild", "cmake", "mise"):
             tool = tools / name
             tool.write_text("#!/bin/sh\nexit 0\n")
             tool.chmod(0o755)

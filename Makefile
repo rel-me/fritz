@@ -1,4 +1,4 @@
-.PHONY: setup build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
+.PHONY: setup build release-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
 export MISTRALRS_METAL_PLATFORMS ?= macos
@@ -8,12 +8,15 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
+build release-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
 	+@python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 else
 
 build:
 	./scripts/build-app.sh
+
+release-build:
+	@CONFIGURATION=release $(MAKE) --no-print-directory build
 
 run dev-open: build
 	open -n "$$(cat dist/.last-built-app)"
@@ -28,6 +31,9 @@ test-runtime:
 	python3 tests/decision_integration.py
 	python3 tests/test_release_tasks.py
 	python3 tests/test_build_cache.py
+	python3 tests/test_app_build_reuse.py
+	python3 tests/test_parallel_build.py
+	python3 tests/test_metal_cache.py
 	python3 tests/test_dev_runtime.py
 	python3 tests/test_tool_evals.py
 	python3 tests/test_local_decision_inference.py

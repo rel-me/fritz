@@ -2,10 +2,11 @@
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
 locks. It needs full Xcode with Swift 6.3+, Rust 1.95+ with rustfmt and Clippy,
-CMake for a native TLS dependency, and Python 3. With rustup, the repository's
+CMake for a native TLS dependency, Python 3.11+, and mise for pinned sccache. With rustup, the repository's
 `rust-toolchain.toml` selects Rust 1.95.0 with rustfmt and Clippy; rustup installs
-missing toolchain components when invoked. The setup script itself does not install toolchains, change Git
-branches, copy local credentials, build an app, or launch one. XcodeGen is needed only when regenerating
+missing toolchain components when invoked. Setup trusts `mise.toml` and installs
+its pinned sccache version. It does not change Git branches, copy local credentials,
+build an app, or launch one. XcodeGen is needed only when regenerating
 `app/Fritz.xcodeproj` from `app/project.yml`.
 
 The [Codex environment](../../.codex/environments/environment.toml)
@@ -75,6 +76,22 @@ All three binaries are signed and verified.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.
+
+`make release-build` is the optimized local build at the current Cargo version
+and source build number. It does not select a new release version or invoke
+distribution tasks. Local Rust and Swift compilation overlap; failure or
+cancellation terminates the scheduler's owned process groups before staging.
+Full logs are in `dist/build-logs/rust.log` and `swift.log`. Local Xcode builds
+use only the host architecture; distribution builds retain existing settings.
+
+Both local configurations reuse a verified unchanged app. Fingerprints hash
+tracked and non-ignored source bytes and modes, Cargo/Swift configuration,
+build settings, relevant environment, compiler/SDK versions and signing identity.
+Publication checks inputs again and records state only after deep signature
+verification. Hits also compare all bundled file hashes and reverify signatures;
+changed or corrupted bundles fail with an actionable error. Delete
+`dist/.build-reuse-release.json` or `dist/.build-reuse-debug.json` to force a rebuild.
+Distribution always stages anew and invalidates local Release reuse state.
 
 For startup failures, trace `AgentClient.swift`, its bundled executable, and
 the private newline-delimited JSON protocol in [protocol.md](../protocol.md).
@@ -161,6 +178,16 @@ release tools). The layout is:
 
 - `cargo/`: shared Rust debug/release outputs and incremental dependencies.
 - `swift-packages/` and `xcode-packages/`: shared package download caches.
+- `compiler-cache/rust/` and `compiler-cache/xcode/`: sccache and Xcode compiler
+  caches. sccache uses a Fritz-specific socket and serialized startup, deferred
+  until compilation is needed. Local workspace incremental compilation remains
+  enabled; dependencies can reuse compiler results across source checkouts.
+- `compiler-cache/metal/v1/`: immutable inference Metal AIR and library artifacts.
+  Keys cover source/header bytes, ordered link inputs, arguments, compiler/SDK
+  identity, architecture and environment. Per-key locks serialize misses;
+  atomic publication and content hashes protect reuse. Each build receives its
+  own writable copies. Only the pinned inference compiler command shapes are
+  cached; other xcrun commands use the system tool directly.
 - `worktrees/<path-hash>/swift`, `swift-app`, and `DerivedData`: SwiftPM and Xcode
   build state for one physical checkout path. These databases contain absolute
   source paths and are not reused as writable build state by other worktrees.
