@@ -89,70 +89,29 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      PickerFilterFlowLayout(spacing: 6) {
-        ForEach(
-          ModelPickerData<Value>.providers(
-            from: models, providerOrder: modelProviders, selectedModelID: selectedModelID,
-            supportedProviders: supportedProviders)
-        ) {
-          provider in
-          let filterID = provider.id
-          let opensSetup = !configuredProviderIDs.contains(provider.id) && addProvider != nil
-          let isSelected = selectedProvider == provider
-          let isHovered = hoveredProviderFilterID == filterID
-
-          Button {
-            if opensSetup, let addProvider {
-              addProvider(provider)
-            } else {
-              selectedProvider = isSelected ? nil : provider
-            }
-          } label: {
-            HStack(spacing: 4) {
-              Text(provider.displayName)
-              if opensSetup {
-                Image(systemName: "arrow.up.right")
-                  .font(.system(size: 8, weight: .semibold))
-                  .accessibilityHidden(true)
-              }
-            }
-              .font(.callout)
-              .foregroundStyle(isSelected ? .primary : .secondary)
-              .padding(.horizontal, 10)
-              .padding(.vertical, 5)
-              .background(
-                isSelected
-                  ? style.selectionFill
-                  : isHovered
-                    ? style.hoverFill
-                    : style.quietFill,
-                in: Capsule()
-              )
-              .overlay {
-                Capsule()
-                  .stroke(
-                    isSelected ? style.border : Color.clear
-                  )
-              }
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 6) {
+          ForEach(popularProviders(["openai", "anthropic", "gemini"])) { provider in
+            providerFilter(provider)
+          }
+          Spacer(minLength: 0)
+        }
+        HStack(spacing: 6) {
+          ForEach(popularProviders(["ollama", "openrouter"])) { provider in
+            providerFilter(provider)
+          }
+          Spacer(minLength: 0)
+          Button(action: configureModels) {
+            Image(systemName: "ellipsis")
+              .font(.callout.weight(.semibold))
+              .foregroundStyle(.secondary)
+              .frame(width: 30, height: 26)
+              .background(style.quietFill, in: Capsule())
           }
           .buttonStyle(FritzButtonStyle(.inline))
-          .accessibilityAddTraits(isSelected ? .isSelected : [])
-          .accessibilityIdentifier("chat-model-provider-filter-\(filterID)")
-          .accessibilityHint(opensSetup ? "Opens provider setup in a new window" : "")
-          .help(
-            opensSetup
-              ? "Set up \(provider.displayName)"
-              : isSelected
-              ? "Show models from all providers"
-              : "Show only \(provider.displayName) models"
-          )
-          .onHover { hovering in
-            if hovering {
-              hoveredProviderFilterID = filterID
-            } else if hoveredProviderFilterID == filterID {
-              hoveredProviderFilterID = nil
-            }
-          }
+          .accessibilityLabel("Open Models")
+          .accessibilityIdentifier("chat-model-provider-more")
+          .help("Open Models for all providers")
         }
       }
       .padding(.horizontal, 12)
@@ -208,6 +167,75 @@ public struct ModelPickerPopover<Value>: View {
     .onAppear {
       isSearchFocused = true
     }
+  }
+
+  // Filter prominence is stable; sections and search still include every provider.
+  private func popularProviders(_ ids: [String]) -> [PickerProvider] {
+    let providers = ModelPickerData<Value>.providers(
+      from: models, providerOrder: modelProviders, supportedProviders: supportedProviders)
+    return ids.compactMap { id in providers.first { $0.id == id } }
+  }
+
+  @ViewBuilder
+  private func providerFilter(_ provider: PickerProvider) -> some View {
+    let filterID = provider.id
+    let opensSetup = !configuredProviderIDs.contains(provider.id) && addProvider != nil
+    let isSelected = selectedProvider == provider
+    let isHovered = hoveredProviderFilterID == filterID
+
+    Button {
+      if opensSetup, let addProvider {
+        addProvider(provider)
+      } else {
+        selectedProvider = isSelected ? nil : provider
+      }
+    } label: {
+      HStack(spacing: 4) {
+        Text(provider.displayName)
+        if opensSetup {
+          Image(systemName: "arrow.up.right")
+            .font(.system(size: 8, weight: .semibold))
+            .accessibilityHidden(true)
+        }
+      }
+        .font(.callout)
+        .foregroundStyle(isSelected ? .primary : .secondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+          isSelected
+            ? style.selectionFill
+            : isHovered
+              ? style.hoverFill
+              : style.quietFill,
+          in: Capsule()
+        )
+        .overlay {
+          Capsule()
+            .stroke(
+              isSelected ? style.border : Color.clear
+            )
+        }
+    }
+    .buttonStyle(FritzButtonStyle(.inline))
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
+    .accessibilityIdentifier("chat-model-provider-filter-\(filterID)")
+    .accessibilityHint(opensSetup ? "Opens provider setup in a new window" : "")
+    .help(
+      opensSetup
+        ? "Set up \(provider.displayName)"
+        : isSelected
+        ? "Show models from all providers"
+        : "Show only \(provider.displayName) models"
+    )
+    .onHover { hovering in
+      if hovering {
+        hoveredProviderFilterID = filterID
+      } else if hoveredProviderFilterID == filterID {
+        hoveredProviderFilterID = nil
+      }
+    }
+
   }
 
   private var query: String {
