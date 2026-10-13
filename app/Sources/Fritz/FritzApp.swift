@@ -149,6 +149,7 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
 
     var body: some View {
@@ -175,7 +176,7 @@ private struct FritzWorkspaceView: View {
                                     chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
                                                threadTitle: thread.title)
                                 }
-                                .scrollEdgeEffectHidden(for: .top)
+                                .scrollEdgeEffectStyle(.soft, for: .top)
                         } else {
                             chatView
                                 .safeAreaInset(edge: .top, spacing: 0) {
@@ -239,9 +240,12 @@ private struct FritzWorkspaceView: View {
         }
         .font(.callout)
         .padding(.horizontal, 20).padding(.vertical, 14)
-        .background(FritzWindowStyle.workspaceBackground)
-        .overlay(alignment: .bottom) {
-            Divider().opacity(0.5)
+        .background {
+            if reduceTransparency {
+                FritzWindowStyle.workspaceBackground
+            } else {
+                Rectangle().fill(.regularMaterial)
+            }
         }
     }
 
