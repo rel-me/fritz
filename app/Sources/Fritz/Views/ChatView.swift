@@ -108,6 +108,7 @@ struct ChatView: View {
             .padding(.top, 28)
         }
         .defaultScrollAnchor(.bottom, for: .initialOffset)
+        .scrollClipDisabled(extendsTranscriptBehindToolbar)
         .defaultScrollAnchor(scrollState.followsLatest ? .bottom : nil, for: .sizeChanges)
         .scrollPosition($scrollPosition)
         .onChange(of: store.messages) { _, _ in scrollToLatestIfFollowing() }
@@ -156,6 +157,11 @@ struct ChatView: View {
                 .padding(.bottom, composerHeight + 24)
             }
         }
+    }
+
+    private var extendsTranscriptBehindToolbar: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
     }
 
     private func scrollToLatestIfFollowing() {

@@ -35,6 +35,8 @@ the following surfaces, include these behaviors:
   shows only the composer, without an empty conversation message.
   On macOS 26, verify that the chat header's 18-point Gaussian blur affects only
   transcript content beneath it, with a gradual transition to sharp text below.
+  Verify that the native background extension carries blurred content behind the
+  toolbar to the top window edge while keeping the foreground controls sharp.
   Empty space must stay clear, with no material tint. Check the top of history,
   empty chats, thread switching, and inspector reflow in light and dark appearance.
   Reduced Transparency fades the overlapping content without the blurred copy.

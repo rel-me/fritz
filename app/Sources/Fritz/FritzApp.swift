@@ -171,6 +171,8 @@ private struct FritzWorkspaceView: View {
                     Group {
                         if #available(macOS 26.0, *) {
                             chatView
+                                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+                                .backgroundExtensionEffect()
                                 .safeAreaBar(edge: .top, spacing: 0) {
                                     chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
                                                threadTitle: thread.title)
@@ -182,6 +184,7 @@ private struct FritzWorkspaceView: View {
                                     chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
                                                threadTitle: thread.title)
                                 }
+                                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
                         }
                     }
                     .background(FritzWindowStyle.workspaceBackground)
@@ -191,7 +194,6 @@ private struct FritzWorkspaceView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
             .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
