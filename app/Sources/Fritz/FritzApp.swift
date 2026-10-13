@@ -149,9 +149,7 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
-    @State private var headerOverlap: (threadID: UUID?, overlaps: Bool) = (nil, false)
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -168,8 +166,7 @@ private struct FritzWorkspaceView: View {
                 if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             openProviders: openProviders,
-                                            addProvider: { state.editor = ProviderEditorSelection(preset: $0) },
-                                            onHeaderOverlapChange: { headerOverlap = (thread.id, $0) })
+                                            addProvider: { state.editor = ProviderEditorSelection(preset: $0) })
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
@@ -242,15 +239,6 @@ private struct FritzWorkspaceView: View {
         }
         .font(.callout)
         .padding(.horizontal, 20).padding(.vertical, 14)
-        .background {
-            if headerOverlap.threadID == state.workspace.selectedThreadID, headerOverlap.overlaps {
-                if reduceTransparency {
-                    FritzWindowStyle.workspaceBackground
-                } else {
-                    Rectangle().fill(.regularMaterial)
-                }
-            }
-        }
     }
 
     private var newThreadToolbarButton: some View {
