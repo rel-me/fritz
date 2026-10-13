@@ -7,6 +7,7 @@ struct ChatView: View {
     let providers: ProviderStore
     let openProviders: () -> Void
     let addProvider: (AIProviderPreset?) -> Void
+    var onHeaderOverlapChange: (Bool) -> Void = { _ in }
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
@@ -116,6 +117,13 @@ struct ChatView: View {
         }
         .onScrollPhaseChange { _, phase in
             isScrollingTranscript = phase == .interacting || phase == .decelerating
+        }
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            // The transcript starts with 28 points of empty space below the header.
+            geometry.contentOffset.y + geometry.contentInsets.top > 28
+                && (!store.messages.isEmpty || store.error != nil || store.agent.startupError != nil)
+        } action: { _, overlaps in
+            onHeaderOverlapChange(overlaps)
         }
         .onScrollGeometryChange(for: ChatScrollState.Geometry.self) { geometry in
             ChatScrollState.Geometry(
