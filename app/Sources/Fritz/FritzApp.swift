@@ -175,7 +175,7 @@ private struct FritzWorkspaceView: View {
                                     chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
                                                threadTitle: thread.title)
                                 }
-                                .scrollEdgeEffectStyle(.soft, for: .top)
+                                .scrollEdgeEffectHidden(for: .top)
                         } else {
                             chatView
                                 .safeAreaInset(edge: .top, spacing: 0) {
