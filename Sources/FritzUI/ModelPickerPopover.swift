@@ -180,7 +180,14 @@ public struct ModelPickerPopover<Value>: View {
       from: models, providerOrder: modelProviders, supportedProviders: supportedProviders)
     let popularIDs = ["openai", "anthropic", "gemini", "ollama", "openrouter"]
     let popular = popularIDs.compactMap { id in providers.first { $0.id == id } }
-    return popular + providers.filter { !popularIDs.contains($0.id) }
+    var remaining = providers.filter { !popularIDs.contains($0.id) }
+    if let basetenIndex = remaining.firstIndex(where: { $0.id == "baseten" }),
+      let fireworksIndex = remaining.firstIndex(where: { $0.id == "fireworks" }),
+      basetenIndex > fireworksIndex
+    {
+      remaining.insert(remaining.remove(at: basetenIndex), at: fireworksIndex)
+    }
+    return popular + remaining
   }
 
   @ViewBuilder
