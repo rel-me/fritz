@@ -25,6 +25,15 @@ jobs:
     # Includes waiting for the dedicated CI account's session lock.
     timeout-minutes: 300
     steps:
+      - name: Locate local build tools
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo /opt/homebrew/bin >> "$GITHUB_PATH"
+          # Use Apple Git for checkout and builds without Homebrew's gettext dependency.
+          mkdir -p "$RUNNER_TEMP/fritz-ci-bin"
+          ln -sf /usr/bin/git "$RUNNER_TEMP/fritz-ci-bin/git"
+          echo "$RUNNER_TEMP/fritz-ci-bin" >> "$GITHUB_PATH"
+          /usr/bin/git --version
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -34,10 +43,6 @@ jobs:
         run: |
           git reset --hard HEAD
           git clean -ffdx
-      - name: Locate local build tools
-        run: |
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          echo /opt/homebrew/bin >> "$GITHUB_PATH"
       - name: Select installed Swift 6.3 or newer
         run: |
           python3 - <<'PY'
