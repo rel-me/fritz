@@ -149,7 +149,6 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isRightPanelPresented = false
 
     var body: some View {
@@ -171,18 +170,26 @@ private struct FritzWorkspaceView: View {
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
-                            chatView
-                                .safeAreaBar(edge: .top, spacing: 0) {
-                                    chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
-                                               threadTitle: thread.title)
-                                }
-                                .scrollEdgeEffectStyle(.soft, for: .top)
+                            GeometryReader { geometry in
+                                // Extend real transcript content behind the toolbar;
+                                // reserve its inset for the sharp foreground title.
+                                chatView
+                                    .safeAreaBar(edge: .top, spacing: 0) {
+                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                                   threadTitle: thread.title)
+                                            .padding(.top, geometry.safeAreaInsets.top)
+                                    }
+                                    .scrollEdgeEffectHidden(for: .top)
+                                    .ignoresSafeArea(.container, edges: .top)
+                                    .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+                            }
                         } else {
                             chatView
                                 .safeAreaInset(edge: .top, spacing: 0) {
                                     chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
                                                threadTitle: thread.title)
                                 }
+                                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
                         }
                     }
                     .background(FritzWindowStyle.workspaceBackground)
@@ -192,7 +199,6 @@ private struct FritzWorkspaceView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
             .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
@@ -240,11 +246,6 @@ private struct FritzWorkspaceView: View {
         }
         .font(.callout)
         .padding(.horizontal, 20).padding(.vertical, 14)
-        .background {
-            if !reduceTransparency, #unavailable(macOS 26.0) {
-                Rectangle().fill(.ultraThinMaterial)
-            }
-        }
     }
 
     private var newThreadToolbarButton: some View {

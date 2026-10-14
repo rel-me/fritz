@@ -1,3 +1,4 @@
+import Inferno
 import FritzUI
 import Fritz
 import SwiftUI
@@ -7,11 +8,13 @@ struct ChatView: View {
     let providers: ProviderStore
     let openProviders: () -> Void
     let addProvider: (AIProviderPreset?) -> Void
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
     @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
     @State private var isScrollingTranscript = false
+    @State private var headerScrollGeometry = ChatHeaderScrollGeometry()
     private static let transcriptBottomID = "chat-transcript-bottom"
 
     var body: some View {
@@ -80,6 +83,7 @@ struct ChatView: View {
                         isActive: store.isResponding && message.id == store.messages.last?.id,
                         activity: store.activity
                     )
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, scrollGeometry: headerScrollGeometry))
                     .id(message.id.uuidString)
                 }
                 if let error = store.error ?? store.agent.startupError {
@@ -91,11 +95,13 @@ struct ChatView: View {
                             Button("Dismiss") { store.error = nil }
                         }
                     }
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, scrollGeometry: headerScrollGeometry))
                 }
                 Color.clear
                     .frame(height: max(1, composerHeight + 8))
                     .id(Self.transcriptBottomID)
             }
+            .coordinateSpace(name: ChatHeaderCoordinateSpace.transcript)
             .scrollTargetLayout()
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .frame(maxWidth: .infinity)
@@ -103,6 +109,7 @@ struct ChatView: View {
             .padding(.top, 28)
         }
         .defaultScrollAnchor(.bottom, for: .initialOffset)
+        .scrollClipDisabled(extendsTranscriptBehindToolbar)
         .defaultScrollAnchor(scrollState.followsLatest ? .bottom : nil, for: .sizeChanges)
         .scrollPosition($scrollPosition)
         .onChange(of: store.messages) { _, _ in scrollToLatestIfFollowing() }
@@ -116,6 +123,12 @@ struct ChatView: View {
         }
         .onScrollPhaseChange { _, phase in
             isScrollingTranscript = phase == .interacting || phase == .decelerating
+        }
+        .onScrollGeometryChange(for: ChatHeaderScrollGeometry.self) { geometry in
+            ChatHeaderScrollGeometry(offset: geometry.contentOffset.y,
+                                     headerBottom: geometry.contentInsets.top)
+        } action: { _, geometry in
+            headerScrollGeometry = geometry
         }
         .onScrollGeometryChange(for: ChatScrollState.Geometry.self) { geometry in
             ChatScrollState.Geometry(
@@ -147,6 +160,11 @@ struct ChatView: View {
         }
     }
 
+    private var extendsTranscriptBehindToolbar: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
+
     private func scrollToLatestIfFollowing() {
         guard scrollState.followsLatest, !isScrollingTranscript else { return }
         scrollPosition.scrollTo(edge: .bottom)
@@ -160,5 +178,82 @@ struct ChatView: View {
         }
         if let model = providers.defaultModel { store.select(model) }
         else { store.selectedModel = nil }
+    }
+}
+
+private enum ChatHeaderCoordinateSpace: Hashable {
+    case transcript
+}
+
+private struct ChatHeaderScrollGeometry: Equatable {
+    var offset: CGFloat = 0
+    var headerBottom: CGFloat = 0
+}
+
+private struct ChatHeaderBlur: ViewModifier {
+    let isEnabled: Bool
+    let scrollGeometry: ChatHeaderScrollGeometry
+    @State private var contentFrame: CGRect = .zero
+    private let blurRadius: CGFloat = 24
+
+    private var viewportFrame: CGRect {
+        contentFrame.offsetBy(dx: 0, dy: 28 - scrollGeometry.offset)
+    }
+
+    private var overlapsHeader: Bool {
+        viewportFrame.minY < scrollGeometry.headerBottom + 28 && viewportFrame.maxY > 0
+    }
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .onGeometryChange(for: CGRect.self) { geometry in
+                    geometry.frame(in: .named(ChatHeaderCoordinateSpace.transcript))
+                } action: { contentFrame = $0 }
+                .mask {
+                    if overlapsHeader {
+                        edgeMask(blurred: false)
+                    } else {
+                        Color.white
+                    }
+                }
+                .overlay {
+                    if overlapsHeader && isEnabled {
+                        content
+                            .environment(\.chatIsVisualEffectCopy, true)
+                            // Inferno samples out to three times its radius. Give the
+                            // shader transparent space without reflowing the message.
+                            .frame(width: contentFrame.width)
+                            .padding(.horizontal, blurRadius * 3)
+                            .variableBlur(radius: blurRadius, maxSampleCount: 24) { geometry, context in
+                                let start = scrollGeometry.headerBottom - viewportFrame.minY
+                                context.fill(
+                                    Path(CGRect(origin: .zero, size: geometry.size)),
+                                    with: .linearGradient(
+                                        Gradient(colors: [.white, .clear]),
+                                        startPoint: CGPoint(x: 0, y: start),
+                                        endPoint: CGPoint(x: 0, y: start + 28)
+                                    )
+                                )
+                            }
+                            .opacity(0.3)
+                            .mask { edgeMask(blurred: true) }
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                }
+        } else {
+            content
+        }
+    }
+
+    private func edgeMask(blurred: Bool) -> some View {
+        let height = max(1, viewportFrame.height)
+        // Blur actual scrolling content, then blend into sharp text below the title.
+        return LinearGradient(
+            colors: blurred ? [.white, .clear] : [.clear, .white],
+            startPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom - viewportFrame.minY) / height),
+            endPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom + 28 - viewportFrame.minY) / height)
+        )
     }
 }

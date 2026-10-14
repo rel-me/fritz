@@ -26,7 +26,7 @@ public struct ChatToolDetails<Code: View>: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(title).font(.headline)
                 if let detail = detail {
-                    Text(detail).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text(detail).foregroundStyle(.secondary).chatTextSelection()
                 }
                 Text(status).font(.caption)
                 Text("Arguments").font(.subheadline.weight(.semibold))

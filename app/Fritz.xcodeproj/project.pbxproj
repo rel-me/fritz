@@ -32,6 +32,7 @@
 		7A7D36A32CBEC67C5684F50D /* ChatMessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A721DA543AEE01311130E2D /* ChatMessageRow.swift */; };
 		7DB130067F16C96A2ED867E8 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2449C729E0450165B195C266 /* ChatComposer.swift */; };
 		89B6D813E2FBEBA2A97810EB /* ProvidersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18739264547CAB0D6256B2E5 /* ProvidersView.swift */; };
+		8DDFD3E78BC0C05278E5EBC0 /* Inferno in Frameworks */ = {isa = PBXBuildFile; productRef = B3FD16680C7450D449DF981B /* Inferno */; };
 		8F147A4C15E74308B8D82119 /* FritzUpdates in Frameworks */ = {isa = PBXBuildFile; productRef = 63772291272E2EF06FD92CDD /* FritzUpdates */; };
 		9059AEEE3D804A479CB20541 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 68687E6286C4B45962191548 /* AppIcon.icon */; };
 		955EF7C684AAAAFCB7FA6A07 /* CommandLineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */; };
@@ -48,7 +49,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
 		0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStartScreenLayout.swift; sourceTree = "<group>"; };
 		18739264547CAB0D6256B2E5 /* ProvidersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvidersView.swift; sourceTree = "<group>"; };
 		1AB65E88BEA21E9ECFE860AE /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -78,6 +78,7 @@
 		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
 		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
 		B2862844991E65C805050ED5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
 		BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
 		C276B44B2FB70A4B459E4D10 /* ChatToolDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolDetails.swift; sourceTree = "<group>"; };
 		D074B702DF3BED67BF3C8EB4 /* Fritz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fritz.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -95,6 +96,7 @@
 				8F147A4C15E74308B8D82119 /* FritzUpdates in Frameworks */,
 				26EF816CE646BE429E794CA3 /* FritzState in Frameworks */,
 				A8BDF4E8FA544859D0934804 /* Textual in Frameworks */,
+				8DDFD3E78BC0C05278E5EBC0 /* Inferno in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +231,7 @@
 				63772291272E2EF06FD92CDD /* FritzUpdates */,
 				C7548171F5DA5137E90765D8 /* FritzState */,
 				F8FC8A9558DA38A6831276EC /* Textual */,
+				B3FD16680C7450D449DF981B /* Inferno */,
 			);
 			productName = FritzApp;
 			productReference = D074B702DF3BED67BF3C8EB4 /* Fritz.app */;
@@ -258,6 +261,7 @@
 			mainGroup = 3E6F5AFD4838A58E2A7EB54F;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				95774701E0DAEBF5DE3569E8 /* XCRemoteSwiftPackageReference "Inferno" */,
 				7B1FC3347CE9B6665A97E18D /* XCRemoteSwiftPackageReference "textual" */,
 				4873AF2189688B5BD73634CB /* XCLocalSwiftPackageReference ".." */,
 			);
@@ -520,12 +524,25 @@
 				version = 0.5.0;
 			};
 		};
+		95774701E0DAEBF5DE3569E8 /* XCRemoteSwiftPackageReference "Inferno" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/twostraws/Inferno";
+			requirement = {
+				kind = revision;
+				revision = a40c7a0bdec03aae1bd0b96c41d6a75451bafd2c;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		63772291272E2EF06FD92CDD /* FritzUpdates */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FritzUpdates;
+		};
+		B3FD16680C7450D449DF981B /* Inferno */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 95774701E0DAEBF5DE3569E8 /* XCRemoteSwiftPackageReference "Inferno" */;
+			productName = Inferno;
 		};
 		B6EFA99501077DBF8872E6C4 /* Fritz */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -8,6 +8,7 @@ let package = Package(
     dependencies: [
         .package(name: "Fritz", path: ".."),
         .package(url: "https://github.com/gonzalezreal/textual", exact: "0.5.0"),
+        .package(url: "https://github.com/twostraws/Inferno", revision: "a40c7a0bdec03aae1bd0b96c41d6a75451bafd2c"),
     ],
     targets: [
         .executableTarget(name: "FritzApp", dependencies: [
@@ -17,6 +18,7 @@ let package = Package(
             .product(name: "FritzUI", package: "Fritz"),
             .product(name: "FritzUpdates", package: "Fritz"),
             .product(name: "Textual", package: "textual"),
+            .product(name: "Inferno", package: "Inferno"),
         ], path: "Sources/Fritz"),
         .testTarget(name: "FritzTests", dependencies: ["FritzApp"]),
     ]
