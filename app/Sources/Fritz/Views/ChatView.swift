@@ -194,6 +194,7 @@ private struct ChatHeaderBlur: ViewModifier {
     let isEnabled: Bool
     let scrollGeometry: ChatHeaderScrollGeometry
     @State private var contentFrame: CGRect = .zero
+    private let blurRadius: CGFloat = 24
 
     private var viewportFrame: CGRect {
         contentFrame.offsetBy(dx: 0, dy: 28 - scrollGeometry.offset)
@@ -220,7 +221,11 @@ private struct ChatHeaderBlur: ViewModifier {
                     if overlapsHeader && isEnabled {
                         content
                             .environment(\.chatIsVisualEffectCopy, true)
-                            .variableBlur(radius: 24, maxSampleCount: 24) { geometry, context in
+                            // Inferno samples out to three times its radius. Give the
+                            // shader transparent space without reflowing the message.
+                            .frame(width: contentFrame.width)
+                            .padding(.horizontal, blurRadius * 3)
+                            .variableBlur(radius: blurRadius, maxSampleCount: 24) { geometry, context in
                                 let start = scrollGeometry.headerBottom - viewportFrame.minY
                                 context.fill(
                                     Path(CGRect(origin: .zero, size: geometry.size)),

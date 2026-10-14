@@ -43,6 +43,8 @@ the following surfaces, include these behaviors:
   The blur copy disables text selection so Inferno can render it as a SwiftUI
   layer; verify text and code selection still work in the original transcript.
   Check paragraphs and code blocks for shader placeholders while scrolling.
+  Blur must spread past the text column's left and right edges without a hard
+  cutoff, while message wrapping and alignment stay unchanged.
   Reduced Transparency fades the overlapping content without the blurred copy.
   With a long Markdown transcript, resize between minimum and wide window sizes
   and open/close the inspector, both at the bottom and while reading history.
