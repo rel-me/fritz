@@ -218,7 +218,8 @@ private struct ChatHeaderBlur: ViewModifier {
                 .overlay {
                     if overlapsHeader && isEnabled {
                         content
-                            .blur(radius: 18)
+                            .blur(radius: 24)
+                            .opacity(0.3)
                             .mask { edgeMask(blurred: true) }
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
@@ -231,7 +232,7 @@ private struct ChatHeaderBlur: ViewModifier {
 
     private func edgeMask(blurred: Bool) -> some View {
         let height = max(1, viewportFrame.height)
-        // Keep the blur strong behind the title, then blend into sharp text below it.
+        // Blur actual scrolling content, then blend into sharp text below the title.
         return LinearGradient(
             colors: blurred ? [.white, .clear] : [.clear, .white],
             startPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom - viewportFrame.minY) / height),

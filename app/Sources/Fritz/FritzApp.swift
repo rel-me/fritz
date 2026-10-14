@@ -170,14 +170,19 @@ private struct FritzWorkspaceView: View {
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
-                            chatView
-                                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
-                                .backgroundExtensionEffect()
-                                .safeAreaBar(edge: .top, spacing: 0) {
-                                    chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
-                                               threadTitle: thread.title)
-                                }
-                                .scrollEdgeEffectHidden(for: .top)
+                            GeometryReader { geometry in
+                                // Extend real transcript content behind the toolbar;
+                                // reserve its inset for the sharp foreground title.
+                                chatView
+                                    .safeAreaBar(edge: .top, spacing: 0) {
+                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                                   threadTitle: thread.title)
+                                            .padding(.top, geometry.safeAreaInsets.top)
+                                    }
+                                    .scrollEdgeEffectHidden(for: .top)
+                                    .ignoresSafeArea(.container, edges: .top)
+                                    .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+                            }
                         } else {
                             chatView
                                 .safeAreaInset(edge: .top, spacing: 0) {
