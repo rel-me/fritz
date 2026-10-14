@@ -18,7 +18,7 @@ public struct ChatResponseUsageFooter: View {
         .font(.caption)
         .monospacedDigit()
         .foregroundStyle(.secondary)
-        .textSelection(.enabled)
+        .chatTextSelection()
         .help("\(summary.modelName). Cached input is included in total tokens. \(summary.costSource == "rel.me" ? "Prices from REL’s model catalog. " : "")Provider billing is authoritative.")
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("chat-response-usage-footer")

@@ -1,3 +1,4 @@
+import Inferno
 import FritzUI
 import Fritz
 import SwiftUI
@@ -218,7 +219,18 @@ private struct ChatHeaderBlur: ViewModifier {
                 .overlay {
                     if overlapsHeader && isEnabled {
                         content
-                            .blur(radius: 24)
+                            .environment(\.chatIsVisualEffectCopy, true)
+                            .variableBlur(radius: 24, maxSampleCount: 24) { geometry, context in
+                                let start = scrollGeometry.headerBottom - viewportFrame.minY
+                                context.fill(
+                                    Path(CGRect(origin: .zero, size: geometry.size)),
+                                    with: .linearGradient(
+                                        Gradient(colors: [.white, .clear]),
+                                        startPoint: CGPoint(x: 0, y: start),
+                                        endPoint: CGPoint(x: 0, y: start + 28)
+                                    )
+                                )
+                            }
                             .opacity(0.3)
                             .mask { edgeMask(blurred: true) }
                             .allowsHitTesting(false)

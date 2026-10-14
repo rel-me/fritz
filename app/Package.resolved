@@ -1,6 +1,14 @@
 {
-  "originHash" : "47504975089069f6bf7f1ca477d1e5043260b80ed5c43afbf179399ba64ffdc5",
+  "originHash" : "d677a6eb62815198d844400ea18b872d9235c132b7ee9a56153c6c60feb1b538",
   "pins" : [
+    {
+      "identity" : "inferno",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/twostraws/Inferno",
+      "state" : {
+        "revision" : "a40c7a0bdec03aae1bd0b96c41d6a75451bafd2c"
+      }
+    },
     {
       "identity" : "sparkle",
       "kind" : "remoteSourceControl",

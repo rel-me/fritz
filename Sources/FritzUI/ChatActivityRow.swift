@@ -61,7 +61,7 @@ public struct ChatActivityRow<Details: View>: View {
             }
 
             if showsHeading, let headingDetail {
-                Text(headingDetail).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                Text(headingDetail).font(.caption).foregroundStyle(.secondary).chatTextSelection()
             }
 
             if !visibleActivities.isEmpty {
@@ -100,7 +100,7 @@ private struct ChatActivityItem<Details: View>: View {
                 }
         } else {
             label
-                .textSelection(.enabled)
+                .chatTextSelection()
         }
     }
 

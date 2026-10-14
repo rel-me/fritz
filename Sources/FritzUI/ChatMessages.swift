@@ -11,7 +11,7 @@ public struct ChatUserMessage: View {
 
             Text(content)
                 .font(.body)
-                .textSelection(.enabled)
+                .chatTextSelection()
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
@@ -42,7 +42,7 @@ public struct ChatErrorMessage: View {
                 Text(content)
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                    .chatTextSelection()
             }
 
             Spacer(minLength: 12)
@@ -80,3 +80,33 @@ public struct ChatStatusMessage: View {
     }
 }
 
+
+// Shader copies must remain SwiftUI-drawn; selection is owned by the original row.
+private struct ChatVisualEffectCopyKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+public extension EnvironmentValues {
+    var chatIsVisualEffectCopy: Bool {
+        get { self[ChatVisualEffectCopyKey.self] }
+        set { self[ChatVisualEffectCopyKey.self] = newValue }
+    }
+}
+
+private struct ChatTextSelection: ViewModifier {
+    @Environment(\.chatIsVisualEffectCopy) private var isVisualEffectCopy
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if isVisualEffectCopy {
+            content.textSelection(.disabled)
+        } else {
+            content.textSelection(.enabled)
+        }
+    }
+}
+
+public extension View {
+    func chatTextSelection() -> some View {
+        modifier(ChatTextSelection())
+    }
+}

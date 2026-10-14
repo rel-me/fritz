@@ -33,12 +33,16 @@ the following surfaces, include these behaviors:
   Shift-Return for a newline, Escape to stop, Markdown rendering, scrolling,
   error feedback, and switching threads while a response streams. A new thread
   shows only the composer, without an empty conversation message.
-  On macOS 26, verify that the chat header's 24-point Gaussian blur at 30% opacity affects only
+  On macOS 26, verify that the chat header's Inferno variable Gaussian blur
+  (up to 24 points at 30% opacity) affects only
   transcript content beneath it, with a gradual transition to sharp text below.
   Verify that actual scrolling content extends behind the toolbar to the top
   window edge, without reflection or repetition, while foreground controls stay sharp.
   Empty space must stay clear, with no material tint. Check the top of history,
   empty chats, thread switching, and inspector reflow in light and dark appearance.
+  The blur copy disables text selection so Inferno can render it as a SwiftUI
+  layer; verify text and code selection still work in the original transcript.
+  Check paragraphs and code blocks for shader placeholders while scrolling.
   Reduced Transparency fades the overlapping content without the blurred copy.
   With a long Markdown transcript, resize between minimum and wide window sizes
   and open/close the inspector, both at the bottom and while reading history.

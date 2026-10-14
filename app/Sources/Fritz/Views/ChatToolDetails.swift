@@ -22,7 +22,7 @@ private struct ChatToolCodeBlock: View {
         ScrollView([.horizontal, .vertical]) {
             Text(text.isEmpty ? "<empty>" : text)
                 .font(.system(.body, design: .monospaced))
-                .textSelection(.enabled)
+                .chatTextSelection()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
         }
