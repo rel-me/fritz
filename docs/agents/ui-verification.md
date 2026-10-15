@@ -105,7 +105,7 @@ The initial references were recorded with macOS 26.6.2 (25G83), Xcode 26.6
 compare on that baseline environment and review intentional OS upgrades.
 
 Coverage includes model search, empty/no-results, recents/selection, badges,
-Bedrock and generic adapter separation, wrapping provider filters, provider
+Bedrock and generic adapter separation, horizontal provider filters, provider
 categories/search, and enabled/disabled content, primary, inline, link, panel,
 and toolbar buttons in
 both color schemes. Floating Liquid Glass styles produce incomplete transparent

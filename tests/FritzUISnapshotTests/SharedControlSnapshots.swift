@@ -201,22 +201,22 @@ final class SharedControlSnapshots: XCTestCase {
     }
 
     func testProviderPickerPopulated() throws {
-        try snapshot(providerPicker(), name: "provider-populated", size: .init(width: 440, height: 420))
+        try snapshot(providerPicker(), name: "provider-populated", size: .init(width: 500, height: 420))
     }
 
     func testProviderPickerCategory() throws {
         try snapshot(providerPicker(category: "local"), name: "provider-local",
-                     size: .init(width: 440, height: 420))
+                     size: .init(width: 500, height: 420))
     }
 
     func testProviderPickerSearch() throws {
         try snapshot(providerPicker(query: "Bedrock"), name: "provider-search",
-                     size: .init(width: 440, height: 420))
+                     size: .init(width: 500, height: 420))
     }
 
     func testProviderPickerNoResults() throws {
         try snapshot(providerPicker(query: "missing"), name: "provider-no-results",
-                     size: .init(width: 440, height: 420))
+                     size: .init(width: 500, height: 420))
     }
 
     private func providerPicker(category: String = "all", query: String = "") -> some View {
