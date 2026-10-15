@@ -157,8 +157,11 @@ The repository must be enabled in the Blacksmith GitHub App for that job to run.
 The Mini uses `~/Builds/Fritz/ci/shared/<toolchain-fingerprint>` across CI runs. The
 fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
 change selects fresh storage. All runners in the dedicated CI account share Cargo
-outputs and package caches. `scripts/build-cache.py` holds the root's exclusive
-lock through compilation, tests, and staging, so competing commands wait until
+outputs and package caches. CI sets `CARGO_HOME` to
+`~/Builds/Fritz/ci/cargo-home` so Cargo downloads and package locks use a
+Fritz-owned directory instead of the runner account’s `~/.cargo` symlink.
+`scripts/build-cache.py` holds the root's exclusive lock through compilation,
+tests, and staging, so competing commands wait until
 the owner exits. SwiftPM scratch directories and Xcode DerivedData remain keyed
 by checkout path. The login-session lock still protects Keychain and UI tests.
 Source cleanup does not touch these directories, and there is no remote cache

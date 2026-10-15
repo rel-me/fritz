@@ -61,6 +61,10 @@ jobs:
           # build-cache.py holds the shared lock through builds, tests, and staging.
           # SwiftPM scratch and DerivedData remain isolated by checkout path.
           echo "FRITZ_BUILD_ROOT=$HOME/Builds/Fritz/ci/shared/$fingerprint" >> "$GITHUB_ENV"
+          # Keep Cargo downloads independent of the runner's ~/.cargo symlink.
+          cargo_home="$HOME/Builds/Fritz/ci/cargo-home"
+          mkdir -p "$cargo_home"
+          echo "CARGO_HOME=$cargo_home" >> "$GITHUB_ENV"
       - name: Check toolchains
         run: |
           xcodebuild -version
