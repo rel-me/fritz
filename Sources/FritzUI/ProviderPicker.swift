@@ -142,42 +142,47 @@ public struct ProviderPickerContent<Value>: View {
         .padding(6)
       }
     }
-    .frame(width: 440, height: 420, alignment: .top)
+    .frame(width: 500, height: 420, alignment: .top)
     .multilineTextAlignment(.leading)
     .onAppear { isSearchFocused = true }
   }
 
   private var categoryFilters: some View {
-    PickerFilterFlowLayout(spacing: 6) {
-      ForEach(categories) { category in
-        let isSelected = selectedCategory == category.id
-        Button {
-          selectedCategory = isSelected ? "all" : category.id
-        } label: {
-          Text(category.title)
-            .font(.callout)
-            .foregroundStyle(isSelected ? .primary : .secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(
-              isSelected
-                ? style.selectionFill
-                : hoveredCategory == category.id
-                  ? style.hoverFill
-                  : style.quietFill,
-              in: Capsule()
-            )
-            .overlay {
-              Capsule().stroke(isSelected ? style.border : Color.clear)
-            }
+    ScrollView(.horizontal) {
+      HStack(spacing: 6) {
+        ForEach(categories) { category in
+          let isSelected = selectedCategory == category.id
+          Button {
+            selectedCategory = isSelected ? "all" : category.id
+          } label: {
+            Text(category.title)
+              .fixedSize()
+              .font(.callout)
+              .foregroundStyle(isSelected ? .primary : .secondary)
+              .padding(.horizontal, 10)
+              .padding(.vertical, 5)
+              .background(
+                isSelected
+                  ? style.selectionFill
+                  : hoveredCategory == category.id
+                    ? style.hoverFill
+                    : style.quietFill,
+                in: Capsule()
+              )
+              .overlay {
+                Capsule().stroke(isSelected ? style.border : Color.clear)
+              }
+          }
+          .buttonStyle(FritzButtonStyle(.inline))
+          .accessibilityAddTraits(isSelected ? .isSelected : [])
+          .accessibilityIdentifier("provider-category-\(category.title.lowercased())")
+          .help(category.help)
+          .onHover { hoveredCategory = $0 ? category.id : nil }
         }
-        .buttonStyle(FritzButtonStyle(.inline))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityIdentifier("provider-category-\(category.title.lowercased())")
-        .help(category.help)
-        .onHover { hoveredCategory = $0 ? category.id : nil }
       }
     }
+    .scrollIndicators(.hidden)
+    .fixedSize(horizontal: false, vertical: true)
     .padding(.horizontal, 12)
     .padding(.bottom, 10)
   }
