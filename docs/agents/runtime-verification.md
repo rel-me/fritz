@@ -156,7 +156,9 @@ The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
 The Mini uses `~/Builds/Machine/Fritz/ci/shared/<toolchain-fingerprint>` across CI runs. The
 fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
-change selects fresh storage. All runners in the dedicated CI account share Cargo
+change selects fresh storage. CI sets `CARGO_HOME` to
+`~/Builds/Machine/Fritz/ci/cargo-home` for Cargo's registry and Git downloads,
+independent of the account's `~/.cargo` path. All runners in the dedicated CI account share Cargo
 outputs and package caches. `scripts/build-cache.py` holds the root's exclusive
 lock through compilation, tests, and staging, so competing commands wait until
 the owner exits. SwiftPM scratch directories and Xcode DerivedData remain keyed

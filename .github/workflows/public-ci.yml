@@ -27,6 +27,10 @@ jobs:
     steps:
       - name: Locate local build tools
         run: |
+          # Keep Cargo's writable registry/git cache independent of ~/.cargo,
+          # which may be a stale toolchain-storage symlink on a runner.
+          mkdir -p "$HOME/Builds/Machine/Fritz/ci/cargo-home"
+          echo "CARGO_HOME=$HOME/Builds/Machine/Fritz/ci/cargo-home" >> "$GITHUB_ENV"
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           echo /opt/homebrew/bin >> "$GITHUB_PATH"
           # Use Apple Git for checkout and builds without Homebrew's gettext dependency.
