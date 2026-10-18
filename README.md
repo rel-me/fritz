@@ -62,13 +62,13 @@ use only the host architecture; distribution keeps its existing architecture
 settings and always stages a fresh artifact.
 
 `make setup` installs sccache pinned in `mise.toml`. Compiler caches and immutable
-native Metal libraries live under `~/Builds/Fritz/compiler-cache/`. Unchanged
+native Metal libraries live under `~/Builds/Machine/Fritz/compiler-cache/`. Unchanged
 local builds reuse the signed app after checking source bytes, build settings,
 toolchain identity, bundled file hashes, and signatures. No compiler daemon
 starts on a reuse hit. Delete `dist/.build-reuse-release.json` or
 `dist/.build-reuse-debug.json` to force that configuration to compile and stage.
 
-Build storage lives under `~/Builds/Fritz` by default. Main and worktrees reuse
+Build storage lives under `~/Builds/Machine/Fritz` by default. Main and worktrees reuse
 Cargo outputs and Swift/Xcode package caches; SwiftPM scratch directories and
 Xcode DerivedData have separate subdirectories per checkout. Builds and tests
 serialize access to shared compiled outputs through tests and app staging.

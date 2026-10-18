@@ -9,7 +9,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD_ROOT = Path(os.environ.get("FRITZ_BUILD_ROOT", "~/Builds/Fritz")).expanduser().resolve()
+BUILD_ROOT = Path(os.environ.get("FRITZ_BUILD_ROOT", "~/Builds/Machine/Fritz")).expanduser().resolve()
 CHECKOUT = BUILD_ROOT / "worktrees" / hashlib.sha256(os.fsencode(ROOT)).hexdigest()[:16]
 
 
