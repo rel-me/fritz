@@ -154,9 +154,11 @@ The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
 The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-The Mini uses `~/Builds/Fritz/ci/shared/<toolchain-fingerprint>` across CI runs. The
+The Mini uses `~/Builds/Machine/Fritz/ci/shared/<toolchain-fingerprint>` across CI runs. The
 fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
-change selects fresh storage. All runners in the dedicated CI account share Cargo
+change selects fresh storage. CI sets `CARGO_HOME` to
+`~/Builds/Machine/Fritz/ci/cargo-home` for Cargo's registry and Git downloads,
+independent of the account's `~/.cargo` path. All runners in the dedicated CI account share Cargo
 outputs and package caches. `scripts/build-cache.py` holds the root's exclusive
 lock through compilation, tests, and staging, so competing commands wait until
 the owner exits. SwiftPM scratch directories and Xcode DerivedData remain keyed
@@ -172,7 +174,7 @@ removed when no build is using them. Removing a cache makes the next build cold.
 
 ## Build storage
 
-Make targets enter `scripts/build-cache.py`, which defaults to `~/Builds/Fritz`.
+Make targets enter `scripts/build-cache.py`, which defaults to `~/Builds/Machine/Fritz`.
 `FRITZ_BUILD_ROOT` overrides the root (including for direct script calls and
 release tools). The layout is:
 

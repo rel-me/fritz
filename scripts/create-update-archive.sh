@@ -22,7 +22,7 @@ if [[ -e "$archive" ]]; then
 fi
 # Keep release-only Python tools in the build cache, with locked wheel hashes.
 python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-tools="${FRITZ_BUILD_ROOT:-$HOME/Builds/Fritz}/release-tools/dmg-python-$python_version"
+tools="${FRITZ_BUILD_ROOT:-$HOME/Builds/Machine/Fritz}/release-tools/dmg-python-$python_version"
 requirements="$PWD/scripts/dmg-requirements.txt"
 if [[ ! -x "$tools/bin/python3" ]]; then
   python3 -m venv "$tools"
