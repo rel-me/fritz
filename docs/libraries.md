@@ -620,3 +620,55 @@ free. Missing counters/rates and unsupported service tiers show unavailable cost
 Total-only usage can still show tokens without inventing input/output costs.
 
 `ModelPickerPopover` accepts `supportedProviders`, `configuredProviderIDs`, and an `addProvider` callback to expose setup from provider filters. Pass configured IDs from saved connections rather than discovered models. `PickerProvider.chatProviders` supplies the supported language-model presets. `ModelsProviderEditor(initialPreset:)` selects a preset for a new connection; an existing connection retains its saved provider. `ModelPickerLabel` shares the compact composer display.
+
+### Registered @ references
+
+Hosts can opt into the shared composer's reference picker with a host-owned
+`ChatMentionRegistry` and a `Binding<ChatMentionDraft>`. The existing string-draft
+initializer stays available. Register plugins, artifacts, or entities using stable,
+source-scoped IDs. Refreshing a source replaces its entries; unregister it on
+account changes or removal. Invalid entries or duplicate IDs reject the entire
+refresh with an actionable error and preserve the existing catalog. No global catalog or host discovery is involved.
+
+```swift
+let references = ChatMentionRegistry() // main actor; retain in host state
+try references.register(source: "profiles", items: [
+    ChatMentionItem(id: .init(source: "profiles", value: "reddit-profile-id"),
+                    name: "Reddit", kind: .entity, detail: "Social profile")
+])
+try references.register(source: "proxies", items: [
+    ChatMentionItem(id: .init(source: "proxies", value: "oxylabs-proxy-id"),
+                    name: "Oxylabs", kind: .entity, detail: "Proxy")
+])
+// In a View with @State var draft = ChatMentionDraft() and @FocusState var focused:
+FritzUI.ChatComposer(mentions: $draft, registry: references,
+                     placeholder: "Message", canSend: !draft.text.isEmpty,
+                     isResponding: false, isFocused: $focused,
+                     send: { send(draft.text, draft.references) }, stop: {}) {
+    modelControls
+}
+```
+
+Type `@` at a word boundary and filter by name or detail. Use Up/Down and
+Return/Tab to select, or click a result; Escape dismisses. Queries apply at the
+caret, including in the middle of a draft, and exclude email addresses. The
+picker displays the source to distinguish similarly named entries. A mention
+with spaces in its name can be chosen by searching the start of its name.
+
+`ChatMentionDraft` stores text and explicit selections together as a Codable
+value. Each reference captures its stable item ID, display metadata and UTF-16
+range. Persist the complete value per conversation. `updateText` shifts references
+when preceding text changes and removes references edited internally. If repeated
+identical text makes an edit location ambiguous, affected references become plain
+text rather than risking a different entity identity. Deleting
+or undoing a selection removes its reference; retyping or redoing plain text
+does not recreate an identity. Ordinary typed `@Reddit` remains plain text.
+
+On send, the host must validate IDs against its current account/catalog, resolve
+permitted context or route actions, and persist the selected references with its
+message if needed. Selection alone activates no plugin and grants no permissions.
+Catalog removal does not silently change a saved selection. Keep secrets and
+private entity payloads out of display metadata; resolve them in host code. This
+API does not change the Fritz agent protocol or automatically send metadata to a
+model. Fritz.app currently registers no built-in mention sources; embedding
+hosts supply their own catalogs and send policy.

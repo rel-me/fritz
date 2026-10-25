@@ -28,7 +28,7 @@ metadata, private-pipe transport, appearance and CLI installation),
 **FritzUpdates** (Sparkle lifecycle and update policy). The **fritz** Rust library
 exposes provider networking, host-scoped registry/Keychain/model storage, native
 inference and the current folder actions. The app's executable module is **FritzApp**; the
-product remains **Fritz.app**. See [the library guide](docs/libraries.md) for
+product remains **Fritz.app**. The shared chat composer supports host-registered `@` references to plugins, artifacts, and entities. See [the library guide](docs/libraries.md) for
 Git dependency examples, public APIs, ownership and the planned REL adoption.
 
 For shared UI visual regression checks, run `make check-ui-snapshots`. See
