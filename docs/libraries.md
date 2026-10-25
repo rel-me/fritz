@@ -143,7 +143,8 @@ model store, and `local::generate_with_engine` uses that host-created engine.
 The root package also exports `Bonsplit`, the self-contained MIT-licensed package
 in `Packages/Bonsplit`. It includes the REL tab customization: rounded selected
 tab shoulders, adaptive strip/content/hover colors, reserved close targets,
-passive AppKit hover tracking, compact tabs, selected-tab-preserving overflow,
+passive AppKit hover tracking, compact tabs with tail-truncated titles and reduced
+padding, selected-tab-preserving overflow,
 drag reordering, context menus, split panes and `BonsplitNewTabButton`.
 See the package's `REL_PATCHES.md` for provenance and Fritz adaptations.
 
