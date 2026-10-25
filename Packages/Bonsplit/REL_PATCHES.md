@@ -12,7 +12,8 @@ It also makes `allowCloseTabs` control close-button visibility as documented,
 in addition to rejecting close operations in the controller.
 
 Regular-width tab close controls stay mounted while hidden. Compact tabs show
-tail-truncated titles instead of icons, reduce horizontal padding, and reveal
+tail-truncated titles instead of icons whenever their allocated width falls below
+the title’s preferred width, reduce horizontal padding, and reveal
 the close control on hover without reserving its space while idle. Passive AppKit tracking areas
 report hover independently of SwiftUI drag targets and refresh against the
 current pointer when layout changes, including scrolling and tab selection.

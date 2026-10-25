@@ -22,7 +22,8 @@ struct TabItemView: View {
     }
 
     private var isCompact: Bool {
-        (allocatedWidth ?? appearance.tabMaxWidth) < 100
+        (allocatedWidth ?? appearance.tabMaxWidth)
+            < BonsplitTabStyle.tabWidth(title: tab.title, hasIcon: tab.icon != nil)
     }
 
     var body: some View {

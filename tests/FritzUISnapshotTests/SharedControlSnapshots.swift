@@ -10,14 +10,16 @@ import XCTest
 @MainActor
 final class SharedControlSnapshots: XCTestCase {
     func testCompressedTabTitles() throws {
-        for width in [340, 450, 780] {
+        let longTitles = (1...5).map { "Session\($0) research notes" }
+        let sessions = ["Session1", "Session27", "Session30", "Session9", "Session25", "Session28", "Session31", "Session32"]
+        for (width, titles) in [(340, longTitles), (450, longTitles), (780, longTitles), (1050, sessions)] {
             let controller = BonsplitController(configuration: .init(
                 allowSplits: false,
                 appearance: .init(showSplitButtons: false, enableAnimations: false)
             ))
             for id in controller.allTabIds { _ = controller.closeTab(id) }
-            for index in 1...5 {
-                _ = controller.createTab(title: "Session\(index) research notes", icon: "globe")
+            for title in titles {
+                _ = controller.createTab(title: title, icon: "globe")
             }
             let strip = BonsplitTabBar(controller: controller, createTab: {})
                 .frame(width: CGFloat(width), height: BonsplitTabStyle.barHeight)
