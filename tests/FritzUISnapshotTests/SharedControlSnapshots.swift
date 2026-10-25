@@ -1,4 +1,5 @@
 import AppKit
+import Bonsplit
 @testable import FritzUI
 import Fritz
 import Observation
@@ -8,6 +9,23 @@ import XCTest
 
 @MainActor
 final class SharedControlSnapshots: XCTestCase {
+    func testCompressedTabTitles() throws {
+        for width in [340, 450, 780] {
+            let controller = BonsplitController(configuration: .init(
+                allowSplits: false,
+                appearance: .init(showSplitButtons: false, enableAnimations: false)
+            ))
+            for id in controller.allTabIds { _ = controller.closeTab(id) }
+            for index in 1...5 {
+                _ = controller.createTab(title: "Session\(index) research notes", icon: "globe")
+            }
+            let strip = BonsplitTabBar(controller: controller, createTab: {})
+                .frame(width: CGFloat(width), height: BonsplitTabStyle.barHeight)
+            try snapshot(strip, name: "compressed-tab-titles-\(width)",
+                         size: .init(width: width, height: 50))
+        }
+    }
+
     func testResponseUsageFooter() throws {
         let call = ChatUsageCall(reported: true, inputTokens: 12_000, outputTokens: 340, totalTokens: 12_340, cachedInputTokens: 8_000)
         let partial = ChatUsageCall(reported: false, inputTokens: 100, outputTokens: 0, totalTokens: 100)

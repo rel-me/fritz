@@ -26,33 +26,34 @@ struct TabItemView: View {
     }
 
     var body: some View {
-        HStack(spacing: TabBarMetrics.contentSpacing) {
+        HStack(spacing: isCompact ? 4 : TabBarMetrics.contentSpacing) {
             // Icon
-            if let iconName = tab.icon {
+            if !isCompact, let iconName = tab.icon {
                 Image(systemName: iconName)
                     .font(.system(size: TabBarMetrics.iconSize))
                     .frame(width: TabBarMetrics.iconSize, height: TabBarMetrics.iconSize)
                     .foregroundStyle(Color(nsColor: BonsplitTabStyle.iconForeground))
             }
 
-            if !isCompact || tab.icon == nil {
-                Text(tab.title)
-                    .font(.system(size: TabBarMetrics.titleFontSize))
-                    .lineLimit(1)
-                    .foregroundStyle(isSelected ? TabBarColors.activeText : TabBarColors.inactiveText)
-            }
+            Text(tab.title)
+                .font(.system(size: TabBarMetrics.titleFontSize))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: isCompact ? .infinity : nil, alignment: .leading)
+                .foregroundStyle(isSelected ? TabBarColors.activeText : TabBarColors.inactiveText)
 
             if !isCompact {
                 Spacer(minLength: 4)
             }
 
-            // Close button or dirty indicator
-            if allowsClose || tab.isDirty {
+            // Compact tabs give space to the title until the close control is revealed.
+            // Keep unsaved-state feedback visible at every width.
+            if (allowsClose && (!isCompact || isCloseVisible)) || tab.isDirty {
                 closeOrDirtyIndicator
             }
         }
-        .padding(.leading, TabBarMetrics.tabHorizontalPadding)
-        .padding(.trailing, BonsplitTabStyle.tabTrailingPadding)
+        .padding(.leading, isCompact ? 6 : TabBarMetrics.tabHorizontalPadding)
+        .padding(.trailing, isCompact ? 6 : BonsplitTabStyle.tabTrailingPadding)
         .frame(
             minWidth: allocatedWidth ?? appearance.tabMinWidth,
             maxWidth: allocatedWidth ?? appearance.tabMaxWidth,

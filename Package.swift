@@ -20,7 +20,7 @@ let package = Package(
         .testTarget(name: "BonsplitTests", dependencies: ["Bonsplit"], path: "Packages/Bonsplit/Tests/BonsplitTests", swiftSettings: [.swiftLanguageMode(.v5)]),
         .target(name: "FritzUI", dependencies: ["Fritz", "Bonsplit"]),
         .testTarget(name: "FritzUISnapshotTests", dependencies: [
-            "FritzUI",
+            "FritzUI", "Bonsplit",
             .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
         ], path: "tests/FritzUISnapshotTests", exclude: ["__Snapshots__"]),
         .testTarget(name: "FritzUITests", dependencies: ["FritzUI"], path: "tests/FritzUITests"),
