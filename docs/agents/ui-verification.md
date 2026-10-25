@@ -74,6 +74,22 @@ the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
+## Native keyboard interaction tests
+
+`ChatMentionComposerTests` activates a real window and sends native keyboard
+input. Run it from the unlocked, foreground macOS account being tested; a
+background CI login session cannot guarantee that the window becomes
+`NSApp.keyWindow`. Ordinary `make test` skips this interactive test while still
+running the mention registry and draft tests. Opt in explicitly:
+
+```sh
+FRITZ_INTERACTIVE_UI_TESTS=1 python3 scripts/build-cache.py sh -c \
+  'swift test --scratch-path "$FRITZ_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --filter ChatMentionComposerTests'
+```
+
+The opt-in run retains all focus and keyboard assertions; unavailable focus is a
+failure, not a successful interaction check.
+
 ## Shared UI snapshots
 
 `tests/FritzUISnapshotTests` compares the public FritzUI controls using

@@ -27,6 +27,9 @@ final class ChatMentionComposerTests: XCTestCase {
     }
 
     func testNativeSelectionInsertsIdentityBeforeReturnSends() throws {
+        guard ProcessInfo.processInfo.environment["FRITZ_INTERACTIVE_UI_TESTS"] == "1" else {
+            throw XCTSkip("Requires foreground keyboard focus; see docs/agents/ui-verification.md for the opt-in command.")
+        }
         let state = State()
         let reddit = ChatMentionItem(id: .init(source: "profiles", value: "reddit"),
                                     name: "Reddit", kind: .entity)
