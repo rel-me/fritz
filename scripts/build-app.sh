@@ -74,7 +74,7 @@ python3 scripts/parallel-build.py "$PWD/dist/build-logs" \
   FRITZ_PRODUCT_NAME="$app_name" PRODUCT_BUNDLE_IDENTIFIER="$bundle_id" \
   MARKETING_VERSION="$FRITZ_VERSION" \
   CURRENT_PROJECT_VERSION="$FRITZ_BUILD_NUMBER" \
-  "${xcode_cache_settings[@]}" "${local_build_settings[@]}" CODE_SIGNING_ALLOWED=NO build
+  "${xcode_cache_settings[@]}" ${local_build_settings[@]+"${local_build_settings[@]}"} CODE_SIGNING_ALLOWED=NO build
 
 xcode_bundle="$FRITZ_DERIVED_DATA/Build/Products/$xcode_configuration/$app_name.app"
 test -d "$xcode_bundle" || { echo "error: missing $xcode_bundle" >&2; exit 1; }
