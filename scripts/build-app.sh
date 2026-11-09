@@ -60,6 +60,11 @@ if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
     [[ "$status" == 10 ]] || exit "$status"
   fi
 else
+  git diff --quiet HEAD || {
+    echo "error: commit tracked changes before building a distribution artifact" >&2
+    exit 1
+  }
+  distribution_commit="$(git rev-parse HEAD)"
   # Distribution replaces the same bundle; discard local reuse metadata first.
   rm -f "dist/.build-reuse-$configuration.json"
 fi
@@ -75,6 +80,13 @@ python3 scripts/parallel-build.py "$PWD/dist/build-logs" \
   MARKETING_VERSION="$FRITZ_VERSION" \
   CURRENT_PROJECT_VERSION="$FRITZ_BUILD_NUMBER" \
   "${xcode_cache_settings[@]}" ${local_build_settings[@]+"${local_build_settings[@]}"} CODE_SIGNING_ALLOWED=NO build
+
+if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
+  git diff --quiet "$distribution_commit" || {
+    echo "error: source changed during distribution compilation; rebuild from a committed checkout" >&2
+    exit 1
+  }
+fi
 
 xcode_bundle="$FRITZ_DERIVED_DATA/Build/Products/$xcode_configuration/$app_name.app"
 test -d "$xcode_bundle" || { echo "error: missing $xcode_bundle" >&2; exit 1; }
@@ -127,4 +139,15 @@ if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
   python3 scripts/app-build-reuse.py record "$app_bundle" "${reuse_settings[@]}"
 fi
 printf '%s\n' "$app_bundle" > dist/.last-built-app
+if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
+  python3 - "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$distribution_commit" <<'PYSOURCE'
+import json
+import sys
+from pathlib import Path
+Path('dist/release-source.json').write_text(json.dumps({
+    'version': sys.argv[1], 'build': sys.argv[2],
+    'commit': sys.argv[3],
+}) + '\n')
+PYSOURCE
+fi
 echo "Built $app_bundle"

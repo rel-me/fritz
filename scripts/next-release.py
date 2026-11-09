@@ -2,6 +2,7 @@
 """Select an unused prerelease version and preserve published appcast history."""
 
 import argparse
+import json
 import os
 import plistlib
 import re
@@ -44,6 +45,7 @@ def main() -> None:
     parser.add_argument("published_appcast", type=Path)
     parser.add_argument("--explicit-version", action="store_true")
     parser.add_argument("--explicit-build", action="store_true")
+    parser.add_argument("--github-inventory", type=Path)
     args = parser.parse_args()
     version = version_tuple(args.version)
     build = build_number(args.build)
@@ -58,6 +60,10 @@ def main() -> None:
             for item in tree.getroot().findall("./channel/item"):
                 versions.append(version_tuple(item.findtext(f"{{{SPARKLE}}}shortVersionString", "")))
                 builds.append(build_number(item.findtext(f"{{{SPARKLE}}}version", "")))
+    if args.github_inventory:
+        for source in json.loads(args.github_inventory.read_text()):
+            versions.append(version_tuple(source['version']))
+            builds.append(build_number(source['build']))
     for archive in updates.glob("Fritz-*.dmg"):
         versions.append(version_tuple(archive.name.removeprefix("Fritz-").removesuffix(".dmg")))
     plist = Path("dist/Fritz.app/Contents/Info.plist")

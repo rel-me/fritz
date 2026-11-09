@@ -36,3 +36,9 @@ one-time Cloudflare setup, credentials, and verification.
 version and build number, so version overrides used to build an update do not need to be
 repeated for publication or promotion. Keep the staged app, DMG, and appcast together
 until publication and promotion finish.
+
+Beta and Release publications also appear on
+[GitHub Releases](https://github.com/rel-me/fritz/releases), with the same notarized
+DMG and a SHA-256 checksum. Beta entries are marked as prereleases; promotion
+updates the same entry to a full Release. Staging updates remain on Fritz's
+update service. See [the release procedure](agents/releases.md#github-releases).

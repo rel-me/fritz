@@ -75,7 +75,8 @@ class PrereleaseVersionTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         scripts = self.root / "scripts"
         scripts.mkdir()
-        for name in ("prerelease.sh", "release-config.sh", "build-cache.py", "next-release.py"):
+        for name in ("prerelease.sh", "release-config.sh", "build-cache.py", "next-release.py",
+                     "publish-github-release.py"):
             shutil.copy2(SCRIPT.parent / name, scripts / name)
         (self.root / "Cargo.toml").write_text('version = "0.1.1"\n')
         (self.root / "app").mkdir()
@@ -112,6 +113,18 @@ else:
     print(os.environ.get('HTTP_STATUS', '404'), end='')
 """)
         self.executable(self.bin / "codesign", "import sys\nprint('Authority=Developer ID Application: Test', file=sys.stderr)\n")
+        self.executable(self.bin / "gh", """import json, os, sys
+if sys.argv[1] == 'api':
+    if sys.argv[-1] == 'repos/rel-me/fritz':
+        print(json.dumps({'permissions': {'push': True}}))
+    elif os.environ.get('GH_VERSION'):
+        v = os.environ['GH_VERSION']
+        print(json.dumps([[{'tag_name': 'v'+v, 'assets': [{'name': 'Fritz-'+v+'.source.json'}]}]]))
+    else:
+        print('[[]]')
+else:
+    print(json.dumps({'version': os.environ['GH_VERSION'], 'build': os.environ['GH_BUILD'], 'commit': 'a'*40}))
+""")
         for name in ("xcrun", "npx"):
             self.executable(self.bin / name, "")
         self.executable(scripts / "build-app.sh", """import json, os, plistlib
@@ -168,6 +181,11 @@ Path('prepared.json').write_text(json.dumps([sys.argv[1], Path('dist/updates/app
                     f'{{{release.SPARKLE}}}version') == '3').find(f'{{{release.SPARKLE}}}channel'))
                 self.assertEqual(old.read_bytes(), b'immutable old archive')
 
+        # GitHub-only releases also reserve their version and build number.
+        result = self.run_release('beta', GH_VERSION='0.1.8', GH_BUILD='9')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads((self.root / 'built.json').read_text()), ['0.1.9', '10'])
+
     def test_clean_checkout_and_first_publication(self):
         for remote, expected in ((True, ["0.1.3", "4"]), (False, ["0.1.1", "2"])):
             with self.subTest(remote=remote):
@@ -222,7 +240,7 @@ class PublicationTests(unittest.TestCase):
             scripts = root / "scripts"
             scripts.mkdir()
             for name in ("publish-update.sh", "promote-release.sh", "promote-update.py",
-                         "release-config.sh", "build-cache.py"):
+                         "release-config.sh", "build-cache.py", "publish-github-release.py"):
                 shutil.copy2(SCRIPT.parent / name, scripts / name)
             (root / "Cargo.toml").write_text('version = "0.1.1"\n')
             (root / "app").mkdir()
@@ -236,6 +254,9 @@ class PublicationTests(unittest.TestCase):
             updates.mkdir()
             archive = updates / "Fritz-0.1.2.dmg"
             archive.write_bytes(b"immutable notarized archive")
+            archive.with_suffix('.source.json').write_text(json.dumps({
+                'version': '0.1.2', 'build': '3', 'commit': 'a' * 40,
+            }))
             (updates / "Fritz-0.1.1.dmg").write_bytes(b"previous release")
             signature = base64.b64encode(bytes(range(64))).decode()
             appcast = updates / "appcast.xml"
@@ -289,6 +310,47 @@ if '-o' in sys.argv:
 else:
     print('Content-Length: {archive.stat().st_size}')
 """)
+            github_state = root / 'github.json'
+            executable(bin_dir / "gh", r'''import hashlib, json, os, pathlib, sys
+args = sys.argv[1:]
+path = pathlib.Path('github.json')
+state = json.loads(path.read_text()) if path.exists() else None
+if os.environ.get('GH_FAILURE'):
+    print('authentication failed (HTTP 403)', file=sys.stderr)
+    sys.exit(1)
+if args[0] == 'api':
+    if args[1] == 'repos/rel-me/fritz':
+        print(json.dumps({'permissions': {'push': True}}))
+    elif state and not state['isDraft']:
+        print(json.dumps({'sha': state['targetCommitish']}))
+    else:
+        print('not found (HTTP 404)', file=sys.stderr)
+        sys.exit(1)
+elif args[:2] == ['release', 'view']:
+    if state:
+        print(json.dumps(state))
+    else:
+        print('release not found', file=sys.stderr)
+        sys.exit(1)
+elif args[:2] == ['release', 'create']:
+    state = {'tagName': args[2], 'targetCommitish': args[args.index('--target') + 1],
+             'isDraft': True, 'isPrerelease': '--prerelease=true' in args, 'assets': []}
+elif args[:2] == ['release', 'upload']:
+    if os.environ.get('GH_UPLOAD_FAILURE'):
+        raise SystemExit('upload interrupted')
+    for filename in args[3:args.index('--repo')]:
+        file = pathlib.Path(filename)
+        state['assets'].append({'name': file.name,
+            'digest': 'sha256:' + hashlib.sha256(file.read_bytes()).hexdigest()})
+    state['uploadCount'] = state.get('uploadCount', 0) + 1
+elif args[:2] == ['release', 'edit']:
+    state.update(isDraft=False, isPrerelease='--prerelease=true' in args,
+                 latest='--latest=true' in args)
+else:
+    raise SystemExit(f'unexpected gh command: {args}')
+if state:
+    path.write_text(json.dumps(state))
+''')
             original_archive = archive.read_bytes()
             for invocation in ("publish-staging", "publish-beta", "promote", "retry-promote"):
                 with self.subTest(invocation=invocation):
@@ -302,6 +364,12 @@ else:
                         args = [str(scripts / "publish-update.sh"), channel]
                     else:
                         args = [str(scripts / "promote-release.sh")]
+                    if invocation == 'publish-beta':
+                        # An interrupted first upload leaves a draft; the real retry resumes it.
+                        result = subprocess.run([sys.executable, str(scripts / 'publish-github-release.py'), 'beta'],
+                            cwd=root, env=dict(environment, GH_UPLOAD_FAILURE='1'), capture_output=True, text=True)
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertTrue(json.loads(github_state.read_text())['isDraft'])
                     result = subprocess.run(["/bin/bash", *args], env=environment,
                                             capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stderr)
@@ -314,11 +382,46 @@ else:
                     dmgs = [args for args in operations if "fritz-updates/updates/Fritz-0.1.2.dmg" in args]
                     self.assertEqual(len(dmgs), 1 if channel != "release" else 0)
                     self.assertEqual(archive.read_bytes(), original_archive)
+                    if channel == 'staging':
+                        self.assertFalse(github_state.exists())
+                    else:
+                        self.assertTrue(github_state.exists(), 'Beta/Release must create a GitHub Release')
+                        github = json.loads(github_state.read_text())
+                        self.assertEqual(github['tagName'], 'v0.1.2')
+                        self.assertEqual(github['targetCommitish'], 'a' * 40)
+                        self.assertFalse(github['isDraft'])
+                        self.assertEqual(github['isPrerelease'], channel == 'beta')
+                        self.assertEqual(github['latest'], channel == 'release')
+                        self.assertEqual(github['uploadCount'], 1)
+                        self.assertEqual({a['name'] for a in github['assets']},
+                                         {'Fritz-0.1.2.dmg', 'SHA256SUMS.txt', 'Fritz-0.1.2.source.json'})
+            # Retrying Beta cannot demote the same artifact after promotion.
+            helper = [sys.executable, str(scripts / 'publish-github-release.py')]
+            result = subprocess.run([*helper, 'beta'], cwd=root, env=environment,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(json.loads(github_state.read_text())['isPrerelease'])
+            immutable_release = github_state.read_bytes()
+            archive.write_bytes(b'different notarized bytes')
+            result = subprocess.run([*helper, 'release'], cwd=root, env=environment,
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('refusing to overwrite', result.stderr)
+            self.assertEqual(github_state.read_bytes(), immutable_release)
+            archive.write_bytes(original_archive)
+            # GitHub auth failures must stop before publishing an update feed.
+            commands.unlink()
+            result = subprocess.run(['/bin/bash', str(scripts / 'publish-update.sh'), 'release'],
+                                    env=dict(environment, GH_FAILURE='1'), capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('HTTP 403', result.stderr)
+            self.assertFalse(commands.exists())
+
             # Replacing the staged app must not let an unrelated artifact publish.
             (contents / "Info.plist").write_bytes(plistlib.dumps({
                 "CFBundleShortVersionString": "0.1.2", "CFBundleVersion": "4",
             }))
-            commands.unlink()
+            commands.unlink(missing_ok=True)
             result = subprocess.run(["/bin/bash", str(scripts / "publish-update.sh"), "release"],
                                     env=environment, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
