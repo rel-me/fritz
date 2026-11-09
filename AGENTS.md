@@ -78,6 +78,12 @@ exists, preserving its descriptive title. After pushing, finish without polling
 CI or reviews unless the user explicitly requests monitoring. Never describe
 unperformed verification as passing.
 
+## Release publication
+
+When cutting a Beta or Release, also publish its notarized DMG and checksum to
+GitHub Releases. Beta uses a prerelease entry; promotion updates the same entry
+to a full Release. Follow [the release procedure](docs/agents/releases.md).
+
 ## Commits and pull requests
 
 For repository changes, make a focused conventional commit on the current

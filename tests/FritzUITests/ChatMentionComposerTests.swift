@@ -33,14 +33,13 @@ final class ChatMentionComposerTests: XCTestCase {
         try state.registry.register(source: "profiles", items: [reddit,
             .init(id: .init(source: "profiles", value: "oxylabs"), name: "Oxylabs", kind: .entity)
         ])
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
-                              styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
+                              styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: Fixture(state: state))
-        let previousPolicy = NSApp.activationPolicy()
-        defer { NSApp.setActivationPolicy(previousPolicy) }
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate()
+        // The runner may not own application activation. A native nonactivating
+        // panel still accepts keyboard focus and exercises the real field editor.
+        window.hidesOnDeactivate = false
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
         let timeout = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { _ in

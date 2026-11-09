@@ -62,6 +62,10 @@ if not enclosure.get(f'{sparkle}edSignature'):
     raise SystemExit('appcast update is unsigned')
 PY
 
+if [[ "$channel" != staging ]]; then
+  python3 scripts/publish-github-release.py "$channel" --check
+fi
+
 sign_update="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update"
 test -x "$sign_update" || { echo "error: pinned Sparkle sign_update is unavailable" >&2; exit 1; }
 actual_signature="$("$sign_update" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p "$archive")"
@@ -115,4 +119,7 @@ live_length="$(printf '%s\n' "$live_headers" | tr -d '\r' | awk '
 [[ "$live_length" == "$(stat -f %z "$archive")" ]] || {
   echo "error: live Fritz archive length differs from $archive" >&2; exit 1;
 }
+if [[ "$channel" != staging ]]; then
+  python3 scripts/publish-github-release.py "$channel"
+fi
 echo "Published Fritz $version ($build) $channel update."

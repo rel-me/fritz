@@ -20,6 +20,14 @@ if [[ -e "$archive" ]]; then
   echo "error: update archive already exists at $archive" >&2
   exit 1
 fi
+python3 - "$version" "$build" <<'PYSOURCE'
+import json
+import sys
+from pathlib import Path
+source = json.loads(Path('dist/release-source.json').read_text())
+if (source['version'], source['build']) != tuple(sys.argv[1:]):
+    raise SystemExit('Release source metadata differs from the staged app; rebuild for distribution.')
+PYSOURCE
 # Keep release-only Python tools in the build cache, with locked wheel hashes.
 python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 tools="${FRITZ_BUILD_ROOT:-$HOME/Builds/Machine/Fritz}/release-tools/dmg-python-$python_version"
@@ -46,5 +54,8 @@ dmgbuild.build_dmg(sys.argv[1], 'Fritz', settings_file='scripts/dmg-settings.py'
                    detach_retries=3)
 PYBUILD
 hdiutil verify "$work/installer.dmg" >/dev/null
+codesign --force --sign "$identity" --timestamp "$work/installer.dmg"
+codesign --verify --strict "$work/installer.dmg"
+cp dist/release-source.json "dist/updates/Fritz-$version.source.json"
 mv "$work/installer.dmg" "$archive"
 echo "Created $archive"

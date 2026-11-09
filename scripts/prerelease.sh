@@ -37,7 +37,8 @@ if [[ "$FRITZ_SPARKLE_FEED_URL" != https://* ||
   exit 1
 fi
 published_appcast="$(mktemp "${TMPDIR:-/tmp}/fritz-published-appcast.XXXXXX")"
-trap 'rm -f "$published_appcast"' EXIT
+github_inventory="${published_appcast}.github.json"
+trap 'rm -f "$published_appcast" "$github_inventory"' EXIT
 status="$(curl --silent --show-error --location --retry 2 --max-time 30 \
   --output "$published_appcast" --write-out '%{http_code}' "$FRITZ_SPARKLE_FEED_URL")"
 case "$status" in
@@ -48,6 +49,10 @@ esac
 selection_args=("$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$published_appcast")
 if [[ -n "$explicit_version" ]]; then selection_args+=("$explicit_version"); fi
 if [[ -n "$explicit_build" ]]; then selection_args+=("$explicit_build"); fi
+if [[ "$channel" == beta ]]; then
+  python3 scripts/publish-github-release.py "$channel" --inventory "$github_inventory"
+  selection_args+=(--github-inventory "$github_inventory")
+fi
 next="$(python3 scripts/next-release.py "${selection_args[@]}")"
 read -r FRITZ_VERSION FRITZ_BUILD_NUMBER <<< "$next"
 export FRITZ_VERSION FRITZ_BUILD_NUMBER
@@ -55,6 +60,9 @@ archive="dist/updates/Fritz-$FRITZ_VERSION.dmg"
 echo "Preparing Fritz $FRITZ_VERSION ($FRITZ_BUILD_NUMBER) for $channel."
 
 # Check credentials before spending time on the release build.
+if [[ "$channel" == beta ]]; then
+  python3 scripts/publish-github-release.py "$channel" --check
+fi
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
 key_tool="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
 test -x "$key_tool" || { echo "error: run make setup to resolve Sparkle tools" >&2; exit 1; }

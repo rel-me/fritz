@@ -155,3 +155,37 @@ Release defaults in `scripts/release-config.sh` can be overridden through
 `FRITZ_HOMEPAGE_URL`. If the hostname changes, update the Worker custom domain
 and `FRITZ_RELEASE_BASE_URL` together. The private Sparkle key is never placed
 in the repository, an environment variable, or the app bundle.
+
+## GitHub Releases
+
+Beta and Release publications also publish the same notarized DMG and
+`SHA256SUMS.txt`, and per-version source metadata to [GitHub Releases](https://github.com/rel-me/fritz/releases).
+Staging stays on the Fritz update service. Authenticate GitHub CLI with
+`gh auth login` using an account with write access to `rel-me/fritz` before
+running `make beta`, `make publish-beta`, or `make promote`.
+
+Beta version selection includes GitHub releases as well as local artifacts and
+the published appcast, preventing reuse of GitHub-only versions and build numbers.
+Each GitHub release must retain its `Fritz-{version}.source.json` asset for this
+inventory. An incomplete draft or missing metadata stops selection with an error.
+
+Commit tracked changes before a distribution build. The build records its
+source commit, version, and build number in `dist/release-source.json`;
+archive creation keeps a per-version copy at
+`dist/updates/Fritz-{version}.source.json`. Keep that file alongside the staged
+app, DMG, and appcast for publication and promotion. GitHub tags use that recorded
+commit even if publication is retried from a later checkout. Archives prepared
+before source metadata was introduced need a new distribution build and version.
+The DMG is Developer ID signed before notarization.
+
+`make beta` and `make publish-beta` create `v{version}` as a GitHub prerelease.
+`make promote` promotes that same entry to a full Release and marks it latest,
+without rebuilding or replacing the DMG. GitHub publication follows verification
+of the live Fritz update feed. If it fails, the command reports failure even if
+the update feed was published; retry the matching `make publish-beta` or
+`make promote` command with the prepared files intact.
+
+GitHub uploads are prepared as a draft and verified before publication. Retries
+resume missing assets and compare existing asset checksums; different bytes or
+a tag pointing at another source commit are rejected. Retrying an already
+promoted Beta verifies the assets without demoting the GitHub Release.
