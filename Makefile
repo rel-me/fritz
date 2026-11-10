@@ -26,9 +26,7 @@ test: test-runtime test-swift
 test-runtime:
 	cargo test --workspace --all-features --locked
 	cargo build --locked
-	python3 tests/integration.py
-	python3 tests/coding_integration.py
-	python3 tests/decision_integration.py
+	python3 tests/bundled_runtime.py
 	python3 tests/test_release_tasks.py
 	python3 tests/test_build_cache.py
 	python3 tests/test_app_build_reuse.py

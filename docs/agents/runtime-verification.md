@@ -31,6 +31,9 @@ cancellation, persistence, and agent shutdown without personal API keys.
 Provider-import credential checks store a synthetic key in a unique Fritz
 Keychain namespace, then verify that a fresh CLI process can authenticate to
 the local mock after a keyless overwrite. Local runs need an unlocked Keychain.
+`tests/bundled_runtime.py` runs the three protocol suites with one copied Rust
+executable and relative harness aliases, including nested child lookup; standalone
+Cargo harness executables cannot mask alias dispatch failures.
 `tests/coding_integration.py` exercises native tool streams for all six adapters,
 real edits and commands, limits, and cancellation of child process groups.
 Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
@@ -72,7 +75,12 @@ that same flat directory. The first download creates it; listing models does not
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
-All three binaries are signed and verified.
+The three entry points share one signed Rust executable: the harness names are
+relative symlinks to `fritz`, which dispatches by its invocation name. Each run
+still starts a separate process. Cargo retains standalone harness targets for
+development and integration checks. Release staging strips local symbols from
+the Rust executable and native app before signing, without modifying cached
+build products.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.
