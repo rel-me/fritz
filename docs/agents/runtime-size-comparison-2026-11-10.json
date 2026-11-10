@@ -1,0 +1,206 @@
+{
+  "date": "2026-11-10",
+  "machine": "Apple M2 Pro",
+  "arch": "arm64",
+  "macos": "26.7.1",
+  "xcode": "Xcode 26.6\nBuild version 17F113",
+  "cmake": "cmake version 4.4.2",
+  "rust": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "strip": "strip -x on staged copies; ad-hoc codesign",
+  "llama_commit": "7c2653acc749258dc62067da62d07024d971ccd2",
+  "mistral_commit": "4400935451da5e2dc7379a3f92fbbada66557f6c",
+  "fritz_commit": "316cb53f0bef4bbca5f922945d389b22704df2c1",
+  "format": "UDZO; HFS+; hdiutil create -srcfolder PAYLOAD -volname Runtime -format UDZO -fs HFS+ OUTPUT.dmg",
+  "payloads": {
+    "llama": {
+      "files": [
+        {
+          "path": "libggml-base.0.29.0.dylib",
+          "bytes": 705456,
+          "sha256": "11fc4663058941a86f6a557be51be7ee1d44e44203d986caeccc46fe53aabe4e"
+        },
+        {
+          "path": "libggml-base.0.dylib",
+          "symlink": "libggml-base.0.29.0.dylib"
+        },
+        {
+          "path": "libggml-base.dylib",
+          "symlink": "libggml-base.0.dylib"
+        },
+        {
+          "path": "libggml-cpu.0.29.0.dylib",
+          "bytes": 948016,
+          "sha256": "028159db33236c35aeb8b858b8b1231f93db379613373b87376a7ef30a4afe06"
+        },
+        {
+          "path": "libggml-cpu.0.dylib",
+          "symlink": "libggml-cpu.0.29.0.dylib"
+        },
+        {
+          "path": "libggml-cpu.dylib",
+          "symlink": "libggml-cpu.0.dylib"
+        },
+        {
+          "path": "libggml-metal.0.29.0.dylib",
+          "bytes": 5632832,
+          "sha256": "8c7322b709c572e279984f424205cc43ce20f6fb51181618fe2b326a482f7ab9"
+        },
+        {
+          "path": "libggml-metal.0.dylib",
+          "symlink": "libggml-metal.0.29.0.dylib"
+        },
+        {
+          "path": "libggml-metal.dylib",
+          "symlink": "libggml-metal.0.dylib"
+        },
+        {
+          "path": "libggml.0.29.0.dylib",
+          "bytes": 74240,
+          "sha256": "555f665892bb00baf4151512d48b8d03594230c09b1bcd4900be754233250390"
+        },
+        {
+          "path": "libggml.0.dylib",
+          "symlink": "libggml.0.29.0.dylib"
+        },
+        {
+          "path": "libggml.dylib",
+          "symlink": "libggml.0.dylib"
+        },
+        {
+          "path": "libllama.0.9.0.dylib",
+          "bytes": 3306160,
+          "sha256": "a35342997b600908f650e857e8a16e9bcdfac1a883975ab7de6b6dd006f57638"
+        },
+        {
+          "path": "libllama.0.dylib",
+          "symlink": "libllama.0.9.0.dylib"
+        },
+        {
+          "path": "libllama.dylib",
+          "symlink": "libllama.0.dylib"
+        },
+        {
+          "path": "probe",
+          "bytes": 52096,
+          "sha256": "35fac3101ebc347f2e3ca4ff48ddfe44167936a9210c771ca6fbc15ac4bc3b16"
+        }
+      ],
+      "bytes": 10718800,
+      "dmg_bytes": 3478778,
+      "mib": 10.222244262695312,
+      "dmg_mib": 3.3176212310791016
+    },
+    "mistral": {
+      "files": [
+        {
+          "path": "probe",
+          "bytes": 109615632,
+          "sha256": "f6043c3fdff5009c4d452c36db9cdbac6170acf31fce5880eb4245d129cda83b"
+        }
+      ],
+      "bytes": 109615632,
+      "dmg_bytes": 41274820,
+      "mib": 104.53761291503906,
+      "dmg_mib": 39.362735748291016
+    }
+  },
+  "scope": "Build and payload-size experiment only; Fritz backend unchanged.",
+  "llama_configuration": [
+    "CMAKE_BUILD_TYPE=Release",
+    "CMAKE_OSX_ARCHITECTURES=arm64",
+    "CMAKE_OSX_DEPLOYMENT_TARGET=15.0",
+    "BUILD_SHARED_LIBS=ON",
+    "LLAMA_BUILD_COMMON=OFF",
+    "LLAMA_BUILD_TESTS=OFF",
+    "LLAMA_BUILD_TOOLS=OFF",
+    "LLAMA_BUILD_EXAMPLES=OFF",
+    "LLAMA_BUILD_SERVER=OFF",
+    "LLAMA_BUILD_APP=OFF",
+    "LLAMA_BUILD_UI=OFF",
+    "LLAMA_OPENSSL=OFF",
+    "GGML_METAL=ON",
+    "GGML_METAL_EMBED_LIBRARY=ON",
+    "GGML_BLAS=OFF",
+    "GGML_OPENMP=OFF",
+    "GGML_NATIVE=OFF",
+    "GGML_CPU_KLEIDIAI=OFF",
+    "GGML_CCACHE=OFF"
+  ],
+  "mistral_configuration": {
+    "profile": "release (Cargo defaults)",
+    "features": [
+      "metal"
+    ],
+    "direct_dependencies": [
+      "mistralrs",
+      "tokio (macros, rt-multi-thread)",
+      "anyhow"
+    ],
+    "lock_seed": "Cargo.lock at 316cb53f0bef4bbca5f922945d389b22704df2c1",
+    "build_command": "cargo build --manifest-path dist/runtime-size-comparison/mistral-probe/Cargo.toml --release --offline",
+    "probe_contract": "A local GgufModelBuilder::build plus TextMessages/send_chat_request path remains reachable through an optional runtime model path; no model path supplied during smoke check. Same context/max sequences/prefix-cache settings as Fritz."
+  },
+  "reproduction": {
+    "wrapper": "Run all builds through python3 scripts/build-cache.py. Mistral build also sources scripts/compiler-cache.sh and calls configure_compiler_cache/start_compiler_cache.",
+    "llama_source": "https://github.com/ggml-org/llama.cpp.git at 7c2653acc749258dc62067da62d07024d971ccd2",
+    "llama_build": "cmake -S SOURCE -B BUILD followed by the llama_configuration options prefixed with -D; cmake --build BUILD --target llama --parallel 8",
+    "llama_staging": "Copy all build/bin/*.dylib preserving relative symlinks; compile the C++ probe with clang++ -O3 -arch arm64 -mmacosx-version-min=15.0, SOURCE/include and SOURCE/ggml/include, -lllama -lggml -lggml-base, and -Wl,-rpath,@executable_path. Remove absolute LC_RPATH entries from staged copies; give dylibs @loader_path. Strip and ad-hoc sign each regular Mach-O file.",
+    "mistral_staging": "Copy the release probe executable, strip -x, ad-hoc sign. Do not strip shared build-cache files.",
+    "compressed_comparison": "Same hdiutil create command for each payload; count regular files once, not dylib aliases. hdiutil verify passes for both images."
+  },
+  "reductions_percent": {
+    "bytes": 90.22146768263855,
+    "dmg_bytes": 91.57167008844618
+  },
+  "current_fritz_reference": {
+    "bytes": 137695264,
+    "note": "Combined CLI, agent, chat and decision executable including ONNX. Not an isolated mistral.rs measurement and not replaced by the llama payload in this experiment."
+  },
+  "verification": [
+    "Both builds succeeded.",
+    "Every staged regular Mach-O file passed codesign --verify --strict.",
+    "llama C++ probe initialized a Metal GPU backend on Apple M2 Pro and reported two registered devices.",
+    "mistral Rust probe created a Metal device and reported Metal available: true.",
+    "Both HFS+/UDZO images passed hdiutil verify.",
+    "Both probes also executed successfully from their read-only mounted payload DMGs; llama initialized Metal and mistral created a Metal device."
+  ],
+  "llama_shader_compile_observation": {
+    "seconds": 8.663,
+    "libraries": 36,
+    "note": "Single backend-initialization run reported by ggml. Not a controlled cold/warm startup benchmark; excludes model loading and generation."
+  },
+  "limitations": [
+    "No Fritz integration or app replacement DMG was built. These are standalone payload DMGs, not full Fritz installer sizes.",
+    "Neither probe performed model inference; no weights were downloaded or personal providers contacted.",
+    "No model-quality, throughput, cancellation, tool parsing, prompt-template, or Bosun raw-logit equivalence conclusions.",
+    "llama shared libraries retain the C inference API and CPU/Metal backends but exclude common/server/tools; Rust bindings and any required higher-level adapters are not included.",
+    "mistral GGUF probe uses the current pinned dependency with its default features plus metal; this is not the experimental AFQ-pruned build.",
+    "Runtime Metal compilation can affect startup latency.",
+    "Only arm64 payloads were measured; system frameworks/libraries are excluded for both."
+  ],
+  "probe_source_files": {
+    "llama-probe.cpp": {
+      "sha256": "e7c90404b281cce05127b28161269992ba94b5380da7f7e2cc19124bcd84cc54",
+      "source": "#include \"llama.h\"\n#include \"ggml-backend.h\"\n#include <cstdio>\n\nint main() {\n    llama_backend_init();\n    ggml_backend_load_all();\n    ggml_backend_dev_t gpu = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);\n    if (!gpu) {\n        std::fprintf(stderr, \"Metal GPU not registered\\n\");\n        return 1;\n    }\n    std::printf(\"GPU: %s\\n\", ggml_backend_dev_description(gpu));\n    ggml_backend_t backend = ggml_backend_dev_init(gpu, nullptr);\n    if (!backend) {\n        std::fprintf(stderr, \"Metal initialization failed\\n\");\n        return 1;\n    }\n    std::printf(\"Metal backend initialized; %zu devices registered\\n\", ggml_backend_dev_count());\n    ggml_backend_free(backend);\n    llama_backend_free();\n    return 0;\n}\n"
+    },
+    "mistral-probe/Cargo.toml": {
+      "sha256": "61dc1c4db377fca1a5c3691ecc96db1c5aeb0c8b91eca4601303cfc772e24779",
+      "source": "[package]\nname = \"fritz-mistral-size-probe\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[workspace]\n\n[dependencies]\nanyhow = \"1\"\nmistralrs = { git = \"https://github.com/EricLBuehler/mistral.rs\", rev = \"4400935451da5e2dc7379a3f92fbbada66557f6c\", features = [\"metal\"] }\ntokio = { version = \"1\", features = [\"macros\", \"rt-multi-thread\"] }\n"
+    },
+    "mistral-probe/src/main.rs": {
+      "sha256": "f14a43ea6840dea36a152593e69f5d990658ee2c41bc913529f5f71d154ea53a",
+      "source": "use anyhow::{Context, Result};\nuse mistralrs::{Device, GgufModelBuilder, TextMessageRole, TextMessages, TokenSource};\n\n#[tokio::main]\nasync fn main() -> Result<()> {\n    let device = Device::new_metal(0)?;\n    println!(\"Metal available: {}\", device.is_metal());\n    let Some(path) = std::env::args().nth(1) else {\n        println!(\"Size probe: optionally supply an existing local GGUF to run one chat request.\");\n        return Ok(());\n    };\n    // Keep a real local model loader and generation reachable in the executable.\n    let path = std::fs::canonicalize(path)?;\n    let directory = path.parent().context(\"Missing model directory\")?;\n    let filename = path.file_name().context(\"Missing filename\")?.to_string_lossy();\n    let model = GgufModelBuilder::new(directory.to_string_lossy(), vec![filename.as_ref()])\n        .with_token_source(TokenSource::None)\n        .with_max_model_len(8192)\n        .with_max_num_seqs(1)\n        .with_prefix_cache_n(None)\n        .build()\n        .await?;\n    let messages = TextMessages::new().add_message(TextMessageRole::User, \"Reply with OK.\");\n    let response = model.send_chat_request(messages).await?;\n    println!(\"{:?}\", response.choices[0].message.content);\n    Ok(())\n}\n"
+    },
+    "mistral-probe/Cargo.lock": {
+      "sha256": "e1da8d08c1d3d62293ab2521e1526254777a0d85c2b58a646de44661e700ef79"
+    }
+  },
+  "llama_payload_breakdown": {
+    "libggml-base.0.29.0.dylib": 705456,
+    "libggml-cpu.0.29.0.dylib": 948016,
+    "libggml-metal.0.29.0.dylib": 5632832,
+    "libggml.0.29.0.dylib": 74240,
+    "libllama.0.9.0.dylib": 3306160,
+    "probe": 52096
+  }
+}
