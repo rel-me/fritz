@@ -38,7 +38,9 @@ move toward narrower, permission-based personal sources. See [folder access and 
 
 Choose **Browser → Show Browser** (⌘2) to open a separate window for manual
 browsing. Enter an HTTP or HTTPS address, use tabs to keep pages open, and
-navigate with Back, Forward, Reload, and Stop. Use ⌘T for a new tab, ⇧⌘W to
+navigate with Back, Forward, Reload, and Stop. The tab strip supports drag
+reordering and a More tabs menu when space is limited. Right-click a tab for
+close actions. Use Control-Tab and Control-Shift-Tab to cycle tabs, ⌘T for a new tab, ⇧⌘W to
 close a tab, ⌘L to focus the address field, and ⌘R to reload. Tabs reset when
 the browser window closes. Website data persists within the app's browser
 profile. The browser does not expose pages to chat. Downloads

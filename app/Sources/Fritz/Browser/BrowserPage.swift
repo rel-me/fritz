@@ -1,4 +1,5 @@
 import AppKit
+import Bonsplit
 import Observation
 
 #if !FRITZ_CHROMIUM
@@ -16,11 +17,12 @@ struct BrowserPageState: Equatable {
 
 @MainActor @Observable
 final class BrowserTab: Identifiable {
-    let id = UUID()
+    let id: TabID
     let page: BrowserPage
     var address = ""
 
-    init() {
+    init(id: TabID) {
+        self.id = id
         page = BrowserPage()
     }
 

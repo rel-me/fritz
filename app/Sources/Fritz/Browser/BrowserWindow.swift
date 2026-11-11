@@ -1,16 +1,91 @@
+import Bonsplit
 import SwiftUI
 
 extension Notification.Name {
     static let closeFritzBrowser = Self("closeFritzBrowser")
 }
 
+@MainActor @Observable
+final class BrowserTabs: @preconcurrency BonsplitDelegate {
+    let controller = BonsplitController(configuration: .init(
+        allowSplits: false,
+        allowCrossPaneTabMove: false,
+        autoCloseEmptyPanes: false,
+        appearance: .init(showSplitButtons: false)
+    ))
+    private var pages: [TabID: BrowserTab] = [:]
+    private var isClosingAll = false
+
+    init() {
+        for id in controller.allTabIds { controller.closeTab(id) }
+        controller.delegate = self
+    }
+
+    var selectedTab: BrowserTab? {
+        guard let pane = controller.focusedPaneId,
+              let tab = controller.selectedTab(inPane: pane) else { return nil }
+        return pages[tab.id]
+    }
+
+    var titles: [String] {
+        controller.allTabIds.map { title(for: $0) }
+    }
+
+    func updateTitles() {
+        for id in controller.allTabIds {
+            let title = title(for: id)
+            if controller.tab(id)?.title != title { controller.updateTab(id, title: title) }
+        }
+    }
+
+    private func title(for id: TabID) -> String {
+        guard let title = pages[id]?.page.state.title, !title.isEmpty else { return "New Tab" }
+        return title
+    }
+
+    func newTab() {
+        guard let id = controller.createTab(title: "New Tab", icon: "globe") else { return }
+        pages[id] = BrowserTab(id: id)
+    }
+
+    func closeTab(_ id: TabID) {
+        controller.closeTab(id)
+    }
+
+    func closeOtherTabs(keeping id: TabID) {
+        controller.selectTab(id)
+        for other in controller.allTabIds where other != id { controller.closeTab(other) }
+    }
+
+    func closeTabsToRight(of id: TabID) {
+        let ids = controller.allTabIds
+        guard let index = ids.firstIndex(of: id) else { return }
+        for other in ids.dropFirst(index + 1) { controller.closeTab(other) }
+    }
+
+    func hasTabsToRight(of id: TabID) -> Bool {
+        guard let index = controller.allTabIds.firstIndex(of: id) else { return false }
+        return index + 1 < controller.allTabIds.count
+    }
+
+    func closeAllTabs() {
+        isClosingAll = true
+        for id in controller.allTabIds { controller.closeTab(id) }
+        isClosingAll = false
+    }
+
+    func splitTabBar(_ controller: BonsplitController, didCloseTab id: TabID, fromPane pane: PaneID) {
+        pages.removeValue(forKey: id)?.page.close()
+        if !isClosingAll && controller.allTabIds.isEmpty { newTab() }
+    }
+}
+
 struct BrowserWindow: View {
-    @State private var tabs: [BrowserTab] = []
-    @State private var selectedID: BrowserTab.ID?
+    @State private var tabs = BrowserTabs()
     @FocusState private var addressFocused: Bool
 
     private var selectedTab: BrowserTab? {
-        tabs.first { $0.id == selectedID }
+        tabs.selectedTab
     }
 
     var body: some View {
@@ -36,75 +111,85 @@ struct BrowserWindow: View {
         .fritzWindowBackground()
         .focusedSceneValue(\.browserActions, BrowserActions(
             newTab: newTab, closeTab: closeSelectedTab, focusAddress: { addressFocused = true },
-            reload: { selectedTab?.page.reload() }
+            reload: { selectedTab?.page.reload() },
+            previousTab: tabs.controller.selectPreviousTab,
+            nextTab: tabs.controller.selectNextTab
         ))
         .onAppear {
-            if tabs.isEmpty { newTab() }
+            if tabs.controller.allTabIds.isEmpty { newTab() }
         }
-        .onDisappear(perform: closeAllTabs)
+        .onChange(of: tabs.titles, initial: true) { tabs.updateTitles() }
+        .onChange(of: selectedTab?.id) {
+            addressFocused = selectedTab?.page.state.url == nil
+        }
+        .onDisappear(perform: tabs.closeAllTabs)
         .onReceive(NotificationCenter.default.publisher(for: .closeFritzBrowser)) { _ in
-            closeAllTabs()
+            tabs.closeAllTabs()
         }
     }
 
     private var tabBar: some View {
-        HStack {
-            ScrollView(.horizontal) {
-                HStack(spacing: 4) {
-                    ForEach(tabs) { tab in
-                        HStack(spacing: 2) {
-                            Button {
-                                selectedID = tab.id
-                            } label: {
-                                Text(tab.page.state.title.isEmpty ? "New Tab" : tab.page.state.title)
-                                    .lineLimit(1)
-                                    .frame(maxWidth: 160)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(selectedID == tab.id ? .isSelected : [])
-                            Button {
-                                closeTab(tab)
-                            } label: {
-                                Image(systemName: "xmark").font(.caption)
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityLabel("Close Tab")
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(selectedID == tab.id ? Color.primary.opacity(0.1) : .clear,
-                                    in: RoundedRectangle(cornerRadius: 7))
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            Button(action: newTab) { Image(systemName: "plus") }
-                .accessibilityLabel("New Tab")
-                .help("New Tab")
+        BonsplitTabBar(controller: tabs.controller, createTab: newTab) { tab, _ in
+            Button("Close Tab") { tabs.closeTab(tab.id) }
+            Button("Close Other Tabs") { tabs.closeOtherTabs(keeping: tab.id) }
+                .disabled(tabs.controller.allTabIds.count < 2)
+            Button("Close Tabs to the Right") { tabs.closeTabsToRight(of: tab.id) }
+                .disabled(!tabs.hasTabsToRight(of: tab.id))
         }
-        .padding(.horizontal, 4)
     }
 
     private func navigationBar(_ tab: BrowserTab) -> some View {
         @Bindable var tab = tab
-        return HStack {
-            control("Back", "chevron.left", action: tab.page.goBack)
-                .disabled(!tab.page.state.canGoBack)
-            control("Forward", "chevron.right", action: tab.page.goForward)
-                .disabled(!tab.page.state.canGoForward)
-            if tab.page.state.isLoading {
-                control("Stop", "xmark", action: tab.page.stop)
-            } else {
-                control("Reload", "arrow.clockwise", action: tab.page.reload)
-                    .disabled(tab.page.state.url == nil)
+        return HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 0) {
+                    navigationButton("Back", "chevron.left", action: tab.page.goBack)
+                        .disabled(!tab.page.state.canGoBack)
+                    navigationButton("Forward", "chevron.right", action: tab.page.goForward)
+                        .disabled(!tab.page.state.canGoForward)
+                }
+                .frame(height: 30)
+                .modifier(BrowserControlSurface())
+
+                Button {
+                    if tab.page.state.isLoading { tab.page.stop() }
+                    else { tab.page.reload() }
+                } label: {
+                    Image(systemName: tab.page.state.isLoading ? "xmark" : "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .frame(width: 30, height: 30)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .modifier(BrowserControlSurface())
+                .disabled(!tab.page.state.isLoading && tab.page.state.url == nil)
+                .accessibilityLabel(tab.page.state.isLoading ? "Stop Loading" : "Reload Page")
+                .help(tab.page.state.isLoading ? "Stop Loading" : "Reload Page")
             }
-            TextField("Address", text: $tab.address)
+            .foregroundStyle(.primary)
+            .modifier(FritzGlassControlGroup())
+            TextField("Website", text: $tab.address)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .lineLimit(1)
+                .autocorrectionDisabled()
+                .accessibilityLabel("Address")
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
+                .background(Color(nsColor: .textBackgroundColor), in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(addressFocused ? Color.accentColor : Color.primary.opacity(0.14),
+                                      lineWidth: addressFocused ? 2 : 0.5)
+                        .allowsHitTesting(false)
+                }
                 .focused($addressFocused)
                 .onSubmit {
                     if tab.openAddress() { addressFocused = false }
                 }
         }
         .padding(6)
+        .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
         .onChange(of: tab.page.state.url, initial: true) {
             if !addressFocused, let url = tab.page.state.url { tab.address = url.absoluteString }
         }
@@ -116,36 +201,28 @@ struct BrowserWindow: View {
         }
     }
 
-    private func control(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: icon) }
-            .accessibilityLabel(title)
-            .help(title)
+    private func navigationButton(_ title: String, _ icon: String,
+                                  action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.callout.weight(.medium))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .help(title)
     }
 
     private func newTab() {
-        let tab = BrowserTab()
-        tabs.append(tab)
-        selectedID = tab.id
+        tabs.newTab()
         addressFocused = true
     }
 
-    private func closeAllTabs() {
-        for tab in tabs { tab.page.close() }
-        tabs.removeAll()
-        selectedID = nil
-    }
-
     private func closeSelectedTab() {
-        if let tab = selectedTab { closeTab(tab) }
+        if let tab = selectedTab { tabs.closeTab(tab.id) }
     }
 
-    private func closeTab(_ tab: BrowserTab) {
-        guard let index = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
-        tab.page.close()
-        tabs.remove(at: index)
-        if tabs.isEmpty { newTab() }
-        else if selectedID == tab.id { selectedID = tabs[min(index, tabs.count - 1)].id }
-    }
 }
 
 private struct BrowserSurface: NSViewRepresentable {
@@ -155,11 +232,37 @@ private struct BrowserSurface: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
+private struct BrowserControlSurface: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .capsule)
+        } else {
+            content
+                .background {
+                    if reduceTransparency {
+                        Capsule().fill(Color(nsColor: .controlBackgroundColor))
+                    } else {
+                        Capsule().fill(.thinMaterial)
+                    }
+                }
+                .overlay {
+                    Capsule().stroke(Color.primary.opacity(0.14), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
+        }
+    }
+}
+
 struct BrowserActions {
     let newTab: () -> Void
     let closeTab: () -> Void
     let focusAddress: () -> Void
     let reload: () -> Void
+    let previousTab: () -> Void
+    let nextTab: () -> Void
 }
 
 extension FocusedValues {
@@ -181,6 +284,14 @@ struct BrowserCommands: Commands {
             Button("Close Tab") { browser?.closeTab() }
                 .keyboardShortcut("w", modifiers: [.command, .shift])
                 .disabled(browser == nil)
+            Divider()
+            Button("Previous Tab") { browser?.previousTab() }
+                .keyboardShortcut(.tab, modifiers: [.control, .shift])
+                .disabled(browser == nil)
+            Button("Next Tab") { browser?.nextTab() }
+                .keyboardShortcut(.tab, modifiers: [.control])
+                .disabled(browser == nil)
+            Divider()
             Button("Focus Address") { browser?.focusAddress() }
                 .keyboardShortcut("l")
                 .disabled(browser == nil)
