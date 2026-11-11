@@ -85,6 +85,14 @@ the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
+The native composer keyboard test temporarily uses an accessory activation
+policy and a nonactivating panel, then waits for the real key window and field
+editor before editing. Its scoped event monitor excludes unrelated desktop
+keyboard input; scenario events still go directly through native window event
+dispatch. Teardown removes the monitor and restores the prior activation policy.
+A common-mode watchdog bounds the modal session; unavailable focus fails the
+test rather than skipping its keyboard assertions.
+
 ## Shared UI snapshots
 
 `tests/FritzUISnapshotTests` compares the public FritzUI controls using
