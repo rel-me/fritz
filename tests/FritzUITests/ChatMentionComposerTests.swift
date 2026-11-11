@@ -12,6 +12,10 @@ final class ChatMentionComposerTests: XCTestCase {
         let registry = ChatMentionRegistry()
     }
 
+    private final class BackgroundPanel: NSPanel {
+        override var canBecomeKey: Bool { false }
+    }
+
     private struct Fixture: View {
         @Bindable var state: State
         @FocusState private var focused: Bool
@@ -27,26 +31,19 @@ final class ChatMentionComposerTests: XCTestCase {
     }
 
     func testNativeSelectionInsertsIdentityBeforeReturnSends() throws {
+        let app = NSApplication.shared
+        let previousPolicy = app.activationPolicy()
+        _ = app.setActivationPolicy(.prohibited)
+        XCTAssertEqual(app.activationPolicy(), .prohibited)
+        defer { app.setActivationPolicy(previousPolicy) }
         let state = State()
         let reddit = ChatMentionItem(id: .init(source: "profiles", value: "reddit"),
                                     name: "Reddit", kind: .entity)
         try state.registry.register(source: "profiles", items: [reddit,
             .init(id: .init(source: "profiles", value: "oxylabs"), name: "Oxylabs", kind: .entity)
         ])
-        let app = NSApplication.shared
-        let previousPolicy = app.activationPolicy()
-        let wasActive = app.isActive
-        // Unlike NSApplication.run(), runModal does not finish app launch.
-        // Initialize the test host before requesting native keyboard focus.
-        if !app.isRunning { app.finishLaunching() }
-        _ = try XCTUnwrap(app.setActivationPolicy(.accessory) ? true : nil,
-                      "The native composer fixture requires an accessory application")
-        defer {
-            if !wasActive { app.deactivate() }
-            app.setActivationPolicy(previousPolicy)
-        }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
-                              styleMask: [.titled], backing: .buffered, defer: false)
+        let window = BackgroundPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
+                              styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         // This scenario dispatches its own native events through window.sendEvent.
         // Keep unrelated WindowServer keyboard input out of the fixture.
@@ -54,12 +51,15 @@ final class ChatMentionComposerTests: XCTestCase {
             matching: [.keyDown, .keyUp, .flagsChanged]) { _ in nil })
         defer { NSEvent.removeMonitor(keyboardMonitor) }
         window.contentView = NSHostingView(rootView: Fixture(state: state))
-        window.makeKeyAndOrderFront(nil)
+        // Keep the native editor in an offscreen window without requesting
+        // application activation or foreground keyboard focus.
+        window.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+        window.orderFrontRegardless()
         defer { window.close() }
         let otherEditor = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
         otherEditor.string = "@"
         otherEditor.setSelectedRange(NSRange(location: 1, length: 0))
-        let otherWindow = NSPanel(contentRect: otherEditor.frame,
+        let otherWindow = BackgroundPanel(contentRect: otherEditor.frame,
                                   styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         otherWindow.isReleasedWhenClosed = false
         otherWindow.worksWhenModal = true
@@ -83,9 +83,10 @@ final class ChatMentionComposerTests: XCTestCase {
                 try await waitForComposerEditor(in: window)
                 try await Task.sleep(for: .milliseconds(200))
                 let editor = try XCTUnwrap(window.firstResponder as? NSTextView)
-                // In a desktop session, another window owns the key status. CI
-                // may have no key window at all. Neither may own this edit.
-                otherWindow.makeKeyAndOrderFront(nil)
+                // Matching text in another window must not own this edit,
+                // even when neither window can acquire key status.
+                otherWindow.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+                otherWindow.orderFrontRegardless()
                 XCTAssertTrue(otherWindow.makeFirstResponder(otherEditor))
                 try await Task.sleep(for: .milliseconds(100))
                 XCTAssertFalse(app.keyWindow === window)
@@ -93,6 +94,10 @@ final class ChatMentionComposerTests: XCTestCase {
                 editor.insertText("@", replacementRange: editor.selectedRange())
                 try await Task.sleep(for: .milliseconds(200))
                 XCTAssertEqual(state.draft.text, "@")
+                XCTAssertTrue(window.firstResponder === editor)
+                XCTAssertFalse(app.isActive)
+                XCTAssertFalse(window.isKeyWindow)
+                XCTAssertFalse(NSApp.keyWindow === window)
                 XCTAssertTrue(editor.window === window)
                 XCTAssertEqual(editor.selectedRange().location, 1)
                 let down = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,

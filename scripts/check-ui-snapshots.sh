@@ -2,7 +2,7 @@
 set -euo pipefail
 cd -P "$(dirname "$0")/.."
 if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
-  exec python3 scripts/build-cache.py "$PWD/scripts/check-ui-snapshots.sh" "$@"
+  exec mise exec -- python3 scripts/build-cache.py "$PWD/scripts/check-ui-snapshots.sh" "$@"
 fi
 if [[ "${FRITZ_SNAPSHOT_MODE:-compare}" != compare ]]; then
   echo 'error: check-ui-snapshots only compares references; use the documented recording command' >&2

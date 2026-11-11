@@ -82,8 +82,10 @@ for provider setup, local models, stdin input, and folder actions.
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.95+ with rustfmt and Clippy,
-CMake, Python 3.11+, and mise.
+Requires macOS 15+, full Xcode with Swift 6.3+, and [mise](https://mise.jdx.dev/getting-started.html).
+`make setup` installs the development tools pinned in `mise.toml`: Rust with
+rustfmt and Clippy, Python, CMake, Node/npm, XcodeGen, GitHub CLI, and sccache.
+Swift, SDKs, signing, and system utilities come from Xcode and macOS.
 
 ```sh
 make setup     # check tools and resolve committed dependencies
