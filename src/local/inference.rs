@@ -1,14 +1,15 @@
-//! In-process inference for Fritz's pinned GGUFs via mistral.rs.
+//! In-process inference for Fritz's pinned GGUFs via llama.cpp.
+use super::native::Model;
 use anyhow::{Context, Result};
-use mistralrs::{GgufModelBuilder, Model, TokenSource};
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 pub struct Engine {
     pub(crate) model_id: String,
     path: PathBuf,
     context_size: usize,
-    model: OnceCell<Model>,
+    model: OnceCell<Arc<Model>>,
 }
 
 impl Engine {
@@ -54,27 +55,11 @@ impl Engine {
         })
     }
 
-    pub(crate) async fn model(&self) -> Result<&Model> {
+    pub(crate) async fn model(&self) -> Result<&Arc<Model>> {
         self.model
-            .get_or_try_init(|| async {
-                let directory = self.path.parent().context("Missing model directory")?;
-                let filename = self
-                    .path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .context("Invalid model filename")?;
-                // Presence determines installation. Passing the local directory avoids
-                // Hub downloads; invalid files surface the native loader error.
-                GgufModelBuilder::new(directory.to_string_lossy(), vec![filename])
-                    .with_token_source(TokenSource::None)
-                    .with_max_model_len(self.context_size)
-                    .with_max_num_seqs(1)
-                    .with_prefix_cache_n(None)
-                    .build()
-                    .await
-                    .context("Could not load the installed GGUF with mistral.rs")
-            })
+            .get_or_try_init(|| Model::load(&self.path, self.context_size, true))
             .await
+            .context("Could not load the installed GGUF with llama.cpp")
     }
 
     pub async fn unload(self) {

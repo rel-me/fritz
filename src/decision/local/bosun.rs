@@ -2,7 +2,7 @@
 //!
 //! Compiler: Hanno-Labs/bosun-v3.1-0.6b@2afeaccc760165386c2dd52e78b851b1b53cb752.
 //! Typed mapping: Hanno-Labs/jev-compatible-server@431b8e1ecc501cdb76c118fe58907a0a004d6fc0.
-//! Native raw logits: mistral.rs@4400935451da5e2dc7379a3f92fbbada66557f6c.
+//! Native final-position logits: llama.cpp@7c2653acc749258dc62067da62d07024d971ccd2.
 //! Bosun uses temperature 1 and maximum-option confidence for both Choice and Score.
 //! Those values have not been qualified as calibrated probabilities for Fritz workflows.
 use super::Manifest;
@@ -19,9 +19,6 @@ const VOCAB_SIZE: usize = 151925;
 const DECISION_START: u32 = 151669;
 const SLOT_COUNT: usize = 256;
 const MAX_PROMPT_TOKENS: usize = 2048;
-// mistral.rs returns all prompt positions, including an internal full-logit CPU copy.
-// This bounds only the returned raw tensor payload, not total resident memory.
-const MAX_RAW_BYTES: usize = MAX_PROMPT_TOKENS * VOCAB_SIZE * 4;
 
 struct Candidate {
     id: String,
@@ -448,36 +445,22 @@ fn verify_contract(pin: &Manifest, directory: &std::path::Path) -> Result<()> {
 }
 
 #[cfg(target_os = "macos")]
-async fn load(pin: &Manifest, directory: &std::path::Path) -> Result<mistralrs::Model> {
+async fn load(
+    pin: &Manifest,
+    directory: &std::path::Path,
+) -> Result<std::sync::Arc<crate::local::native::Model>> {
     verify_contract(pin, directory)?;
-    let model = mistralrs::GgufModelBuilder::new(
-        directory.to_string_lossy(),
-        vec![
+    let model = crate::local::native::Model::load(
+        &directory.join(
             pin.entry_file
                 .as_deref()
                 .context("Bosun is missing its GGUF entry file.")?,
-        ],
+        ),
+        MAX_PROMPT_TOKENS,
+        false,
     )
-    .with_tokenizer_json(
-        directory
-            .join("bosun-v3.1-0.6b.tokenizer.json")
-            .to_string_lossy(),
-    )
-    .with_jinja_explicit(
-        directory
-            .join("bosun-v3.1-0.6b.chat_template.jinja")
-            .to_string_lossy()
-            .into_owned(),
-    )
-    .with_token_source(mistralrs::TokenSource::None)
-    .with_dtype(mistralrs::ModelDType::F16)
-    .with_max_model_len(MAX_PROMPT_TOKENS)
-    .with_max_num_seqs(1)
-    .with_prefix_cache_n(None)
-    .with_no_kv_cache()
-    .build()
     .await
-    .context("Could not load the installed Bosun GGUF with mistral.rs.")?;
+    .context("Could not load the installed Bosun GGUF with llama.cpp.")?;
     let decision_text: String = (0..SLOT_COUNT)
         .map(|slot| format!("<|decision_{slot:03}|>"))
         .collect();
@@ -491,24 +474,21 @@ async fn load(pin: &Manifest, directory: &std::path::Path) -> Result<mistralrs::
 
 #[cfg(target_os = "macos")]
 async fn tokenize(
-    model: &mistralrs::Model,
+    model: &std::sync::Arc<crate::local::native::Model>,
     prompt: String,
     add_special_tokens: bool,
 ) -> Result<Vec<u32>> {
     model
-        .tokenize(
-            either::Either::Right(prompt),
-            None,
-            add_special_tokens,
-            false,
-            None,
-        )
+        .tokenize(prompt, add_special_tokens)
         .await
         .context("Bosun prompt tokenization failed.")
 }
 
 #[cfg(target_os = "macos")]
-async fn row_tokens(model: &mistralrs::Model, row: &Row) -> Result<Vec<u32>> {
+async fn row_tokens(
+    model: &std::sync::Arc<crate::local::native::Model>,
+    row: &Row,
+) -> Result<Vec<u32>> {
     let tokens = tokenize(model, row.prompt.clone(), true).await?;
     admit_tokens(&row.id, &tokens)?;
     Ok(tokens)
@@ -523,104 +503,20 @@ fn admit_tokens(id: &str, tokens: &[u32]) -> Result<()> {
         tokens.iter().all(|id| (*id as usize) < VOCAB_SIZE),
         "Bosun prompt contains a token outside the pinned vocabulary."
     );
-    ensure!(
-        tokens
-            .len()
-            .checked_mul(VOCAB_SIZE)
-            .and_then(|n| n.checked_mul(4))
-            .is_some_and(|bytes| bytes <= MAX_RAW_BYTES),
-        "Bosun raw readout exceeds its tensor memory limit."
-    );
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
-async fn slot_logits(model: &mistralrs::Model, tokens: &[u32], count: usize) -> Result<Vec<f32>> {
-    use mistralrs::{NormalRequest, Request, RequestMessage, Response, SamplingParams};
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
-    // This engine rejects max_len=0 before checking return_raw_logits. Raw mode exits
-    // with Done(Length(0)) before sampling; 1 only satisfies its request admission rule.
-    let mut request = NormalRequest::new_simple(
-        RequestMessage::CompletionTokens(tokens.to_vec()),
-        SamplingParams {
-            max_len: Some(1),
-            ..SamplingParams::deterministic()
-        },
-        tx,
-        0,
-        None,
-        None,
-    );
-    request.return_raw_logits = true;
-    request.truncate_sequence = false;
-    model
-        .inner()
-        .get_sender(None)?
-        .send(Request::Normal(Box::new(request)))
-        .await?;
-    match rx
-        .recv()
-        .await
-        .context("Bosun raw readout channel closed unexpectedly.")?
-    {
-        Response::Raw {
-            logits_chunks,
-            tokens: returned,
-        } => {
-            ensure!(
-                returned == tokens,
-                "Bosun raw readout changed or truncated the supplied prompt tokens."
-            );
-            final_slot_logits(&logits_chunks, tokens.len(), count)
-        }
-        Response::InternalError(error) | Response::ValidationError(error) => {
-            bail!("Bosun native readout failed: {error}")
-        }
-        _ => bail!("Bosun native readout returned generated output instead of raw logits."),
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn final_slot_logits(
-    chunks: &[mistralrs::Tensor],
-    prompt_tokens: usize,
+async fn slot_logits(
+    model: &std::sync::Arc<crate::local::native::Model>,
+    tokens: &[u32],
     count: usize,
 ) -> Result<Vec<f32>> {
     ensure!(
         (2..=255).contains(&count),
         "Bosun raw readout needs 2 to 255 candidates."
     );
-    let (mut rows, mut bytes) = (0usize, 0usize);
-    for chunk in chunks {
-        let (height, width) = chunk.dims2()?;
-        ensure!(
-            height > 0 && width == VOCAB_SIZE,
-            "Bosun raw logits have an incomplete vocabulary or invalid shape."
-        );
-        rows = rows
-            .checked_add(height)
-            .context("Bosun raw row count overflow.")?;
-        bytes = bytes
-            .checked_add(
-                chunk
-                    .elem_count()
-                    .checked_mul(chunk.dtype().size_in_bytes())
-                    .context("Bosun tensor size overflow.")?,
-            )
-            .context("Bosun raw tensor size overflow.")?;
-    }
-    ensure!(
-        rows == prompt_tokens && bytes <= MAX_RAW_BYTES,
-        "Bosun raw tensor exceeds its bounded prompt contract."
-    );
-    let last = chunks.last().context("Bosun returned no raw logit rows.")?;
-    // Slice the final row and only eligible slots before converting to a Rust vector.
-    Ok(last
-        .narrow(0, last.dim(0)? - 1, 1)?
-        .narrow(1, DECISION_START as usize, count)?
-        .squeeze(0)?
-        .to_dtype(mistralrs::DType::F32)?
-        .to_vec1::<f32>()?)
+    model.logits(tokens.to_vec(), DECISION_START, count).await
 }
 
 #[cfg(target_os = "macos")]
@@ -806,25 +702,6 @@ mod tests {
     }
 
     #[cfg(target_os = "macos")]
-    #[test]
-    fn raw_readout_masks_unused_slots_and_uses_final_prompt_position() {
-        let mut values = vec![0_f32; VOCAB_SIZE * 2];
-        values[DECISION_START as usize] = 999.0; // Earlier prompt position must not win.
-        for (offset, score) in [1.0, 2.0, 3.0, 10000.0].into_iter().enumerate() {
-            values[VOCAB_SIZE + DECISION_START as usize + offset] = score;
-        }
-        values[VOCAB_SIZE + DECISION_START as usize + 255] = 20000.0; // Null slot is never eligible.
-        let logits =
-            mistralrs::Tensor::from_vec(values, (2, VOCAB_SIZE), &mistralrs::Device::Cpu).unwrap();
-        assert_eq!(
-            final_slot_logits(std::slice::from_ref(&logits), 2, 3).unwrap(),
-            vec![1.0, 2.0, 3.0]
-        );
-        assert!(final_slot_logits(std::slice::from_ref(&logits), 1, 3).is_err());
-        assert!(final_slot_logits(&[logits.narrow(1, 0, VOCAB_SIZE - 1).unwrap()], 2, 3).is_err());
-    }
-
-    #[cfg(target_os = "macos")]
     fn file_hash(path: &std::path::Path) -> String {
         use std::io::Read;
         let mut file = std::fs::File::open(path).unwrap();
@@ -910,7 +787,7 @@ mod tests {
                 "harness":format!("{:x}",Sha256::digest(include_bytes!("../harness.rs"))),
                 "catalog":format!("{:x}",Sha256::digest(include_bytes!("../../../Sources/Fritz/DecisionModels.json")))
             },
-            "model":pin.id,"revision":pin.revision,"engine_revision":mistralrs::MISTRALRS_GIT_REVISION,
+            "model":pin.id,"revision":pin.revision,"engine_revision":crate::local::native::REVISION,
             "artifacts":artifacts,"rows":[],"cleanup":null
         });
         write_native_receipt(&receipt_path, &receipt, true);
@@ -1037,9 +914,9 @@ mod tests {
             },
             "cpu_reference_path":cpu_path,"cpu_reference_sha256":null,
             "compiler_reference_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../tests/fixtures/bosun-compiler-reference.json"))),
-            "model":"bosun-v3.1-0.6b-f16", "engine_revision":mistralrs::MISTRALRS_GIT_REVISION,
+            "model":"bosun-v3.1-0.6b-f16", "engine_revision":crate::local::native::REVISION,
             "artifacts":[],"planned_attempts":2,"attempts":[],"cleanup":null,
-            "phase_scope":"raw_await includes pinned engine inference, full-logit CPU copy, and final-slot extraction; timing has no pass threshold"
+            "phase_scope":"raw_await includes pinned engine inference, final-position readout and eligible-slot extraction; timing has no pass threshold"
         });
         write_native_receipt(&receipt_path, &receipt, true);
         let result: Result<()> = async {

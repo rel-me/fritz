@@ -28,8 +28,8 @@ Laya and Kev raw logits pass through their pinned calibration artifacts before t
 
 Bosun 3.1 0.6B F16 is another experimental engine under the existing local
 `ollaya` provider and wire identifier. Fritz loads its installed GGUF through the
-bundled mistral.rs Metal runtime, pinned at
-`4400935451da5e2dc7379a3f92fbbada66557f6c`. The catalog pins the original compiler,
+bundled llama.cpp Metal runtime, pinned at
+`7c2653acc749258dc62067da62d07024d971ccd2`. The catalog pins the original compiler,
 serving contract, tokenizer, template, license and merged GGUF by revision and
 checksum. Inference needs no separate base or LoRA download. Its exact compiler
 assigns presented candidate slots, and its readout uses final-prompt logits for
@@ -38,9 +38,9 @@ Choice confidence is the chosen option probability; Score confidence is the
 maximum option probability. These semantics do not inherit Kev or Jev thresholds.
 
 Bosun rejects more than 2,048 rendered prompt tokens or 255 options without
-truncating state or dropping candidates. The pinned raw API copies all prompt
-logits to CPU; one maximum-sized FP32 payload is 1,244,569,600 bytes, excluding
-weights and other memory. The catalog's 16 GB floor is an unmeasured engineering
+truncating state or dropping candidates. The native readout evaluates the prompt
+in bounded batches and copies only eligible slots from its final-position logits.
+The catalog's 16 GB floor is an unmeasured engineering
 estimate, not 24 GB pairing qualification. The adapter stays experimental until
 its separately frozen compiler, official CPU reference and native probability
 checks pass; workflow quality is a further evaluation. It retains the same owned

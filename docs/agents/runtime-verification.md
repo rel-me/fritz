@@ -1,8 +1,8 @@
 # Runtime verification
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
-locks. It needs full Xcode with Swift 6.3+, Rust 1.95+ with rustfmt and Clippy,
-CMake for a native TLS dependency, Python 3.11+, and mise for pinned sccache. With rustup, the repository's
+locks and initializes the pinned `vendor/llama.cpp` Git submodule. It needs full Xcode with Swift 6.3+, Rust 1.95+ with rustfmt and Clippy,
+CMake 3.20+ for llama.cpp and the native TLS dependency, Python 3.11+, and mise for pinned sccache. With rustup, the repository's
 `rust-toolchain.toml` selects Rust 1.95.0 with rustfmt and Clippy; rustup installs
 missing toolchain components when invoked. Setup trusts `mise.toml` and installs
 its pinned sccache version. It does not change Git branches, copy local credentials,
@@ -31,6 +31,9 @@ cancellation, persistence, and agent shutdown without personal API keys.
 Provider-import credential checks store a synthetic key in a unique Fritz
 Keychain namespace, then verify that a fresh CLI process can authenticate to
 the local mock after a keyless overwrite. Local runs need an unlocked Keychain.
+`tests/bundled_runtime.py` runs the three protocol suites with one copied Rust
+executable and relative harness aliases, including nested child lookup; standalone
+Cargo harness executables cannot mask alias dispatch failures.
 `tests/coding_integration.py` exercises native tool streams for all six adapters,
 real edits and commands, limits, and cancellation of child process groups.
 Set `FRITZ_TEST_BIN_DIR` to the staged app’s `Contents/Resources` to repeat the
@@ -72,7 +75,12 @@ that same flat directory. The first download creates it; listing models does not
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
-All three binaries are signed and verified.
+The three entry points share one signed Rust executable: the harness names are
+relative symlinks to `fritz`, which dispatches by its invocation name. Each run
+still starts a separate process. Cargo retains standalone harness targets for
+development and integration checks. Release staging strips local symbols from
+the Rust executable and native app before signing, without modifying cached
+build products.
 Inspect that artifact for packaging failures; a raw Swift executable omits
 required resources. `make dev-open` builds and opens the app for normal use.
 Neither command installs to `/Applications`.
@@ -186,12 +194,6 @@ release tools). The layout is:
   Startup is serialized and deferred until compilation is needed. Local
   workspace incremental compilation remains enabled; dependencies can reuse
   compiler results across source checkouts.
-- `compiler-cache/metal/v1/`: immutable inference Metal AIR and library artifacts.
-  Keys cover source/header bytes, ordered link inputs, arguments, compiler/SDK
-  identity, architecture and environment. Per-key locks serialize misses;
-  atomic publication and content hashes protect reuse. Each build receives its
-  own writable copies. Only the pinned inference compiler command shapes are
-  cached; other xcrun commands use the system tool directly.
 - `worktrees/<path-hash>/swift`, `swift-app`, and `DerivedData`: SwiftPM and Xcode
   build state for one physical checkout path. These databases contain absolute
   source paths and are not reused as writable build state by other worktrees.
@@ -337,3 +339,26 @@ edition, inspect source selection, disabled options, status, cancellation, and
 Quit. Do not import a personal profile or inspect its credentials as an automated
 check. If import writes are interrupted, the reported completed records remain;
 a retry merges and replaces matching records.
+
+## Bundled llama.cpp runtime
+
+Chat and Bosun statically link llama.cpp at
+`7c2653acc749258dc62067da62d07024d971ccd2` through `native/bridge.cpp`.
+CMake enables CPU and Metal with embedded shaders and Jinja chat support;
+servers, tools, examples, subprocess support, OpenSSL, BLAS and OpenMP are disabled.
+The CMake build tree is keyed by checkout path and compiler environment inside
+Cargo output storage, because CMake caches absolute source paths.
+The app needs no additional runtime dylibs or inference service. `make setup`
+initializes the submodule; CI checks it out recursively. Update the gitlink,
+Bosun catalog engine revision and runtime qualification together when upgrading.
+
+Each model handle serializes access to its context. Rust task cancellation sets
+an atomic flag observed during model loading, prompt batches and token decoding;
+workers retain ownership until native calls exit. Chat uses llama.cpp's model
+Jinja template, tool grammar and response parser. Only complete, validated tool
+calls enter Fritz's existing action executor. Bosun retains its compiler,
+slot mapping, probability normalization and typed answers, reading only the final
+position's eligible logits without sampling an answer token.
+
+See the [migration verification and package measurements](llama-runtime-migration-2026-11-10.md)
+for the exercised native workflows and final artifact provenance.

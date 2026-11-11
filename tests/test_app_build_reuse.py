@@ -31,12 +31,13 @@ class AppReuseTests(unittest.TestCase):
         resources.mkdir(parents=True)
         executable = self.app / 'Contents/MacOS/Fritz'
         executable.parent.mkdir()
-        for path in [executable, *(resources / name for name in
-                      ('fritz', 'fritz-harness', 'fritz-decision-harness'))]:
+        for path in [executable, resources / 'fritz']:
             shutil.copyfile('/usr/bin/true', path)
             path.chmod(0o755)
             subprocess.run(['codesign', '--force', '--sign', '-', str(path)],
                            check=True, capture_output=True)
+        for name in ('fritz-harness', 'fritz-decision-harness'):
+            (resources / name).symlink_to('fritz')
         (self.app / 'Contents/Info.plist').write_bytes(plistlib.dumps({
             'CFBundleIdentifier': 'dev.fritz.fixture', 'CFBundleExecutable': 'Fritz',
             'CFBundleShortVersionString': '0.1.1', 'CFBundleVersion': '2',
@@ -70,6 +71,24 @@ class AppReuseTests(unittest.TestCase):
         self.source.write_text('before')
         self.invoke('check')
         self.invoke('check', 10, RUSTFLAGS='-C opt-level=1')
+
+    def test_submodule_source_bytes_invalidate_reuse(self):
+        native = self.root / 'vendor/runtime'
+        native.mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(native)], check=True)
+        kernel = native / 'kernel.cpp'
+        kernel.write_text('before')
+        subprocess.run(['git', '-C', str(native), 'add', 'kernel.cpp'], check=True)
+        subprocess.run(['git', '-C', str(native), '-c', 'user.name=Fixture',
+                        '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], check=True)
+        revision = subprocess.check_output(['git', '-C', str(native), 'rev-parse', 'HEAD'], text=True).strip()
+        subprocess.run(['git', '-C', str(self.root), 'update-index', '--add', '--cacheinfo',
+                        f'160000,{revision},vendor/runtime'], check=True)
+        self.invoke('check', 10)
+        self.invoke('record')
+        self.invoke('check')
+        kernel.write_text('edited')
+        self.invoke('check', 10)
 
     def test_rejects_mutated_bundle_and_distribution_reuse(self):
         self.invoke('check', 10)

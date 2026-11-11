@@ -10,11 +10,11 @@ source scripts/release-config.sh
 case "$configuration" in
   debug)
     source scripts/dev-runtime.sh
-    cargo_args=(build --locked)
+    cargo_args=(build --locked --bin fritz)
     xcode_configuration=Debug
     ;;
   release)
-    cargo_args=(build --locked --release)
+    cargo_args=(build --locked --release --bin fritz)
     xcode_configuration=Release
     app_name=Fritz
     bundle_id=dev.fritz.app
@@ -126,8 +126,15 @@ test -d "$xcode_bundle" || { echo "error: missing $xcode_bundle" >&2; exit 1; }
 if [ -d "$app_bundle" ]; then rm -rf "$app_bundle"; fi
 ditto "$xcode_bundle" "$app_bundle"
 cp "$CARGO_TARGET_DIR/$configuration/fritz" "$app_bundle/Contents/Resources/fritz"
-cp "$CARGO_TARGET_DIR/$configuration/fritz-harness" "$app_bundle/Contents/Resources/fritz-harness"
-cp "$CARGO_TARGET_DIR/$configuration/fritz-decision-harness" "$app_bundle/Contents/Resources/fritz-decision-harness"
+# Separate harness processes share one on-disk inference runtime. Relative
+# aliases survive installation, DMG copying, and Sparkle updates.
+ln -s fritz "$app_bundle/Contents/Resources/fritz-harness"
+ln -s fritz "$app_bundle/Contents/Resources/fritz-decision-harness"
+if [[ "$configuration" == release ]]; then
+  # Strip staged copies only, before signing; preserve shared Cargo outputs.
+  strip -x "$app_bundle/Contents/Resources/fritz"
+  strip -x "$app_bundle/Contents/MacOS/$app_name"
+fi
 package_checkouts="$FRITZ_DERIVED_DATA/SourcePackages/checkouts"
 mkdir -p "$app_bundle/Contents/Resources/Licenses"
 cp Packages/Bonsplit/LICENSE "$app_bundle/Contents/Resources/Licenses/Bonsplit.txt"
@@ -174,10 +181,6 @@ test -d "$sparkle" || { echo "error: Sparkle.framework was not embedded" >&2; ex
 codesign --force --deep "${sign_options[@]}" "$sparkle"
 codesign --force "${sign_options[@]}" --identifier dev.fritz.agent \
   --requirements '=designated => identifier "dev.fritz.agent"' "$app_bundle/Contents/Resources/fritz"
-codesign --force "${sign_options[@]}" --identifier dev.fritz.harness \
-  "$app_bundle/Contents/Resources/fritz-harness"
-codesign --force "${sign_options[@]}" --identifier dev.fritz.decision-harness \
-  "$app_bundle/Contents/Resources/fritz-decision-harness"
 codesign --force "${sign_options[@]}" --identifier "$bundle_id" \
   "$app_bundle"
 codesign --verify --deep --strict "$app_bundle"

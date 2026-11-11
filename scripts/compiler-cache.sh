@@ -21,9 +21,7 @@ configure_compiler_cache() {
   chmod 700 "$socket_directory"
   root_hash="$(printf '%s' "$FRITZ_BUILD_ROOT" | shasum -a 256 | awk '{print $1}')"
   export SCCACHE_SERVER_UDS="$socket_directory/0.18.0-$root_hash.sock"
-  export FRITZ_METAL_CACHE_ROOT="$FRITZ_BUILD_ROOT/compiler-cache/metal/v1"
-  export PATH="$PWD/scripts/native-cache-bin:$PATH"
-  mkdir -p "$SCCACHE_DIR" "$FRITZ_METAL_CACHE_ROOT"
+  mkdir -p "$SCCACHE_DIR"
   xcode_cache_settings=(
     COMPILATION_CACHE_ENABLE_CACHING=YES
     "COMPILATION_CACHE_CAS_PATH=$FRITZ_BUILD_ROOT/compiler-cache/xcode"

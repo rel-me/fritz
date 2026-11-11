@@ -61,7 +61,7 @@ own harness process; closing its pipe cancels the run. The local model is
 limited to 8,192 context tokens and 2,048 output tokens per turn.
 
 Fritz local models use the shared harness tool loop when a project folder is
-attached. The pinned GGUF runs in process through mistral.rs. Catalog models
+attached. The pinned GGUF runs in process through llama.cpp. Catalog models
 marked to disable thinking use reasoning effort off; tool choice is automatic.
 Structured calls and tool results remain
 in model-native history for the next turn. Without a project, no tools are sent.
@@ -292,3 +292,11 @@ instructions remain outside the compacted prefix. A large recent suffix may
 still exceed the provider limit; compaction does not truncate active tool pairs
 or replace provider context errors. This is deterministic transcript reduction,
 not an additional model request.
+
+## Bundled executable layout
+
+The app bundles one signed Rust executable, `Contents/Resources/fritz`, with
+relative `fritz-harness` and `fritz-decision-harness` symlinks to it. The invoked
+filename selects the entry point before argument parsing. The agent, chat
+harnesses, and decision harnesses remain separate processes with their existing
+private pipes, cancellation, and lifecycle contracts.

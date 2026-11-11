@@ -57,7 +57,6 @@ def main():
         path.mkdir(parents=True, exist_ok=True)
     environment = dict(os.environ, **{key: str(path) for key, path in paths.items()})
     environment.update(FRITZ_BUILD_ROOT=str(BUILD_ROOT), FRITZ_BUILD_CACHE_ACTIVE=str(ROOT))
-    environment.setdefault("MISTRALRS_METAL_PLATFORMS", "macos")
     environment.setdefault("FRITZ_TEST_BIN_DIR", str(paths["CARGO_TARGET_DIR"] / "debug"))
     # exec preserves jobserver descriptors and signal delivery. The build
     # process owns this descriptor until it exits, including on cancellation.

@@ -25,7 +25,7 @@ downloaded weights available for reuse.
 ## Storage and runtime
 
 Downloads are pinned to repository revisions, file sizes, and SHA-256 hashes. Models run
-inside the per-chat Rust harness using mistral.rs 0.9.4 and Metal, without Ollama or a
+inside the per-chat Rust harness using llama.cpp and Metal, without Ollama or a
 local HTTP service. No API key is needed. Listing models or sending a chat never starts
 a download. By default, weights live under `~/Models/` in both regular and Debug apps.
 Fritz creates that folder only when you first download a model. Debug provider and
