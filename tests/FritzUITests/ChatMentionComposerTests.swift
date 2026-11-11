@@ -27,6 +27,14 @@ final class ChatMentionComposerTests: XCTestCase {
     }
 
     func testNativeSelectionInsertsIdentityBeforeReturnSends() throws {
+        // SwiftPM provides no app host. Complete AppKit launch before starting
+        // a modal loop, and allow the native editor to receive keyboard focus.
+        let app = NSApplication.shared
+        let previousPolicy = app.activationPolicy()
+        XCTAssertTrue(app.setActivationPolicy(.regular))
+        defer { app.setActivationPolicy(previousPolicy) }
+        app.finishLaunching()
+        app.activate()
         let state = State()
         let reddit = ChatMentionItem(id: .init(source: "profiles", value: "reddit"),
                                     name: "Reddit", kind: .entity)
@@ -37,8 +45,7 @@ final class ChatMentionComposerTests: XCTestCase {
                               styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: Fixture(state: state))
-        // The runner may not own application activation. A native nonactivating
-        // panel still accepts keyboard focus and exercises the real field editor.
+        // Keep the field editor available if another app temporarily activates.
         window.hidesOnDeactivate = false
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
@@ -57,7 +64,11 @@ final class ChatMentionComposerTests: XCTestCase {
                 let deadline = ContinuousClock.now + .seconds(2)
                 while NSApp.keyWindow !== window || !(window.firstResponder is NSTextView) {
                     guard ContinuousClock.now < deadline else {
-                        XCTFail("Native composer panel did not acquire keyboard focus")
+                        XCTFail("Native composer panel did not acquire keyboard focus "
+                                + "(active: \(app.isActive), policy: \(app.activationPolicy().rawValue), "
+                                + "visible: \(window.isVisible), canBecomeKey: \(window.canBecomeKey), "
+                                + "keyWindow: \(String(describing: app.keyWindow)), "
+                                + "firstResponder: \(String(describing: window.firstResponder)))")
                         return
                     }
                     window.makeKey()
@@ -73,18 +84,20 @@ final class ChatMentionComposerTests: XCTestCase {
                     modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
                     context: nil, characters: String(UnicodeScalar(NSDownArrowFunctionKey)!),
                     charactersIgnoringModifiers: String(UnicodeScalar(NSDownArrowFunctionKey)!), isARepeat: false, keyCode: 125))
-                window.sendEvent(down)
+                // Use AppKit's event queue so SwiftUI sees the current event's
+                // modifiers and the same dispatch path as physical keyboard input.
+                app.postEvent(down, atStart: false)
                 try await Task.sleep(for: .milliseconds(100))
                 let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
                     modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
                     context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
                     isARepeat: false, keyCode: 36))
-                window.sendEvent(event)
+                app.postEvent(event, atStart: false)
                 try await Task.sleep(for: .milliseconds(200))
                 XCTAssertEqual(state.draft.text, "@Reddit ")
                 XCTAssertEqual(state.draft.references.map(\.item.id), [reddit.id])
                 XCTAssertEqual(state.sends, 0)
-                window.sendEvent(event)
+                app.postEvent(event, atStart: false)
                 try await Task.sleep(for: .milliseconds(100))
                 XCTAssertEqual(state.sends, 1)
                 window.appearance = NSAppearance(named: .darkAqua)
@@ -94,9 +107,9 @@ final class ChatMentionComposerTests: XCTestCase {
                     modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
                     context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
                     isARepeat: false, keyCode: 53))
-                window.sendEvent(escape)
+                app.postEvent(escape, atStart: false)
                 try await Task.sleep(for: .milliseconds(100))
-                window.sendEvent(event)
+                app.postEvent(event, atStart: false)
                 try await Task.sleep(for: .milliseconds(100))
                 XCTAssertEqual(state.draft.text, "@Red")
                 XCTAssertTrue(state.draft.references.isEmpty)
@@ -105,7 +118,7 @@ final class ChatMentionComposerTests: XCTestCase {
                     modifierFlags: [.shift], timestamp: 0, windowNumber: window.windowNumber,
                     context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
                     isARepeat: false, keyCode: 36))
-                window.sendEvent(newline)
+                app.postEvent(newline, atStart: false)
                 try await Task.sleep(for: .milliseconds(100))
                 XCTAssertEqual(state.draft.text, "@Red\n")
                 XCTAssertEqual(state.sends, 2)
