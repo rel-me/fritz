@@ -66,3 +66,29 @@ being verified. Resolve the Makefile conflict by keeping mise's tool entry point
 and the new prepare-rust-inputs target together. Preserve all auto-merged tool
 setup changes, rerun setup/checks/build on the combined branch, push the merge,
 and monitor the latest PR #108 head again.
+
+## Pinned upstream backport follow-up
+
+> PR showing 9k+ line changes still tho
+
+> Do the pinned upstream backport then. Remove the vendored crate and shrink PR #108.
+
+Create the rel-me/whatsapp-rust fork and a branch from Fritz's exact existing
+3a08e84e upstream revision. Cherry-pick upstream fix 8e171946 with only the
+build.rs context adapted to the older pin. Keep its original attribution,
+helper, and two owning regressions. Pin only waproto to the resulting immutable
+commit, remove the local crate and custom descriptor downloader/tests/build
+hooks, and retain normal Cargo download caching and per-runner outputs. Verify
+the dependency diff, upstream regressions, repeated warm checks, full Fritz
+checks/tests, and staged app build. Push PR #108 and monitor the new head again.
+
+Delegated prompt: Monitor PR #108 at the new pinned-backport head through all
+required checks and both app builds. Confirm warm Cargo handoffs stay fresh,
+report exact head/timings, and coordinate any needed fixes before source edits.
+
+Pinned backport f23447d871e75853c94869a80b764e0107607a13 is exactly one
+commit above the original revision, changing only the upstream build repair and
+its two regressions. Cargo.lock changes one source URL/revision and no versions.
+Both fork regressions, Fritz check, and full snapshot-enabled tests pass. Warm
+check 0.601s; preparation 1.913s; test/binary handoffs 0.473/0.475s, all without
+compilation. The PR now contains only dependency configuration and documentation.

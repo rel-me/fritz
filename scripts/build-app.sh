@@ -5,8 +5,6 @@ if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
   exec mise exec -- python3 scripts/build-cache.py "$PWD/scripts/build-app.sh" "$@"
 fi
 
-python3 scripts/prepare-waproto.py
-
 configuration="${CONFIGURATION:-debug}"
 source scripts/release-config.sh
 case "$configuration" in

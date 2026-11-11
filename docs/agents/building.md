@@ -59,12 +59,6 @@ still coordinate their download caches. Set `FRITZ_BUILD_ROOT=/absolute/path` to
 different location. Existing checkout-local build folders are left untouched and can be
 removed once no old builds are using them. Use `mise exec -- python3 scripts/build-cache.py COMMAND
 ...` for direct Cargo commands or integration scripts that need the same paths and lock.
-`make setup`, Rust checks/tests, and app builds prepare the pinned Protobuf
-descriptor in the shared download cache. `make prepare-rust-inputs` prepares it
-explicitly. The download uses an immutable revision and a committed SHA-256;
-verified cache hits work offline without touching timestamps. Cargo codegen
-only reads the prepared input. See [descriptor provenance and recovery](../../vendor/waproto/FRITZ.md#downloaded-descriptor).
-
 See [build storage details](runtime-verification.md#build-storage).
 
 ## Xcode project

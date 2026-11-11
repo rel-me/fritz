@@ -1,4 +1,4 @@
-.PHONY: setup build release-build run dev-open test test-runtime test-swift prepare-rust-inputs ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
+.PHONY: setup build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -6,7 +6,7 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-build release-build run dev-open test test-runtime test-swift prepare-rust-inputs ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
+build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
 	+@mise exec -- python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 else
 
@@ -26,11 +26,6 @@ test: test-runtime test-swift
 # checkout used the shared target directory between preparation and execution.
 ci-prepare: ci-prepare-runtime ci-prepare-swift
 
-prepare-rust-inputs:
-	python3 scripts/prepare-waproto.py
-
-ci-prepare-runtime test-runtime check: prepare-rust-inputs
-
 ci-prepare-runtime:
 	cargo test --workspace --all-features --locked --no-run
 	cargo build --locked
@@ -46,7 +41,6 @@ test-runtime:
 	python3 tests/bundled_runtime.py
 	python3 tests/test_release_tasks.py
 	python3 tests/test_build_cache.py
-	python3 tests/test_waproto_download.py
 	python3 tests/test_app_build_reuse.py
 	python3 tests/test_parallel_build.py
 	python3 tests/test_dev_runtime.py

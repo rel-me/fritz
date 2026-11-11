@@ -3902,6 +3902,7 @@ dependencies = [
 [[package]]
 name = "waproto"
 version = "0.7.0"
+source = "git+https://github.com/rel-me/whatsapp-rust?rev=f23447d871e75853c94869a80b764e0107607a13#f23447d871e75853c94869a80b764e0107607a13"
 dependencies = [
  "buffa",
  "buffa-build",

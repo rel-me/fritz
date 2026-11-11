@@ -144,9 +144,9 @@ visual comparisons execute in the root Swift suite instead of a separate
 SwiftPM invocation. Ordinary `make test` still builds as needed and skips
 visual comparisons. Use `--skip-build` only after preparation for that checkout.
 Cargo still checks freshness during execution. The pinned WhatsApp protocol
-crate uses a [build-freshness backport](cargo-build-freshness.md) so its generated
-descriptor does not invalidate the artifacts just prepared. Other source or
-build-input changes still trigger Cargo's normal compilation.
+crate has a [build-freshness backport](cargo-build-freshness.md) so its generated
+descriptor does not invalidate freshly prepared artifacts. Real source and
+build-input changes still trigger Cargo’s normal compilation.
 Keychain tests and snapshot comparisons run under `lockf -k` with the persistent
 `~/Library/Caches/runner-mac-mini-session.lock`, also used by REL's Swift tests,
 snapshot comparisons, and Staging publication. The lock serializes jobs within
@@ -239,12 +239,6 @@ Under `FRITZ_BUILD_ROOT`:
 
 Under `FRITZ_CACHE_ROOT`:
 
-- `downloads/waproto/<sha256>.desc`: the checksum-verified, revision-pinned
-  Protobuf descriptor. Setup, Rust preparation/checks/tests, and app builds fetch
-  it before Cargo runs; `make prepare-rust-inputs` prepares it explicitly. A
-  per-asset lock and atomic publication support concurrent runner downloads.
-  Verified cache hits work offline without changing timestamps. Cargo itself
-  reads the prepared input and reports missing/corrupt inputs with recovery steps.
 - `swift-packages/` and `xcode-packages/`: shared package download caches.
   Cargo's downloads remain under `CARGO_HOME`. Package managers coordinate their
   own caches, so fetching dependencies can still wait on their locks.
@@ -282,9 +276,7 @@ The wrapper exports the resolved `FRITZ_BUILD_ROOT` and `FRITZ_CACHE_ROOT`,
 `FRITZ_SWIFT_BUILD`, `FRITZ_APP_SWIFT_BUILD`, `FRITZ_SWIFT_CACHE`,
 `FRITZ_DERIVED_DATA`, and `FRITZ_XCODE_CACHE`. Make configures the Swift and Xcode
 commands with these paths. Plain `cargo`/`swift` commands outside the wrapper
-use their normal output defaults, but Cargo commands that compile waproto need
-the prepared descriptor and wrapper-selected `FRITZ_CACHE_ROOT`. Run
-`make prepare-rust-inputs` and use the wrapper for direct Cargo invocations. To get the resolved DerivedData path
+continue using their normal defaults. To get the resolved DerivedData path
 without building, use `python3 scripts/build-cache.py --derived-data`.
 The setup script uses `--setup` to configure these same paths with only the
 checkout lock; reserve that mode for dependency resolution without compilation

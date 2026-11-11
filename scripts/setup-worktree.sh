@@ -30,7 +30,6 @@ cargo clippy --version
 # Resolve committed versions into ~/Builds/Machine/Fritz (or FRITZ_BUILD_ROOT).
 git submodule update --init --recursive
 cargo fetch --locked
-python3 scripts/prepare-waproto.py
 swift package --scratch-path "$FRITZ_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --force-resolved-versions resolve
 swift package --package-path app --scratch-path "$FRITZ_APP_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --force-resolved-versions resolve
 xcodebuild -resolvePackageDependencies \
