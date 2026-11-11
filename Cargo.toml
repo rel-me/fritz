@@ -45,3 +45,8 @@ sha2 = { version = "0.10", features = ["asm"] }
 # Large model checksums must stay fast in development builds too.
 [profile.dev.package.sha2]
 opt-level = 3
+
+# Backport upstream's descriptor freshness fix without upgrading the WhatsApp API.
+# Provenance and removal: docs/agents/cargo-build-freshness.md.
+[patch."https://github.com/oxidezap/whatsapp-rust"]
+waproto = { git = "https://github.com/rel-me/whatsapp-rust", rev = "f23447d871e75853c94869a80b764e0107607a13" }

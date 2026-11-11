@@ -143,8 +143,10 @@ with `FRITZ_SNAPSHOT_MODE=compare` and `SNAPSHOT_ARTIFACTS` pointing to
 visual comparisons execute in the root Swift suite instead of a separate
 SwiftPM invocation. Ordinary `make test` still builds as needed and skips
 visual comparisons. Use `--skip-build` only after preparation for that checkout.
-Cargo still checks freshness during execution because another checkout can
-change the shared Rust artifacts after preparation.
+Cargo still checks freshness during execution. The pinned WhatsApp protocol
+crate has a [build-freshness backport](cargo-build-freshness.md) so its generated
+descriptor does not invalidate freshly prepared artifacts. Real source and
+build-input changes still trigger Cargo’s normal compilation.
 Keychain tests and snapshot comparisons run under `lockf -k` with the persistent
 `~/Library/Caches/runner-mac-mini-session.lock`, also used by REL's Swift tests,
 snapshot comparisons, and Staging publication. The lock serializes jobs within
