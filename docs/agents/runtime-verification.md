@@ -181,9 +181,11 @@ release tools). The layout is:
 - `cargo/`: shared Rust debug/release outputs and incremental dependencies.
 - `swift-packages/` and `xcode-packages/`: shared package download caches.
 - `compiler-cache/rust/` and `compiler-cache/xcode/`: sccache and Xcode compiler
-  caches. sccache uses a Fritz-specific socket and serialized startup, deferred
-  until compilation is needed. Local workspace incremental compilation remains
-  enabled; dependencies can reuse compiler results across source checkouts.
+  caches. sccache uses a private per-user socket directory under `/tmp`, with
+  sockets keyed by build-root hash to respect macOS's Unix socket path limit.
+  Startup is serialized and deferred until compilation is needed. Local
+  workspace incremental compilation remains enabled; dependencies can reuse
+  compiler results across source checkouts.
 - `compiler-cache/metal/v1/`: immutable inference Metal AIR and library artifacts.
   Keys cover source/header bytes, ordered link inputs, arguments, compiler/SDK
   identity, architecture and environment. Per-key locks serialize misses;
