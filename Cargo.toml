@@ -1,6 +1,7 @@
 [workspace]
 members = ["crates/fritz-integrations", "crates/fritz-state", "crates/fritz-harness"]
 resolver = "3"
+exclude = ["vendor/waproto"]
 
 [package]
 name = "fritz"
@@ -45,3 +46,8 @@ sha2 = { version = "0.10", features = ["asm"] }
 # Large model checksums must stay fast in development builds too.
 [profile.dev.package.sha2]
 opt-level = 3
+
+# Backport only waproto's build-freshness repair; keep the pinned WhatsApp API.
+# Provenance and update procedure: vendor/waproto/FRITZ.md.
+[patch."https://github.com/oxidezap/whatsapp-rust"]
+waproto = { path = "vendor/waproto" }
