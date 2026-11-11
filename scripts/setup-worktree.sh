@@ -1,22 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 cd -P "$(dirname "$0")/.."
-if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
-  exec python3 scripts/build-cache.py --setup "$PWD/scripts/setup-worktree.sh" "$@"
-fi
-
 if [[ "$(uname -s)" != Darwin ]]; then
   echo "Fritz development requires macOS and full Xcode (Swift 6.3+)." >&2
   exit 1
 fi
-for tool in cargo swift xcodebuild cmake python3 mise; do
+if ! command -v mise >/dev/null 2>&1; then
+  echo "Missing mise. Install mise and full Xcode; see README.md." >&2
+  exit 1
+fi
+if [[ "${FRITZ_BUILD_CACHE_ACTIVE:-}" != "$PWD" ]]; then
+  mise trust mise.toml
+  mise install
+  exec mise exec -- python3 scripts/build-cache.py --setup "$PWD/scripts/setup-worktree.sh" "$@"
+fi
+
+for tool in swift xcodebuild; do
   if ! command -v "$tool" >/dev/null 2>&1; then
-    echo "Missing $tool. See README.md for Fritz's development requirements." >&2
+    echo "Missing $tool. Install full Xcode and select it with xcode-select." >&2
     exit 1
   fi
 done
-mise trust mise.toml
-mise install
 xcodebuild -version
 swift --version
 cargo --version

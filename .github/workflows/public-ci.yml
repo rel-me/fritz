@@ -48,6 +48,10 @@ jobs:
         run: |
           git reset --hard HEAD
           git clean -ffdx
+      - name: Install pinned development tools
+        uses: jdx/mise-action@v5.2.7
+        with:
+          version: 2026.8.8
       - name: Select installed Swift 6.3 or newer
         run: |
           python3 - <<'PY'
@@ -77,6 +81,10 @@ jobs:
           swift --version
           cargo --version
           cmake --version
+          python3 --version
+          node --version
+          xcodegen --version
+          gh --version
       - name: Test Rust, runtime, libraries, and application
         # Serialize tests within the dedicated CI account's login session.
         run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" python3 scripts/with-test-keychain.py make -j2 test

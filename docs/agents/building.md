@@ -4,14 +4,18 @@
 
 ## Build and run
 
-Requires macOS 15+, Xcode / Swift 6.3, Rust 1.95+ with rustfmt and Clippy, CMake (for a
-native TLS dependency), Python 3.11+ for build coordination and integration tests, and
-mise for the pinned sccache compiler cache.
+Requires macOS 15+, full Xcode with Swift 6.3+, and mise. `mise.toml` is the
+source of truth for Rust (including rustfmt and Clippy), Python, CMake, Node/npm,
+XcodeGen, GitHub CLI, and sccache. `make setup` trusts the configuration and
+installs these versions before resolving dependencies; no preinstalled Cargo,
+Python, CMake, or Node is required. Xcode supplies Swift, Apple SDKs, signing,
+and packaging tools; macOS supplies Make, Git, and system utilities.
 
-With rustup, `rust-toolchain.toml` selects Rust 1.95.0 and its rustfmt and Clippy
-components for this checkout, independently of your global default. Install it ahead of
-time with `rustup toolchain install 1.95.0 --profile minimal --component rustfmt
---component clippy`.
+Make targets use `mise exec`, so shell activation is optional. For direct commands,
+use `mise exec -- COMMAND` (for example, `mise exec -- cargo --version`), or
+activate mise in your shell. CI installs the same tools before toolchain checks.
+Node includes npm; website dependencies such as Wrangler stay in
+`website/package-lock.json` and are installed with `mise exec -- npm --prefix website ci`.
 
 ```sh
 make setup     # check tools and resolve committed dependency versions
@@ -39,7 +43,7 @@ artifact.
 
 ## Build caches
 
-`make setup` installs sccache pinned in `mise.toml`. Compiler caches and immutable
+`make setup` installs the tool versions pinned in `mise.toml`. Compiler caches and immutable
 native Metal libraries live under `~/Builds/Machine/Fritz/compiler-cache/`. Unchanged
 local builds reuse the signed app after checking source bytes, build settings, toolchain
 identity, bundled file hashes, and signatures. No compiler daemon starts on a reuse hit.
@@ -53,14 +57,14 @@ to shared compiled outputs through tests and app staging. `make setup` locks onl
 checkout, so another worktree's build does not delay dependency setup. Package managers
 still coordinate their download caches. Set `FRITZ_BUILD_ROOT=/absolute/path` to use a
 different location. Existing checkout-local build folders are left untouched and can be
-removed once no old builds are using them. Use `python3 scripts/build-cache.py COMMAND
+removed once no old builds are using them. Use `mise exec -- python3 scripts/build-cache.py COMMAND
 ...` for direct Cargo commands or integration scripts that need the same paths and lock.
 See [build storage details](runtime-verification.md#build-storage).
 
 ## Xcode project
 
 The native Xcode project is `app/Fritz.xcodeproj`; its source specification is
-`app/project.yml`. Regenerate project structure with `xcodegen generate --spec
+`app/project.yml`. Regenerate project structure with `mise exec -- xcodegen generate --spec
 app/project.yml`. Use the Makefile to stage the complete app with its Rust agent.
 `app/Package.swift` supports fast Swift builds and unit tests.
 
