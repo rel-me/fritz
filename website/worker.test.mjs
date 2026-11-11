@@ -1,6 +1,26 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import worker from "./worker.mjs";
+import test, { after } from "node:test";
+import { DatabaseSync } from "node:sqlite";
+import siteWorker from "./worker.mjs";
+
+const db = new DatabaseSync(":memory:");
+db.exec(`CREATE TABLE update_check_counts (
+  app_id TEXT NOT NULL, day TEXT NOT NULL, version TEXT NOT NULL,
+  runtime TEXT NOT NULL, checks INTEGER NOT NULL,
+  PRIMARY KEY (app_id, day, version, runtime))`);
+after(() => db.close());
+const DB = { prepare(sql) { return { bind(...values) { return { async run() {
+  db.prepare(sql).run(...values);
+  return { success: true };
+} }; } }; } };
+const worker = { async fetch(request, env) {
+  const pending = [];
+  const response = await siteWorker.fetch(request, { DB, ...env }, {
+    waitUntil(promise) { pending.push(promise); },
+  });
+  await Promise.all(pending);
+  return response;
+} };
 
 function bucket(objects) {
   return {
@@ -88,4 +108,39 @@ test("download ignores Staging builds and unexpected archive URLs", async () => 
   const foreign = item("0.1.1", 2).replace("/updates/Fritz-0.1.1.dmg", "/files/Fritz-0.1.1.dmg");
   assert.equal((await download(appcast(foreign))).status, 404);
   assert.equal((await download({ UPDATES: bucket({}) })).status, 404);
+});
+
+test("counts only successful appcast GETs as atomic daily totals without request metadata", async () => {
+  db.exec("DELETE FROM update_check_counts");
+  const get = (path, init, environment = env) => worker.fetch(new Request(`https://fritz.rel.me${path}`, init), environment);
+  const responses = await Promise.all(Array.from({ length: 4 }, () => get("/appcast.xml", { headers: {
+    "user-agent": "Fritz/99.0 Sparkle/2", "x-installation-id": "private-id", "x-fritz-app-version": "99.0",
+  } })));
+  for (const response of responses) {
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "<rss/>");
+  }
+  await get("/appcast.xml", { method: "HEAD" });
+  await get("/appcast.xml", { method: "POST" });
+  await get("/appcast.xml", { headers: { range: "bytes=0-1" } });
+  await get("/appcast.xml", undefined, { UPDATES: bucket({}) });
+  await get("/updates/Fritz-0.1.1.dmg");
+  await get("/download");
+  assert.deepEqual(db.prepare("SELECT * FROM update_check_counts").all().map(row => ({ ...row })), [{
+    app_id: "dev.fritz.app", day: new Date().toISOString().slice(0, 10), version: "unknown", runtime: "release", checks: 4,
+  }]);
+});
+
+test("counter failures leave signed feed bytes and response headers intact", async t => {
+  const errors = t.mock.method(console, "error", () => {});
+  for (const DB of [
+    { prepare() { throw new Error("unavailable"); } },
+    { prepare() { return { bind() { return { run: async () => ({ success: false }) }; } }; } },
+  ]) {
+    const response = await worker.fetch(new Request("https://fritz.rel.me/appcast.xml"), { ...env, DB });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(await response.text(), "<rss/>");
+  }
+  assert.equal(errors.mock.callCount(), 2);
 });

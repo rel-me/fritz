@@ -13,6 +13,13 @@
       "custom_domain": true
     }
   ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rel-site-db",
+      "database_id": "9d097479-5ca3-4427-bc6e-bfd9b99f8bef"
+    }
+  ],
   "r2_buckets": [
     {
       "binding": "UPDATES",
