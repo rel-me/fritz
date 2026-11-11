@@ -4,15 +4,20 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 branch="$(git -C "$root" symbolic-ref --short -q HEAD 2>/dev/null || true)"
 path_hash="$(printf '%s' "$root" | shasum -a 256 | awk '{print substr($1, 1, 8)}')"
-app_name="FritzDebug"
+case "${BROWSER_ENGINE:-webkit}" in
+  webkit) debug_name=FritzWebViewDebug ;;
+  chromium) debug_name=FritzChromiumDebug ;;
+  *) echo "error: BROWSER_ENGINE must be webkit or chromium" >&2; exit 1 ;;
+esac
+app_name="$debug_name"
 git_directory="$(git -C "$root" rev-parse --absolute-git-dir)"
 common_directory="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)"
 if [[ -z "$branch" || ( "$git_directory" != "$common_directory" && "$branch" != main ) ]]; then
-  app_name="FritzDebug$path_hash"
+  app_name="$debug_name$path_hash"
   if [[ -n "$branch" ]] && command -v gh >/dev/null 2>&1; then
     pr_number="$(cd "$root" && GH_PROMPT_DISABLED=1 gh pr view --json number --jq .number 2>/dev/null || true)"
     if [[ "$pr_number" =~ ^[1-9][0-9]*$ ]]; then
-      app_name="FritzDebug$pr_number"
+      app_name="$debug_name$pr_number"
     fi
   fi
 fi

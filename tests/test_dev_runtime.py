@@ -46,12 +46,12 @@ class DevRuntimeTests(unittest.TestCase):
                 self.git("checkout", "-B", branch)
                 result = self.resolve()
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("app_name=FritzDebug\n", result.stdout)
+                self.assertIn("app_name=FritzWebViewDebug\n", result.stdout)
 
         self.git("checkout", "--detach")
         detached = self.resolve()
         self.assertEqual(detached.returncode, 0, detached.stderr)
-        self.assertRegex(detached.stdout, r"(?m)^app_name=FritzDebug[0-9a-f]{8}$")
+        self.assertRegex(detached.stdout, r"(?m)^app_name=FritzWebViewDebug[0-9a-f]{8}$")
 
     def test_linked_main_uses_plain_debug_name(self):
         primary = self.resolve()
@@ -59,7 +59,7 @@ class DevRuntimeTests(unittest.TestCase):
         self.use_linked_worktree("main")
         result = self.resolve()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("app_name=FritzDebug\n", result.stdout)
+        self.assertIn("app_name=FritzWebViewDebug\n", result.stdout)
         for output in (primary.stdout, result.stdout):
             self.assertIn(f"models_directory={Path.home() / 'Models'}\n", output)
 
@@ -68,7 +68,7 @@ class DevRuntimeTests(unittest.TestCase):
         self.use_linked_worktree("feature")
         feature = self.resolve()
         self.assertEqual(feature.returncode, 0, feature.stderr)
-        self.assertRegex(feature.stdout, r"(?m)^app_name=FritzDebug[0-9a-f]{8}$")
+        self.assertRegex(feature.stdout, r"(?m)^app_name=FritzWebViewDebug[0-9a-f]{8}$")
 
         self.git("checkout", "--detach")
         detached = self.resolve()
@@ -83,12 +83,15 @@ class DevRuntimeTests(unittest.TestCase):
         gh.write_text("#!/bin/sh\nprintf '51\\n'\n")
         gh.chmod(0o755)
 
-        with_pr = self.resolve()
-        self.assertEqual(with_pr.returncode, 0, with_pr.stderr)
-        self.assertIn("app_name=FritzDebug51\n", with_pr.stdout)
-        for prefix in ("bundle_id=", "data_directory=", "keychain_service="):
-            self.assertEqual(next(line for line in with_pr.stdout.splitlines() if line.startswith(prefix)),
-                             next(line for line in without_pr.stdout.splitlines() if line.startswith(prefix)))
+        for engine, name in (("webkit", "FritzWebViewDebug51"), ("chromium", "FritzChromiumDebug51")):
+            with self.subTest(engine=engine):
+                self.environment["BROWSER_ENGINE"] = engine
+                with_pr = self.resolve()
+                self.assertEqual(with_pr.returncode, 0, with_pr.stderr)
+                self.assertIn(f"app_name={name}\n", with_pr.stdout)
+                for prefix in ("bundle_id=", "data_directory=", "keychain_service="):
+                    self.assertEqual(next(line for line in with_pr.stdout.splitlines() if line.startswith(prefix)),
+                                     next(line for line in without_pr.stdout.splitlines() if line.startswith(prefix)))
 
 
 if __name__ == "__main__":

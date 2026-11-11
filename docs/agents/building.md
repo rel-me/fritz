@@ -20,11 +20,11 @@ make dev-open
 
 ## Staged apps
 
-`make dev-open` builds and opens `dist/FritzDebug.app` in the primary repository
+`make dev-open` builds and opens `dist/FritzWebViewDebug.app` in the primary repository
 checkout on any branch, or on `main` in a linked worktree, without a PR lookup. Other
-linked branches use `dist/FritzDebug{PR number}.app` when GitHub CLI can resolve a PR;
+linked branches use `dist/FritzWebViewDebug{PR number}.app` when GitHub CLI can resolve a PR;
 linked branches without a resolvable PR and all detached checkouts use
-`dist/FritzDebug{checkout hash}.app`. The checkout-path hash still gives each Debug app
+`dist/FritzWebViewDebug{checkout hash}.app`. The checkout-path hash still gives each Debug app
 a separate bundle ID, data directory, Keychain service, and UserDefaults domain. Debug
 builds have no update feed. `CONFIGURATION=release make build` stages the optimized
 `dist/Fritz.app`; neither command installs to `/Applications`. Both bundles include the
