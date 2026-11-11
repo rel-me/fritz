@@ -292,3 +292,11 @@ instructions remain outside the compacted prefix. A large recent suffix may
 still exceed the provider limit; compaction does not truncate active tool pairs
 or replace provider context errors. This is deterministic transcript reduction,
 not an additional model request.
+
+## Bundled executable layout
+
+The app bundles one signed Rust executable, `Contents/Resources/fritz`, with
+relative `fritz-harness` and `fritz-decision-harness` symlinks to it. The invoked
+filename selects the entry point before argument parsing. The agent, chat
+harnesses, and decision harnesses remain separate processes with their existing
+private pipes, cancellation, and lifecycle contracts.

@@ -158,3 +158,6 @@ Keep credentials and personal content out of reports.
 State exactly which models, settings, cases, and repetitions support the result.
 A small repeated corpus provides regression evidence for those tasks, not a
 general capability claim or a substitute for native UI and runtime verification.
+
+See the [llama.cpp and mistral.rs performance report](runtime-benchmark-2026-11-10.md)
+for recorded Fritz GGUF chat and Bosun runtime measurements, configurations, and limits.

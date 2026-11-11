@@ -1,3 +1,8 @@
+#[path = "entrypoints/chat.rs"]
+mod chat_entrypoint;
+#[path = "entrypoints/decision.rs"]
+mod decision_entrypoint;
+
 use fritz::{config, decision, decision_client, harness_client, local, provider};
 
 use anyhow::{Context, Result, bail};
@@ -297,6 +302,20 @@ fn envelope(id: &str, result: Result<Value>) -> Value {
 
 #[tokio::main]
 async fn main() {
+    // The app bundles one executable with harness aliases. Inspect argv[0],
+    // since current_exe() resolves the symlink back to the shared executable.
+    let invocation = std::env::args_os().next().map(std::path::PathBuf::from);
+    match invocation.as_deref().and_then(std::path::Path::file_name) {
+        Some(name) if name == "fritz-harness" => {
+            chat_entrypoint::run_main().await;
+            return;
+        }
+        Some(name) if name == "fritz-decision-harness" => {
+            decision_entrypoint::run_main().await;
+            return;
+        }
+        _ => {}
+    }
     let result = run().await;
     local::shutdown().await;
     if let Err(error) = result {

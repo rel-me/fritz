@@ -120,8 +120,13 @@ def verify(app, settings):
         raise ValueError('staged app identity differs from build request')
     for name in ('fritz', 'fritz-harness', 'fritz-decision-harness'):
         binary = app / 'Contents/Resources' / name
-        if binary.is_symlink() or not binary.is_file() or not os.access(binary, os.X_OK):
+        if not binary.is_file() or not os.access(binary, os.X_OK):
             raise ValueError(f'missing bundled executable: {binary}')
+        if name == 'fritz':
+            if binary.is_symlink():
+                raise ValueError('bundled fritz must be a regular executable')
+        elif not binary.is_symlink() or os.readlink(binary) != 'fritz':
+            raise ValueError(f'bundled harness must link to fritz: {binary}')
     args = ['/usr/bin/codesign', '--verify', '--deep', '--strict']
     identity = settings['identity']
     if identity != '-':

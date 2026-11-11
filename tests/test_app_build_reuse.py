@@ -31,12 +31,13 @@ class AppReuseTests(unittest.TestCase):
         resources.mkdir(parents=True)
         executable = self.app / 'Contents/MacOS/Fritz'
         executable.parent.mkdir()
-        for path in [executable, *(resources / name for name in
-                      ('fritz', 'fritz-harness', 'fritz-decision-harness'))]:
+        for path in [executable, resources / 'fritz']:
             shutil.copyfile('/usr/bin/true', path)
             path.chmod(0o755)
             subprocess.run(['codesign', '--force', '--sign', '-', str(path)],
                            check=True, capture_output=True)
+        for name in ('fritz-harness', 'fritz-decision-harness'):
+            (resources / name).symlink_to('fritz')
         (self.app / 'Contents/Info.plist').write_bytes(plistlib.dumps({
             'CFBundleIdentifier': 'dev.fritz.fixture', 'CFBundleExecutable': 'Fritz',
             'CFBundleShortVersionString': '0.1.1', 'CFBundleVersion': '2',
