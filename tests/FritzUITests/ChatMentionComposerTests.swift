@@ -35,14 +35,18 @@ final class ChatMentionComposerTests: XCTestCase {
         ])
         let app = NSApplication.shared
         let previousPolicy = app.activationPolicy()
-        // SwiftPM starts as a command-line process (.prohibited), which cannot
-        // reliably own a key window. Permit the fixture's UI without activating
-        // the app or adding a Dock icon, and restore the runner's policy afterward.
-        try XCTUnwrap(app.setActivationPolicy(.accessory) ? true : nil,
+        let wasActive = app.isActive
+        // Unlike NSApplication.run(), runModal does not finish app launch.
+        // Initialize the test host before requesting native keyboard focus.
+        if !app.isRunning { app.finishLaunching() }
+        _ = try XCTUnwrap(app.setActivationPolicy(.accessory) ? true : nil,
                       "The native composer fixture requires an accessory application")
-        defer { app.setActivationPolicy(previousPolicy) }
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
-                              styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        defer {
+            if !wasActive { app.deactivate() }
+            app.setActivationPolicy(previousPolicy)
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
+                              styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         // This scenario dispatches its own native events through window.sendEvent.
         // Keep unrelated WindowServer keyboard input out of the fixture.
@@ -50,10 +54,8 @@ final class ChatMentionComposerTests: XCTestCase {
             matching: [.keyDown, .keyUp, .flagsChanged]) { _ in nil })
         defer { NSEvent.removeMonitor(keyboardMonitor) }
         window.contentView = NSHostingView(rootView: Fixture(state: state))
-        // The runner may not own application activation. A native nonactivating
-        // panel still accepts keyboard focus and exercises the real field editor.
-        window.hidesOnDeactivate = false
         window.makeKeyAndOrderFront(nil)
+        app.activate()
         defer { window.close() }
         let timeout = Timer(timeInterval: 10, repeats: false) { _ in
             MainActor.assumeIsolated {
@@ -69,10 +71,9 @@ final class ChatMentionComposerTests: XCTestCase {
             do {
                 // Request focus after entering the modal loop, then wait for
                 // AppKit and SwiftUI to establish the actual field editor.
-                window.makeKeyAndOrderFront(nil)
-                try await waitUntil("composer key window and field editor") {
-                    app.keyWindow === window && window.firstResponder is NSTextView
-                }
+                app.activate()
+                window.makeKey()
+                try await waitForComposerFocus(in: window)
                 try await Task.sleep(for: .milliseconds(200))
                 let editor = try XCTUnwrap(window.firstResponder as? NSTextView)
                 editor.insertText("@", replacementRange: editor.selectedRange())
@@ -128,12 +129,20 @@ final class ChatMentionComposerTests: XCTestCase {
         task.cancel()
     }
 
-    private func waitUntil(_ description: String, condition: () -> Bool) async throws {
+    private func waitForComposerFocus(in window: NSWindow) async throws {
         let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
-        while !condition(), clock.now < deadline {
+        let deadline = clock.now.advanced(by: .seconds(5))
+        func isReady() -> Bool {
+            NSApp.isActive && NSApp.keyWindow === window && window.firstResponder is NSTextView
+        }
+        while !isReady(), clock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))
         }
-        try XCTUnwrap(condition() ? true : nil, "Timed out waiting for \(description)")
+        let responder = window.firstResponder.map { String(reflecting: type(of: $0)) } ?? "nil"
+        _ = try XCTUnwrap(isReady() ? true : nil,
+                      "Composer focus unavailable: policy=\(NSApp.activationPolicy().rawValue), " +
+                      "active=\(NSApp.isActive), visible=\(window.isVisible), " +
+                      "canBecomeKey=\(window.canBecomeKey), key=\(window.isKeyWindow), " +
+                      "responder=\(responder)")
     }
 }
