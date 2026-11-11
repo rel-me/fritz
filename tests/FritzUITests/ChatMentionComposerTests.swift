@@ -52,7 +52,17 @@ final class ChatMentionComposerTests: XCTestCase {
         let task = Task { @MainActor in
             defer { NSApp.stopModal() }
             do {
-                try await Task.sleep(for: .milliseconds(200))
+                // SwiftUI installs the field editor after the modal loop starts.
+                // Acquire key status there rather than relying on presentation timing.
+                let deadline = ContinuousClock.now + .seconds(2)
+                while NSApp.keyWindow !== window || !(window.firstResponder is NSTextView) {
+                    guard ContinuousClock.now < deadline else {
+                        XCTFail("Native composer panel did not acquire keyboard focus")
+                        return
+                    }
+                    window.makeKey()
+                    try await Task.sleep(for: .milliseconds(20))
+                }
                 let editor = try XCTUnwrap(window.firstResponder as? NSTextView)
                 editor.insertText("@", replacementRange: editor.selectedRange())
                 try await Task.sleep(for: .milliseconds(200))
