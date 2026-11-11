@@ -49,7 +49,7 @@ async function serveObject(request, bucket, key, contentType, cacheControl) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     }
@@ -65,7 +65,22 @@ export default {
       });
     }
     if (path === "/appcast.xml") {
-      return serveObject(request, env.UPDATES, "appcast.xml", "application/xml; charset=utf-8", "no-store");
+      const response = await serveObject(request, env.UPDATES, "appcast.xml", "application/xml; charset=utf-8", "no-store");
+      if (request.method === "GET" && [200, 304].includes(response.status)) {
+        // Store only a daily total. No requester or installation metadata is read.
+        ctx.waitUntil((async () => {
+          try {
+            const result = await env.DB.prepare(`INSERT INTO update_check_counts (app_id, day, version, runtime, checks)
+              VALUES ('dev.fritz.app', ?, 'unknown', 'release', 1)
+              ON CONFLICT (app_id, day, version, runtime) DO UPDATE SET checks = checks + 1`)
+              .bind(new Date().toISOString().slice(0, 10)).run();
+            if (!result.success) throw new Error("D1 write failed");
+          } catch {
+            console.error("Fritz update-request counting failed.");
+          }
+        })());
+      }
+      return response;
     }
     const filename = ARCHIVE_PATH.exec(path)?.[1];
     if (filename) {

@@ -9,6 +9,13 @@ build checks for updates at startup, and **Fritz → Check for Updates** opens S
 update UI. A critical update blocks chat until it is installed. Settings also includes
 Models, bundled Service status, and Debug.
 
+The update website records only aggregate successful appcast GET requests per
+UTC day for the private rel.me dashboard. These are request counts, not unique
+users or installations. Fritz sends no separate analytics events or installation
+identifiers. The counter stores no IP addresses, user agents, or app versions.
+Repeated checks and browser requests can count; HEAD requests, failures, partial
+responses, and DMG downloads do not.
+
 ## Build configuration
 
 The source version is `0.1.1` in `Cargo.toml` and `app/project.yml`, with Sparkle build

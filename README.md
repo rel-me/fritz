@@ -132,7 +132,7 @@ See [runtime verification](docs/agents/runtime-verification.md),
 - [Providers](docs/providers.md): connections, discovery, model selection, and import/export.
 - [Local models](docs/local-models.md): downloads, storage, hardware estimates, and the local API.
 - [Decision models](docs/decision-models.md): remote and experimental local judgment backends.
-- [App updates](docs/updates.md): update channels and release behavior.
+- [App updates](docs/updates.md): update channels, release behavior, and aggregate update-request counting.
 - [Architecture and storage](docs/architecture.md): harnesses, process ownership, and persistence.
 - [Shared libraries](docs/libraries.md): Swift and Rust APIs for native hosts.
 - [Private protocol](docs/protocol.md) and [decision harness](docs/decision-harness.md): integration contracts.

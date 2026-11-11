@@ -35,6 +35,19 @@ building; an empty bucket returns HTTP 404. They redeploy the Worker during
 publication. The Worker serves the appcast from R2 with `no-store` and versioned
 DMGs with immutable caching and byte-range support.
 
+The Worker also binds the existing `rel-site-db` D1 database as `DB`, in the
+same Cloudflare account as rel.me. The REL website owns this database's schema;
+apply its existing migrations through `0010_multi_app_analytics.sql` before
+deploying the Fritz Worker. Fritz atomically increments `update_check_counts`
+under `app_id = 'dev.fritz.app'` for successful full appcast GETs. The other
+storage keys are fixed to `version = 'unknown'` and `runtime = 'release'`;
+these are aggregate labels, not observed client attributes. No request metadata
+is read or stored. A failed count logs a generic error and leaves the feed
+response intact. Counter writes run with `waitUntil` after the response is ready.
+No forwarding secret, native app change, new table, or historical backfill is
+required. The private dashboard is provided by REL PR #886. Deploy both website
+changes to show new counts; merging Fritz alone does not deploy its Worker.
+
 ## Home page
 
 The home page is static: `website/public/` is published as the Worker's static
