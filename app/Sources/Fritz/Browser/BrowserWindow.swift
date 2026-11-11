@@ -82,6 +82,10 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
 
 struct BrowserWindow: View {
     @State private var tabs = BrowserTabs()
+    @State private var dataActions = BrowserDataActions()
+    @State private var importing = false
+    @State private var filling = false
+    @State private var fillPage: BrowserPage?
     @FocusState private var addressFocused: Bool
 
     private var selectedTab: BrowserTab? {
@@ -113,8 +117,25 @@ struct BrowserWindow: View {
             newTab: newTab, closeTab: closeSelectedTab, focusAddress: { addressFocused = true },
             reload: { selectedTab?.page.reload() },
             previousTab: tabs.controller.selectPreviousTab,
-            nextTab: tabs.controller.selectNextTab
+            nextTab: tabs.controller.selectNextTab,
+            importData: {
+                guard !importing, !filling, !dataActions.busy else { return }
+                dataActions.discover()
+                importing = true
+            },
+            fillPassword: {
+                guard !importing, !filling, !dataActions.busy else { return }
+                if let page = selectedTab?.page {
+                    fillPage = page
+                    dataActions.loadAccounts(page: page)
+                    filling = true
+                }
+            }
         ))
+        .sheet(isPresented: $importing) { BrowserImportSheet(actions: dataActions) }
+        .sheet(isPresented: $filling) {
+            if let fillPage { BrowserPasswordSheet(actions: dataActions, page: fillPage) }
+        }
         .onAppear {
             if tabs.controller.allTabIds.isEmpty { newTab() }
         }
@@ -122,8 +143,9 @@ struct BrowserWindow: View {
         .onChange(of: selectedTab?.id) {
             addressFocused = selectedTab?.page.state.url == nil
         }
-        .onDisappear(perform: tabs.closeAllTabs)
+        .onDisappear { dataActions.cancel(); tabs.closeAllTabs() }
         .onReceive(NotificationCenter.default.publisher(for: .closeFritzBrowser)) { _ in
+            dataActions.cancel()
             tabs.closeAllTabs()
         }
     }
@@ -263,6 +285,8 @@ struct BrowserActions {
     let reload: () -> Void
     let previousTab: () -> Void
     let nextTab: () -> Void
+    let importData: () -> Void
+    let fillPassword: () -> Void
 }
 
 extension FocusedValues {
@@ -290,6 +314,11 @@ struct BrowserCommands: Commands {
                 .disabled(browser == nil)
             Button("Next Tab") { browser?.nextTab() }
                 .keyboardShortcut(.tab, modifiers: [.control])
+                .disabled(browser == nil)
+            Divider()
+            Button("Import Cookies and Passwords…") { browser?.importData() }
+                .disabled(browser == nil)
+            Button("Fill Password…") { browser?.fillPassword() }
                 .disabled(browser == nil)
             Divider()
             Button("Focus Address") { browser?.focusAddress() }

@@ -66,15 +66,17 @@ import SwiftUI
         }
     }
 
-    #if FRITZ_CHROMIUM
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         NotificationCenter.default.post(name: .closeFritzBrowser, object: nil)
+        #if FRITZ_CHROMIUM
         let finished = FritzChromiumApplication.finishBrowserShutdown {
             NSApp.reply(toApplicationShouldTerminate: true)
         }
         return finished ? .terminateNow : .terminateLater
+        #else
+        return .terminateNow
+        #endif
     }
-    #endif
 
     func applicationWillTerminate(_ notification: Notification) {
         FritzState.shared.workspace.shutdown()

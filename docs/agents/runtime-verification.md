@@ -306,3 +306,34 @@ configured build storage. The model catalog lives
 in `Sources/Fritz/LocalModels.json` and is consumed by both Swift and Rust.
 The staged Xcode app must include the Fritz resource bundle as well as Sparkle
 and Textual resources. See [the library guide](../libraries.md).
+
+## Browser import and password filling
+
+The Browser menu imports local Chrome, Chromium, Brave, and Edge profile data.
+Discovery reads directory metadata only. Source SQLite connections use read-only
+transactions, including committed WAL data. Keychain reads occur only after an
+explicit Import action. The reader supports Chromium's macOS `v10` format and
+cookie database versions through 24, checks the encrypted cookie's domain hash,
+and rejects unsupported encryption. Reference contracts are Chromium's
+[key provider](https://github.com/chromium/chromium/blob/156.0.8078.88/components/os_crypt/async/browser/keychain_key_provider.mm),
+[encryptor](https://github.com/chromium/chromium/blob/156.0.8078.88/components/os_crypt/async/common/encryptor.cc),
+and [cookie database](https://github.com/chromium/chromium/blob/156.0.8078.88/net/extras/sqlite/sqlite_persistent_cookie_store.cc).
+Partitioned cookies are skipped because the public destination APIs cannot
+preserve their partition keys. They must never be imported as unpartitioned.
+
+Website passwords use the staged bundle's `FritzBrowserPasswordsService`,
+separate from provider credentials and Chromium's cookie encryption item.
+Debug and ad-hoc builds generate a new service when staging. Signed Release
+builds use a stable edition-specific service. No password data is written to
+application databases. Manual filling rechecks the main document's exact
+origin and the form's destination, never submits, and never targets frames.
+
+`BrowserImportTests` uses synthetic Keychain items, fixed independently generated
+ciphertexts, and temporary SQLite databases with active WAL connections. It
+covers domain-integrity failures, unsupported encryption, skipped records,
+account replacement, origin isolation, and actual WebKit form filling. Run it
+through `make test-swift`. For UI verification, open Import in each staged
+edition, inspect source selection, disabled options, status, cancellation, and
+Quit. Do not import a personal profile or inspect its credentials as an automated
+check. If import writes are interrupted, the reported completed records remain;
+a retry merges and replaces matching records.

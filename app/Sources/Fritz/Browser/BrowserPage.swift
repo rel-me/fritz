@@ -60,6 +60,13 @@ final class BrowserPage {
         }
     }
 
+    func fillPassword(account: WebsiteAccount, password: String) async throws -> Bool {
+        let script = try passwordFillScript(account: account, password: password)
+        return await withCheckedContinuation { continuation in
+            browser.evaluateFillScript(script) { continuation.resume(returning: $0) }
+        }
+    }
+
     func load(_ url: URL) { browser.load(url) }
     func goBack() { browser.goBack() }
     func goForward() { browser.goForward() }
@@ -126,6 +133,11 @@ final class BrowserPage: NSObject, WKNavigationDelegate, WKUIDelegate {
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
         stop()
+    }
+
+    func fillPassword(account: WebsiteAccount, password: String) async throws -> Bool {
+        let script = try passwordFillScript(account: account, password: password)
+        return try await webView.evaluateJavaScript(script) as? Bool == true
     }
 
     func showError(_ message: String) { state.error = message }

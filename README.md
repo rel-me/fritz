@@ -46,6 +46,26 @@ the browser window closes. Website data persists within the app's browser
 profile. The browser does not expose pages to chat. Downloads
 and requests for privileged website access are outside this initial browser.
 
+Use **Browser → Import Cookies and Passwords…** to merge data from a local
+Chrome, Chromium, Brave, or Edge profile into this Fritz build. Choose cookies,
+saved passwords, or both. Import reads the source databases without changing
+them; macOS may request permission to read the source browser’s Safe Storage
+Keychain item. Matching cookies and website accounts are replaced. Expired and
+partitioned cookies, blocked logins, and unsupported login types are skipped
+and counted. Unsupported database/encryption formats fail explicitly. An
+interrupted import reports how many records were written; retrying is safe.
+
+Imported website passwords live in Fritz’s own Keychain service, separately
+from provider credentials and browser cookie encryption. Choose **Browser →
+Fill Password…** on a matching website, then choose an account. Filling targets
+a visible password field in the main document, checks the exact scheme, host,
+and port, and never submits the form. It does not fill cross-origin frames or
+forms. If several password fields are visible, select the intended field first.
+Neither import nor filling exposes browser data to chat. Each Debug or ad-hoc
+rebuild has its own website-password Keychain service; signed Release builds
+keep a stable service across updates. Source browser access is requested only
+after choosing Import, with no background import or shared source storage.
+
 ## CLI
 
 Install the bundled CLI from **Settings → General → Command Line**, then use

@@ -2,6 +2,9 @@
 
 #include "include/cef_app.h"
 #include "include/cef_client.h"
+#include "include/cef_cookie.h"
+#include "include/cef_parser.h"
+#include "include/cef_devtools_message_observer.h"
 #include "include/wrapper/cef_library_loader.h"
 #include "include/cef_application_mac.h"
 
@@ -35,6 +38,60 @@ bool isWebURL(NSURL *url) {
     NSString *scheme = url.scheme.lowercaseString;
     return ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) && url.host.length;
 }
+
+class SetCookieResult : public CefSetCookieCallback {
+public:
+    explicit SetCookieResult(void (^completion)(BOOL)) : completion_(completion) {}
+    void OnComplete(bool success) override {
+        auto completion = completion_;
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(success); });
+    }
+private:
+    void (^completion_)(BOOL);
+    IMPLEMENT_REFCOUNTING(SetCookieResult);
+};
+
+class FlushCookieResult : public CefCompletionCallback {
+public:
+    explicit FlushCookieResult(void (^completion)(BOOL)) : completion_(completion) {}
+    void OnComplete() override {
+        auto completion = completion_;
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(YES); });
+    }
+private:
+    void (^completion_)(BOOL);
+    IMPLEMENT_REFCOUNTING(FlushCookieResult);
+};
+
+// Registration owns the observer until the response or bounded timeout releases it.
+class FillResult : public CefDevToolsMessageObserver {
+public:
+    explicit FillResult(void (^completion)(BOOL)) : completion_(completion) {}
+    CefRefPtr<CefRegistration> registration;
+    int messageID = 0;
+    void finish(bool success) {
+        registration = nullptr;
+        auto completion = std::exchange(completion_, nil);
+        if (completion) completion(success);
+    }
+    void OnDevToolsMethodResult(CefRefPtr<CefBrowser>, int id, bool success,
+                               const void *result, size_t size) override {
+        if (id != messageID) return;
+        bool filled = false;
+        if (success) {
+            auto parsed = CefParseJSON(CefString(static_cast<const char *>(result), size), JSON_PARSER_RFC);
+            if (parsed && parsed->GetType() == VTYPE_DICTIONARY) {
+                auto dictionary = parsed->GetDictionary();
+                auto value = dictionary->GetDictionary("result");
+                filled = value && value->GetBool("value");
+            }
+        }
+        finish(filled);
+    }
+private:
+    void (^completion_)(BOOL);
+    IMPLEMENT_REFCOUNTING(FillResult);
+};
 
 class PageClient : public CefClient, public CefLifeSpanHandler, public CefDisplayHandler,
                    public CefLoadHandler, public CefRequestHandler, public CefDownloadHandler,
@@ -260,6 +317,50 @@ private:
 @implementation FritzChromiumPage {
     CefRefPtr<PageClient> _client;
     CefRefPtr<CefBrowser> _browser;
+    CefRefPtr<FillResult> _fill;
+}
+
++ (void)setCookieWithURL:(NSURL *)url name:(NSString *)name value:(NSString *)value
+                  domain:(NSString *)domain path:(NSString *)path secure:(BOOL)secure
+                httpOnly:(BOOL)httpOnly expires:(NSDate *)expires sameSite:(NSInteger)sameSite
+              completion:(void (^)(BOOL))completion {
+    if (!initialized) { completion(NO); return; }
+    CefCookie cookie;
+    CefString(&cookie.name) = name.UTF8String;
+    CefString(&cookie.value) = value.UTF8String;
+    CefString(&cookie.domain) = domain.UTF8String;
+    CefString(&cookie.path) = path.UTF8String;
+    cookie.secure = secure;
+    cookie.httponly = httpOnly;
+    cookie.has_expires = expires != nil;
+    if (expires) cookie.expires.val = (int64_t)((expires.timeIntervalSince1970 + 11644473600.0) * 1000000.0);
+    cookie.same_site = sameSite == 0 ? CEF_COOKIE_SAME_SITE_NO_RESTRICTION :
+                       sameSite == 1 ? CEF_COOKIE_SAME_SITE_LAX_MODE :
+                       sameSite == 2 ? CEF_COOKIE_SAME_SITE_STRICT_MODE : CEF_COOKIE_SAME_SITE_UNSPECIFIED;
+    auto manager = CefCookieManager::GetGlobalManager(nullptr);
+    if (!manager || !manager->SetCookie(url.absoluteString.UTF8String, cookie, new SetCookieResult(completion))) completion(NO);
+}
+
++ (void)flushCookies:(void (^)(BOOL))completion {
+    if (!initialized) { completion(NO); return; }
+    auto manager = CefCookieManager::GetGlobalManager(nullptr);
+    if (!manager || !manager->FlushStore(new FlushCookieResult(completion))) completion(NO);
+}
+
+- (void)evaluateFillScript:(NSString *)script completion:(void (^)(BOOL))completion {
+    if (!_browser) { completion(NO); return; }
+    if (_fill) _fill->finish(false);
+    CefRefPtr<FillResult> observer = new FillResult(completion);
+    _fill = observer;
+    observer->registration = _browser->GetHost()->AddDevToolsMessageObserver(observer);
+    auto parameters = CefDictionaryValue::Create();
+    parameters->SetString("expression", script.UTF8String);
+    parameters->SetBool("returnByValue", true);
+    observer->messageID = _browser->GetHost()->ExecuteDevToolsMethod(0, "Runtime.evaluate", parameters);
+    if (!observer->messageID) observer->finish(false);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        observer->finish(false);
+    });
 }
 
 - (instancetype)init {
@@ -297,6 +398,7 @@ private:
 - (void)reload { if (_browser) _browser->Reload(); }
 - (void)stop { if (_browser) _browser->StopLoad(); }
 - (void)close {
+    if (_fill) { _fill->finish(false); _fill = nullptr; }
     self.onChange = nil;
     if (_browser) {
         _browser->GetHost()->CloseBrowser(true);

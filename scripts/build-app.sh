@@ -141,11 +141,12 @@ cp "$package_checkouts/Sparkle/LICENSE" "$app_bundle/Contents/Resources/Licenses
 cp resources/licenses/*.txt "$app_bundle/Contents/Resources/Licenses/"
 
 plist="$app_bundle/Contents/Info.plist"
+browser_storage_id=default
+if [[ "$configuration" == debug || "$signing_identity" == - ]]; then
+  browser_storage_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+fi
+plutil -insert FritzBrowserPasswordsService -string "$bundle_id.website-passwords.$browser_storage_id" "$plist"
 if [[ "$browser_engine" == chromium ]]; then
-  browser_storage_id=default
-  if [[ "$configuration" == debug || "$signing_identity" == - ]]; then
-    browser_storage_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-  fi
   plutil -insert FritzBrowserStorageIdentifier -string "$browser_storage_id" "$plist"
   plutil -insert FritzBrowserKeychainService -string "$bundle_id.browser.$browser_storage_id" "$plist"
   plutil -insert FritzBrowserKeychainAccount -string "$bundle_id.browser.$browser_storage_id" "$plist"
