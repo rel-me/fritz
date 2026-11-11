@@ -143,7 +143,8 @@ def main():
             or args.app != ROOT / 'dist' / (settings['name'] + '.app')):
         raise ValueError('reuse requires a locked local build in this checkout')
     settings['identity'] = signing_identity(settings['identity'])
-    state = ROOT / 'dist' / ('.build-reuse-' + settings['configuration'] + '.json')
+    suffix = '-chromium' if settings.get('browser') == 'chromium' else ''
+    state = ROOT / 'dist' / ('.build-reuse-' + settings['configuration'] + suffix + '.json')
     request = state.with_suffix('.request.json')
     if state.is_symlink() or request.is_symlink():
         raise ValueError('refusing linked reuse state')

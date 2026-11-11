@@ -315,7 +315,8 @@ It prepares common infrastructure without changing REL in this repository:
 
 REL must reconcile protocol and model-catalog differences during its later
 migration; this change does not assert drop-in compatibility for either entire
-application. There is no CEF or browser dependency in Fritz.
+application. Fritz’s manual browser is app-specific. The shared libraries
+have no CEF or browser dependency.
 
 ## Host-owned harness tools
 

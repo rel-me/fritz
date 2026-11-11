@@ -38,10 +38,12 @@
 		955EF7C684AAAAFCB7FA6A07 /* CommandLineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */; };
 		9CE52D82C7FF3C4602E3CAC9 /* Bonsplit in Frameworks */ = {isa = PBXBuildFile; productRef = DF707874F5442E6BB1553D9D /* Bonsplit */; };
 		A8BDF4E8FA544859D0934804 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = F8FC8A9558DA38A6831276EC /* Textual */; };
+		BCAAD1194A2B092EF0D33F7A /* BrowserWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B14486279C5BFB5215EA2CF /* BrowserWindow.swift */; };
 		CDD5ED6B822EA484C1C8DF65 /* FritzListSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3713CACF28037690000DB8 /* FritzListSurface.swift */; };
 		D639AECA5A25873C26188693 /* ProviderConfigurationTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763BFEFEDC9ED3D7920497C4 /* ProviderConfigurationTransfer.swift */; };
 		DA3DEE02D495420A574CB073 /* ChatResponseClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */; };
 		E6BB7F585FA085DA240B681F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA14759ABA74D8311285BC6 /* ChatView.swift */; };
+		E6BEAD3F9AB633444F29F637 /* BrowserPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551E85ADE69D850FE126F68 /* BrowserPage.swift */; };
 		ED9BEFA0DC02CB891B1CF9C1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2862844991E65C805050ED5 /* Assets.xcassets */; };
 		F0BA81F78DB6FF75B6ECE009 /* FritzButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */; };
 		F91798FA22D9742E3FE02131 /* ChatStartScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */; };
@@ -70,6 +72,7 @@
 		73835E7146A92557D60E42ED /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		763BFEFEDC9ED3D7920497C4 /* ProviderConfigurationTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderConfigurationTransfer.swift; sourceTree = "<group>"; };
 		78D7DBE3E7DAFEF77840DCA3 /* LocalModelDownloadSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelDownloadSheet.swift; sourceTree = "<group>"; };
+		7B14486279C5BFB5215EA2CF /* BrowserWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserWindow.swift; sourceTree = "<group>"; };
 		847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzWindowStyle.swift; sourceTree = "<group>"; };
 		8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineInstaller.swift; sourceTree = "<group>"; };
 		9002B21AC5011EAB783936B4 /* WorkspaceRightPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceRightPanel.swift; sourceTree = "<group>"; };
@@ -81,6 +84,7 @@
 		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
 		BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
 		C276B44B2FB70A4B459E4D10 /* ChatToolDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolDetails.swift; sourceTree = "<group>"; };
+		C551E85ADE69D850FE126F68 /* BrowserPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserPage.swift; sourceTree = "<group>"; };
 		D074B702DF3BED67BF3C8EB4 /* Fritz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fritz.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResponseClipboard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -107,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				368E954ED0C803B0A5BCCA8B /* FritzApp.swift */,
+				0E12BBDF8456C2C2D5059A97 /* Browser */,
 				5026887945DF41050A082EC5 /* Models */,
 				DCF61C31A1B85580A91EADAC /* Services */,
 				1A41CD32C55145FF848D06C1 /* Stores */,
@@ -114,6 +119,15 @@
 			);
 			name = Fritz;
 			path = Sources/Fritz;
+			sourceTree = "<group>";
+		};
+		0E12BBDF8456C2C2D5059A97 /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				C551E85ADE69D850FE126F68 /* BrowserPage.swift */,
+				7B14486279C5BFB5215EA2CF /* BrowserWindow.swift */,
+			);
+			path = Browser;
 			sourceTree = "<group>";
 		};
 		1A41CD32C55145FF848D06C1 /* Stores */ = {
@@ -295,6 +309,8 @@
 				5D714DF35471FD2F6C3B8675 /* AgentClient.swift in Sources */,
 				5A6A40D152E72C6769B8CB16 /* AppDatabase.swift in Sources */,
 				73708C3CA525811DAD5DABDE /* AppSettings.swift in Sources */,
+				E6BEAD3F9AB633444F29F637 /* BrowserPage.swift in Sources */,
+				BCAAD1194A2B092EF0D33F7A /* BrowserWindow.swift in Sources */,
 				6644C10E0443F6B92425D227 /* ChatAssistantMessage.swift in Sources */,
 				60708F2CC8330726FF14E6EA /* ChatCompletedWorkDisclosure.swift in Sources */,
 				7DB130067F16C96A2ED867E8 /* ChatComposer.swift in Sources */,
@@ -395,11 +411,15 @@
 				FRITZ_PRODUCT_NAME = Fritz;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(FRITZ_BROWSER_LIBRARY_PATH)";
 				MARKETING_VERSION = 0.1.1;
+				OTHER_LDFLAGS = "$(inherited) $(FRITZ_BROWSER_LDFLAGS)";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.app;
 				PRODUCT_MODULE_NAME = FritzApp;
 				PRODUCT_NAME = "$(FRITZ_PRODUCT_NAME)";
 				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(FRITZ_BROWSER_SWIFT_CONDITIONS)";
+				SWIFT_OBJC_BRIDGING_HEADER = "$(FRITZ_BROWSER_BRIDGING_HEADER)";
 			};
 			name = Release;
 		};
@@ -477,11 +497,15 @@
 				FRITZ_PRODUCT_NAME = Fritz;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(FRITZ_BROWSER_LIBRARY_PATH)";
 				MARKETING_VERSION = 0.1.1;
+				OTHER_LDFLAGS = "$(inherited) $(FRITZ_BROWSER_LDFLAGS)";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.app;
 				PRODUCT_MODULE_NAME = FritzApp;
 				PRODUCT_NAME = "$(FRITZ_PRODUCT_NAME)";
 				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(FRITZ_BROWSER_SWIFT_CONDITIONS)";
+				SWIFT_OBJC_BRIDGING_HEADER = "$(FRITZ_BROWSER_BRIDGING_HEADER)";
 			};
 			name = Debug;
 		};

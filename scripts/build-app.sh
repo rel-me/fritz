@@ -22,9 +22,39 @@ case "$configuration" in
   *) echo "CONFIGURATION must be debug or release" >&2; exit 1 ;;
 esac
 
+browser_engine="${BROWSER_ENGINE:-webkit}"
+browser_build_settings=()
+case "$browser_engine" in
+  webkit) ;;
+  chromium)
+    if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
+      echo "error: existing release targets publish the WebKit edition; use a local Chromium build" >&2
+      exit 1
+    fi
+    source scripts/chromium-build.sh
+    bundle_id+=".chromium"
+    if [[ "$configuration" == release ]]; then
+      app_name="Fritz Chromium"
+      data_directory="$HOME/Library/Application Support/Fritz Chromium/Data"
+      models_directory="$HOME/Models"
+      keychain_service="dev.fritz.provider-credentials"
+    else
+      data_directory="${data_directory%/Data}-Chromium/Data"
+    fi
+    keychain_service+=".chromium"
+    browser_build_settings=(
+      'FRITZ_BROWSER_SWIFT_CONDITIONS=FRITZ_CHROMIUM'
+      'FRITZ_BROWSER_BRIDGING_HEADER=Chromium/Chromium.h'
+      "FRITZ_BROWSER_LIBRARY_PATH=\"$cef_build\""
+      'FRITZ_BROWSER_LDFLAGS=-lFritzChromium'
+    )
+    ;;
+  *) echo "error: BROWSER_ENGINE must be webkit or chromium" >&2; exit 1 ;;
+esac
+
 feed_url="${FRITZ_SPARKLE_FEED_URL:-}"
 public_key="${FRITZ_SPARKLE_PUBLIC_ED_KEY:-}"
-if [[ "$configuration" == debug ]]; then
+if [[ "$configuration" == debug || "$browser_engine" == chromium ]]; then
   feed_url=""
   public_key=""
 fi
@@ -48,7 +78,8 @@ signing_identity="${FRITZ_CODE_SIGN_IDENTITY:--}"
 reuse_settings=("configuration=$configuration" "name=$app_name" "bundle=$bundle_id"
   "version=$FRITZ_VERSION" "build_number=$FRITZ_BUILD_NUMBER" "identity=$signing_identity"
   "feed=$feed_url" "public_key=$public_key" "data=${data_directory:-}"
-  "models=${models_directory:-}" "keychain=${keychain_service:-}")
+  "models=${models_directory:-}" "keychain=${keychain_service:-}"
+  "browser=$browser_engine")
 local_build_settings=()
 if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
   local_build_settings=(ONLY_ACTIVE_ARCH=YES)
@@ -68,6 +99,7 @@ else
   # Distribution replaces the same bundle; discard local reuse metadata first.
   rm -f "dist/.build-reuse-$configuration.json"
 fi
+if [[ "$browser_engine" == chromium ]]; then prepare_chromium; fi
 start_compiler_cache
 python3 scripts/parallel-build.py "$PWD/dist/build-logs" \
   cargo "${cargo_args[@]}" ::: \
@@ -79,6 +111,7 @@ python3 scripts/parallel-build.py "$PWD/dist/build-logs" \
   FRITZ_PRODUCT_NAME="$app_name" PRODUCT_BUNDLE_IDENTIFIER="$bundle_id" \
   MARKETING_VERSION="$FRITZ_VERSION" \
   CURRENT_PROJECT_VERSION="$FRITZ_BUILD_NUMBER" \
+  ${browser_build_settings[@]+"${browser_build_settings[@]}"} \
   "${xcode_cache_settings[@]}" ${local_build_settings[@]+"${local_build_settings[@]}"} CODE_SIGNING_ALLOWED=NO build
 
 if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
@@ -108,7 +141,16 @@ cp "$package_checkouts/Sparkle/LICENSE" "$app_bundle/Contents/Resources/Licenses
 cp resources/licenses/*.txt "$app_bundle/Contents/Resources/Licenses/"
 
 plist="$app_bundle/Contents/Info.plist"
-if [[ "$configuration" == debug ]]; then
+if [[ "$browser_engine" == chromium ]]; then
+  browser_storage_id=default
+  if [[ "$configuration" == debug || "$signing_identity" == - ]]; then
+    browser_storage_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  fi
+  plutil -insert FritzBrowserStorageIdentifier -string "$browser_storage_id" "$plist"
+  plutil -insert FritzBrowserKeychainService -string "$bundle_id.browser.$browser_storage_id" "$plist"
+  plutil -insert FritzBrowserKeychainAccount -string "$bundle_id.browser.$browser_storage_id" "$plist"
+fi
+if [[ "$configuration" == debug || "$browser_engine" == chromium ]]; then
   plutil -replace CFBundleName -string "$app_name" "$plist"
   plutil -replace CFBundleDisplayName -string "$app_name" "$plist"
   plutil -insert FritzDataDirectory -string "$data_directory" "$plist"
@@ -123,6 +165,9 @@ fi
 
 sign_options=(--sign "$signing_identity")
 if [[ "$signing_identity" != - ]]; then sign_options+=(--options runtime); fi
+if [[ "$browser_engine" == chromium ]]; then
+  stage_chromium "$app_bundle" "$app_name" "$bundle_id" "${sign_options[@]}"
+fi
 sparkle="$app_bundle/Contents/Frameworks/Sparkle.framework"
 test -d "$sparkle" || { echo "error: Sparkle.framework was not embedded" >&2; exit 1; }
 codesign --force --deep "${sign_options[@]}" "$sparkle"

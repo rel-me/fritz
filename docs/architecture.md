@@ -23,8 +23,14 @@ folder, with `.` identifying its root.
 - `FRITZ_DATA_DIR` overrides databases and the default regular-app/CLI model root (`FRITZ_DATA_DIR/Models`). Debug apps use the shared system model root. Set `FRITZ_MODELS_DIR` to override model storage independently, including isolated Debug app tests. Neither override changes the Keychain namespace or macOS/Sparkle-managed preferences.
 - Interrupted prose is omitted from future context unless it has tool records; the next turn then receives the activity and an interruption notice so it can inspect current state before retrying.
 
-The app has no embedded web engine or browser runtime. Its Rust runtime handles
-providers, local models, chat, and the current folder actions.
+The native app owns the manual Browser window and tab state. The default build
+hosts system WebKit. The opt-in Chromium build packages upstream CEF and its
+sandboxed helpers behind the same browser controls. Chromium's cookie encryption
+uses an explicit Fritz-owned Keychain service and account. Each Debug or
+ad-hoc build receives a unique browser profile and namespace. Certificate-signed
+Release builds retain a stable namespace. The browser is separate
+from the Rust runtime, which handles providers, local models, chat, and folder
+actions.
 
 ## Shared libraries
 

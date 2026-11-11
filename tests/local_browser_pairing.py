@@ -143,12 +143,12 @@ def inspect_binaries(directory):
     resolved = directory.resolve()
     require(resolved.is_relative_to((ROOT / 'dist').resolve())
             and resolved.name == 'Resources' and resolved.parent.name == 'Contents'
-            and resolved.parent.parent.name.startswith('FritzDebug')
+            and resolved.parent.parent.name.startswith(('FritzWebViewDebug', 'FritzChromiumDebug'))
             and resolved.parent.parent.suffix == '.app',
             'Use this checkout\'s staged Debug bundle; no installed or other-checkout binary')
     with (resolved.parent / 'Info.plist').open('rb') as stream:
         info = plistlib.load(stream)
-    require(str(info.get('CFBundleName', '')).startswith('FritzDebug'), 'Debug bundle identity missing')
+    require(str(info.get('CFBundleName', '')).startswith(('FritzWebViewDebug', 'FritzChromiumDebug')), 'Debug bundle identity missing')
     return {'chat': pin(resolved / 'fritz-harness', executable=True),
             'decision': pin(resolved / 'fritz-decision-harness', executable=True),
             'bundle': {'path': str(resolved.parent.parent),

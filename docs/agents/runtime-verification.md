@@ -59,11 +59,11 @@ can emit its terminal error first. A failure stops the cohort; reruns are separa
 recorded attempts, never replacements for failed measurements.
 
 `make build` uses `scripts/build-app.sh` to stage and locally sign a
-`dist/FritzDebug.app` bundle in the primary repository checkout on any branch,
+`dist/FritzWebViewDebug.app` bundle in the primary repository checkout on any branch,
 or on `main` in a linked worktree, without a PR lookup. Other linked branches use
-`dist/FritzDebug{PR number}.app` when GitHub CLI can resolve a PR. Linked branches
+`dist/FritzWebViewDebug{PR number}.app` when GitHub CLI can resolve a PR. Linked branches
 without a resolvable PR and all detached checkouts use
-`dist/FritzDebug{checkout hash}.app`.
+`dist/FritzWebViewDebug{checkout hash}.app`.
 The checkout-path hash continues to isolate the bundle ID, data directory,
 Keychain service, and UserDefaults domain. Model weights are shared by all Debug
 apps and the regular app at `~/Models/`; chat GGUFs and decision artifacts use

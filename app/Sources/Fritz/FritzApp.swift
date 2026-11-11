@@ -66,6 +66,16 @@ import SwiftUI
         }
     }
 
+    #if FRITZ_CHROMIUM
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        NotificationCenter.default.post(name: .closeFritzBrowser, object: nil)
+        let finished = FritzChromiumApplication.finishBrowserShutdown {
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return finished ? .terminateNow : .terminateLater
+    }
+    #endif
+
     func applicationWillTerminate(_ notification: Notification) {
         FritzState.shared.workspace.shutdown()
         FritzState.shared.localModels.stopAll()
@@ -73,7 +83,20 @@ import SwiftUI
     }
 }
 
-@main struct FritzApp: App {
+@main
+@MainActor
+enum FritzMain {
+    static func main() {
+        #if FRITZ_CHROMIUM
+        FritzChromiumApplication.prepare()
+        let directory = FritzPaths.data.appendingPathComponent("Chromium", isDirectory: true)
+        _ = FritzChromiumApplication.startBrowser(dataDirectory: directory)
+        #endif
+        FritzApp.main()
+    }
+}
+
+struct FritzApp: App {
     @NSApplicationDelegateAdaptor(FritzAppDelegate.self) private var delegate
     @State private var state = FritzState.shared
     @StateObject private var updater = AppUpdater(updateChannel: AppUpdateChannel(rawValue: FritzState.shared.settings.updateChannel) ?? .release)
@@ -136,6 +159,14 @@ import SwiftUI
                 Button("Models…") { state.selectSettings(.providers); openSettings() }
             }
         }
+
+        Window("Browser", id: "browser") {
+            BrowserWindow()
+        }
+        .defaultSize(width: 1050, height: 750)
+        .defaultLaunchBehavior(.suppressed)
+        .fritzWindowStyle()
+        .commands { BrowserCommands() }
 
         Settings {
             FritzSettingsView(state: state, updater: updater)

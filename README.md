@@ -5,7 +5,7 @@
   <img src="design/branding/FritzLogo.svg" alt="Fritz" width="360">
 </picture>
 
-A native macOS personal assistant with persistent conversations and a choice of local or remote models. Fritz keeps chat at the center of the window. The current release provides chat and model management; [the personal assistant plan](docs/personal-assistant-plan.md) sets out how Fritz will add personal context, useful actions, and opt-in follow-through.
+A native macOS personal assistant with persistent conversations and a choice of local or remote models. Fritz keeps chat at the center of the window. Fritz includes chat, model management, and a basic browser; [the personal assistant plan](docs/personal-assistant-plan.md) sets out how Fritz will add personal context, useful actions, and opt-in follow-through.
 
 ## Install
 
@@ -33,6 +33,16 @@ folder lets models with native tool support read and change files and run local
 processes. **These actions run with your macOS user permissions; the folder is
 not an OS sandbox.** Attach only folders you trust. This workflow is planned to
 move toward narrower, permission-based personal sources. See [folder access and limits](docs/folder-actions.md).
+
+## Browser
+
+Choose **Browser → Show Browser** (⌘2) to open a separate window for manual
+browsing. Enter an HTTP or HTTPS address, use tabs to keep pages open, and
+navigate with Back, Forward, Reload, and Stop. Use ⌘T for a new tab, ⇧⌘W to
+close a tab, ⌘L to focus the address field, and ⌘R to reload. Tabs reset when
+the browser window closes. Website data persists within the app's browser
+profile. The browser does not expose pages to chat. Downloads
+and requests for privileged website access are outside this initial browser.
 
 ## CLI
 
@@ -62,6 +72,24 @@ make dev-open  # build and launch this checkout's Debug app
 Builds bundle the Rust runtime and Markdown resources and are locally signed by
 default. See [building Fritz](docs/agents/building.md) for toolchain setup,
 Debug app naming, build caches, and Xcode project details.
+
+The default app uses system WebKit. To build the Chromium edition from the same
+source, run:
+
+```sh
+make dev-open BROWSER_ENGINE=chromium
+make build BROWSER_ENGINE=chromium CONFIGURATION=release
+```
+
+The opt-in build downloads a pinned upstream CEF archive for the host
+architecture and checks its SHA-256 before compiling. The optimized app stages
+at `dist/Fritz Chromium.app`. Chromium has its own app identity, settings, and
+website data. Debug app names use `FritzWebViewDebug{PR number}` and
+`FritzChromiumDebug{PR number}`, with a checkout hash when a linked branch has
+no PR. Each Chromium Debug or ad-hoc rebuild receives its own encrypted browser
+profile and Keychain namespace. A certificate-signed Release build uses a
+stable Fritz Chromium namespace across updates. Existing release and automatic update targets serve the WebKit
+edition. Rebuild the Chromium edition to pick up engine updates.
 
 Run the local checks with:
 
