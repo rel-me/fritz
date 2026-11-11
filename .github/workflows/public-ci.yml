@@ -48,6 +48,10 @@ jobs:
         run: |
           git reset --hard HEAD
           git clean -ffdx
+      - name: Install pinned development tools
+        uses: jdx/mise-action@v5.2.7
+        with:
+          version: 2026.8.8
       - name: Select installed Swift 6.3 or newer
         run: |
           python3 - <<'PY'
@@ -79,6 +83,10 @@ jobs:
           swift --version
           cargo --version
           cmake --version
+          python3 --version
+          node --version
+          xcodegen --version
+          gh --version
       - name: Compile tests and check Rust outside the session lock
         run: make -j2 ci-prepare
       - name: Test Rust, runtime, libraries, application, and snapshots

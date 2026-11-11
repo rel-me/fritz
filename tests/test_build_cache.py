@@ -168,10 +168,13 @@ class BuildCacheTests(unittest.TestCase):
             subprocess.run(["git", "init", "-q", str(script.parent.parent)], check=True)
         tools = self.root / "tools"
         tools.mkdir()
-        for name in ("cargo", "swift", "xcodebuild", "cmake", "mise"):
+        for name in ("cargo", "swift", "xcodebuild", "cmake"):
             tool = tools / name
             tool.write_text("#!/bin/sh\nexit 0\n")
             tool.chmod(0o755)
+        mise = tools / "mise"
+        mise.write_text('#!/bin/sh\nif [ "$1" = exec ]; then shift 2; exec "$@"; fi\nexit 0\n')
+        mise.chmod(0o755)
         environment = dict(self.environment, PATH=f"{tools}{os.pathsep}{os.environ['PATH']}")
         started = self.root / "build-started"
         release = self.root / "build-release"

@@ -58,3 +58,11 @@ failure without silent replacement, and cross-process atomic single-download
 publication. Existing build-cache lock tests still pass with network work stubbed
 outside their boundary. Cargo check after the downloaded-input change completed
 in 26.74s, then 0.48s on the identical next invocation, preserving freshness.
+
+## Concurrent main update
+
+PR #106 merged pinned mise tooling while the descriptor-download follow-up was
+being verified. Resolve the Makefile conflict by keeping mise's tool entry point
+and the new prepare-rust-inputs target together. Preserve all auto-merged tool
+setup changes, rerun setup/checks/build on the combined branch, push the merge,
+and monitor the latest PR #108 head again.

@@ -1,13 +1,14 @@
 # Runtime verification
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
-locks and initializes the pinned `vendor/llama.cpp` Git submodule. It needs full Xcode with Swift 6.3+, Rust 1.95+ with rustfmt and Clippy,
-CMake 3.20+ for llama.cpp and the native TLS dependency, Python 3.11+, and mise for pinned sccache. With rustup, the repository's
-`rust-toolchain.toml` selects Rust 1.95.0 with rustfmt and Clippy; rustup installs
-missing toolchain components when invoked. Setup trusts `mise.toml` and installs
-its pinned sccache version. It does not change Git branches, copy local credentials,
-build an app, or launch one. XcodeGen is needed only when regenerating
-`app/Fritz.xcodeproj` from `app/project.yml`.
+locks and initializes the pinned `vendor/llama.cpp` Git submodule. It needs full
+Xcode with Swift 6.3+ and mise. Setup trusts `mise.toml` and installs its pinned
+Rust (with rustfmt and Clippy), Python, CMake, Node/npm, XcodeGen, GitHub CLI,
+and sccache before resolving dependencies. Swift, SDKs, and Apple platform tools
+come from Xcode/macOS. Setup does not change Git branches, copy local credentials,
+build an app, or launch one. Make targets enter the mise environment automatically;
+prefix direct tool commands below with `mise exec --` unless your shell has mise
+activated. XcodeGen is used when regenerating `app/Fritz.xcodeproj`.
 
 The [Codex environment](../../.codex/environments/environment.toml)
 defines Fritz's local setup and actions. Setup runs `make setup`; the toolbar actions

@@ -85,12 +85,16 @@ the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
-The native composer keyboard test dispatches events to the real owning window
-while another window contains matching text. It verifies mention selection,
-Return, Escape, and Shift-Return without requiring foreground app activation,
-and checks that the other window is unchanged. A scoped event monitor excludes
+The native composer keyboard test runs with application activation prohibited
+and an offscreen panel that cannot become key, while another window contains
+matching text. It dispatches events to the real owning window and verifies mention
+insertion, stable references, Return-to-send, Escape dismissal, and Shift-Return,
+and checks that the other window is unchanged. The composer resolves its editor
+through its own containing window, so this test needs no unlocked foreground session.
+A scoped event monitor excludes
 unrelated desktop keyboard input, and a common-mode watchdog bounds the modal
 session. The fixture restores the prior activation policy on teardown.
+Keep the environment and behavior assertions when changing keyboard handling.
 
 ## Shared UI snapshots
 
