@@ -89,6 +89,14 @@ jobs:
           name: fritz-ui-snapshot-failures
           path: dist/snapshot-failures
           if-no-files-found: ignore
+      - name: Build both browser editions
+        run: |
+          make build
+          webkit_app=$(cat dist/.last-built-app)
+          test ! -e "$webkit_app/Contents/Frameworks/Chromium Embedded Framework.framework"
+          make build BROWSER_ENGINE=chromium
+          chromium_app=$(cat dist/.last-built-app)
+          test -d "$chromium_app/Contents/Frameworks/Chromium Embedded Framework.framework"
       - name: Check Rust
         run: make check
 

@@ -20,6 +20,17 @@ the following surfaces, include these behaviors:
   a flat toolbar strip.
   Compare the toolbar with the exposed padding around the rounded detail corner:
   the color must remain continuous in fullscreen as well as in a normal window.
+- **Browser:** Run the same flow in the staged default and
+  `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
+  HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
+  Open and close tabs, switch back to a populated tab, and check focus and
+  shortcuts with chat and the Browser window active. Check a refused
+  connection, light and dark appearance, resize, and app quit with pages open.
+  For Chromium, verify nested signatures and confirm that its helpers exit with
+  the app. Check that a fresh Chromium launch can browse without a Keychain
+  prompt. Check that rebuilds have distinct Keychain service/account values
+  and browser profile identifiers in their Info.plist. The default bundle should
+  contain no CEF framework or helpers.
 - **Projects and threads:** blank sidebar and detail surfaces when no project or
   thread exists, with creation available from the toolbar and menu. Check stable
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
