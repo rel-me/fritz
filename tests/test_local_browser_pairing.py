@@ -273,9 +273,9 @@ class ProtocolAndReports(unittest.TestCase):
         self.root_patch.start()
         self.addCleanup(self.root_patch.stop)
         self.addCleanup(self.temporary.cleanup)
-        resources = self.directory / 'dist/FritzWebViewDebugmock.app/Contents/Resources'
+        resources = self.directory / 'dist/FritzDebugmock.app/Contents/Resources'
         resources.mkdir(parents=True)
-        (resources.parent / 'Info.plist').write_bytes(plistlib.dumps({'CFBundleName': 'FritzWebViewDebugmock',
+        (resources.parent / 'Info.plist').write_bytes(plistlib.dumps({'CFBundleName': 'FritzDebugmock',
             'CFBundleIdentifier': 'test.owned.debug', 'CFBundleVersion': '1'}))
         for binary in ('fritz-harness', 'fritz-decision-harness'):
             (resources / binary).write_text('#!/bin/sh\nexit 1\n')
