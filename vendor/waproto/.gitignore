@@ -1,6 +1,8 @@
 # Generated from whatsapp.desc at build time; see build.rs.
-# The tracked source of truth is whatsapp.proto + whatsapp.desc.
+# The schema/checksums are tracked; the binary descriptor is prepared in the shared cache.
 whatsapp.rs
 src/whatsapp.rs
 tags.rs
 src/tags.rs
+
+/src/whatsapp.desc

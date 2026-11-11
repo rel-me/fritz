@@ -13,6 +13,9 @@ description = "Protocol Buffers definitions for WhatsApp"
 [package.metadata.cargo-machete]
 ignored = ["serde"]
 
+[package.metadata.fritz]
+upstream-revision = "3a08e84e8d7a462f6f87eb98d28fe1ce889a653a"
+
 [features]
 default = []
 serde-deserialize = []

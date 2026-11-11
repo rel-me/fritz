@@ -30,6 +30,8 @@ class BuildCacheTests(unittest.TestCase):
             shutil.copyfile(ROOT / "Makefile", script.parent.parent / "Makefile")
             shutil.copyfile(ROOT / "scripts/setup-worktree.sh", script.parent / "setup-worktree.sh")
             (script.parent / "setup-worktree.sh").chmod(0o755)
+            # This fixture tests locks, not dependency download/toolchain work.
+            (script.parent / "prepare-waproto.py").write_text("# Dependency preparation stub.\n")
             self.scripts.append(script)
 
     def command(self, index, *args):

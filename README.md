@@ -90,6 +90,9 @@ make setup     # check tools and resolve committed dependencies
 make dev-open  # build and launch this checkout's Debug app
 ```
 
+Setup and build commands fetch a revision-pinned, checksum-verified schema input
+into the shared cache. Code generation reuses that input offline after preparation.
+
 `CONFIGURATION=release make build` stages an optimized app at `dist/Fritz.app`.
 Builds bundle the Rust runtime and Markdown resources and are locally signed by
 default. See [building Fritz](docs/agents/building.md) for toolchain setup,

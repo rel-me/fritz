@@ -41,8 +41,10 @@ timestamps remain visible to Cargo too.
 
 Fritz uses a local Cargo patch at `vendor/waproto`, based on the existing WhatsApp
 pin, with only that generator repair. See its [provenance and update procedure](../../vendor/waproto/FRITZ.md).
-The runtime/protocol sources and original tests match the pinned upstream bytes;
-all locked dependency versions remain unchanged. Updating the entire upstream
+The runtime/text-schema sources and original tests match the pinned upstream
+bytes; the binary descriptor is downloaded from that immutable revision and
+verified against its committed SHA-256. All locked dependency versions remain
+unchanged. Updating the entire upstream
 pin would pull in 202 unrelated commits, including breaking API changes.
 
 The patched isolated check sequence took 29.45 s, 0.49 s, and 0.26 s. Generated
@@ -70,3 +72,12 @@ The first cycle compiled the newly selected local package in test and Clippy
 modes. Neither execution handoff compiled waproto or its integration consumers.
 The second cycle remained fresh. This verifies the handoff repair without
 changing the existing commands, disabling Clippy, or suppressing Cargo checks.
+
+## Downloaded-input follow-up
+
+The original timing tables above predate removing the binary descriptor from
+Git. Setup/build preparation now fetches it into the shared cache before Cargo
+starts. The build script tracks and verifies that cached input, and dates the
+derived descriptor like it. Verification of a cache hit leaves its timestamp
+unchanged, preserving the freshness repair. Cargo code generation stays offline.
+See the [cache preparation contract](../../vendor/waproto/FRITZ.md#downloaded-descriptor).

@@ -58,21 +58,32 @@ const LOCAL_FIELDS: &[LocalField] = &[LocalField {
 fn main() -> std::io::Result<()> {
     // Rerun on desc change (new codegen) and proto change (so the staleness
     // guard below runs). `build.rs` itself too.
-    println!("cargo:rerun-if-changed=src/whatsapp.desc");
+    println!("cargo:rerun-if-env-changed=FRITZ_CACHE_ROOT");
     println!("cargo:rerun-if-changed=src/whatsapp.desc.sha256");
     println!("cargo:rerun-if-changed=src/whatsapp.proto");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=build/descriptor.rs");
 
-    ensure_proto_descriptor_hash()?;
+    let expected = read_expected_hashes("src/whatsapp.desc.sha256")?;
+    let cache_root = std::env::var_os("FRITZ_CACHE_ROOT").ok_or_else(|| {
+        std::io::Error::other(
+            "waproto: use make or scripts/build-cache.py to select FRITZ_CACHE_ROOT; \
+             run make prepare-rust-inputs to fetch the pinned descriptor",
+        )
+    })?;
+    let descriptor_source = std::path::PathBuf::from(cache_root)
+        .join("downloads/waproto")
+        .join(format!("{}.desc", expected.desc));
+    println!("cargo:rerun-if-changed={}", descriptor_source.display());
+    let descriptor_bytes = checked_descriptor(&descriptor_source, &expected)?;
 
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR must be set by cargo");
     let out_path = std::path::PathBuf::from(&out_dir);
 
     // Build-time descriptor decode — nothing to pin in waproto::codec.
     #[allow(clippy::disallowed_methods)]
-    let mut fds = FileDescriptorSet::decode_from_slice(&std::fs::read("src/whatsapp.desc")?)
-        .map_err(std::io::Error::other)?;
+    let mut fds =
+        FileDescriptorSet::decode_from_slice(&descriptor_bytes).map_err(std::io::Error::other)?;
     apply_local_fields(&mut fds)?;
 
     // Emit the wire-tag consts (field numbers) for hand-written partial decoders.
@@ -85,11 +96,7 @@ fn main() -> std::io::Result<()> {
     let descriptor = out_path.join("whatsapp.local.desc");
     #[allow(clippy::disallowed_methods)]
     let encoded = fds.encode_to_vec();
-    descriptor::write(
-        &descriptor,
-        &encoded,
-        std::path::Path::new("src/whatsapp.desc"),
-    )?;
+    descriptor::write(&descriptor, &encoded, &descriptor_source)?;
 
     buffa_build::Config::new()
         .descriptor_set(&descriptor)
@@ -357,24 +364,33 @@ fn generate_tags(fds: &FileDescriptorSet, out_path: &std::path::Path) -> std::io
     std::fs::write(out_path, out)
 }
 
-fn ensure_proto_descriptor_hash() -> std::io::Result<()> {
+fn checked_descriptor(
+    path: &std::path::Path,
+    expected: &ExpectedHashes,
+) -> std::io::Result<Vec<u8>> {
     let proto = std::fs::read("src/whatsapp.proto")?;
-    let desc = std::fs::read("src/whatsapp.desc")?;
-    let expected = read_expected_hashes("src/whatsapp.desc.sha256")?;
+    let desc = std::fs::read(path).map_err(|error| {
+        std::io::Error::new(
+            error.kind(),
+            format!(
+                "waproto: cannot read {}: {error}; run make prepare-rust-inputs",
+                path.display()
+            ),
+        )
+    })?;
     let actual_proto = sha256_hex(&proto);
     let actual_desc = sha256_hex(&desc);
 
     if actual_proto != expected.proto || actual_desc != expected.desc {
         return Err(std::io::Error::other(format!(
-            "waproto: src/whatsapp.proto/src/whatsapp.desc do not match src/whatsapp.desc.sha256. \
-             Run `cargo xt proto-desc` to refresh the descriptor \
-             and commit src/whatsapp.proto, src/whatsapp.desc, and \
-             src/whatsapp.desc.sha256. expected proto {}, desc {}; got proto {}, desc {}",
+            "waproto: schema inputs do not match src/whatsapp.desc.sha256. \
+             Restore the pinned schema/hash manifest, or remove the cached descriptor \
+             and run make prepare-rust-inputs. Expected proto {}, desc {}; got proto {}, desc {}",
             expected.proto, expected.desc, actual_proto, actual_desc
         )));
     }
 
-    Ok(())
+    Ok(desc)
 }
 
 struct ExpectedHashes {

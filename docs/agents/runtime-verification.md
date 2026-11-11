@@ -238,6 +238,12 @@ Under `FRITZ_BUILD_ROOT`:
 
 Under `FRITZ_CACHE_ROOT`:
 
+- `downloads/waproto/<sha256>.desc`: the checksum-verified, revision-pinned
+  Protobuf descriptor. Setup, Rust preparation/checks/tests, and app builds fetch
+  it before Cargo runs; `make prepare-rust-inputs` prepares it explicitly. A
+  per-asset lock and atomic publication support concurrent runner downloads.
+  Verified cache hits work offline without changing timestamps. Cargo itself
+  reads the prepared input and reports missing/corrupt inputs with recovery steps.
 - `swift-packages/` and `xcode-packages/`: shared package download caches.
   Cargo's downloads remain under `CARGO_HOME`. Package managers coordinate their
   own caches, so fetching dependencies can still wait on their locks.
@@ -275,7 +281,9 @@ The wrapper exports the resolved `FRITZ_BUILD_ROOT` and `FRITZ_CACHE_ROOT`,
 `FRITZ_SWIFT_BUILD`, `FRITZ_APP_SWIFT_BUILD`, `FRITZ_SWIFT_CACHE`,
 `FRITZ_DERIVED_DATA`, and `FRITZ_XCODE_CACHE`. Make configures the Swift and Xcode
 commands with these paths. Plain `cargo`/`swift` commands outside the wrapper
-continue using their normal defaults. To get the resolved DerivedData path
+use their normal output defaults, but Cargo commands that compile waproto need
+the prepared descriptor and wrapper-selected `FRITZ_CACHE_ROOT`. Run
+`make prepare-rust-inputs` and use the wrapper for direct Cargo invocations. To get the resolved DerivedData path
 without building, use `python3 scripts/build-cache.py --derived-data`.
 The setup script uses `--setup` to configure these same paths with only the
 checkout lock; reserve that mode for dependency resolution without compilation
