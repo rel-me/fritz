@@ -10,6 +10,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD_ROOT = Path(os.environ.get("FRITZ_BUILD_ROOT", "~/Builds/Machine/Fritz")).expanduser().resolve()
+CACHE_ROOT = Path(os.environ.get("FRITZ_CACHE_ROOT", str(BUILD_ROOT))).expanduser().resolve()
 CHECKOUT = BUILD_ROOT / "worktrees" / hashlib.sha256(os.fsencode(ROOT)).hexdigest()[:16]
 
 
@@ -42,21 +43,23 @@ def main():
     # worktrees' builds. Keep descriptors alive through exec and cancellation.
     locks = [acquire_lock(CHECKOUT / ".lock", f"checkout: {ROOT}")]
     if not setup:
-        # Cargo's own lock ends before tests and staging consume its outputs.
-        locks.append(acquire_lock(BUILD_ROOT / ".lock", f"build cache: {BUILD_ROOT}"))
+        # Lock only writable outputs, not the independently shared package and
+        # compiler caches. Cargo's own lock ends before tests/staging consume outputs.
+        locks.append(acquire_lock(BUILD_ROOT / ".lock", f"build outputs: {BUILD_ROOT}"))
 
     paths = {
         "CARGO_TARGET_DIR": BUILD_ROOT / "cargo",
         "FRITZ_SWIFT_BUILD": CHECKOUT / "swift",
         "FRITZ_APP_SWIFT_BUILD": CHECKOUT / "swift-app",
         "FRITZ_DERIVED_DATA": CHECKOUT / "DerivedData",
-        "FRITZ_SWIFT_CACHE": BUILD_ROOT / "swift-packages",
-        "FRITZ_XCODE_CACHE": BUILD_ROOT / "xcode-packages",
+        "FRITZ_SWIFT_CACHE": CACHE_ROOT / "swift-packages",
+        "FRITZ_XCODE_CACHE": CACHE_ROOT / "xcode-packages",
     }
     for path in paths.values():
         path.mkdir(parents=True, exist_ok=True)
     environment = dict(os.environ, **{key: str(path) for key, path in paths.items()})
-    environment.update(FRITZ_BUILD_ROOT=str(BUILD_ROOT), FRITZ_BUILD_CACHE_ACTIVE=str(ROOT))
+    environment.update(FRITZ_BUILD_ROOT=str(BUILD_ROOT), FRITZ_CACHE_ROOT=str(CACHE_ROOT),
+                       FRITZ_BUILD_CACHE_ACTIVE=str(ROOT))
     environment.setdefault("FRITZ_TEST_BIN_DIR", str(paths["CARGO_TARGET_DIR"] / "debug"))
     # exec preserves jobserver descriptors and signal delivery. The build
     # process owns this descriptor until it exits, including on cancellation.

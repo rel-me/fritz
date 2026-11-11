@@ -1,4 +1,4 @@
-.PHONY: setup build release-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
+.PHONY: setup build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -6,7 +6,7 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-build release-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
+build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote:
 	+@mise exec -- python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 else
 
@@ -20,6 +20,20 @@ run dev-open: build
 	open -n "$$(cat dist/.last-built-app)"
 
 test: test-runtime test-swift
+
+# Compile before CI takes the account-wide Keychain/UI session lock.
+# Keep the normal test commands afterward: Cargo rechecks freshness if another
+# checkout used the shared target directory between preparation and execution.
+ci-prepare: ci-prepare-runtime ci-prepare-swift
+
+ci-prepare-runtime:
+	cargo test --workspace --all-features --locked --no-run
+	cargo build --locked
+	$(MAKE) --no-print-directory check
+
+ci-prepare-swift:
+	swift build --build-tests --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
+	swift build --build-tests --package-path app --scratch-path "$(FRITZ_APP_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
 
 test-runtime:
 	cargo test --workspace --all-features --locked
@@ -38,8 +52,8 @@ test-runtime:
 	python3 tests/test_milestone_selection_eval.py
 
 test-swift:
-	swift test --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
-	swift test --package-path app --scratch-path "$(FRITZ_APP_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
+	swift test $(SWIFT_TEST_FLAGS) --scratch-path "$(FRITZ_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
+	swift test $(SWIFT_TEST_FLAGS) --package-path app --scratch-path "$(FRITZ_APP_SWIFT_BUILD)" --cache-path "$(FRITZ_SWIFT_CACHE)"
 
 check-ui-snapshots:
 	./scripts/check-ui-snapshots.sh

@@ -86,11 +86,15 @@ without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
 The native composer keyboard test runs with application activation prohibited
-and an offscreen panel that cannot become key. It dispatches synthetic keys to
-that window's real field editor and verifies mention insertion, stable references,
-Return-to-send, Escape dismissal, and Shift-Return. The composer resolves its editor
+and an offscreen panel that cannot become key, while another window contains
+matching text. It dispatches events to the real owning window and verifies mention
+insertion, stable references, Return-to-send, Escape dismissal, and Shift-Return,
+and checks that the other window is unchanged. The composer resolves its editor
 through its own containing window, so this test needs no unlocked foreground session.
-Keep those environment and behavior assertions when changing keyboard handling.
+A scoped event monitor excludes
+unrelated desktop keyboard input, and a common-mode watchdog bounds the modal
+session. The fixture restores the prior activation policy on teardown.
+Keep the environment and behavior assertions when changing keyboard handling.
 
 ## Shared UI snapshots
 
@@ -110,8 +114,9 @@ indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
 Native table column widths are rounded up to whole points before capture to avoid
 a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
-Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
-same command and uploads mismatches from `dist/snapshot-failures`. Ordinary
+Run `make check-ui-snapshots` before committing shared UI changes. CI enables
+comparison mode in the full root Swift test suite after compiling it, and
+uploads mismatches from `dist/snapshot-failures`. Ordinary
 `make test` skips the visual suite so CLI/unit tests work without a GUI session.
 A missing reference fails comparison without creating a new baseline. The
 comparison command rejects recording mode.

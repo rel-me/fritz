@@ -69,12 +69,14 @@ jobs:
           else:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
           PY
-      - name: Select shared build storage for this toolchain
+      - name: Select runner outputs and shared caches for this toolchain
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
-          # build-cache.py holds the shared lock through builds, tests, and staging.
-          # SwiftPM scratch and DerivedData remain isolated by checkout path.
-          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Machine/Fritz/ci/shared/$fingerprint" >> "$GITHUB_ENV"
+          runner_key=$(printf '%s' "$RUNNER_NAME" | shasum -a 256 | cut -c 1-16)
+          # Keep Cargo/CMake outputs, Swift scratch, DerivedData, and their locks
+          # runner-local. Retain the existing shared download/compiler caches.
+          echo "FRITZ_BUILD_ROOT=$HOME/Builds/Machine/Fritz/ci/runners/$runner_key/$fingerprint" >> "$GITHUB_ENV"
+          echo "FRITZ_CACHE_ROOT=$HOME/Builds/Machine/Fritz/ci/shared/$fingerprint" >> "$GITHUB_ENV"
       - name: Check toolchains
         run: |
           xcodebuild -version
@@ -85,11 +87,16 @@ jobs:
           node --version
           xcodegen --version
           gh --version
-      - name: Test Rust, runtime, libraries, and application
-        # Serialize tests within the dedicated CI account's login session.
-        run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" python3 scripts/with-test-keychain.py make -j2 test
-      - name: Compare SwiftUI snapshots
-        run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" make check-ui-snapshots
+      - name: Compile tests and check Rust outside the session lock
+        run: make -j2 ci-prepare
+      - name: Test Rust, runtime, libraries, application, and snapshots
+        env:
+          FRITZ_SNAPSHOT_MODE: compare
+          SNAPSHOT_ARTIFACTS: ${{ github.workspace }}/dist/snapshot-failures
+        # Compile first, then serialize only execution in the login session.
+        # Take the session lock before the build-cache lock, matching other jobs.
+        # Swift scratch state is checkout-specific and protected by that lock.
+        run: lockf -k "$HOME/Library/Caches/runner-mac-mini-session.lock" python3 scripts/with-test-keychain.py make -j2 test SWIFT_TEST_FLAGS=--skip-build
       - name: Upload snapshot failures
         if: failure()
         uses: actions/upload-artifact@v4
@@ -105,8 +112,6 @@ jobs:
           make build BROWSER_ENGINE=chromium
           chromium_app=$(cat dist/.last-built-app)
           test -d "$chromium_app/Contents/Frameworks/Chromium Embedded Framework.framework"
-      - name: Check Rust
-        run: make check
 
   # Preserve the original required-check name and propagate failure/cancellation.
   complete:
