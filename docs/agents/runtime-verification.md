@@ -130,15 +130,32 @@ Fritz macOS CI additionally requires the `fritz-isolated-account` label, assigne
 only to runners installed and run under `runner-ci`. Do not assign this label to
 a desktop-account runner. The wrapper checks the actual account name before
 reading or changing any Keychain preferences and refuses every other account.
-One job runs
-`python3 scripts/with-test-keychain.py make -j2 test` (Rust/runtime and Swift
-test groups concurrently), snapshot comparisons, then `make check`.
+One job first runs `make -j2 ci-prepare` outside the login-session lock.
+This compiles Rust test executables and runtime binaries, runs Rust formatting
+and Clippy checks, and builds both Swift test packages, with Rust and Swift
+preparation concurrent. It uses the normal build-cache locks without touching
+Keychain preferences or running UI tests.
+The job then runs
+`python3 scripts/with-test-keychain.py make -j2 test SWIFT_TEST_FLAGS=--skip-build`
+with `FRITZ_SNAPSHOT_MODE=compare` and `SNAPSHOT_ARTIFACTS` pointing to
+`dist/snapshot-failures`. Rust/runtime and Swift test groups run concurrently;
+visual comparisons execute in the root Swift suite instead of a separate
+SwiftPM invocation. Ordinary `make test` still builds as needed and skips
+visual comparisons. Use `--skip-build` only after preparation for that checkout.
+Cargo still checks freshness during execution because another checkout can
+change the shared Rust artifacts after preparation.
 Keychain tests and snapshot comparisons run under `lockf -k` with the persistent
 `~/Library/Caches/runner-mac-mini-session.lock`, also used by REL's Swift tests,
 snapshot comparisons, and Staging publication. The lock serializes jobs within
 each account; it does not isolate Keychain settings from that account's desktop
 applications. Never delete
-that lock file while jobs run. The job's 300-minute timeout includes waiting
+that lock file while jobs run. Execution takes the session lock before entering
+the build-cache wrapper, preserving the lock order used by older workflows;
+preparation releases its build-cache locks before waiting for the session.
+When the prepared artifacts remain fresh, compilation and Clippy no longer
+occupy the login-session lock. This reduces contention with REL and other Fritz runs,
+but does not eliminate runner scheduling or cache-lock waits.
+The job's 300-minute timeout includes waiting
 for other jobs in the dedicated CI account as well as its own checks. The wrapper gives the
 job a temporary Keychain for synthetic credentials and attempts to restore its
 original default and search list on success, failure, SIGINT, or SIGTERM. Forced

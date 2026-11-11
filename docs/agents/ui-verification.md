@@ -92,8 +92,9 @@ indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
 Native table column widths are rounded up to whole points before capture to avoid
 a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
-Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
-same command and uploads mismatches from `dist/snapshot-failures`. Ordinary
+Run `make check-ui-snapshots` before committing shared UI changes. CI enables
+comparison mode in the full root Swift test suite after compiling it, and
+uploads mismatches from `dist/snapshot-failures`. Ordinary
 `make test` skips the visual suite so CLI/unit tests work without a GUI session.
 A missing reference fails comparison without creating a new baseline. The
 comparison command rejects recording mode.
