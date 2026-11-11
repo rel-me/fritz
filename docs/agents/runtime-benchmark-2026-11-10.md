@@ -8,6 +8,9 @@ sooner in every successful paired cohort. Generation throughput varied by model,
 including near ties and cases favoring mistral.rs. Bosun selected the same
 candidate on all 45 paired reference readouts.
 
+The integrated backend migration and final installer sizes are documented in
+[the application verification report](llama-runtime-migration-2026-11-10.md).
+
 ## Runtime and measurement setup
 
 | Setting | Value |

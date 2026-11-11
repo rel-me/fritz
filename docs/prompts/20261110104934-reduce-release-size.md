@@ -91,3 +91,15 @@ Fritz worktrees. Native compilation and the staged build verify this path.
 
 PR #102 merged while this migration was being verified. The migration is now
 on a new branch based on current main; the only conflict was this prompt log.
+
+### Delegated prompt: PR #104 CI
+
+Monitor PR https://github.com/rel-me/fritz/pull/104 on
+`codex/gabriel/llama-local-runtime`. The code is pushed at f217439; a documentation
+commit with final measurement receipts will follow shortly. Follow each new head
+until all CI checks complete and inspect actionable review failures. Fix failures
+caused by this change on this branch, run affected local checks through the build
+cache wrapper, commit and push fixes, and monitor the updated head again. Preserve
+unrelated changes. Log delegated follow-up requests in this prompt file. Report
+the exact checked head, checks, fixes and blockers. Do not merge or publish a
+release. The previous PR #102 is merged and is no longer the target.

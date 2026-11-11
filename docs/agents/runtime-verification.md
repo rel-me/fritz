@@ -326,3 +326,6 @@ Jinja template, tool grammar and response parser. Only complete, validated tool
 calls enter Fritz's existing action executor. Bosun retains its compiler,
 slot mapping, probability normalization and typed answers, reading only the final
 position's eligible logits without sampling an answer token.
+
+See the [migration verification and package measurements](llama-runtime-migration-2026-11-10.md)
+for the exercised native workflows and final artifact provenance.
