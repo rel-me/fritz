@@ -15,6 +15,7 @@ public struct ChatComposer<Models: View>: View {
     let stop: () -> Void
     private var mentionDraft: Binding<ChatMentionDraft>?
     private var mentionRegistry: ChatMentionRegistry?
+    @State private var editorContext = ComposerEditorContext()
     @State private var mentionSelection = NSRange(location: 0, length: 0)
     @State private var selectedMentionID: ChatMentionItem.ID?
     @State private var dismissedQuery: NSRange?
@@ -75,6 +76,8 @@ public struct ChatComposer<Models: View>: View {
                     .foregroundStyle(Color.secondary),
                 axis: .vertical
             )
+            .background(ComposerEditorAnchor(context: editorContext)
+                .frame(width: 0, height: 0).allowsHitTesting(false))
             .textFieldStyle(.plain)
             .font(.body)
             .accessibilityLabel("Message")
@@ -85,7 +88,7 @@ public struct ChatComposer<Models: View>: View {
             .onKeyPress(.return, phases: .down) { key in
                 if !key.modifiers.contains(.shift), chooseCurrentMention() { return .handled }
                 if key.modifiers.contains(.shift) {
-                    guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else {
+                    guard let editor = editorContext.editor else {
                         return .ignored
                     }
                     editor.insertText("\n", replacementRange: editor.selectedRange())
@@ -105,7 +108,7 @@ public struct ChatComposer<Models: View>: View {
             .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification)) { note in
                 guard mentionDraft != nil, isFocused.wrappedValue,
                       let editor = note.object as? NSTextView,
-                      editor === NSApp.keyWindow?.firstResponder,
+                      editor === editorContext.editor,
                       editor.string == draft else { return }
                 mentionSelection = editor.selectedRange()
             }
@@ -113,7 +116,7 @@ public struct ChatComposer<Models: View>: View {
                 dismissedQuery = nil
                 selectedMentionID = nil
                 if isFocused.wrappedValue,
-                   let editor = NSApp.keyWindow?.firstResponder as? NSTextView,
+                   let editor = editorContext.editor,
                    editor.string == draft {
                     mentionSelection = editor.selectedRange()
                 }
@@ -247,7 +250,7 @@ public struct ChatComposer<Models: View>: View {
     private func chooseMention(_ item: ChatMentionItem) {
         guard let mentionDraft, let query = activeMentionQuery else { return }
         // Use the native edit operation so undo, selection and IME ownership remain native.
-        guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView,
+        guard let editor = editorContext.editor,
               editor.string == draft else { return }
         var value = mentionDraft.wrappedValue
         editor.insertText("@" + item.name + " ", replacementRange: query.range)
@@ -273,5 +276,27 @@ public struct ChatComposer<Models: View>: View {
 
     private func focusMessageField() {
         isFocused.wrappedValue = true
+    }
+}
+
+// Resolve the editor in this composer's window, including when that window is
+// not the application's key window. Keep AppKit ownership weak and view-local.
+@MainActor
+private final class ComposerEditorContext {
+    weak var anchor: NSView?
+    var editor: NSTextView? { anchor?.window?.firstResponder as? NSTextView }
+}
+
+private struct ComposerEditorAnchor: NSViewRepresentable {
+    let context: ComposerEditorContext
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        self.context.anchor = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        self.context.anchor = nsView
     }
 }

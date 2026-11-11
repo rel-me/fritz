@@ -85,6 +85,13 @@ the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
+The native composer keyboard test runs with application activation prohibited
+and an offscreen panel that cannot become key. It dispatches synthetic keys to
+that window's real field editor and verifies mention insertion, stable references,
+Return-to-send, Escape dismissal, and Shift-Return. The composer resolves its editor
+through its own containing window, so this test needs no unlocked foreground session.
+Keep those environment and behavior assertions when changing keyboard handling.
+
 ## Shared UI snapshots
 
 `tests/FritzUISnapshotTests` compares the public FritzUI controls using

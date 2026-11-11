@@ -12,6 +12,10 @@ final class ChatMentionComposerTests: XCTestCase {
         let registry = ChatMentionRegistry()
     }
 
+    private final class BackgroundPanel: NSPanel {
+        override var canBecomeKey: Bool { false }
+    }
+
     private struct Fixture: View {
         @Bindable var state: State
         @FocusState private var focused: Bool
@@ -27,20 +31,25 @@ final class ChatMentionComposerTests: XCTestCase {
     }
 
     func testNativeSelectionInsertsIdentityBeforeReturnSends() throws {
+        let app = NSApplication.shared
+        let previousPolicy = app.activationPolicy()
+        _ = app.setActivationPolicy(.prohibited)
+        XCTAssertEqual(app.activationPolicy(), .prohibited)
+        defer { app.setActivationPolicy(previousPolicy) }
         let state = State()
         let reddit = ChatMentionItem(id: .init(source: "profiles", value: "reddit"),
                                     name: "Reddit", kind: .entity)
         try state.registry.register(source: "profiles", items: [reddit,
             .init(id: .init(source: "profiles", value: "oxylabs"), name: "Oxylabs", kind: .entity)
         ])
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
+        let window = BackgroundPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
                               styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: Fixture(state: state))
-        // The runner may not own application activation. A native nonactivating
-        // panel still accepts keyboard focus and exercises the real field editor.
-        window.hidesOnDeactivate = false
-        window.makeKeyAndOrderFront(nil)
+        // Keep the native editor in an offscreen window without requesting
+        // application activation or foreground keyboard focus.
+        window.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+        window.orderFrontRegardless()
         defer { window.close() }
         let timeout = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { _ in
             MainActor.assumeIsolated {
@@ -52,12 +61,18 @@ final class ChatMentionComposerTests: XCTestCase {
         let task = Task { @MainActor in
             defer { NSApp.stopModal() }
             do {
-                try await Task.sleep(for: .milliseconds(200))
+                let deadline = ContinuousClock.now + .seconds(2)
+                while !(window.firstResponder is NSTextView), ContinuousClock.now < deadline {
+                    try await Task.sleep(for: .milliseconds(20))
+                }
                 let editor = try XCTUnwrap(window.firstResponder as? NSTextView)
                 editor.insertText("@", replacementRange: editor.selectedRange())
                 try await Task.sleep(for: .milliseconds(200))
                 XCTAssertEqual(state.draft.text, "@")
-                XCTAssertTrue(NSApp.keyWindow === window)
+                XCTAssertTrue(window.firstResponder === editor)
+                XCTAssertFalse(app.isActive)
+                XCTAssertFalse(window.isKeyWindow)
+                XCTAssertFalse(NSApp.keyWindow === window)
                 XCTAssertEqual(editor.selectedRange().location, 1)
                 let down = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
                     modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
