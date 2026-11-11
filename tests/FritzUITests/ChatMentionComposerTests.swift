@@ -33,31 +33,67 @@ final class ChatMentionComposerTests: XCTestCase {
         try state.registry.register(source: "profiles", items: [reddit,
             .init(id: .init(source: "profiles", value: "oxylabs"), name: "Oxylabs", kind: .entity)
         ])
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
-                              styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        let app = NSApplication.shared
+        let previousPolicy = app.activationPolicy()
+        let wasActive = app.isActive
+        // Unlike NSApplication.run(), runModal does not finish app launch.
+        // Initialize the test host before requesting native keyboard focus.
+        if !app.isRunning { app.finishLaunching() }
+        _ = try XCTUnwrap(app.setActivationPolicy(.accessory) ? true : nil,
+                      "The native composer fixture requires an accessory application")
+        defer {
+            if !wasActive { app.deactivate() }
+            app.setActivationPolicy(previousPolicy)
+        }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
+                              styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        // This scenario dispatches its own native events through window.sendEvent.
+        // Keep unrelated WindowServer keyboard input out of the fixture.
+        let keyboardMonitor = try XCTUnwrap(NSEvent.addLocalMonitorForEvents(
+            matching: [.keyDown, .keyUp, .flagsChanged]) { _ in nil })
+        defer { NSEvent.removeMonitor(keyboardMonitor) }
         window.contentView = NSHostingView(rootView: Fixture(state: state))
-        // The runner may not own application activation. A native nonactivating
-        // panel still accepts keyboard focus and exercises the real field editor.
-        window.hidesOnDeactivate = false
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
-        let timeout = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { _ in
+        let otherEditor = NSTextView(frame: NSRect(x: 0, y: 0, width: 200, height: 100))
+        otherEditor.string = "@"
+        otherEditor.setSelectedRange(NSRange(location: 1, length: 0))
+        let otherWindow = NSPanel(contentRect: otherEditor.frame,
+                                  styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+        otherWindow.isReleasedWhenClosed = false
+        otherWindow.worksWhenModal = true
+        otherWindow.hidesOnDeactivate = false
+        otherWindow.contentView = otherEditor
+        defer { otherWindow.close() }
+        let timeout = Timer(timeInterval: 10, repeats: false) { _ in
             MainActor.assumeIsolated {
                 XCTFail("Native composer verification timed out")
                 NSApp.abortModal()
             }
         }
+        // Default-mode timers do not fire while runModal is pumping AppKit.
+        RunLoop.main.add(timeout, forMode: .common)
         defer { timeout.invalidate() }
         let task = Task { @MainActor in
             defer { NSApp.stopModal() }
             do {
+                // Wait for SwiftUI to install the real field editor in its
+                // owning window before dispatching native keyboard events.
+                try await waitForComposerEditor(in: window)
                 try await Task.sleep(for: .milliseconds(200))
                 let editor = try XCTUnwrap(window.firstResponder as? NSTextView)
+                // In a desktop session, another window owns the key status. CI
+                // may have no key window at all. Neither may own this edit.
+                otherWindow.makeKeyAndOrderFront(nil)
+                XCTAssertTrue(otherWindow.makeFirstResponder(otherEditor))
+                try await Task.sleep(for: .milliseconds(100))
+                XCTAssertFalse(app.keyWindow === window)
+                XCTAssertTrue(window.firstResponder === editor)
                 editor.insertText("@", replacementRange: editor.selectedRange())
                 try await Task.sleep(for: .milliseconds(200))
                 XCTAssertEqual(state.draft.text, "@")
-                XCTAssertTrue(NSApp.keyWindow === window)
+                XCTAssertTrue(editor.window === window)
                 XCTAssertEqual(editor.selectedRange().location, 1)
                 let down = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero,
                     modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
@@ -99,11 +135,30 @@ final class ChatMentionComposerTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(100))
                 XCTAssertEqual(state.draft.text, "@Red\n")
                 XCTAssertEqual(state.sends, 2)
+                XCTAssertEqual(otherEditor.string, "@", "Composer keys must not edit another window")
             } catch {
                 XCTFail("Native composer verification failed: \(error)")
             }
         }
         NSApp.runModal(for: window)
         task.cancel()
+    }
+
+    private func waitForComposerEditor(in window: NSWindow) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        func isReady() -> Bool {
+            guard let editor = window.firstResponder as? NSTextView else { return false }
+            return editor.window === window
+        }
+        while !isReady(), clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let responder = window.firstResponder.map { String(reflecting: type(of: $0)) } ?? "nil"
+        _ = try XCTUnwrap(isReady() ? true : nil,
+                      "Composer focus unavailable: policy=\(NSApp.activationPolicy().rawValue), " +
+                      "active=\(NSApp.isActive), visible=\(window.isVisible), " +
+                      "canBecomeKey=\(window.canBecomeKey), key=\(window.isKeyWindow), " +
+                      "responder=\(responder)")
     }
 }

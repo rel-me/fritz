@@ -1,4 +1,5 @@
 self-hosted-runner:
   labels:
     - runner-ci
+    - fritz-isolated-account
     - blacksmith-2vcpu-ubuntu-2404

@@ -85,6 +85,13 @@ the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
+The native composer keyboard test dispatches events to the real owning window
+while another window contains matching text. It verifies mention selection,
+Return, Escape, and Shift-Return without requiring foreground app activation,
+and checks that the other window is unchanged. A scoped event monitor excludes
+unrelated desktop keyboard input, and a common-mode watchdog bounds the modal
+session. The fixture restores the prior activation policy on teardown.
+
 ## Shared UI snapshots
 
 `tests/FritzUISnapshotTests` compares the public FritzUI controls using
@@ -103,8 +110,9 @@ indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
 Native table column widths are rounded up to whole points before capture to avoid
 a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
-Run `make check-ui-snapshots` before committing shared UI changes. CI runs the
-same command and uploads mismatches from `dist/snapshot-failures`. Ordinary
+Run `make check-ui-snapshots` before committing shared UI changes. CI enables
+comparison mode in the full root Swift test suite after compiling it, and
+uploads mismatches from `dist/snapshot-failures`. Ordinary
 `make test` skips the visual suite so CLI/unit tests work without a GUI session.
 A missing reference fails comparison without creating a new baseline. The
 comparison command rejects recording mode.

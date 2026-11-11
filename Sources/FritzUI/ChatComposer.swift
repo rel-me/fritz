@@ -18,6 +18,7 @@ public struct ChatComposer<Models: View>: View {
     @State private var mentionSelection = NSRange(location: 0, length: 0)
     @State private var selectedMentionID: ChatMentionItem.ID?
     @State private var dismissedQuery: NSRange?
+    @State private var editorWindow = ComposerEditorWindow()
 
     public init(draft: Binding<String>, placeholder: String, canSend: Bool,
                 isResponding: Bool, isFocused: FocusState<Bool>.Binding,
@@ -81,11 +82,12 @@ public struct ChatComposer<Models: View>: View {
             .lineLimit(1...20)
             .fixedSize(horizontal: false, vertical: true)
             .focused(isFocused)
+            .background(ComposerWindowAnchor(reference: editorWindow).frame(width: 0, height: 0))
             .onSubmit(submitMessage)
             .onKeyPress(.return, phases: .down) { key in
                 if !key.modifiers.contains(.shift), chooseCurrentMention() { return .handled }
                 if key.modifiers.contains(.shift) {
-                    guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView else {
+                    guard let editor = nativeEditor else {
                         return .ignored
                     }
                     editor.insertText("\n", replacementRange: editor.selectedRange())
@@ -105,7 +107,7 @@ public struct ChatComposer<Models: View>: View {
             .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification)) { note in
                 guard mentionDraft != nil, isFocused.wrappedValue,
                       let editor = note.object as? NSTextView,
-                      editor === NSApp.keyWindow?.firstResponder,
+                      editor === nativeEditor,
                       editor.string == draft else { return }
                 mentionSelection = editor.selectedRange()
             }
@@ -113,7 +115,7 @@ public struct ChatComposer<Models: View>: View {
                 dismissedQuery = nil
                 selectedMentionID = nil
                 if isFocused.wrappedValue,
-                   let editor = NSApp.keyWindow?.firstResponder as? NSTextView,
+                   let editor = nativeEditor,
                    editor.string == draft {
                     mentionSelection = editor.selectedRange()
                 }
@@ -163,6 +165,13 @@ public struct ChatComposer<Models: View>: View {
             y: 2
         )
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var nativeEditor: NSTextView? {
+        guard isFocused.wrappedValue, let window = editorWindow.anchor?.window,
+              let editor = window.firstResponder as? NSTextView,
+              editor.window === window else { return nil }
+        return editor
     }
 
     private var activeMentionQuery: (range: NSRange, text: String)? {
@@ -247,7 +256,7 @@ public struct ChatComposer<Models: View>: View {
     private func chooseMention(_ item: ChatMentionItem) {
         guard let mentionDraft, let query = activeMentionQuery else { return }
         // Use the native edit operation so undo, selection and IME ownership remain native.
-        guard let editor = NSApp.keyWindow?.firstResponder as? NSTextView,
+        guard let editor = nativeEditor,
               editor.string == draft else { return }
         var value = mentionDraft.wrappedValue
         editor.insertText("@" + item.name + " ", replacementRange: query.range)
@@ -273,5 +282,25 @@ public struct ChatComposer<Models: View>: View {
 
     private func focusMessageField() {
         isFocused.wrappedValue = true
+    }
+}
+
+// A weak view anchor follows AppKit window moves/detachment without publishing
+// SwiftUI state during layout or retaining the window after its scene closes.
+@MainActor private final class ComposerEditorWindow {
+    weak var anchor: NSView?
+}
+
+private struct ComposerWindowAnchor: NSViewRepresentable {
+    let reference: ComposerEditorWindow
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        reference.anchor = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        reference.anchor = nsView
     }
 }
