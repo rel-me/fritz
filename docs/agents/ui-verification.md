@@ -85,14 +85,12 @@ the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
 
-The native composer keyboard test finishes AppKit launch, temporarily uses an
-accessory activation policy, and activates its native window. It waits for the
-real key window and field editor before editing. Its scoped event monitor excludes unrelated desktop
-keyboard input; scenario events still go directly through native window event
-dispatch. Teardown removes the monitor, relinquishes activation acquired by the
-test, and restores the prior activation policy.
-A common-mode watchdog bounds the modal session; unavailable focus fails the
-test rather than skipping its keyboard assertions.
+The native composer keyboard test dispatches events to the real owning window
+while another window contains matching text. It verifies mention selection,
+Return, Escape, and Shift-Return without requiring foreground app activation,
+and checks that the other window is unchanged. A scoped event monitor excludes
+unrelated desktop keyboard input, and a common-mode watchdog bounds the modal
+session. The fixture restores the prior activation policy on teardown.
 
 ## Shared UI snapshots
 
