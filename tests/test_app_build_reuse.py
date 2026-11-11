@@ -72,6 +72,24 @@ class AppReuseTests(unittest.TestCase):
         self.invoke('check')
         self.invoke('check', 10, RUSTFLAGS='-C opt-level=1')
 
+    def test_submodule_source_bytes_invalidate_reuse(self):
+        native = self.root / 'vendor/runtime'
+        native.mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(native)], check=True)
+        kernel = native / 'kernel.cpp'
+        kernel.write_text('before')
+        subprocess.run(['git', '-C', str(native), 'add', 'kernel.cpp'], check=True)
+        subprocess.run(['git', '-C', str(native), '-c', 'user.name=Fixture',
+                        '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], check=True)
+        revision = subprocess.check_output(['git', '-C', str(native), 'rev-parse', 'HEAD'], text=True).strip()
+        subprocess.run(['git', '-C', str(self.root), 'update-index', '--add', '--cacheinfo',
+                        f'160000,{revision},vendor/runtime'], check=True)
+        self.invoke('check', 10)
+        self.invoke('record')
+        self.invoke('check')
+        kernel.write_text('edited')
+        self.invoke('check', 10)
+
     def test_rejects_mutated_bundle_and_distribution_reuse(self):
         self.invoke('check', 10)
         self.invoke('record')

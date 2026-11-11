@@ -91,6 +91,8 @@ class BuildCacheTests(unittest.TestCase):
     def test_setup_waits_for_its_checkout_but_not_another_worktrees_build(self):
         # Toolchain work is outside this lock-routing test; run the real Make
         # and setup entry points with successful dependency-tool commands.
+        for script in self.scripts:
+            subprocess.run(["git", "init", "-q", str(script.parent.parent)], check=True)
         tools = self.root / "tools"
         tools.mkdir()
         for name in ("cargo", "swift", "xcodebuild", "cmake", "mise"):

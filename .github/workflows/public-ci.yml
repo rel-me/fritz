@@ -41,6 +41,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          submodules: recursive
           # Build storage lives outside the checkout.
           clean: false
       - name: Clean sources

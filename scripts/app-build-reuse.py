@@ -50,7 +50,7 @@ def signing_identity(identity):
     return matches.pop()
 
 
-def fingerprint(root, settings):
+def source_inputs(root):
     names = subprocess.check_output(
         ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=root
     ).decode().split('\0')
@@ -63,10 +63,18 @@ def fingerprint(root, settings):
                              digest(target) if target.is_file() else inventory(target)]
         elif path.is_file():
             sources[name] = [stat.S_IMODE(path.stat().st_mode), digest(path)]
+        elif path.is_dir():
+            sources[name] = [command('git', '-C', str(path), 'rev-parse', 'HEAD'),
+                             source_inputs(path)]
         elif not path.exists():
             sources[name] = ['missing']
         else:
             raise ValueError(f'unsupported source input: {path}')
+    return sources
+
+
+def fingerprint(root, settings):
+    sources = source_inputs(root)
     cargo_home = Path(os.environ.get('CARGO_HOME', str(Path.home() / '.cargo')))
     configs = [cargo_home / name for name in ('config', 'config.toml')]
     for parent in (root, *root.parents):
@@ -82,7 +90,7 @@ def fingerprint(root, settings):
     if wrapper:
         tools['rust_wrapper'] = digest(Path(wrapper))
     environment = {name: value for name, value in os.environ.items()
-                   if name.startswith(('CARGO_', 'RUST', 'SCCACHE_', 'SWIFT', 'MISTRALRS_',
+                   if name.startswith(('CARGO_', 'RUST', 'SCCACHE_', 'SWIFT',
                                        'FRITZ_')) or name in
                    ('PATH', 'DEVELOPER_DIR', 'SDKROOT', 'TOOLCHAINS', 'MACOSX_DEPLOYMENT_TARGET',
                     'CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS', 'CPATH',

@@ -1,8 +1,6 @@
 .PHONY: setup build release-build run dev-open test test-runtime test-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
-export MISTRALRS_METAL_PLATFORMS ?= macos
-
 setup:
 	./scripts/setup-worktree.sh
 
@@ -31,7 +29,6 @@ test-runtime:
 	python3 tests/test_build_cache.py
 	python3 tests/test_app_build_reuse.py
 	python3 tests/test_parallel_build.py
-	python3 tests/test_metal_cache.py
 	python3 tests/test_dev_runtime.py
 	python3 tests/test_tool_evals.py
 	python3 tests/test_local_decision_inference.py
