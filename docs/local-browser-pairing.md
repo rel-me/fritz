@@ -39,7 +39,7 @@ There is no 24 GB hardware result.
 ## Compact decision qualification
 
 Bosun 3.1 0.6B F16 uses its learned final-prompt decision slots through the pinned
-mistral.rs engine. Ordinary text generation would test a different contract.
+llama.cpp engine. Ordinary text generation would test a different contract.
 Its compiler must match independent official prompt bytes, candidate permutation
 and tokens. Five official CPU references must then agree with native F16
 probabilities within 0.005 on every option and select the same candidate before

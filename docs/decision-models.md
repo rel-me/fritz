@@ -32,7 +32,7 @@ For offline decisions, choose **Ollaya**, download **Laya English (Experimental)
 add the provider. Fritz bundles the Ollaya Rust runtime and runs Laya and Kev on CPU
 inside its decision harness; no Ollaya installation or server is needed. The same local
 provider also includes **Bosun 3.1 0.6B F16 (Experimental)**, a 1.21 GB download using
-Fritz's bundled mistral.rs Metal runtime. Bosun returns learned decision-slot
+Fritz's bundled llama.cpp Metal runtime. Bosun returns learned decision-slot
 probabilities with a 2,048-token rendered-prompt limit; it does not generate chat
 replies. Its catalog RAM floor is provisional, and workflow quality and 24 GB pairing
 remain unqualified. Weights download only when explicitly requested. File presence

@@ -23,7 +23,7 @@ disk image, then open Fritz from Applications.
    model settings across launches.
 
 Chat supports OpenAI, Anthropic, Google Gemini, OpenRouter, Ollama, and
-OpenAI-compatible services. Native local models run through mistral.rs with
+OpenAI-compatible services. Native local models run through llama.cpp with
 Metal acceleration, without an Ollama installation or API key. Each conversation
 uses Rig's agent runtime inside a separate bundled `fritz-harness` process.
 Decision models provide separately invoked typed judgments and are not chat models.

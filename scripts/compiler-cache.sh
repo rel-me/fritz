@@ -10,9 +10,7 @@ configure_compiler_cache() {
   export SCCACHE_DIR="$FRITZ_BUILD_ROOT/compiler-cache/rust"
   export SCCACHE_CACHE_SIZE=20G
   export SCCACHE_SERVER_UDS="$FRITZ_BUILD_ROOT/compiler-cache/sccache-0.18.0.sock"
-  export FRITZ_METAL_CACHE_ROOT="$FRITZ_BUILD_ROOT/compiler-cache/metal/v1"
-  export PATH="$PWD/scripts/native-cache-bin:$PATH"
-  mkdir -p "$SCCACHE_DIR" "$FRITZ_METAL_CACHE_ROOT"
+  mkdir -p "$SCCACHE_DIR"
   xcode_cache_settings=(
     COMPILATION_CACHE_ENABLE_CACHING=YES
     "COMPILATION_CACHE_CAS_PATH=$FRITZ_BUILD_ROOT/compiler-cache/xcode"

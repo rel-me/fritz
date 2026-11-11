@@ -61,7 +61,7 @@ own harness process; closing its pipe cancels the run. The local model is
 limited to 8,192 context tokens and 2,048 output tokens per turn.
 
 Fritz local models use the shared harness tool loop when a project folder is
-attached. The pinned GGUF runs in process through mistral.rs. Catalog models
+attached. The pinned GGUF runs in process through llama.cpp. Catalog models
 marked to disable thinking use reasoning effort off; tool choice is automatic.
 Structured calls and tool results remain
 in model-native history for the next turn. Without a project, no tools are sent.

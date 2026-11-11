@@ -130,7 +130,7 @@
       "source_revision": "2afeaccc760165386c2dd52e78b851b1b53cb752",
       "compiler_sha256": "c04ab1c7929d41185d3c80e61ae0088a47a2c66438947f9dcc499b020f2b4cb5",
       "typed_mapping_revision": "431b8e1ecc501cdb76c118fe58907a0a004d6fc0",
-      "engine_revision": "4400935451da5e2dc7379a3f92fbbada66557f6c",
+      "engine_revision": "7c2653acc749258dc62067da62d07024d971ccd2",
       "max_prompt_tokens": 2048,
       "qualification": "Experimental; workflow qualification requires cohort-specific native parity and quality evidence.",
       "files": [
