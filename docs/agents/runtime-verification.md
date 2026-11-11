@@ -180,50 +180,71 @@ The final “Libraries, app, and runtime” check
 runs on `blacksmith-2vcpu-ubuntu-2404` and requires the macOS job to succeed.
 The repository must be enabled in the Blacksmith GitHub App for that job to run.
 
-The Mini uses `~/Builds/Machine/Fritz/ci/shared/<toolchain-fingerprint>` across CI runs. The
-fingerprint includes Apple, Rust, and CMake toolchain versions, so a toolchain
-change selects fresh storage. CI sets `CARGO_HOME` to
-`~/Builds/Machine/Fritz/ci/cargo-home` for Cargo's registry and Git downloads,
-independent of the account's `~/.cargo` path. All runners in the dedicated CI account share Cargo
-outputs and package caches. `scripts/build-cache.py` holds the root's exclusive
-lock through compilation, tests, and staging, so competing commands wait until
-the owner exits. SwiftPM scratch directories and Xcode DerivedData remain keyed
-by checkout path. The login-session lock still protects Keychain and UI tests.
-Source cleanup does not touch these directories, and there is no remote cache
-transfer. Sharing storage serializes commands that consume compiled outputs;
-it does not allow parallel writers to the Cargo target directory.
+CI sets `FRITZ_BUILD_ROOT` to
+`~/Builds/Machine/Fritz/ci/runners/<runner-name-hash>/<toolchain-fingerprint>`.
+Each runner retains its own Cargo outputs (including native CMake builds),
+SwiftPM scratch directories, Xcode DerivedData, and output locks between jobs.
+The runner name is hashed to a stable path component; the toolchain fingerprint
+includes Apple, Rust, and CMake versions. A different runner or toolchain selects
+separate writable outputs. SwiftPM and Xcode state remain checkout-specific
+within that root because their databases contain absolute source paths.
 
-Existing runner-specific caches are not moved or deleted automatically. After
-this workflow is deployed, retire them only while the runners are idle and no
-older workflow is using them. Old shared toolchain directories can likewise be
-removed when no build is using them. Removing a cache makes the next build cold.
+`FRITZ_CACHE_ROOT` remains
+`~/Builds/Machine/Fritz/ci/shared/<toolchain-fingerprint>` for shared Swift/Xcode
+package downloads and compiler caches. CI also keeps `CARGO_HOME` at
+`~/Builds/Machine/Fritz/ci/cargo-home` for shared Cargo registry/Git downloads,
+independent of `~/.cargo`. Package managers and compiler-cache tools coordinate
+concurrent cache access; those caches do not require Fritz's output lock.
+The sccache daemon identity and short startup lock use the shared cache root.
+
+`scripts/build-cache.py` holds only the selected build root's exclusive lock
+through compilation, tests, and staging. Different runners can prepare and
+build concurrently without waiting on a global compiled-output lock, while
+commands using the same outputs remain serialized. The login-session lock
+continues to protect Keychain and UI test execution across the dedicated
+account. Download/cache-tool locks and that session lock can still cause waits.
+Checkout-local `dist/` staging and source cleanup retain their existing behavior;
+there is no remote cache transfer.
+
+Existing shared compiled outputs are left untouched for older runs; new runs
+warm each runner's output root. Shared package/compiler caches keep their
+existing paths and contents. Nothing is copied or deleted during migration.
+Retire old output/toolchain directories only when no job is using them, and
+preserve lock files while commands may be waiting on them.
 
 ## Build storage
 
 Make targets enter `scripts/build-cache.py`, which defaults to `~/Builds/Machine/Fritz`.
-`FRITZ_BUILD_ROOT` overrides the root (including for direct script calls and
-release tools). The layout is:
+`FRITZ_BUILD_ROOT` overrides the writable output root, including direct script
+calls and release tools. `FRITZ_CACHE_ROOT` separately selects package/compiler
+cache storage and defaults to `FRITZ_BUILD_ROOT`, preserving the local layout.
 
-- `cargo/`: shared Rust debug/release outputs and incremental dependencies.
-- `swift-packages/` and `xcode-packages/`: shared package download caches.
-- `compiler-cache/rust/` and `compiler-cache/xcode/`: sccache and Xcode compiler
-  caches. sccache uses a private per-user socket directory under `/tmp`, with
-  sockets keyed by build-root hash to respect macOS's Unix socket path limit.
-  Startup is serialized and deferred until compilation is needed. Local
-  workspace incremental compilation remains enabled; dependencies can reuse
-  compiler results across source checkouts.
+Under `FRITZ_BUILD_ROOT`:
+
+- `cargo/`: Rust debug/release outputs and incremental dependencies. Local
+  worktrees share these by default; CI assigns each runner a separate root.
 - `worktrees/<path-hash>/swift`, `swift-app`, and `DerivedData`: SwiftPM and Xcode
   build state for one physical checkout path. These databases contain absolute
-  source paths and are not reused as writable build state by other worktrees.
-- `.lock`: an advisory lock held across the entire command, including tests and
-  staging, for builds and tests. A competing build or test waits; `make -j2 test`
-  can still run its Rust and Swift groups concurrently inside the lock.
-- `worktrees/<path-hash>/.lock`: a checkout lock taken before the shared lock.
-  Setup holds only this lock, so it can resolve dependencies while another
-  worktree builds or tests. Setup and builds in the same checkout serialize
-  access to SwiftPM scratch directories and Xcode DerivedData. Cargo, SwiftPM,
-  and Xcode coordinate their own package download caches, so dependency fetches
-  may still wait on those tools' locks.
+  source paths and are not shared as writable state across worktrees.
+- `.lock`: an advisory output lock held across builds, tests, and staging.
+  Commands sharing a build root wait; separate roots proceed independently.
+  `make -j2 test` can run Rust and Swift groups concurrently inside the lock.
+- `worktrees/<path-hash>/.lock`: a checkout lock taken before the output lock.
+  Setup holds only this lock so another checkout can build while it resolves
+  dependencies. Setup and builds in the same checkout serialize access to its
+  SwiftPM scratch directories and Xcode DerivedData.
+
+Under `FRITZ_CACHE_ROOT`:
+
+- `swift-packages/` and `xcode-packages/`: shared package download caches.
+  Cargo's downloads remain under `CARGO_HOME`. Package managers coordinate their
+  own caches, so fetching dependencies can still wait on their locks.
+- `compiler-cache/rust/` and `compiler-cache/xcode/`: sccache and Xcode compiler
+  caches. sccache uses a private per-user socket directory under `/tmp`, with
+  sockets keyed by cache-root hash to respect macOS's Unix socket path limit.
+  Startup is serialized with a short cache-root lock and deferred until needed.
+  Local workspace incremental compilation remains enabled; dependencies can
+  reuse compiler results across source checkouts and runner output roots.
 
 Cargo decides which artifacts remain fresh using its normal fingerprints;
 sharing storage does not guarantee every compilation is reusable. Swift/Xcode
@@ -247,7 +268,8 @@ python3 scripts/build-cache.py cargo build --locked
 python3 scripts/build-cache.py python3 tests/integration.py
 ```
 
-The wrapper exports `CARGO_TARGET_DIR`, `FRITZ_TEST_BIN_DIR`,
+The wrapper exports the resolved `FRITZ_BUILD_ROOT` and `FRITZ_CACHE_ROOT`,
+`CARGO_TARGET_DIR`, `FRITZ_TEST_BIN_DIR`,
 `FRITZ_SWIFT_BUILD`, `FRITZ_APP_SWIFT_BUILD`, `FRITZ_SWIFT_CACHE`,
 `FRITZ_DERIVED_DATA`, and `FRITZ_XCODE_CACHE`. Make configures the Swift and Xcode
 commands with these paths. Plain `cargo`/`swift` commands outside the wrapper
