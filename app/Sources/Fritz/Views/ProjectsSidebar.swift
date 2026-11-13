@@ -1,9 +1,12 @@
 import SwiftUI
+import Combine
 
 struct ProjectsSidebar: View {
     @Bindable var workspace: WorkspaceStore
     @State private var collapsedProjects: Set<UUID> = []
     @State private var renaming: RenameItem?
+    @State private var deleting: ProjectThread?
+    @State private var showArchived = false
 
     var body: some View {
         List(selection: Binding(get: { workspace.selectedThreadID }, set: { workspace.select($0) })) {
@@ -14,9 +17,9 @@ struct ProjectsSidebar: View {
                             get: { !collapsedProjects.contains(project.id) },
                             set: { if $0 { collapsedProjects.remove(project.id) } else { collapsedProjects.insert(project.id) } }
                         )) {
-                            ForEach(project.threads) { thread in
+                            ForEach(project.threads.filter { showArchived || !$0.isArchived }) { thread in
                                 HStack(spacing: 7) {
-                                    Label(thread.title, systemImage: "bubble.left")
+                                    Label(thread.title, systemImage: thread.isArchived ? "archivebox" : "bubble.left")
                                         .lineLimit(1).truncationMode(.tail)
                                     Spacer(minLength: 0)
                                 }
@@ -26,25 +29,45 @@ struct ProjectsSidebar: View {
                                     Button("Rename Thread", systemImage: "pencil") {
                                         renaming = RenameItem(id: thread.id, title: thread.title, isProject: false)
                                     }
+                                    Button(thread.isArchived ? "Restore Thread" : "Archive Thread", systemImage: "archivebox") {
+                                        workspace.setArchived(thread.id, !thread.isArchived)
+                                    }
                                     Button("New Chat", systemImage: "square.and.pencil") { workspace.createThread(in: project.id) }
+                                    Divider()
+                                    Button("Delete Thread…", systemImage: "trash", role: .destructive) { deleting = thread }
                                 }
+                                .disabled(!workspace.isAvailable(project))
                             }
                         } label: {
-                            Label(project.name, systemImage: "folder")
-                                .lineLimit(1).help(project.directory ?? project.name)
+                            HStack {
+                                Label(project.name, systemImage: "folder")
+                                    .lineLimit(1).help(project.directory ?? project.name)
+                                    .foregroundStyle(workspace.isAvailable(project) ? .primary : .secondary)
+                                if !workspace.isAvailable(project) {
+                                    Spacer(minLength: 4)
+                                    Menu("Fix") {
+                                        Button("Recreate Folder") { repair(project) }
+                                        Button("Choose Another Folder…") { chooseReplacement(for: project) }
+                                    }
+                                    .menuStyle(.borderlessButton)
+                                    .fixedSize()
+                                    .controlSize(.small)
+                                    .help("Project folder unavailable")
+                                }
+                            }
                         }
                         .contextMenu {
                             Button("New Chat", systemImage: "square.and.pencil") {
                                 collapsedProjects.remove(project.id)
                                 workspace.createThread(in: project.id)
-                            }
+                            }.disabled(!workspace.isAvailable(project))
                             Button("Rename Project", systemImage: "pencil") {
                                 renaming = RenameItem(id: project.id, title: project.name, isProject: true)
                             }
                             if let directory = project.directory {
                                 Button("Show in Finder", systemImage: "folder") {
                                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: directory)])
-                                }
+                                }.disabled(!workspace.isAvailable(project))
                             }
                         }
                     }
@@ -52,12 +75,53 @@ struct ProjectsSidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .onAppear { if workspace.selectedThread?.isArchived == true { showArchived = true } }
+        .onChange(of: showArchived) { _, showing in
+            if !showing && workspace.selectedThread?.isArchived == true { workspace.clearSelection() }
+        }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in workspace.refreshAvailability() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            workspace.refreshAvailability()
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if workspace.projects.contains(where: { $0.threads.contains(where: \.isArchived) }) {
+                Toggle("Show Archived Threads", isOn: $showArchived)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+                    .padding(12)
+            }
+        }
+        .confirmationDialog("Delete Thread?", isPresented: Binding(
+            get: { deleting != nil }, set: { if !$0 { deleting = nil } }
+        ), presenting: deleting) { thread in
+            Button("Delete Thread", role: .destructive) { workspace.deleteThread(thread.id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { thread in
+            Text("“\(thread.title)” and its messages will be permanently deleted.")
+        }
         .onChange(of: workspace.selectedProject?.id) { _, id in if let id { collapsedProjects.remove(id) } }
         .sheet(item: $renaming) { item in
             RenameItemSheet(item: item) { name in
                 if item.isProject { workspace.renameProject(item.id, to: name) }
                 else { workspace.renameThread(item.id, to: name) }
             }
+        }
+    }
+
+    private func repair(_ project: FritzProject, directory: URL? = nil) {
+        do { try workspace.repairProject(project.id, directory: directory) }
+        catch { workspace.error = error.localizedDescription }
+    }
+
+    private func chooseReplacement(for project: FritzProject) {
+        let panel = NSOpenPanel()
+        panel.title = "Choose a Project Folder"
+        panel.prompt = "Choose Folder"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.begin { response in
+            if response == .OK, let url = panel.url { repair(project, directory: url) }
         }
     }
 }
