@@ -67,3 +67,7 @@ responses after another request or a model change.
 The toolbar toggles a blank native inspector on the right, with a resizable divider.
 Conversations stay in the main chat area and are selected from the project sidebar.
 There is no bottom panel.
+
+Thread context menus offer Archive Thread and Delete Thread. Archived threads retain their history and drafts; enable Show Archived Threads in the sidebar to restore them. Deleting a thread asks for confirmation and permanently removes its messages and settings.
+
+If a project folder is missing or inaccessible, its threads are disabled. Use Fix beside the project to recreate the folder at its saved path or choose another existing folder. Choosing another folder preserves conversations and uses the replacement folder for future actions. Folder availability is checked while the app is open and when it becomes active.
