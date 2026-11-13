@@ -55,3 +55,13 @@ Remove the Models page's custom blended collection background from its provider 
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the Models table background update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+## User follow-up: New Models download button
+
+Add "Download Models" to the footer of "New Models" dialog that shows that UI.
+
+Add a leading footer action to New Models that presents the existing ModelsDownloadSheet. Keep the New Models form open beneath it, preserve its fields when the download sheet closes, refresh local inventory after dismissal, and retain Cancel/Add keyboard actions. Edit Models remains unchanged.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the New Models footer download button update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.

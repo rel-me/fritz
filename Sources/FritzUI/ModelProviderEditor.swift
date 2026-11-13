@@ -13,6 +13,7 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
   let footerBackground: Color
   let cancel: () -> Void
   let save: () -> Void
+  let downloadModels: (() -> Void)?
   let header: Header
   let content: Content
 
@@ -20,6 +21,7 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
     primaryActionTitle: String, canSave: Bool, isSaving: Bool = false, licenseURL: URL? = nil,
     width: CGFloat = 600, height: CGFloat, contentBackground: Color, footerBackground: Color,
     cancel: @escaping () -> Void, save: @escaping () -> Void,
+    downloadModels: (() -> Void)? = nil,
     @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Content
   ) {
     self.primaryActionTitle = primaryActionTitle
@@ -32,6 +34,7 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
     self.footerBackground = footerBackground
     self.cancel = cancel
     self.save = save
+    self.downloadModels = downloadModels
     self.header = header()
     self.content = content()
   }
@@ -45,6 +48,10 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
       HStack(spacing: 8) {
         if isSaving { ProgressView().controlSize(.small) }
         if let licenseURL { Link("Model license", destination: licenseURL) }
+        if let downloadModels {
+          Button("Download Models", action: downloadModels)
+            .disabled(isSaving)
+        }
         Spacer()
         Button("Cancel", action: cancel)
           .keyboardShortcut(.cancelAction)

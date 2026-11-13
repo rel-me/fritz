@@ -147,6 +147,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var discoveryFinished = false
     @State private var showsAdvanced = false
     @State private var showsModels = false
+    @State private var showsDownload = false
     @State private var refreshID = 0
     @State private var activeDiscoveryID = UUID()
     @State private var nativeModel: ConfigurationNativeModel<Store>
@@ -186,7 +187,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             height: editorHeight,
             contentBackground: ModelsConfigurationStyle.contentBackground,
             footerBackground: ModelsConfigurationStyle.workspaceBackground,
-            cancel: { nativeModel.cancel(); dismiss() }, save: save
+            cancel: { nativeModel.cancel(); dismiss() }, save: save,
+            downloadModels: existing == nil ? { showsDownload = true } : nil
         ) {
             ConfigurationManagementHeader(existing == nil ? "New Models" : "Edit Models")
         } content: {
@@ -300,6 +302,12 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         }
         .buttonStyle(FritzButtonStyle())
         .interactiveDismissDisabled(isSaving)
+        .sheet(isPresented: $showsDownload, onDismiss: {
+            if managesLocalModels { nativeModel.refresh() }
+            Task { await localModels.refresh(); await store.refresh() }
+        }) {
+            ModelsDownloadSheet(store: store, hardware: .current)
+        }
         .onChange(of: preset) { old, new in
             nativeModel.cancel()
             if old.category != new.category {
