@@ -20,3 +20,18 @@ Verified 2026-11-12 through Hugging Face model APIs and pinned GGUF metadata ran
 # Delegated prompt
 
 Monitor the PR for this branch until checks complete. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes. Report final check status and exact blockers.
+
+## CI snapshot follow-up
+
+Root requested: "Please apply test-audit skill before reviewing/updating test baselines, as required in repo. For snapshot recording, follow docs/agents/ui-verification.md; actual UI catalog change justifies intentional family filter updates. Log this follow-up prompt in existing docs/prompts/20261112230638_more-local-models.md. Release build ongoing; I'll notify when lock releases. Need root do UI or screenshots agent can inspect enough."
+
+CI run 43384305897 failed only the six available/installed/error download-sheet snapshots in light and dark appearance. The real catalog supplies family filter chips, so Dolphin, Hermes, and Mistral intentionally change the filter row. Retain these visual checks; update only the reviewed references without changing thresholds or test code.
+
+### Verification
+
+- Root completed `make test` and `make check` successfully before snapshot-only repair.
+- All six CI image changes are confined to the family-chip row (x 687–1520, y 106–155 in 1680×1080 images); other pixels are unchanged. Reviewed all six actual images and the prior reference.
+- Recorded only `models-download-` references in the full root test suite using `FRITZ_SNAPSHOT_MODE=record FRITZ_SNAPSHOT_RECORD_PREFIX=models-download-` through the build-cache wrapper. The six recording failures were expected; every other test passed. All six recorded PNGs exactly match the reviewed CI actuals.
+- `make check-ui-snapshots` passed: 19 tests, zero failures, recording disabled. No test code or precision settings changed.
+- Root verified packaged CLI listing contains all four new IDs without downloading weights or creating the Models directory, bundled catalog matches source, and `codesign --verify --deep --strict` passes. Release staging completed; its build-reuse guard requires a final rerun because this prompt log changed during the build.
+- Follow-up snapshot repair adds six PNG references and documentation only; no production code or test code changes.
