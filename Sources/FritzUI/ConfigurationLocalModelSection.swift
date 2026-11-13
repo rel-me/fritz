@@ -81,9 +81,9 @@ struct ConfigurationLocalModelSection: View {
                 }
             }
 
-            if filteredModels.contains(where: { $0.id == modelID }) {
+            if filteredModels.contains(where: { $0.id == modelID }),
+               state != .available || hardware.memoryGB < model.memoryGB || !hardware.appleSilicon {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("\(model.name) · \(hardware.summary)")
                     if hardware.memoryGB < model.memoryGB {
                         Text("This Mac has \(hardware.memoryGB) GB memory. A smaller model is recommended.")
                     }

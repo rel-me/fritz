@@ -27,21 +27,29 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                     .padding(.horizontal, 20).padding(.vertical, 12)
             }
             Divider()
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 if hasVisibleSelection {
-                    Link("Model license", destination: model.selectedModel.licenseURL)
+                    Text("\(model.selectedModel.name) · \(hardware.summary)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
-                Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
-                    model.cancel()
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-                if !hasVisibleSelection || model.state != .installed {
-                    Button(downloadTitle) { if hasVisibleSelection { model.install() } }
-                        .buttonStyle(FritzButtonStyle(.primary))
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!hasVisibleSelection || model.state.isBusy)
+                HStack(spacing: 8) {
+                    if hasVisibleSelection {
+                        Link("Model license", destination: model.selectedModel.licenseURL)
+                    }
+                    Spacer()
+                    Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
+                        model.cancel()
+                        dismiss()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    if !hasVisibleSelection || model.state != .installed {
+                        Button(downloadTitle) { if hasVisibleSelection { model.install() } }
+                            .buttonStyle(FritzButtonStyle(.primary))
+                            .keyboardShortcut(.defaultAction)
+                            .disabled(!hasVisibleSelection || model.state.isBusy)
+                    }
                 }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)

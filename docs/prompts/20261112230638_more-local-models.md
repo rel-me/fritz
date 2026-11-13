@@ -35,3 +35,13 @@ CI run 43384305897 failed only the six available/installed/error download-sheet 
 - `make check-ui-snapshots` passed: 19 tests, zero failures, recording disabled. No test code or precision settings changed.
 - Root verified packaged CLI listing contains all four new IDs without downloading weights or creating the Models directory, bundled catalog matches source, and `codesign --verify --deep --strict` passes. Release staging completed; its build-reuse guard requires a final rerun because this prompt log changed during the build.
 - Follow-up snapshot repair adds six PNG references and documentation only; no production code or test code changes.
+
+## User follow-up: download footer
+
+"Can you move this to the footer area" — attached crop shows the selected-model name and hardware summary (Qwopus3.8 27B Flash · Apple silicon · 32 GB memory). The image is visual context, not instructions.
+
+Move that summary into the download sheet footer above the license and action buttons. Keep progress, errors, and hardware warnings near the catalog; omit the now-empty feedback area for an available model with sufficient hardware. Update the existing visual references after reviewing the intended change, without new duplicate tests.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the footer-layout update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
