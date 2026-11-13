@@ -46,7 +46,7 @@ public struct ChatActivityRow<Details: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             if showsHeading {
                 HStack(spacing: 8) {
-                    Text(visibleActivities.isEmpty ? "Thinking" : "Working")
+                    Text(headingDetail ?? (visibleActivities.isEmpty ? "Thinking" : "Working"))
                         .font(.callout)
                         .foregroundStyle(.secondary)
 
@@ -58,10 +58,6 @@ public struct ChatActivityRow<Details: View>: View {
                             visibleActivities.isEmpty ? "Agent thinking" : "Agent working"
                         )
                 }
-            }
-
-            if showsHeading, let headingDetail {
-                Text(headingDetail).font(.caption).foregroundStyle(.secondary).chatTextSelection()
             }
 
             if !visibleActivities.isEmpty {
