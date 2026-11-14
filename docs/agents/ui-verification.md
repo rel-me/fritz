@@ -24,7 +24,8 @@ the following surfaces, include these behaviors:
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
   Open and close tabs, switch back to a populated tab, and check focus and
-  shortcuts with chat and the Browser window active. Check a refused
+  shortcuts with chat and the browser sidebar focused. Hide and reopen the sidebar,
+  confirming tabs, page history, and the selected conversation survive. Check a refused
   connection, light and dark appearance, resize, and app quit with pages open.
   For Chromium, verify nested signatures and confirm that its helpers exit with
   the app. Check that a fresh Chromium launch can browse without a Keychain

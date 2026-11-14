@@ -80,8 +80,8 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
     }
 }
 
-struct BrowserWindow: View {
-    @State private var tabs = BrowserTabs()
+struct BrowserPanel: View {
+    let tabs: BrowserTabs
     @State private var dataActions = BrowserDataActions()
     @State private var importing = false
     @State private var filling = false
@@ -110,9 +110,7 @@ struct BrowserWindow: View {
                     .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius))
             }
         }
-        .padding(8)
-        .frame(minWidth: 500, minHeight: 360)
-        .fritzWindowBackground()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .focusedSceneValue(\.browserActions, BrowserActions(
             newTab: newTab, closeTab: closeSelectedTab, focusAddress: { addressFocused = true },
             reload: { selectedTab?.page.reload() },
@@ -143,7 +141,7 @@ struct BrowserWindow: View {
         .onChange(of: selectedTab?.id) {
             addressFocused = selectedTab?.page.state.url == nil
         }
-        .onDisappear { dataActions.cancel(); tabs.closeAllTabs() }
+        .onDisappear { dataActions.cancel() }
         .onReceive(NotificationCenter.default.publisher(for: .closeFritzBrowser)) { _ in
             dataActions.cancel()
             tabs.closeAllTabs()
@@ -294,12 +292,12 @@ extension FocusedValues {
 }
 
 struct BrowserCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
+    let showBrowser: () -> Void
     @FocusedValue(\.browserActions) private var browser
 
     var body: some Commands {
         CommandMenu("Browser") {
-            Button("Show Browser") { openWindow(id: "browser") }
+            Button("Show Browser", action: showBrowser)
                 .keyboardShortcut("2")
             Divider()
             Button("New Tab") { browser?.newTab() }

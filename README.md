@@ -36,13 +36,14 @@ move toward narrower, permission-based personal sources. See [folder access and 
 
 ## Browser
 
-Choose **Browser → Show Browser** (⌘2) to open a separate window for manual
-browsing. Enter an HTTP or HTTPS address, use tabs to keep pages open, and
+Choose **Browser → Show Browser** (⌘2) to open the right sidebar for manual
+browsing alongside chat. The toolbar’s right-sidebar button shows or hides it.
+Enter an HTTP or HTTPS address, use tabs to keep pages open, and
 navigate with Back, Forward, Reload, and Stop. The tab strip supports drag
 reordering and a More tabs menu when space is limited. Right-click a tab for
 close actions. Use Control-Tab and Control-Shift-Tab to cycle tabs, ⌘T for a new tab, ⇧⌘W to
-close a tab, ⌘L to focus the address field, and ⌘R to reload. Tabs reset when
-the browser window closes. Website data persists within the app's browser
+close a tab, ⌘L to focus the address field, and ⌘R to reload. Tabs stay open when
+the sidebar is hidden and reset when the workspace window closes or Fritz quits. Website data persists within the app's browser
 profile. The browser does not expose pages to chat. Downloads
 and requests for privileged website access are outside this initial browser.
 
