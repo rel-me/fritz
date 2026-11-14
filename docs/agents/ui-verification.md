@@ -23,8 +23,12 @@ the following surfaces, include these behaviors:
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
-  Close the last tab and confirm only + remains above an empty view, including
-  after hiding and reopening the sidebar. Open a new tab with +, switch back
+  Verify opening and reopening splits the workspace evenly after excluding the
+  left sidebar, including after dragging the divider or resizing the window.
+  Check the browser’s 320-point minimum while resizing.
+  Close the last tab and confirm a centered New Tab button on the native
+  selected-tab background with no tab strip or +, including after hiding and
+  reopening the sidebar. Open a new tab with New Tab, switch back
   to a populated tab, and check focus and
   shortcuts with chat and the browser sidebar focused. Hide and reopen the sidebar,
   confirming tabs, page history, and the selected conversation survive. Check a refused

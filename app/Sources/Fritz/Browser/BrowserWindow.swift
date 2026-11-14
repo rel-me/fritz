@@ -11,7 +11,7 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
         allowSplits: false,
         allowCrossPaneTabMove: false,
         autoCloseEmptyPanes: false,
-        appearance: .init(showSplitButtons: false)
+        appearance: .init(tabBarBackground: .clear, showSplitButtons: false)
     ))
     private var pages: [TabID: BrowserTab] = [:]
 
@@ -90,8 +90,8 @@ struct BrowserPanel: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            tabBar
             if let tab = selectedTab {
+                tabBar
                 navigationBar(tab)
                 if let error = tab.page.state.error {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -103,9 +103,17 @@ struct BrowserPanel: View {
                 if tab.page.state.isLoading { ProgressView().progressViewStyle(.linear) }
                 BrowserSurface(page: tab.page).id(tab.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay {
+                        if tab.page.state.url == nil {
+                            Color(nsColor: BonsplitTabStyle.selectedBackground)
+                                .allowsHitTesting(false)
+                        }
+                    }
                     .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius))
             } else {
-                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+                Button("New Tab", action: newTab)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

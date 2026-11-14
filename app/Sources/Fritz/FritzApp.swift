@@ -182,6 +182,8 @@ private struct FritzWorkspaceView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @State private var browserTabs = BrowserTabs()
+    @State private var browserOpeningID = 0
+    @State private var workspaceWidth: CGFloat = 900
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -239,9 +241,21 @@ private struct FritzWorkspaceView: View {
             browserTabs.closeAllTabs()
         }
         .navigationSplitViewStyle(.prominentDetail)
+        .onChange(of: state.isBrowserPresented, initial: true) { _, isPresented in
+            if isPresented {
+                browserOpeningID += 1
+            }
+        }
         .inspector(isPresented: $state.isBrowserPresented) {
             WorkspaceRightPanel(tabs: browserTabs)
-            .inspectorColumnWidth(min: 320, ideal: 480, max: 900)
+                .background(BrowserInspectorSizing(openingID: browserOpeningID))
+                .inspectorColumnWidth(min: 320, ideal: 320, max: max(320, workspaceWidth))
+        }
+        .transaction(value: state.isBrowserPresented) { transaction in
+            transaction.disablesAnimations = true
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+            workspaceWidth = $0
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
