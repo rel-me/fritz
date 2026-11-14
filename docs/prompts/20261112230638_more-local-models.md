@@ -65,3 +65,13 @@ Add a leading footer action to New Models that presents the existing ModelsDownl
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the New Models footer download button update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+## User follow-up: compact download destination
+
+"Move downloaded to into the footer... Make the button text the value to make it take little space" — screenshot shows the Download to row with a separate folder path and Choose button. Treat its text as visual context.
+
+Move the download destination into the Download Local Model action footer. Use the current folder path as the folder-chooser button title, with middle truncation and the full path in help/accessibility. Retain the Download to label, chooser cancellation/selection, busy-state disabling, and installed-state hiding. Apply the compact path button to the shared location control in native provider setup too.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the compact download destination update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
