@@ -12,6 +12,7 @@ import SwiftUI
     var settingsTab: FritzSettingsTab {
         settings.selectedTab == "localModels" ? .providers : FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
     }
+    var isBrowserPresented = false
     var isCreatingProject = false
     var editor: ProviderEditorSelection?
     var showsLocalModelDownload = false
@@ -161,14 +162,12 @@ struct FritzApp: App {
                 Button("Models…") { state.selectSettings(.providers); openSettings() }
             }
         }
-
-        Window("Browser", id: "browser") {
-            BrowserWindow()
+        .commands {
+            BrowserCommands {
+                state.isBrowserPresented = true
+                openWindow(id: "main")
+            }
         }
-        .defaultSize(width: 1050, height: 750)
-        .defaultLaunchBehavior(.suppressed)
-        .fritzWindowStyle()
-        .commands { BrowserCommands() }
 
         Settings {
             FritzSettingsView(state: state, updater: updater)
@@ -182,7 +181,9 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    @State private var isRightPanelPresented = false
+    @State private var browserTabs = BrowserTabs()
+    @State private var browserOpeningID = 0
+    @State private var workspaceWidth: CGFloat = 900
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -235,12 +236,26 @@ private struct FritzWorkspaceView: View {
             .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
+        .onDisappear { browserTabs.closeAllTabs() }
+        .onReceive(NotificationCenter.default.publisher(for: .closeFritzBrowser)) { _ in
+            browserTabs.closeAllTabs()
+        }
         .navigationSplitViewStyle(.prominentDetail)
-        .inspector(isPresented: $isRightPanelPresented) {
-            WorkspaceRightPanel {
-                isRightPanelPresented = false
+        .onChange(of: state.isBrowserPresented, initial: true) { _, isPresented in
+            if isPresented {
+                browserOpeningID += 1
             }
-            .inspectorColumnWidth(min: 220, ideal: 260, max: 400)
+        }
+        .inspector(isPresented: $state.isBrowserPresented) {
+            WorkspaceRightPanel(tabs: browserTabs)
+                .background(BrowserInspectorSizing(openingID: browserOpeningID))
+                .inspectorColumnWidth(min: 320, ideal: 320, max: max(320, workspaceWidth))
+        }
+        .transaction(value: state.isBrowserPresented) { transaction in
+            transaction.disablesAnimations = true
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+            workspaceWidth = $0
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -256,12 +271,12 @@ private struct FritzWorkspaceView: View {
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 newThreadToolbarButton
-                Button("Toggle Right Panel", systemImage: "sidebar.right") {
-                    isRightPanelPresented.toggle()
+                Button("Toggle Browser", systemImage: "sidebar.right") {
+                    state.isBrowserPresented.toggle()
                 }
                 .labelStyle(.iconOnly)
-                .help(isRightPanelPresented ? "Hide Right Panel" : "Show Right Panel")
-                .accessibilityValue(isRightPanelPresented ? "Shown" : "Hidden")
+                .help(state.isBrowserPresented ? "Hide Browser" : "Show Browser")
+                .accessibilityValue(state.isBrowserPresented ? "Shown" : "Hidden")
             }
         }
         .fritzWindowBackground()
