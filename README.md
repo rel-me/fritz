@@ -41,7 +41,8 @@ browsing alongside chat. The toolbar’s right-sidebar button shows or hides it.
 Enter an HTTP or HTTPS address, use tabs to keep pages open, and
 navigate with Back, Forward, Reload, and Stop. The tab strip supports drag
 reordering and a More tabs menu when space is limited. Right-click a tab for
-close actions. Use Control-Tab and Control-Shift-Tab to cycle tabs, ⌘T for a new tab, ⇧⌘W to
+close actions. Closing the last tab leaves an empty sidebar with the + button
+for opening another tab. Use Control-Tab and Control-Shift-Tab to cycle tabs, ⌘T for a new tab, ⇧⌘W to
 close a tab, ⌘L to focus the address field, and ⌘R to reload. Tabs stay open when
 the sidebar is hidden and reset when the workspace window closes or Fritz quits. Website data persists within the app's browser
 profile. The browser does not expose pages to chat. Downloads

@@ -14,7 +14,6 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
         appearance: .init(showSplitButtons: false)
     ))
     private var pages: [TabID: BrowserTab] = [:]
-    private var isClosingAll = false
 
     init() {
         for id in controller.allTabIds { controller.closeTab(id) }
@@ -69,14 +68,11 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
     }
 
     func closeAllTabs() {
-        isClosingAll = true
         for id in controller.allTabIds { controller.closeTab(id) }
-        isClosingAll = false
     }
 
     func splitTabBar(_ controller: BonsplitController, didCloseTab id: TabID, fromPane pane: PaneID) {
         pages.removeValue(forKey: id)?.page.close()
-        if !isClosingAll && controller.allTabIds.isEmpty { newTab() }
     }
 }
 
@@ -108,6 +104,8 @@ struct BrowserPanel: View {
                 BrowserSurface(page: tab.page).id(tab.id)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius))
+            } else {
+                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -133,9 +131,6 @@ struct BrowserPanel: View {
         .sheet(isPresented: $importing) { BrowserImportSheet(actions: dataActions) }
         .sheet(isPresented: $filling) {
             if let fillPage { BrowserPasswordSheet(actions: dataActions, page: fillPage) }
-        }
-        .onAppear {
-            if tabs.controller.allTabIds.isEmpty { newTab() }
         }
         .onChange(of: tabs.titles, initial: true) { tabs.updateTitles() }
         .onChange(of: selectedTab?.id) {

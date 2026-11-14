@@ -240,9 +240,7 @@ private struct FritzWorkspaceView: View {
         }
         .navigationSplitViewStyle(.prominentDetail)
         .inspector(isPresented: $state.isBrowserPresented) {
-            WorkspaceRightPanel(tabs: browserTabs) {
-                state.isBrowserPresented = false
-            }
+            WorkspaceRightPanel(tabs: browserTabs)
             .inspectorColumnWidth(min: 320, ideal: 480, max: 900)
         }
         .toolbar {

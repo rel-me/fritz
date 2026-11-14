@@ -23,7 +23,9 @@ the following surfaces, include these behaviors:
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
-  Open and close tabs, switch back to a populated tab, and check focus and
+  Close the last tab and confirm only + remains above an empty view, including
+  after hiding and reopening the sidebar. Open a new tab with +, switch back
+  to a populated tab, and check focus and
   shortcuts with chat and the browser sidebar focused. Hide and reopen the sidebar,
   confirming tabs, page history, and the selected conversation survive. Check a refused
   connection, light and dark appearance, resize, and app quit with pages open.
@@ -36,8 +38,8 @@ the following surfaces, include these behaviors:
   thread exists, with creation available from the toolbar and menu. Check stable
   selection, rename, New Thread/Command-N, independent transcripts and drafts,
   model settings, and launch restoration. Main chat has no tab strip. Check that
-  the native right inspector opens without tabs, resizes using its divider, closes
-  from its button, and can be hidden and reopened without changing the selected conversation. Check the panel toggle
+  the native right inspector opens without tabs, resizes using its divider, hides
+  from the toolbar toggle, and can be hidden and reopened without changing the selected conversation. Check the panel toggle
   at minimum window width. New Chat and the panel toggle use native toolbar
   placement and styling when the inspector opens and resizes; there is no bottom panel or
   chat-tab keyboard commands.
