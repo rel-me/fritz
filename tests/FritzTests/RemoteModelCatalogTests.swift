@@ -5,6 +5,21 @@ import XCTest
 
 @MainActor
 final class RemoteModelCatalogTests: XCTestCase {
+    func testBrowsableCatalogIncludesTextChatWithoutClaimingAConfiguredConnection() async throws {
+        let session = makeSession()
+        defer { session.invalidateAndCancel(); PricingURLProtocol.handler = nil }
+        let payload = Data(#"{"schema_version":1,"model_info":{"currency":"USD","unit":"per_million_tokens","providers":{"anthropic":{"models":{"chat-fixture":{"name":"Catalog Chat","modalities":{"input":["text"],"output":["text"]},"limit":{"context":64}},"embedding-fixture":{"modalities":{"input":["text"],"output":["embedding"]},"limit":{"context":64}},"image-fixture":{"modalities":{"input":["text"],"output":["text","image"]},"limit":{"context":0}}}}}}}"#.utf8)
+        PricingURLProtocol.handler = { _ in (200, [:], payload) }
+        let catalog = RemoteModelCatalog(session: session)
+        await catalog.refresh()
+        XCTAssertNil(catalog.error)
+        XCTAssertEqual(catalog.chatModels.map(\.modelID), ["chat-fixture"])
+        let model = try XCTUnwrap(catalog.chatModels.first)
+        XCTAssertEqual(model.displayName, "Catalog Chat")
+        XCTAssertNil(model.connectionID)
+        XCTAssertEqual(model.source, .builtIn)
+    }
+
     func testProviderCountersNormalizeCacheAndReasoningWithoutInventingPricingTokens() {
         let anthropic = ChatUsageCall(provider: .anthropic, rawUsage: ["input_tokens": 10, "output_tokens": 3, "cache_read_input_tokens": 4, "cache_creation_input_tokens": 2])
         XCTAssertEqual(anthropic.inputTokens, 16)

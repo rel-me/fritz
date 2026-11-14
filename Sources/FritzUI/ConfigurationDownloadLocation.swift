@@ -9,16 +9,14 @@ struct ConfigurationDownloadLocation: View {
     var body: some View {
         HStack(spacing: 8) {
             Text("Download to")
-            Spacer(minLength: 8)
-            Text(directory?.path ?? "Choose a folder")
-                .foregroundStyle(.secondary)
-                .lineLimit(1).truncationMode(.middle)
-                .help(directory?.path ?? "Choose a folder")
-                .accessibilityLabel("Download location")
-                .accessibilityValue(directory?.path ?? "Choose a folder")
-            Button("Choose…", action: chooseFolder)
                 .fixedSize()
+            Button(action: chooseFolder) {
+                Text(directory?.path ?? "Choose a folder")
+                    .lineLimit(1).truncationMode(.middle)
+            }
+                .help(directory?.path ?? "Choose a folder")
                 .accessibilityLabel("Choose download folder")
+                .accessibilityValue(directory?.path ?? "Choose a folder")
         }
         .onDisappear { panel?.cancel(nil); panel = nil }
     }

@@ -81,7 +81,7 @@ struct ChatPreferences: Codable {
 
     var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && canSave && selectedModel != nil && agent.isRunning && !isResponding
+            && canSave && selectedModel?.connectionID != nil && agent.isRunning && !isResponding
     }
 
     func select(_ model: ChatModelOption) {

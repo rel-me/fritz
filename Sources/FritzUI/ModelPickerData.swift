@@ -30,7 +30,7 @@ public enum ModelPickerData<Value> {
   public static func sections(
     from models: [ModelPickerItem<Value>], recentModels: [ModelPickerItem<Value>],
     providerOrder: [String], selectedModelID: String? = nil,
-    recentLimit: Int = 5, providerLimit: Int = 5
+    recentLimit: Int = 5, providerLimit: Int = .max
   ) -> [ModelPickerSection<Value>] {
     var sections: [ModelPickerSection<Value>] = []
     let available = Set(models.map(\.id))
@@ -43,7 +43,7 @@ public enum ModelPickerData<Value> {
       from: models, providerOrder: providerOrder, selectedModelID: selectedModelID
     ) {
       let visible = Array(
-        models.filter { $0.displayProvider.id == provider.id && $0.isRecommended }.prefix(
+        models.filter { $0.displayProvider.id == provider.id }.prefix(
           max(0, providerLimit)))
       if !visible.isEmpty {
         sections.append(

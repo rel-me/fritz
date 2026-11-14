@@ -14,19 +14,44 @@ disk image, then open Fritz from Applications.
 
 ## Get started
 
-1. Open **Settings → Models**, click **+**, and choose a provider. Add an API key
-   if required; Fritz stores credentials in macOS Keychain.
-2. For an on-device model, choose **New Local Model** from the **+** or **File**
-   menu, download a model, and add a **Fritz** provider for it.
-3. Create a conversation with **New Chat** or ⌘N, choose a model in the composer,
-   and send a message. Conversations retain their own transcripts, drafts, and
-   model settings across launches.
+1. Create a conversation with **New Chat** or ⌘N. In the composer, click
+   **Choose Model…** to browse all known chat models. **Local** and **Remote**
+   filters come first; search and provider filters also include models that have
+   not been configured yet.
+2. Choose a model. A ready model is selected immediately. Otherwise its setup
+   dialog opens: local models show the download size, memory recommendation,
+   and destination before downloading; remote models request provider setup
+   when needed. Fritz stores credentials in macOS Keychain. Successful setup
+   selects that model in the conversation; cancellation preserves the draft.
+3. Use **File → New Local Model** or **File → New Remote Model**, the toolbar's
+   Models menu, or the **Models** menu to open the separate model lists. Local
+   Models includes downloadable choices and local services. Remote Models
+   combines the bundled chat catalog with models discovered from your configured
+   connections; **New Remote Model…** also supports custom endpoints and model
+   IDs. Catalog presence alone does not establish account access or readiness.
+
+Model management is outside Settings. Conversations retain their own
+transcripts, drafts, selected models, and model settings across launches.
 
 Chat supports OpenAI, Anthropic, Google Gemini, OpenRouter, Ollama, and
 OpenAI-compatible services. Native local models run through llama.cpp with
 Metal acceleration, without an Ollama installation or API key. Each conversation
 uses Rig's agent runtime inside a separate bundled `fritz-harness` process.
 Decision models provide separately invoked typed judgments and are not chat models.
+
+The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
+8B), Hermes 3 Llama 3.1 8B, and Mistral Nemo 12B Instruct alongside Qwen and
+the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
+picker shows download sizes, recommended memory, and model licenses.
+
+For fewer refusals, [Dolphin's publisher](https://huggingface.co/dphn/Dolphin3.0-Llama3.1-8B)
+describes its models as steerable, with alignment controlled by your system
+prompt. [Hermes 3](https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B)
+is another instruction-following and roleplay option. These are publisher
+descriptions, not a Fritz evaluation of refusal rates or model quality;
+responses still depend on the model and prompt. The 3B Dolphin download is
+about 2.02 GB with 8 GB RAM recommended; both 8B downloads are about 4.92 GB
+with 16 GB recommended. Nemo is about 7.48 GB with 24 GB recommended.
 
 Fritz currently groups conversations under projects in the sidebar. Attaching a
 folder lets models with native tool support read and change files and run local

@@ -5,7 +5,6 @@ import SwiftUI
 
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
-    case providers
     case service
     case debug
 
@@ -14,7 +13,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: "General"
-        case .providers: "Models"
         case .service: "Service"
         case .debug: "Debug"
         }
@@ -23,7 +21,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: "gearshape"
-        case .providers: "cpu"
         case .service: "gearshape.2"
         case .debug: "ladybug"
         }
@@ -52,8 +49,6 @@ struct FritzSettingsView: View {
                     switch state.settingsTab {
                     case .general:
                         FritzGeneralSettingsView(updater: updater, settings: state.settings)
-                    case .providers:
-                        ModelsConfigurationScreen(store: state.providers, runtime: state.localModels)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
                     case .debug:
@@ -86,14 +81,7 @@ struct FritzSettingsView: View {
         }
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
-        .sheet(isPresented: $state.showsLocalModelDownload, onDismiss: {
-            Task {
-                await state.localModels.refresh()
-                await state.providers.refresh()
-            }
-        }) {
-            LocalModelDownloadSheet(store: state.providers, hardware: .current)
-        }
+
     }
 
     private var selection: Binding<FritzSettingsTab?> {

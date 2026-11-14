@@ -20,28 +20,36 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                 get: { model.selectedModelID },
                 set: { model.select($0) }
             ), state: model.state, hardware: hardware, catalog: model.catalog)
-            if hasVisibleSelection && model.state != .installed {
-                Divider()
-                ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
-                    .disabled(model.state.isBusy)
-                    .padding(.horizontal, 20).padding(.vertical, 12)
-            }
             Divider()
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 if hasVisibleSelection {
-                    Link("Model license", destination: model.selectedModel.licenseURL)
+                    Text("\(model.selectedModel.name) · \(hardware.summary)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
-                Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
-                    model.cancel()
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-                if !hasVisibleSelection || model.state != .installed {
-                    Button(downloadTitle) { if hasVisibleSelection { model.install() } }
-                        .buttonStyle(FritzButtonStyle(.primary))
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!hasVisibleSelection || model.state.isBusy)
+                HStack(spacing: 8) {
+                    if hasVisibleSelection {
+                        Link("Model license", destination: model.selectedModel.licenseURL)
+                            .fixedSize()
+                        if model.state != .installed {
+                            ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
+                                .disabled(model.state.isBusy)
+                                .layoutPriority(-1)
+                        }
+                    }
+                    Spacer()
+                    Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
+                        model.cancel()
+                        dismiss()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    if !hasVisibleSelection || model.state != .installed {
+                        Button(downloadTitle) { if hasVisibleSelection { model.install() } }
+                            .buttonStyle(FritzButtonStyle(.primary))
+                            .keyboardShortcut(.defaultAction)
+                            .disabled(!hasVisibleSelection || model.state.isBusy)
+                    }
                 }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
