@@ -96,3 +96,12 @@ Interpret "Remove" as "Remote" from the surrounding request. Use separate Local 
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the model-first UX update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+### Model-first UX verification
+
+- `make test`, `make check`, `make check-ui-snapshots` (20 comparisons), and `make build` passed.
+- Built the exact implementation commit in a separate disposable checkout with its own Debug bundle/data namespace and empty model directory. Verified the cold composer opens the full picker, Local/Remote filters precede provider filters, and unavailable entries show setup status.
+- Verified local confirmation cancellation preserves the draft. Explicitly downloaded Qwen3 0.6B into isolated test storage; completion saved its connection, dismissed confirmation, selected the model in chat, and enabled Send while retaining the draft.
+- Verified selecting Claude Sonnet 4.6 opens setup for Anthropic and that exact model, with API key required; cancelling retained the prior local selection and draft. No personal credentials were used.
+- Verified Settings exposes General/Service/Debug only, File exposes New Local Model/New Remote Model, and toolbar routes open distinct Local Models and Remote Models catalog tables. Reviewed the local table without a contrasting custom fill. Verified New Remote Model form and Command-Q shutdown with its sheet focused.
+- Native menu automation briefly returned stale accessibility IDs; restarted only the isolated test app and continued via the toolbar menu. Light/dark picker and setup layouts were covered by reviewed snapshots. No live model-quality evaluation was performed.
