@@ -476,7 +476,7 @@ and process monitoring in their editor on the Models page.
 
 ### Shared chat presentation
 
-`ChatProviderSetupButton(action:)` provides the composer's “Add Provider” action.
+`ChatProviderSetupButton(action:)` provides a standalone “Choose Model…” action; Fritz uses `ModelPickerLabel` for both empty and configured composer selections.
 Place it in `ChatComposer`'s accessory builder when a provider needs configuration;
 the host owns the setup flow and decides when to show the action.
 
@@ -540,11 +540,20 @@ but cannot undo a command already executing. See
 
 ### Models configuration and runtime
 
-`ModelsConfigurationScreen(store:runtime:)` is the Models page used by Fritz's
-Settings. It owns editor presentation and uses `ModelsProviderEditor` for both
-remote and local providers. Local models are managed inside that editor; they
-are not a separate Settings page. `ModelsDownloadSheet(store:modelID:category:)`
-provides the same filtered catalog and cancellable installer used by Fritz.
+`ModelsCatalogView(store:runtime:location:)` supplies separate Local Models and
+Remote Models lists in Fritz's model windows. `ModelsStore.pickerModels` combines
+ready connections with local downloads and the bundled remote chat catalog;
+unconfigured entries remain candidates, not usable connection identities.
+`ModelsProviderEditor(initialModel:onSaved:)` presents setup for a specific
+selection, downloads a local model after confirmation when needed, and reports
+the saved connection before the host selects it. Hosts keep the originating
+conversation and its draft alive until completion or cancellation.
+
+`ModelsConfigurationScreen(store:runtime:)` remains a combined configuration
+surface for library hosts; Fritz no longer places it in Settings.
+`ModelsDownloadSheet(store:modelID:category:)` provides the filtered download
+catalog and cancellable installer. Its destination is a path-valued footer
+button rather than a separate location row.
 
 Create one `ModelsStore` and one `ModelsLocalRuntime` per app with the same
 `AgentClient`. `ModelsPreferences` supplies the app's existing nonsecret settings
@@ -621,7 +630,7 @@ thresholds. Complete provider-reported costs take precedence; local inference is
 free. Missing counters/rates and unsupported service tiers show unavailable cost.
 Total-only usage can still show tokens without inventing input/output costs.
 
-`ModelPickerPopover` accepts `supportedProviders`, `configuredProviderIDs`, and an `addProvider` callback to expose setup from provider filters. Pass configured IDs from saved connections rather than discovered models. `PickerProvider.chatProviders` supplies the supported language-model presets. `ModelsProviderEditor(initialPreset:)` selects a preset for a new connection; an existing connection retains its saved provider. `ModelPickerLabel` shares the compact composer display.
+`ModelPickerPopover` accepts `supportedProviders` and optional `configureLocalModels` routing. Local and Remote filters precede provider filters; filters only narrow choices and never open setup. `selectModel` returns the chosen value so the host can select a ready connection or present setup. All supplied chat choices remain browsable beyond the recommendation list. `PickerProvider.chatProviders` supplies language-model presets. `ModelsProviderEditor(initialModel:onSaved:)` fixes setup to a selected model and reports its saved connection. `ModelPickerLabel` shares the compact composer display.
 
 ### Registered @ references
 

@@ -163,6 +163,17 @@ final class SharedControlSnapshots: XCTestCase {
                      name: "models-editor-fritz-available", size: .init(width: 600, height: 560), settleDuration: 0.45)
     }
 
+    func testModelSetupDialogs() throws {
+        for (state, provider) in [("available", AIProviderKind.fritz), ("populated", .fritz), ("empty", .anthropic)] {
+            let store = ModelsFixture(state: state)
+            let model = ChatModelOption(id: "choice", displayName: provider == .fritz ? "Qwen2.5 1.5B" : "Claude",
+                                        provider: provider, modelID: provider == .fritz ? "qwen2.5-1.5b-instruct-q4_k_m" : "claude-fixture")
+            try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(installed: state != "available"),
+                                              existing: nil, initialModel: model),
+                         name: "model-setup-\(provider.rawValue)-\(state)", size: .init(width: 600, height: 560), settleDuration: 0.45)
+        }
+    }
+
     func testDownloadCompletionRefreshesInstalledPath() async throws {
         let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
         defer { model.cancel() }
@@ -188,9 +199,7 @@ final class SharedControlSnapshots: XCTestCase {
         ModelPickerPopover(models: models, recentModels: recent,
                            modelProviders: providers.map(\.groupID), selectedModelID: "fritz",
                            selectModel: { _ in }, configureModels: {}, initialSearchText: query,
-                           supportedProviders: PickerProvider.chatProviders,
-                           configuredProviderIDs: Set(models.map { $0.displayProvider.id }),
-                           addProvider: { _ in })
+                           supportedProviders: PickerProvider.chatProviders)
     }
 
     private var categories: [PickerCategory] {

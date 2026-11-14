@@ -130,6 +130,10 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     let store: Store
     @Bindable var localModels: Runtime
     let existing: ProviderConnection?
+    let initialModel: ChatModelOption?
+    let onSaved: ((ProviderConnection) -> Void)?
+    let remoteOnly: Bool
+    let providerOptions: [AIProviderPreset]?
     @Environment(\.dismiss) private var dismiss
     @State private var id: UUID
     @State private var name: String
@@ -142,6 +146,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var models: [DiscoveredAIModel] = []
     @State private var isDiscovering = false
     @State private var isSaving = false
+    @State private var useAfterInstall = false
     @State private var error: String?
     @State private var discoveryError: String?
     @State private var discoveryFinished = false
@@ -154,21 +159,23 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var startPolicy: ModelsStartPolicy
     @State private var saveTask: Task<Void, Never>?
 
-    public init(store: Store, localModels: Runtime, existing: ProviderConnection?, initialPreset: AIProviderPreset? = nil) {
+    public init(store: Store, localModels: Runtime, existing: ProviderConnection?, initialPreset: AIProviderPreset? = nil, initialModel: ChatModelOption? = nil,
+                remoteOnly: Bool = false, providerOptions: [AIProviderPreset]? = nil, onSaved: ((ProviderConnection) -> Void)? = nil) {
         self.store = store; self.localModels = localModels; self.existing = existing
+        self.initialModel = initialModel; self.remoteOnly = remoteOnly; self.onSaved = onSaved; self.providerOptions = providerOptions
         let addedPresets = Set(store.connections.map {
             AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL)
         })
-        let initialPreset = existing.map { AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL) }
+        let initialPreset = initialModel?.displayProvider ?? existing.map { AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL) }
             ?? initialPreset
-            ?? AIProviderPreset.allCases.first { $0.category == .llm && !addedPresets.contains($0) }
+            ?? (providerOptions ?? AIProviderPreset.allCases).first { $0.category == .llm && (!remoteOnly || AIProviderCategory.remote.contains($0)) && !addedPresets.contains($0) }
             ?? .adapter(.openAI)
         let category = initialPreset.category
         _id = State(initialValue: existing?.id ?? UUID())
-        let initialNativeModel = ConfigurationNativeModel(store: store, modelID: existing?.modelID, category: category)
+        let initialNativeModel = ConfigurationNativeModel(store: store, modelID: initialModel?.modelID ?? existing?.modelID, category: category)
         _nativeModel = State(initialValue: initialNativeModel)
         _startPolicy = State(initialValue: localModels.policy(for: initialNativeModel.selectedModelID))
-        let baseName = initialPreset.name
+        let baseName = initialModel?.displayName ?? initialPreset.name
         var initialName = baseName, suffix = 2
         while store.connections.contains(where: { $0.name.caseInsensitiveCompare(initialName) == .orderedSame }) {
             initialName = "\(baseName) \(suffix)"; suffix += 1
@@ -176,129 +183,27 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         _name = State(initialValue: existing?.name ?? initialName)
         _preset = State(initialValue: initialPreset)
         _endpoint = State(initialValue: existing?.baseURL ?? initialPreset.baseURL)
-        _modelID = State(initialValue: existing?.modelID ?? initialPreset.provider.decisionModelID)
+        _modelID = State(initialValue: initialModel?.modelID ?? existing?.modelID ?? initialPreset.provider.decisionModelID)
         _makeDefault = State(initialValue: category == .llm &&
                              (existing?.id == store.defaultConnectionID || store.defaultConnectionID == nil))
     }
 
     public var body: some View {
         ModelProviderEditor(
-            primaryActionTitle: primaryActionTitle, canSave: canSave, isSaving: isSaving,
+            primaryActionTitle: primaryActionTitle, canSave: canSubmit, isSaving: isSaving,
+            licenseURL: initialModel != nil && managesLocalModels ? nativeModel.selectedModel.licenseURL : nil,
             height: editorHeight,
             contentBackground: ModelsConfigurationStyle.contentBackground,
             footerBackground: ModelsConfigurationStyle.workspaceBackground,
-            cancel: { nativeModel.cancel(); dismiss() }, save: save,
-            downloadModels: existing == nil ? { showsDownload = true } : nil
+            cancel: { nativeModel.cancel(); dismiss() }, save: submit,
+            downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,
+            downloadDirectory: nativeModel.downloadDirectory,
+            chooseDownloadDirectory: chooseDownloadDirectory,
+            isInstalling: nativeModel.state.isBusy
         ) {
-            ConfigurationManagementHeader(existing == nil ? "New Models" : "Edit Models")
+            ConfigurationManagementHeader(initialModel.map { "Set Up \($0.displayName)" } ?? (existing == nil ? (remoteOnly ? "New Remote Model" : providerOptions != nil ? "New Local Model" : "New Models") : "Edit Models"))
         } content: {
-            Form {
-                Section {
-                    if existing == nil {
-                        ConfigurationProviderPicker(selection: $preset)
-                    } else {
-                        Picker("Provider", selection: $preset) {
-                            ForEach(AIProviderPreset.allCases) { provider in
-                                Text(provider.name).tag(provider)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                }.disabled(nativeModel.state.isBusy)
-                if managesLocalModels {
-                    Section {
-                        Picker("Model", selection: Binding(
-                            get: { nativeModel.selectedModelID },
-                            set: { nativeModel.select($0) }
-                        )) {
-                            ForEach(nativeModel.catalog) { model in
-                                Text(model.name).tag(model.id)
-                            }
-                        }
-                        .disabled(nativeModel.state.isBusy)
-                        if nativeModel.state != .installed {
-                            ConfigurationDownloadLocation(directory: nativeModel.downloadDirectory,
-                                                          choose: nativeModel.chooseDirectory)
-                                .disabled(nativeModel.state.isBusy)
-                        }
-                        if managesLocalAPI {
-                            Picker("Start on", selection: $startPolicy) {
-                                ForEach(ModelsStartPolicy.allCases) { policy in
-                                    Text(policy.title).tag(policy)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                        }
-                    } footer: {
-                        switch nativeModel.state {
-                        case .installed: EmptyView()
-                        case .checking: Text("Checking…")
-                        case .failed(let message): Text(message).foregroundStyle(.red)
-                        case .available: Text("Not installed")
-                        case let .downloading(downloaded, total):
-                            ProgressView(value: Double(downloaded), total: Double(total))
-                                .accessibilityLabel("Downloading local model")
-                            Text("\(ByteCountFormatter.string(fromByteCount: Int64(downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file))")
-                                .monospacedDigit()
-                        }
-                        if let duplicateConnection {
-                            duplicateWarning(duplicateConnection)
-                        }
-                        if nativeModel.state == .installed, let url = nativeModel.installedURL {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Installed at")
-                                HStack(spacing: 6) {
-                                    Text(url.path).textSelection(.enabled)
-                                        .lineLimit(1).truncationMode(.middle)
-                                    Button("Copy Path", systemImage: "doc.on.doc") {
-                                        NSPasteboard.general.clearContents()
-                                        NSPasteboard.general.setString(url.path, forType: .string)
-                                    }
-                                    .labelStyle(.iconOnly)
-                                    .buttonStyle(FritzButtonStyle(.inline))
-                                    .help("Copy Path")
-                                    .fixedSize()
-                                }
-                            }
-                            .padding(.top, 6)
-                        }
-                        HStack(spacing: 8) {
-                            if !nativeModel.state.isBusy && nativeModel.state != .installed {
-                                Button("Download") { nativeModel.install() }
-                            } else if case .downloading = nativeModel.state {
-                                Button("Cancel Download") { nativeModel.cancel() }
-                            }
-                            if managesLocalAPI {
-                                if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
-                                    Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
-                                        .disabled(localSession.status == .stopping)
-                                } else {
-                                    Button("Start") { localModels.start(nativeModel.selectedModelID) }
-                                        .disabled(nativeModel.state != .installed || localModels.isLoading
-                                                  || !localModels.installedIDs.contains(nativeModel.selectedModelID))
-                                }
-                            }
-                            if nativeModel.state == .installed, let url = nativeModel.installedURL {
-                                Button("Open in Finder", systemImage: "folder") {
-                                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                                }
-                            }
-                        }
-                        .padding(.top, 6)
-                        if managesLocalAPI { localRuntimeControls.padding(.top, 12) }
-                        if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
-                    }
-                    if category == .llm && store.defaultConnectionID != nil {
-                        Section {
-                            Toggle("Use as Default Provider", isOn: $makeDefault)
-                                .disabled(existing?.id == store.defaultConnectionID)
-                        }
-                    }
-                } else {
-                    remoteSections
-                }
-            }
-            .fritzSettingsFormStyle().disabled(isSaving)
+            editorForm
         }
         .buttonStyle(FritzButtonStyle())
         .interactiveDismissDisabled(isSaving)
@@ -320,6 +225,12 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             models = []; error = nil; discoveryError = nil; discoveryFinished = false; refreshID = 0
             showsModels = false
         }
+        .onChange(of: nativeModel.state) { _, state in
+            if state == .installed && useAfterInstall {
+                useAfterInstall = false
+                save()
+            }
+        }
         .onChange(of: nativeModel.selectedModelID) { _, modelID in
             startPolicy = localModels.policy(for: modelID)
         }
@@ -336,6 +247,139 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         }
         .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
+    }
+
+    private var editorForm: some View {
+        Form {
+            if initialModel == nil { Section {
+                if existing == nil {
+                    ConfigurationProviderPicker(selection: $preset, providers: (providerOptions ?? AIProviderPreset.allCases).filter {
+                        !remoteOnly || AIProviderCategory.remote.contains($0)
+                    })
+                } else {
+                    Picker("Provider", selection: $preset) {
+                        ForEach(providerOptions ?? AIProviderPreset.allCases) { provider in
+                            Text(provider.name).tag(provider)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }.disabled(nativeModel.state.isBusy) }
+            if let initialModel, !managesLocalModels {
+                Section {
+                    LabeledContent("Provider", value: initialModel.displayProvider.displayName)
+                    if category == .llm { LabeledContent("Model", value: initialModel.modelID) }
+                }
+            }
+            if managesLocalModels {
+                Section {
+                    if let initialModel {
+                        LabeledContent("Model", value: initialModel.displayName)
+                    } else { Picker("Model", selection: Binding(
+                        get: { nativeModel.selectedModelID },
+                        set: { nativeModel.select($0) }
+                    )) {
+                        ForEach(nativeModel.catalog) { model in
+                            Text(model.name).tag(model.id)
+                        }
+                    }
+                    .disabled(nativeModel.state.isBusy) }
+                    if initialModel == nil && nativeModel.state != .installed {
+                        ConfigurationDownloadLocation(directory: nativeModel.downloadDirectory,
+                                                      choose: nativeModel.chooseDirectory)
+                            .disabled(nativeModel.state.isBusy)
+                    }
+                    if managesLocalAPI && initialModel == nil {
+                        Picker("Start on", selection: $startPolicy) {
+                            ForEach(ModelsStartPolicy.allCases) { policy in
+                                Text(policy.title).tag(policy)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                } footer: {
+                    if initialModel != nil {
+                        Text(nativeModel.selectedModel.downloadSummary)
+                            .foregroundStyle(LocalModelHardware.current.memoryGB < nativeModel.selectedModel.memoryGB ? .orange : .secondary)
+                    }
+                    switch nativeModel.state {
+                    case .installed:
+                        if initialModel != nil { Label("Downloaded", systemImage: "checkmark.circle") }
+                    case .checking: Text("Checking…")
+                    case .failed(let message): Text(message).foregroundStyle(.red)
+                    case .available: Text("Not installed")
+                    case let .downloading(downloaded, total):
+                        ProgressView(value: Double(downloaded), total: Double(total))
+                            .accessibilityLabel("Downloading local model")
+                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file))")
+                            .monospacedDigit()
+                    }
+                    if let duplicateConnection {
+                        duplicateWarning(duplicateConnection)
+                    }
+                    if initialModel == nil, nativeModel.state == .installed, let url = nativeModel.installedURL {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Installed at")
+                            HStack(spacing: 6) {
+                                Text(url.path).textSelection(.enabled)
+                                    .lineLimit(1).truncationMode(.middle)
+                                Button("Copy Path", systemImage: "doc.on.doc") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(url.path, forType: .string)
+                                }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(FritzButtonStyle(.inline))
+                                .help("Copy Path")
+                                .fixedSize()
+                            }
+                        }
+                        .padding(.top, 6)
+                    }
+                    if initialModel == nil { HStack(spacing: 8) {
+                        if initialModel == nil && !nativeModel.state.isBusy && nativeModel.state != .installed {
+                            Button("Download") { nativeModel.install() }
+                        } else if case .downloading = nativeModel.state {
+                            Button("Cancel Download") { nativeModel.cancel() }
+                        }
+                        if managesLocalAPI {
+                            if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
+                                Button("Stop") { localModels.stop(nativeModel.selectedModelID) }
+                                    .disabled(localSession.status == .stopping)
+                            } else {
+                                Button("Start") { localModels.start(nativeModel.selectedModelID) }
+                                    .disabled(nativeModel.state != .installed || localModels.isLoading
+                                              || !localModels.installedIDs.contains(nativeModel.selectedModelID))
+                            }
+                        }
+                        if nativeModel.state == .installed, let url = nativeModel.installedURL {
+                            Button("Open in Finder", systemImage: "folder") {
+                                NSWorkspace.shared.activateFileViewerSelecting([url])
+                            }
+                        }
+                    }
+                    .padding(.top, 6) }
+                    if managesLocalAPI && initialModel == nil { localRuntimeControls.padding(.top, 12) }
+                    if initialModel != nil, let policyError = localModels.policyError {
+                        Text(policyError).foregroundStyle(.red)
+                    }
+                    if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
+                }
+                if initialModel == nil && category == .llm && store.defaultConnectionID != nil {
+                    Section {
+                        Toggle("Use as Default Provider", isOn: $makeDefault)
+                            .disabled(existing?.id == store.defaultConnectionID)
+                    }
+                }
+            } else {
+                remoteSections
+            }
+        }
+        .fritzSettingsFormStyle().disabled(isSaving)
+    }
+
+    private var chooseDownloadDirectory: ((URL) -> Void)? {
+        guard initialModel != nil, managesLocalModels, nativeModel.state != .installed else { return nil }
+        return { url in nativeModel.chooseDirectory(url) }
     }
 
     private var localSession: ModelsRuntimeSession {
@@ -385,7 +429,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             if category == .decision {
                 LabeledContent("Model", value: preset.provider == .openAIDecisions ? "GPT-6 Luna · gpt-6-luna" : "Jev · jev-latest")
                 TextField("Connection name", text: $name)
-            } else {
+            } else if initialModel == nil {
                 LabeledContent("Models") {
                     HStack(spacing: 8) {
                         Text(isDiscovering ? "Loading…" : "\(models.count) available").foregroundStyle(.secondary)
@@ -401,7 +445,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     }.frame(minHeight: 20)
                 }
             }
-            if category == .llm && store.defaultConnectionID != nil {
+            if initialModel == nil && category == .llm && store.defaultConnectionID != nil {
                 Toggle("Use as Default Provider", isOn: $makeDefault)
                     .disabled(existing?.id == store.defaultConnectionID)
             }
@@ -422,14 +466,16 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 if !requiresEndpoint { endpointField }
                 if category == .llm {
                     TextField("Connection name", text: $name)
-                    if !models.isEmpty {
+                    if initialModel == nil && !models.isEmpty {
                         Picker("Default model", selection: $modelID) {
                             Text("Choose automatically").tag("")
                             if !modelID.isEmpty && !models.contains(where: { $0.id == modelID }) { Text(modelID).tag(modelID) }
                             ForEach(models) { Text($0.displayName).tag($0.id) }
-                        }
+                        }.disabled(initialModel != nil)
                     }
-                    TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
+                    if initialModel == nil {
+                        TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
+                    }
                 }
             }
         } header: {
@@ -473,6 +519,9 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         return value.isEmpty ? preset.baseURL : value
     }
     private var editorHeight: CGFloat {
+        if initialModel != nil && managesLocalModels {
+            return nativeModel.state == .installed ? 260 : 320
+        }
         let base: CGFloat
         if managesLocalModels {
             base = 340 + (category == .llm && store.defaultConnectionID != nil ? 40 : 0)
@@ -487,7 +536,28 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         }
         return base - (existing == nil ? 32 : 0) + (duplicateConnection == nil ? 0 : 44)
     }
-    private var primaryActionTitle: String { existing == nil ? "Add" : "Save" }
+    private var canSubmit: Bool {
+        if initialModel != nil && managesLocalModels && nativeModel.state != .installed {
+            return !isSaving && !nativeModel.state.isBusy
+        }
+        return canSave
+    }
+    private var primaryActionTitle: String {
+        if initialModel != nil {
+            if managesLocalModels && nativeModel.state != .installed {
+                if case .failed = nativeModel.state { return "Retry Download" }
+                return "Download"
+            }
+            return "Use Model"
+        }
+        return existing == nil ? "Add" : "Save"
+    }
+    private func submit() {
+        if initialModel != nil && managesLocalModels && nativeModel.state != .installed {
+            useAfterInstall = true
+            nativeModel.install()
+        } else { save() }
+    }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }
     private var endpointTitle: String { requiresEndpoint ? "Gateway URL" : "Gateway URL (Optional)" }
     private var endpointPrompt: String {
@@ -575,7 +645,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     try localModels.setPolicy(startPolicy, for: saved.modelID)
                 }
                 try Task.checkCancellation()
-                apiKey = ""; dismiss()
+                apiKey = ""; onSaved?(saved); dismiss()
             } catch is CancellationError {
             } catch { self.error = error.localizedDescription }
         }

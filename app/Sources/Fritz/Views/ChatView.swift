@@ -6,8 +6,11 @@ import SwiftUI
 struct ChatView: View {
     @Bindable var store: ChatStore
     let providers: ProviderStore
-    let openProviders: () -> Void
-    let addProvider: (AIProviderPreset?) -> Void
+    let localModels: LocalModelRuntimeStore
+    let openModels: (ModelsLocation) -> Void
+    @State private var setupModel: ChatModelOption?
+    @State private var selectionTask: Task<Void, Never>?
+    @State private var isPreparingModel = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
@@ -25,26 +28,26 @@ struct ChatView: View {
                 ChatComposer(
                     draft: $store.draft,
                     placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
-                    canSend: store.canSend,
+                    canSend: store.canSend && !isPreparingModel,
+                    isPreparingModel: isPreparingModel,
                     isResponding: store.isResponding,
                     isFocused: $isFocused,
-                    models: providers.models,
+                    models: providers.pickerModels,
                     recentModels: providers.recentModels,
                     modelProviders: providers.providerOrder,
-                    configuredProviderIDs: Set(providers.connections.map {
-                        AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL).id
-                    }),
-                    hasConfiguredModels: !providers.connections.isEmpty,
-                    isLoadingModels: providers.isLoading,
                     selectedModel: store.selectedModel,
                     selectedEffort: store.effort,
                     selectedSpeed: store.speed,
-                    selectModel: { store.select($0); providers.record($0) },
+                    selectModel: chooseModel,
                     selectEffort: { store.effort = $0 },
                     selectSpeed: { store.speed = $0 },
-                    configureModels: openProviders,
-                    addProvider: addProvider,
-                    send: { if let model = store.selectedModel { providers.record(model) }; store.send() },
+                    configureModels: { openModels(.remote) },
+                    configureLocalModels: { openModels(.local) },
+                    send: {
+                        guard !isPreparingModel else { return }
+                        if let model = store.selectedModel { providers.record(model) }
+                        store.send()
+                    },
                     stop: store.stop
                 )
             }
@@ -63,8 +66,17 @@ struct ChatView: View {
             guard !Task.isCancelled else { return }
             isFocused = true
         }
+        .sheet(item: $setupModel) { model in
+            ModelsProviderEditor(store: providers, localModels: localModels,
+                                 existing: providers.setupConnection(for: model), initialModel: model) { connection in
+                let selected = ChatModelOption(connection: connection,
+                    model: DiscoveredAIModel(id: connection.modelID, displayName: model.displayName))
+                store.select(selected)
+                providers.record(selected)
+            }
+        }
         .onAppear(perform: synchronizeModel)
-        .onDisappear { store.savePreferences() }
+        .onDisappear { selectionTask?.cancel(); store.savePreferences() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
         .onChange(of: store.effort) { _, _ in store.savePreferences() }
@@ -170,8 +182,31 @@ struct ChatView: View {
         scrollPosition.scrollTo(edge: .bottom)
     }
 
+    private func chooseModel(_ model: ChatModelOption) {
+        guard !store.isResponding, selectionTask == nil else { return }
+        guard model.provider == .fritz else {
+            if model.connectionID != nil { store.select(model); providers.record(model) }
+            else { setupModel = model }
+            return
+        }
+        isPreparingModel = true
+        selectionTask = Task {
+            defer { isPreparingModel = false; selectionTask = nil }
+            do {
+                if let ready = try await providers.prepareLocalModel(model) {
+                    try Task.checkCancellation()
+                    store.select(ready); providers.record(ready)
+                } else {
+                    try Task.checkCancellation()
+                    setupModel = model
+                }
+            } catch is CancellationError {
+            } catch { store.error = error.localizedDescription }
+        }
+    }
+
     private func synchronizeModel() {
-        guard providers.hasLoadedModels, !store.isResponding else { return }
+        guard providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
         if let selected = store.selectedModel, let current = providers.models.first(where: { $0.id == selected.id }) {
             if current != selected { store.select(current) }
             return

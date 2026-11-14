@@ -42,6 +42,13 @@ final class PickerTests: XCTestCase {
       ["compatible", "bedrock", "anthropic"])
   }
 
+  func testProviderSectionsIncludeAllChoicesBeyondRecommendations() {
+    let choices = (1...8).map { model("choice-\($0)", recommended: $0 < 3) }
+    let sections = ModelPickerData.sections(from: choices, recentModels: [], providerOrder: ["rel"])
+    XCTAssertEqual(sections.count, 1)
+    XCTAssertEqual(sections[0].models.map(\.id), choices.map(\.id))
+  }
+
   func testSectionsExcludeSelectedModelFromRecents() {
     let models = [model("selected"), model("other")]
     let sections = ModelPickerData.sections(

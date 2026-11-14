@@ -36,6 +36,7 @@ public struct ModelPickerItem<Value>: Identifiable {
   public let sourceName: String?
   public let isRecommended: Bool
   public let badge: PickerBadge?
+  public let isLocal: Bool
   public init(
     id: String, value: Value, displayName: String, modelID: String,
     provider: PickerProvider, sourceName: String? = nil,
@@ -49,6 +50,7 @@ public struct ModelPickerItem<Value>: Identifiable {
     self.sourceName = sourceName
     self.isRecommended = isRecommended
     self.badge = badge
+    self.isLocal = ["fritz", "ollama", "ollaya"].contains(provider.groupID)
   }
 }
 

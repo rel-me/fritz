@@ -29,6 +29,85 @@ import Security
     public var connections: [ProviderConnection] { registry.connections }
     public var providerOrder: [AIProviderKind] { connections.filter { $0.category == .llm }.map(\.provider) }
     public var recentModels: [ChatModelOption] { recentIDs.compactMap { id in models.first { $0.id == id } } }
+    public var availableModels: [ChatModelOption] {
+        let discovered = models + connections.filter { $0.category == .decision }.flatMap { connection in
+            (catalog[connection.id] ?? [DiscoveredAIModel(id: connection.modelID, displayName: connection.modelID)])
+                .map { ChatModelOption(connection: connection, model: $0) }
+        }
+        var configured: [ChatModelOption] = []
+        var nativeRows: [String: Int] = [:]
+        for model in discovered {
+            if model.provider.isNative, let index = nativeRows[model.usageKey] {
+                if connections.contains(where: { $0.id == model.connectionID && $0.modelID == model.modelID }) {
+                    configured[index] = model
+                }
+            } else {
+                if model.provider.isNative { nativeRows[model.usageKey] = configured.count }
+                configured.append(model)
+            }
+        }
+        let local = nativeModelCatalog.map {
+            ChatModelOption(id: "catalog:\($0.id)", displayName: $0.name,
+                            provider: $0.category == .llm ? .fritz : .ollaya, modelID: $0.id)
+        }
+        let decisions = AIProviderPreset.allCases.filter { $0.category == .decision && AIProviderCategory.remote.contains($0) }.map {
+            ChatModelOption(id: "catalog:\($0.id)", displayName: $0.name, provider: $0.provider,
+                            modelID: $0.provider.decisionModelID, baseURL: $0.baseURL)
+        }
+        let configuredKeys = Set(configured.map { "\($0.displayProvider.id):\($0.modelID)" })
+        return configured + (local + modelCatalog.chatModels + decisions).filter {
+            !configuredKeys.contains("\($0.displayProvider.id):\($0.modelID)")
+        }
+    }
+    public var pickerModels: [ChatModelOption] {
+        let knownChat = Set(modelCatalog.chatModels.map(\.usageKey))
+        return availableModels.filter {
+            $0.category == .llm && ($0.provider == .fritz || knownChat.contains($0.usageKey)
+                || $0.capabilities.isRecommendedInChatPicker || $0.status == .deprecated)
+        }
+    }
+
+    public func setupConnection(for model: ChatModelOption) -> ProviderConnection? {
+        if model.provider.isNative { return connections.first { $0.provider == model.provider && $0.modelID == model.modelID } }
+        if let id = model.connectionID { return connections.first { $0.id == id } }
+        let endpoint = model.displayProvider.baseURL.isEmpty ? model.provider.endpoint : model.displayProvider.baseURL
+        return connections.first {
+            AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL) == model.displayProvider
+                && ($0.baseURL?.isEmpty == false ? $0.baseURL! : $0.provider.endpoint)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                == endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+    }
+    /// A catalog choice gets a real connection only after local inventory confirms installation.
+    public func prepareLocalModel(_ model: ChatModelOption) async throws -> ChatModelOption? {
+        guard model.provider == .fritz,
+              nativeModelCatalog.contains(where: { $0.id == model.modelID && $0.category == .llm }) else {
+            throw AgentFailure(message: "This model is not in Fritz's local chat catalog.")
+        }
+        struct Inventory: Decodable {
+            struct Item: Decodable { let id: String; let installed: Bool }
+            let models: [Item]
+        }
+        let inventory: Inventory = try await agent.request("localModels.list")
+        try Task.checkCancellation()
+        guard inventory.models.contains(where: { $0.id == model.modelID && $0.installed }) else { return nil }
+        let current: ProviderRegistry = try await agent.request("providers.list")
+        try Task.checkCancellation()
+        registry = current
+        var name = model.displayName
+        var suffix = 2
+        while connections.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            name = "\(model.displayName) \(suffix)"; suffix += 1
+        }
+        let connection = setupConnection(for: model)
+            ?? ProviderConnection(name: name, provider: .fritz, modelID: model.modelID)
+        if !connections.contains(where: { $0.id == connection.id }) {
+            try await save(connection, key: "", makeDefault: defaultConnectionID == nil)
+        }
+        try Task.checkCancellation()
+        return ChatModelOption(connection: connection, model: .init(id: model.modelID, displayName: model.displayName))
+    }
+
     public var defaultModel: ChatModelOption? {
         if let recent = recentModels.first { return recent }
         if let connection = connections.first(where: { $0.id == registry.defaultConnectionId }),

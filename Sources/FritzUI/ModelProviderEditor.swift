@@ -14,6 +14,9 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
   let cancel: () -> Void
   let save: () -> Void
   let downloadModels: (() -> Void)?
+  let downloadDirectory: URL?
+  let chooseDownloadDirectory: ((URL) -> Void)?
+  let isInstalling: Bool
   let header: Header
   let content: Content
 
@@ -22,6 +25,8 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
     width: CGFloat = 600, height: CGFloat, contentBackground: Color, footerBackground: Color,
     cancel: @escaping () -> Void, save: @escaping () -> Void,
     downloadModels: (() -> Void)? = nil,
+    downloadDirectory: URL? = nil, chooseDownloadDirectory: ((URL) -> Void)? = nil,
+    isInstalling: Bool = false,
     @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Content
   ) {
     self.primaryActionTitle = primaryActionTitle
@@ -35,6 +40,9 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
     self.cancel = cancel
     self.save = save
     self.downloadModels = downloadModels
+    self.downloadDirectory = downloadDirectory
+    self.chooseDownloadDirectory = chooseDownloadDirectory
+    self.isInstalling = isInstalling
     self.header = header()
     self.content = content()
   }
@@ -47,7 +55,12 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
       Divider()
       HStack(spacing: 8) {
         if isSaving { ProgressView().controlSize(.small) }
-        if let licenseURL { Link("Model license", destination: licenseURL) }
+        if let licenseURL { Link("Model license", destination: licenseURL).fixedSize() }
+        if let chooseDownloadDirectory {
+          ConfigurationDownloadLocation(directory: downloadDirectory, choose: chooseDownloadDirectory)
+            .disabled(isSaving || isInstalling)
+            .layoutPriority(-1)
+        }
         if let downloadModels {
           Button("Download Models", action: downloadModels)
             .disabled(isSaving)

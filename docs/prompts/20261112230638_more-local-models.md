@@ -75,3 +75,24 @@ Move the download destination into the Download Local Model action footer. Use t
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the compact download destination update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+## User follow-up: model-first UX
+
+Change the UX...
+
+- New Local Model
+- New Remote Model
+
+Model selector can choose local or remote models... it shows all models, not just downloaded or setup ones ones. Add (Local) and (Remove) model filter in the filters list first.
+
+Remove Models from the Settings UI.
+
+Have 1 UI list for local models and 1 UI list view for remote models.
+
+Setup Model in the chat input, should instead be a "Choose Model..." which opens the model picker. When a model is picked if it is not installed, a dialog comes up for the install of the model. For local, this may involve downloading.
+
+Interpret "Remove" as "Remote" from the surrounding request. Use separate Local Models and Remote Models windows, backed by all known local downloads and the bundled remote chat catalog plus provider discovery. Show unconfigured models without treating catalog presence as proof of readiness. Require explicit setup/download on selection, then select the actual configured model in the originating conversation; preserve drafts, cancellation, Keychain storage, and decision-model separation. Remove the Models Settings tab and move model-management entry points to the two windows.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the model-first UX update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.

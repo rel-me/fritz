@@ -96,7 +96,7 @@ impl ModelStore {
             Ok(path)
         } else {
             Err(anyhow!(format!(
-                "{} is not installed. Open Models → + → Provider → Local → Fritz to download and install it.",
+                "{} is not installed. Choose it in the chat model picker or open Models → Local Models to download it.",
                 pin.name
             )))
         }

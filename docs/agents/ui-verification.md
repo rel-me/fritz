@@ -13,7 +13,7 @@ the following surfaces, include these behaviors:
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
   persistent sidebar without a toggle, + menu, New Project default folder creation,
   custom folder selection/cancel, and Settings
-  opening with Command-comma. The toolbar opens the Models page in Settings.
+  opening with Command-comma. The toolbar Models menu opens the separate Local Models and Remote Models windows.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
   should match the workspace surround in both modes. Preserve the sidebar's rounded
   outline through the titlebar around the traffic lights; it must not stop below
@@ -65,8 +65,14 @@ the following surfaces, include these behaviors:
   selected page; shared title-free unified toolbar, native traffic lights, a
   persistent sidebar without a toggle, and a rounded detail surface that begins
   below the toolbar in light/dark appearance. General appearance,
-  update channel, CLI install feedback, Models selection, blank and populated model
-  lists, local-model download and New Models/Edit Models process controls (First use
+  update channel, and CLI install feedback. Models must not appear in Settings.
+- **Model windows and picker:** New Local Model/New Remote Model commands and
+  toolbar routes open the separate lists, including unconfigured catalog choices.
+  The composer always offers Choose Model; Local and Remote filters precede
+  providers and filter without opening setup. Verify ready selections, remote
+  credential setup, local download confirmation, cancellation/draft retention,
+  successful setup selecting the chosen model, and decision-model exclusion from
+  chat. Check blank/populated lists and model process controls (First use
   by default, App start persistence, weight load/unload, installed path and Finder
   reveal, PID, address, multi-model memory warnings including API first-use
   admission, errors, and quit cleanup), automatic Local API startup with no models,
@@ -80,7 +86,7 @@ Check keyboard focus and command targets when moving between chat, popovers,
 and Providers. Exercise accessibility or reduced-motion/transparency settings
 when the changed behavior depends on them. Capture before/after screenshots
 when they help review a visual change, using synthetic text and no credentials.
-With an app-owned sheet open (including New Models), verify that Command-Q,
+With an app-owned sheet open (including model setup and folder choosers), verify that Command-Q,
 the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.

@@ -7,14 +7,12 @@ struct ChatComposer: View {
     @Binding var draft: String
     let placeholder: String
     let canSend: Bool
+    let isPreparingModel: Bool
     let isResponding: Bool
     let isFocused: FocusState<Bool>.Binding
     let models: [ChatModelOption]
     let recentModels: [ChatModelOption]
     let modelProviders: [AIProviderKind]
-    let configuredProviderIDs: Set<String>
-    let hasConfiguredModels: Bool
-    let isLoadingModels: Bool
     let selectedModel: ChatModelOption?
     let selectedEffort: ChatReasoningEffort
     let selectedSpeed: ChatSpeed
@@ -22,7 +20,7 @@ struct ChatComposer: View {
     let selectEffort: (ChatReasoningEffort) -> Void
     let selectSpeed: (ChatSpeed) -> Void
     let configureModels: () -> Void
-    let addProvider: (AIProviderPreset?) -> Void
+    let configureLocalModels: () -> Void
     let send: () -> Void
     let stop: () -> Void
 
@@ -34,13 +32,12 @@ struct ChatComposer: View {
             cornerRadius: ChatVisualStyle.composerCornerRadius,
             send: send, stop: stop
         ) {
+            HStack(spacing: 6) {
+                if isPreparingModel { ProgressView().controlSize(.small).accessibilityLabel("Setting up model") }
             ChatModelPicker(
                 models: models,
                 recentModels: recentModels,
                 modelProviders: modelProviders,
-                configuredProviderIDs: configuredProviderIDs,
-                hasConfiguredModels: hasConfiguredModels,
-                isLoadingModels: isLoadingModels,
                 selectedModel: selectedModel,
                 selectedEffort: selectedEffort,
                 selectedSpeed: selectedSpeed,
@@ -48,9 +45,10 @@ struct ChatComposer: View {
                 selectEffort: selectEffort,
                 selectSpeed: selectSpeed,
                 configureModels: configureModels,
-                addProvider: addProvider
+                configureLocalModels: configureLocalModels
             )
-            .disabled(isResponding)
+            .disabled(isResponding || isPreparingModel)
+            }
         }
     }
 }
@@ -59,9 +57,6 @@ private struct ChatModelPicker: View {
     let models: [ChatModelOption]
     let recentModels: [ChatModelOption]
     let modelProviders: [AIProviderKind]
-    let configuredProviderIDs: Set<String>
-    let hasConfiguredModels: Bool
-    let isLoadingModels: Bool
     let selectedModel: ChatModelOption?
     let selectedEffort: ChatReasoningEffort
     let selectedSpeed: ChatSpeed
@@ -69,38 +64,24 @@ private struct ChatModelPicker: View {
     let selectEffort: (ChatReasoningEffort) -> Void
     let selectSpeed: (ChatSpeed) -> Void
     let configureModels: () -> Void
-    let addProvider: (AIProviderPreset?) -> Void
+    let configureLocalModels: () -> Void
     @State private var isChoosingModel = false
 
     var body: some View {
-        if hasConfiguredModels {
-            Button {
-                isChoosingModel = true
-            } label: {
-                FritzUI.ModelPickerLabel(
-                    title: selectedModel?.displayName ?? "Choose Model",
-                    details: (selectedModel?.capabilities.supportsReasoningEffort == true
-                        ? [selectedEffort.displayName] : []) + (speedTitle.map { [$0] } ?? [])
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Model, thinking, and speed")
-            .accessibilityValue(configurationSummary)
-            .help("Choose Model, Thinking, and Speed")
-            .popover(isPresented: $isChoosingModel, arrowEdge: .bottom) {
-                configurationPopover
-            }
-        } else if isLoadingModels {
-            HStack(spacing: 6) {
-                ProgressView()
-                    .controlSize(.small)
-                Text("Loading Models…")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-            }
-        } else {
-            FritzUI.ChatProviderSetupButton(action: { addProvider(nil) })
+        Button {
+            isChoosingModel = true
+        } label: {
+            FritzUI.ModelPickerLabel(
+                title: selectedModel?.displayName ?? "Choose Model…",
+                details: (selectedModel?.capabilities.supportsReasoningEffort == true
+                    ? [selectedEffort.displayName] : []) + (speedTitle.map { [$0] } ?? [])
+            )
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Choose Model…")
+        .accessibilityValue(configurationSummary)
+        .help("Choose Model…")
+        .popover(isPresented: $isChoosingModel, arrowEdge: .bottom) { configurationPopover }
     }
 
     private var speedTitle: String? {
@@ -141,13 +122,14 @@ private struct ChatModelPicker: View {
                 models: models,
                 recentModels: recentModels,
                 modelProviders: modelProviders,
-                configuredProviderIDs: configuredProviderIDs,
-                addProvider: { preset in isChoosingModel = false; addProvider(preset) },
                 selectedModelID: selectedModel?.id,
-                selectModel: selectModel,
+                selectModel: { model in isChoosingModel = false; selectModel(model) },
                 configureModels: {
                     isChoosingModel = false
                     configureModels()
+                }, configureLocalModels: {
+                    isChoosingModel = false
+                    configureLocalModels()
                 }
             )
 
@@ -184,32 +166,29 @@ struct ChatModelPickerPopover: View {
     let models: [ChatModelOption]
     let recentModels: [ChatModelOption]
     let modelProviders: [AIProviderKind]
-    let configuredProviderIDs: Set<String>
-    let addProvider: (AIProviderPreset?) -> Void
     let selectedModelID: String?
     let selectModel: (ChatModelOption) -> Void
     let configureModels: () -> Void
+    let configureLocalModels: () -> Void
     let initialSearchText: String
 
     init(
         models: [ChatModelOption],
         recentModels: [ChatModelOption],
         modelProviders: [AIProviderKind],
-        configuredProviderIDs: Set<String>,
-        addProvider: @escaping (AIProviderPreset?) -> Void,
         selectedModelID: String?,
         selectModel: @escaping (ChatModelOption) -> Void,
         configureModels: @escaping () -> Void,
+        configureLocalModels: @escaping () -> Void,
         initialSearchText: String = ""
     ) {
         self.models = models
         self.recentModels = recentModels
-        self.configuredProviderIDs = configuredProviderIDs
-        self.addProvider = addProvider
         self.modelProviders = modelProviders
         self.selectedModelID = selectedModelID
         self.selectModel = selectModel
         self.configureModels = configureModels
+        self.configureLocalModels = configureLocalModels
         self.initialSearchText = initialSearchText
     }
 
@@ -219,20 +198,15 @@ struct ChatModelPickerPopover: View {
             modelProviders: (modelProviders + AIProviderKind.allCases).map(\.rawValue),
             selectedModelID: selectedModelID,
             selectModel: { selectModel($0.value) }, configureModels: configureModels,
-            recommendationLimit: 8, initialSearchText: initialSearchText,
+            initialSearchText: initialSearchText,
             supportedProviders: PickerProvider.chatProviders,
-            configuredProviderIDs: configuredProviderIDs,
-            addProvider: { provider in
-                if let preset = AIProviderPreset.allCases.first(where: { $0.id == provider.id }) {
-                    addProvider(preset)
-                }
-            }
+            configureLocalModels: configureLocalModels
         )
         .fritzPickerStyle(PickerStyle(background: Color(nsColor: .textBackgroundColor)))
     }
 
     private var chatModels: [ChatModelOption] {
-        models.filter { $0.provider != .openAI || $0.capabilities.isRecommendedInChatPicker }
+        models.filter { $0.category == .llm }
     }
 
     static func item(_ model: ChatModelOption) -> ModelPickerItem<ChatModelOption> {
@@ -240,7 +214,8 @@ struct ChatModelPickerPopover: View {
               provider: .init(id: model.displayProvider.id, displayName: model.displayProvider.displayName,
                               groupID: model.provider.rawValue),
               sourceName: model.connectionName, isRecommended: model.capabilities.isRecommendedInChatPicker,
-              badge: model.verification == .compatible ? .init(
+              badge: model.connectionID == nil ? .init(systemImage: "plus.circle", help: "Set up model",
+                accessibilityLabel: "Setup required") : model.verification == .compatible ? .init(
                 systemImage: "wrench.and.screwdriver",
                 help: "Provider reports tool compatibility; not yet Fritz verified",
                 accessibilityLabel: "Tool compatible, not Fritz verified"
