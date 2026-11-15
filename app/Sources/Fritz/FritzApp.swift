@@ -159,11 +159,13 @@ struct FritzApp: App {
         }
 
         Window("Local Models", id: "local-models") {
-            modelWindow(.local)
+            ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .local)
+                .frame(minWidth: 640, minHeight: 400)
         }
         .defaultSize(width: 900, height: 620)
         .defaultLaunchBehavior(.suppressed)
-        .fritzWindowStyle()
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
 
         Window("Remote Models", id: "remote-models") {
             modelWindow(.remote)

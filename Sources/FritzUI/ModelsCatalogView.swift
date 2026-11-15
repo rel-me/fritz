@@ -112,7 +112,61 @@ public struct ModelsCatalogView: View {
         }
     }
 
-    public var body: some View {
+    private var localModelTable: some View {
+        Table(models, selection: $selection) {
+            TableColumn("Name") { model in
+                Text(model.displayName).lineLimit(1).truncationMode(.tail).help(model.modelID)
+            }.width(min: 230, ideal: 350)
+            TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
+                .width(75)
+            TableColumn("Status") { model in Text(status(model)).foregroundStyle(.secondary) }
+                .width(min: 120, ideal: 140)
+        }
+        .accessibilityLabel("Local Models")
+        .contextMenu(forSelectionType: String.self) { ids in
+            if let id = ids.first, let model = models.first(where: { $0.id == id }) {
+                Button("Set Up Model…") { setup = model }
+                if let connectionID = model.connectionID,
+                   let connection = store.connections.first(where: { $0.id == connectionID }) {
+                    Button("Remove Connection…", role: .destructive) { removing = connection }
+                }
+            }
+        } primaryAction: { ids in
+            if let id = ids.first { setup = models.first { $0.id == id } }
+        }
+    }
+
+    private var nativeLocalContent: some View {
+        VStack(spacing: 0) {
+            localModelTable
+            if let error = store.error ?? runtime.error {
+                Text(error).foregroundStyle(.red).textSelection(.enabled).padding()
+            }
+        }
+        .navigationTitle("Local Models")
+        .searchable(text: $query, placement: .toolbar, prompt: "Search Models")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("Connect Local Service…", systemImage: "plus") { showsCustomSetup = true }
+                    .help("Connect Local Service…")
+                Button("Set Up Model…", systemImage: "slider.horizontal.3") { setup = selected }
+                    .disabled(selected == nil)
+                    .help("Set Up Model…")
+                Menu {
+                    Button("Import…") { showsImport = true }
+                    Button("Export…") { confirmsExport = true }.disabled(connections.isEmpty)
+                } label: { Label("Import and Export", systemImage: "ellipsis") }
+                .help("Import and Export")
+            }
+            ToolbarItem(placement: .status) {
+                if !checkedInventory || store.isLoading || runtime.isLoading {
+                    ProgressView().controlSize(.small).accessibilityLabel("Loading models")
+                }
+            }
+        }
+    }
+
+    private var remoteContent: some View {
         VStack(spacing: 0) {
             ModelManagementHeader(location.title, background: ModelsConfigurationStyle.workspaceBackground) {
                 Menu {
@@ -122,48 +176,20 @@ public struct ModelsCatalogView: View {
                 .labelStyle(.iconOnly).menuIndicator(.hidden)
                 .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
             }
-            TextField(location == .local ? "Search models" : "Search providers", text: $query)
+            TextField("Search providers", text: $query)
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, 20).padding(.bottom, 12)
-            if location == .remote {
-                remoteProviderTable
-            } else {
-                Table(models, selection: $selection) {
-                    TableColumn("Name") { model in
-                        Text(model.displayName).lineLimit(1).truncationMode(.tail).help(model.modelID)
-                    }.width(min: 230, ideal: 350)
-                    TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
-                        .width(75)
-                    TableColumn("Status") { model in Text(status(model)).foregroundStyle(.secondary) }
-                        .width(min: 120, ideal: 140)
-                }
-                .scrollContentBackground(.hidden)
-                .alternatingRowBackgrounds(.disabled)
-                .accessibilityLabel(location.title)
-                .contextMenu(forSelectionType: String.self) { ids in
-                    if let id = ids.first, let model = models.first(where: { $0.id == id }) {
-                        Button("Set Up Model…") { setup = model }
-                        if let connectionID = model.connectionID,
-                           let connection = store.connections.first(where: { $0.id == connectionID }) {
-                            Button("Remove Connection…", role: .destructive) { removing = connection }
-                        }
-                    }
-                } primaryAction: { ids in
-                    if let id = ids.first { setup = models.first { $0.id == id } }
-                }
-            }
-            if let error = store.error ?? (location == .local ? runtime.error : nil) {
+            remoteProviderTable
+            if let error = store.error {
                 Text(error).foregroundStyle(.orange).textSelection(.enabled).padding(12)
             }
             Divider()
             HStack {
-                Button(location == .local ? "Connect Local Service…" : "New Remote Model…") { showsCustomSetup = true }
-                if !checkedInventory || store.isLoading || runtime.isLoading { ProgressView().controlSize(.small) }
+                Button("New Remote Model…") { showsCustomSetup = true }
+                if store.isLoading { ProgressView().controlSize(.small) }
                 Spacer()
-                Button(location == .local ? "Set Up Model…" : "Set Up Provider…") {
-                    if location == .local { setup = selected } else { providerSetup = selectedProvider }
-                }
-                    .disabled(location == .local ? selected == nil : selectedProvider == nil)
+                Button("Set Up Provider…") { providerSetup = selectedProvider }
+                    .disabled(selectedProvider == nil)
                     .buttonStyle(FritzButtonStyle(.primary))
                     .keyboardShortcut(.defaultAction)
             }
@@ -171,6 +197,12 @@ public struct ModelsCatalogView: View {
         }
         .background(ModelsConfigurationStyle.workspaceBackground)
         .buttonStyle(FritzButtonStyle())
+    }
+
+    public var body: some View {
+        Group {
+            if location == .local { nativeLocalContent } else { remoteContent }
+        }
         .sheet(item: $setup, onDismiss: { Task { await runtime.refresh() } }) { model in
             let connection = store.setupConnection(for: model)
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
