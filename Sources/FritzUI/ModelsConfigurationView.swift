@@ -267,7 +267,9 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             }.disabled(nativeModel.state.isBusy) }
             if let initialModel, !managesLocalModels {
                 Section {
-                    LabeledContent("Provider", value: initialModel.displayProvider.displayName)
+                    if !AIProviderCategory.local.contains(preset) {
+                        LabeledContent("Provider", value: initialModel.displayProvider.displayName)
+                    }
                     if category == .llm { LabeledContent("Model", value: initialModel.modelID) }
                 }
             }

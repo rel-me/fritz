@@ -133,3 +133,9 @@ Keep local records as individual models, with recent selections first and tail-t
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the local model-only UI update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+### Local model-only UI verification
+
+- `make test`, `make check`, and `make build` passed. `make check-ui-snapshots` passes all 20 comparisons after reviewing and recording only six local-editor references for the intentional Default Model label change. No test code, tolerances, or new production test seams changed.
+- Built the implementation in an isolated Debug checkout. Verified the Local Models table has Name, Type, and Status only in light/dark appearance. Verified Connect Local Service opens New Local Model without a provider picker; cancellation returns to the list. No weights were downloaded or provider settings saved. Quit the isolated app and removed its data and checkout.
+- Final source review also removed the read-only Provider label when targeting a different model on a configured local service. Repeated the affected Swift tests, snapshot comparisons, and complete app build after that adjustment.
