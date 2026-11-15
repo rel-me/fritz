@@ -48,7 +48,6 @@
 		ED9BEFA0DC02CB891B1CF9C1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2862844991E65C805050ED5 /* Assets.xcassets */; };
 		F0BA81F78DB6FF75B6ECE009 /* FritzButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */; };
 		F91798FA22D9742E3FE02131 /* ChatStartScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */; };
-		FB2702D68C41763A32649373 /* FritzManagementHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */; };
 		FC235D1B9D0AC95700F84A25 /* BrowserDataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C232494A41369FA47798164A /* BrowserDataSheet.swift */; };
 /* End PBXBuildFile section */
 
@@ -78,7 +77,6 @@
 		847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzWindowStyle.swift; sourceTree = "<group>"; };
 		8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineInstaller.swift; sourceTree = "<group>"; };
 		9002B21AC5011EAB783936B4 /* WorkspaceRightPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceRightPanel.swift; sourceTree = "<group>"; };
-		9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzManagementHeader.swift; sourceTree = "<group>"; };
 		9B3713CACF28037690000DB8 /* FritzListSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzListSurface.swift; sourceTree = "<group>"; };
 		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
 		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
@@ -163,7 +161,6 @@
 				A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */,
 				50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */,
 				9B3713CACF28037690000DB8 /* FritzListSurface.swift */,
-				9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */,
 				31B41D0524C0C81414318C5F /* FritzSettingsView.swift */,
 				847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */,
 				78D7DBE3E7DAFEF77840DCA3 /* LocalModelDownloadSheet.swift */,
@@ -334,7 +331,6 @@
 				4414AEF0602C46E8DDF68E5B /* FritzApp.swift in Sources */,
 				F0BA81F78DB6FF75B6ECE009 /* FritzButtonStyle.swift in Sources */,
 				CDD5ED6B822EA484C1C8DF65 /* FritzListSurface.swift in Sources */,
-				FB2702D68C41763A32649373 /* FritzManagementHeader.swift in Sources */,
 				16E20FCEA82F6A7848E6929B /* FritzSettingsView.swift in Sources */,
 				63B5F03EEED5EB17667FD289 /* FritzWindowStyle.swift in Sources */,
 				7168C2B2CF92A715B4B2061B /* LocalModelDownloadSheet.swift in Sources */,

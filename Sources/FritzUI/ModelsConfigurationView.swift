@@ -25,7 +25,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             isLoadingProviders: store.isLoading, providerError: store.error,
             background: ModelsConfigurationStyle.workspaceBackground,
             actionControlSize: .extraLarge,
-            transferActions: { transferMenu.controlSize(.extraLarge) },
+            transferActions: { transferMenu },
             addProvider: { editor = ModelsEditorSelection() },
             downloadModels: { showsDownload = true },
             editProvider: { id in
@@ -50,11 +50,11 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
                 deleting = store.connections.first(where: { $0.id == id })
             }
         )
-        .sheet(isPresented: $isImporting) { ConfigurationTransferSheet(store: store) }
+        .sheet(isPresented: $isImporting) { NavigationStack { ConfigurationTransferSheet(store: store) } }
         .sheet(isPresented: $showsDownload, onDismiss: {
             Task { await localModels.refresh(); await store.refresh() }
         }) {
-            ModelsDownloadSheet(store: store, hardware: .current)
+            NavigationStack { ModelsDownloadSheet(store: store, hardware: .current) }
         }
         .confirmationDialog("Export", isPresented: $showsExportOptions) {
             Button("Export Without Keys") { exportProviders(includeKeys: false) }
@@ -63,7 +63,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
         } message: {
             Text("Included API keys will be readable in the export.")
         }
-        .sheet(item: $textExport) { exported in ConfigurationTransferSheet(store: store, exported: exported) }
+        .sheet(item: $textExport) { exported in NavigationStack { ConfigurationTransferSheet(store: store, exported: exported) } }
         .onChange(of: store.connections) { _, connections in selectedIDs.formIntersection(connections.map(\.id)) }
         .confirmationDialog("Delete this provider?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             if let deleting {
@@ -76,16 +76,10 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("This removes the connection and its saved key.") }
-        .buttonStyle(FritzButtonStyle())
+        .buttonStyle(.automatic)
     }
 
-    @ViewBuilder private var transferMenu: some View {
-        if #available(macOS 26.0, *) {
-            transferMenuContent.buttonStyle(.glass).buttonBorderShape(.circle)
-        } else {
-            transferMenuContent
-        }
-    }
+    private var transferMenu: some View { transferMenuContent }
 
     private var transferMenuContent: some View {
         Menu {
@@ -102,12 +96,22 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
     private var providerItems: [ModelProviderItem<UUID>] {
         store.connections.map { connection in
             let names = store.catalog[connection.id].map { models in
-                models.isEmpty ? "No models" : DiscoveredAIModel.preferredOrder(models, provider: connection.provider).map(\.displayName).joined(separator: ", ")
+                let ordered = DiscoveredAIModel.preferredOrder(models, provider: connection.provider)
+                let prefix = "connection:\(connection.id.uuidString):"
+                let recent = store.recentIDs.compactMap { recentID -> DiscoveredAIModel? in
+                    guard recentID.hasPrefix(prefix) else { return nil }
+                    return ordered.first { $0.id == String(recentID.dropFirst(prefix.count)) }
+                }
+                let recentIDs = Set(recent.map(\.id))
+                return models.isEmpty ? "No models" : (recent + ordered.filter { !recentIDs.contains($0.id) })
+                    .map(\.displayName).joined(separator: ", ")
             } ?? (store.isLoading || connection.modelID.isEmpty ? nil : connection.modelID)
             return ModelProviderItem(
-                id: connection.id, name: connection.providerDisplayName,
+                id: connection.id, name: connection.provider.isNative
+                    ? (store.nativeModelCatalog.first { $0.id == connection.modelID }?.name ?? connection.modelID)
+                    : connection.providerDisplayName,
                 warning: store.discoveryErrors[connection.id],
-                isLocal: connection.provider.isNative || connection.provider == .ollama,
+                isLocal: connection.provider.isNative,
                 isDefault: connection.id == store.defaultConnectionID,
                 models: names, nameHelp: connection.name
             )
@@ -188,20 +192,19 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             footerBackground: ModelsConfigurationStyle.workspaceBackground,
             cancel: { nativeModel.cancel(); dismiss() }, save: save
         ) {
-            ConfigurationManagementHeader(existing == nil ? "New Models" : "Edit Models")
+            EmptyView()
         } content: {
             Form {
                 Section {
-                    if existing == nil {
-                        ConfigurationProviderPicker(selection: $preset)
-                    } else {
-                        Picker("Provider", selection: $preset) {
-                            ForEach(AIProviderPreset.allCases) { provider in
-                                Text(provider.name).tag(provider)
+                    Picker("Provider", selection: $preset) {
+                        ForEach(AIModelCategory.allCases) { category in
+                            Section(category == .llm ? "LLMs" : "Decision Models") {
+                                ForEach(AIProviderPreset.allCases.filter { $0.category == category }) {
+                                    Text($0.name).tag($0)
+                                }
                             }
                         }
-                        .pickerStyle(.menu)
-                    }
+                    }.pickerStyle(.menu)
                 }.disabled(nativeModel.state.isBusy)
                 if managesLocalModels {
                     Section {
@@ -253,7 +256,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                                         NSPasteboard.general.setString(url.path, forType: .string)
                                     }
                                     .labelStyle(.iconOnly)
-                                    .buttonStyle(FritzButtonStyle(.inline))
+                                    .buttonStyle(.borderless)
                                     .help("Copy Path")
                                     .fixedSize()
                                 }
@@ -296,9 +299,10 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     remoteSections
                 }
             }
-            .fritzSettingsFormStyle().disabled(isSaving)
+            .formStyle(.grouped).disabled(isSaving)
         }
-        .buttonStyle(FritzButtonStyle())
+        .navigationTitle(existing == nil ? "New Models" : "Edit Models")
+        .buttonStyle(.automatic)
         .interactiveDismissDisabled(isSaving)
         .onChange(of: preset) { old, new in
             nativeModel.cancel()
@@ -410,7 +414,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             }
         }
         Section {
-            if showsAdvanced {
+            DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
                 if !requiresEndpoint { endpointField }
                 if category == .llm {
                     TextField("Connection name", text: $name)
@@ -424,18 +428,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                 }
             }
-        } header: {
-            Button {
-                showsAdvanced.toggle()
-            } label: {
-                Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(FritzButtonStyle(.inline))
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
-            .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
         } footer: {
             if category == .llm, let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
         }
@@ -582,39 +574,23 @@ private struct ProviderModelsPopover: View {
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                TextField("Search models", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.leading)
-                    .focused($isSearchFocused)
-            }
-            .padding(12)
-
-            Divider()
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    if !recentModels.isEmpty {
-                        section("Recent", models: recentModels)
-                    }
-                    if !otherModels.isEmpty {
-                        section(recentModels.isEmpty ? "Models" : "Other Models", models: otherModels)
-                    }
-                    if recentModels.isEmpty && otherModels.isEmpty {
-                        Text("No matching models")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding(.top, 40)
-                    }
+        NavigationStack {
+            List {
+                if !recentModels.isEmpty { section("Recent", models: recentModels) }
+                if !otherModels.isEmpty {
+                    section(recentModels.isEmpty ? "Models" : "Other Models", models: otherModels)
                 }
-                .padding(12)
             }
+            .overlay {
+                if filteredModels.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
+                }
+            }
+            .navigationTitle("Models")
+            .searchable(text: $searchText, placement: .toolbar, prompt: "Search Models")
+            .searchFocused($isSearchFocused)
         }
         .frame(width: 420, height: 360)
-        .background(ModelsConfigurationStyle.contentBackground)
         .onAppear { isSearchFocused = true }
     }
 
@@ -641,11 +617,7 @@ private struct ProviderModelsPopover: View {
     }
 
     private func section(_ title: String, models: [DiscoveredAIModel]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
+        Section(title) {
             ForEach(models) { model in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.displayName)

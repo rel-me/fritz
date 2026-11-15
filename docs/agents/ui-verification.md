@@ -14,12 +14,9 @@ the following surfaces, include these behaviors:
   persistent sidebar without a toggle, + menu, New Project default folder creation,
   custom folder selection/cancel, and Settings
   opening with Command-comma. The toolbar opens the Models page in Settings.
-  Enter and exit fullscreen in light and dark appearance; the toolbar background
-  should match the workspace surround in both modes. Preserve the sidebar's rounded
-  outline through the titlebar around the traffic lights; it must not stop below
-  a flat toolbar strip.
-  Compare the toolbar with the exposed padding around the rounded detail corner:
-  the color must remain continuous in fullscreen as well as in a normal window.
+  Enter and exit fullscreen in light and dark appearance. Keep the system unified
+  titlebar and toolbar, visible window title, traffic lights and native controls.
+  The chat workspace, transcript and composer retain their existing palette.
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
@@ -62,9 +59,8 @@ the following surfaces, include these behaviors:
   Verify messages remain visible, the latest message stays above the composer
   when following, and scrolling reaches both ends without blank overscroll.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
-  selected page; shared title-free unified toolbar, native traffic lights, a
-  persistent sidebar without a toggle, and a rounded detail surface that begins
-  below the toolbar in light/dark appearance. General appearance,
+  selected page; native titled unified toolbar, native traffic lights, a
+  persistent sidebar without a toggle, and standard native detail surfaces in light/dark appearance. General appearance,
   update channel, CLI install feedback, Models selection, blank and populated model
   lists, local-model download and New Models/Edit Models process controls (First use
   by default, App start persistence, weight load/unload, installed path and Finder

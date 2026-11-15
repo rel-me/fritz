@@ -69,7 +69,6 @@ public struct WhatsAppSettingsView: View {
           .disabled(isWorking)
         }
       } header: {
-        IntegrationSettingsPageTitle("WhatsApp")
       } footer: {
         VStack(alignment: .leading, spacing: 12) {
           HStack {
@@ -163,12 +162,12 @@ public struct WhatsAppSettingsView: View {
         }
       }
     }
+    .navigationTitle("WhatsApp")
     .formStyle(.grouped)
     .contentMargins(.vertical, 0, for: .scrollContent)
-    .scrollContentBackground(.hidden)
-    .background(contentBackground)
+
     .fritzButtonSize(.regular)
-    .buttonStyle(FritzButtonStyle())
+    .buttonStyle(.automatic)
     .confirmationDialog("Remove WhatsApp connection?", isPresented: $showsRemoveConfirmation) {
       Button("Remove Connection", role: .destructive) {
         perform {

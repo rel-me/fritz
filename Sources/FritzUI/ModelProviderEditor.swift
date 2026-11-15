@@ -39,7 +39,6 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
   public var body: some View {
     VStack(spacing: 0) {
       header
-      Divider()
       content
       Divider()
       HStack(spacing: 8) {
@@ -50,15 +49,13 @@ public struct ModelProviderEditor<Header: View, Content: View>: View {
           .keyboardShortcut(.cancelAction)
           .disabled(isSaving)
         Button(primaryActionTitle, action: save)
-          .buttonStyle(FritzButtonStyle(.primary))
+          .buttonStyle(.borderedProminent)
           .keyboardShortcut(.defaultAction)
           .disabled(!canSave || isSaving)
       }
       .padding(.horizontal, 20)
       .padding(.vertical, 12)
-      .background(footerBackground)
     }
     .frame(width: width, height: height)
-    .background(contentBackground)
   }
 }

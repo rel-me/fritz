@@ -43,8 +43,6 @@ struct FritzSettingsView: View {
                     }
                 }
                 .listStyle(.sidebar)
-                .scrollContentBackground(.hidden)
-                .background(FritzWindowStyle.workspaceBackground)
                 .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
                 .toolbar(removing: .sidebarToggle)
             } detail: {
@@ -63,25 +61,9 @@ struct FritzSettingsView: View {
                             .padding(24)
                     }
                 }
-                // Bound list-based pages to the window while reserving the bottom inset.
-                .frame(height: max(0, geometry.size.height - 8), alignment: .top)
-                .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
-                .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
             }
             .navigationSplitViewStyle(.prominentDetail)
-            // Keep a toolbar host so the unified titlebar retains the sidebar outline.
-            .toolbar {
-                if #available(macOS 26.0, *) {
-                    ToolbarItem(placement: .automatic) {
-                        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
-                    }
-                    .sharedBackgroundVisibility(.hidden)
-                } else {
-                    ToolbarItem(placement: .automatic) {
-                        Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
-                    }
-                }
-            }
+            .navigationTitle(state.settingsTab.title)
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .fritzWindowBackground()
@@ -92,7 +74,7 @@ struct FritzSettingsView: View {
                 await state.providers.refresh()
             }
         }) {
-            LocalModelDownloadSheet(store: state.providers, hardware: .current)
+            NavigationStack { LocalModelDownloadSheet(store: state.providers, hardware: .current) }
         }
     }
 
@@ -119,7 +101,7 @@ private struct FritzGeneralSettingsView: View {
                         }
                     }
                     .labelsHidden()
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                     .fixedSize()
                 }
                 LabeledContent("Update Channel") {
@@ -129,7 +111,7 @@ private struct FritzGeneralSettingsView: View {
                         }
                     }
                     .labelsHidden()
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
                     .fixedSize()
                 }
                 LabeledContent("Fritz Command Line") {
@@ -137,8 +119,6 @@ private struct FritzGeneralSettingsView: View {
                         installResult = CommandLineInstaller().install()
                     }
                 }
-            } header: {
-                settingsTitle("General")
             } footer: {
                 if let installResult {
                     Label(installResult.message, systemImage: installResult.systemImage)
@@ -146,7 +126,7 @@ private struct FritzGeneralSettingsView: View {
                 }
             }
         }
-        .fritzSettingsFormStyle(background: .clear)
+        .formStyle(.grouped)
         .safeAreaInset(edge: .bottom) {
             if let error = settings.error { Text(error).foregroundStyle(.orange).textSelection(.enabled).padding() }
         }
@@ -173,8 +153,6 @@ private struct FritzServiceSettingsView: View {
                 }
                 LabeledContent("Connection", value: "Private stdin/stdout pipes")
                 LabeledContent("Owner", value: "Fritz.app")
-            } header: {
-                settingsTitle("Service")
             } footer: {
                 if let error = agent.startupError {
                     Text(error).foregroundStyle(.orange).textSelection(.enabled)
@@ -194,16 +172,8 @@ private struct FritzServiceSettingsView: View {
                 if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
             }
         }
-        .fritzSettingsFormStyle(background: .clear)
+        .formStyle(.grouped)
     }
-}
-
-private func settingsTitle(_ title: String) -> some View {
-    Text(title)
-        .font(.headline)
-        .foregroundStyle(.primary)
-        .accessibilityAddTraits(.isHeader)
-        .listRowBackground(Color.clear)
 }
 
 private extension CommandLineInstaller.InstallResult {

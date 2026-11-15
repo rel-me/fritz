@@ -7,6 +7,7 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
 
   @Binding private var selectedProviderIDs: Set<ProviderID>
   @State private var page: Page
+  @State private var search = ""
   private let providers: [ModelProviderItem<ProviderID>]
   private let sessions: [LocalModelSessionItem<SessionID>]
   private let showsLocalModels: Bool
@@ -81,40 +82,9 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
 
   public var body: some View {
     VStack(spacing: 0) {
-      ModelManagementHeader("Models", background: background) {
-        if page == .providers {
-          transferActions
-        }
-        Button("Download Models", systemImage: "arrow.down", action: downloadModels)
-          .labelStyle(.iconOnly)
-          .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-          .controlSize(actionControlSize)
-          .help("Download Models")
-        if page == .providers {
-          Button("Add Provider", systemImage: "plus", action: addProvider)
-            .labelStyle(.iconOnly)
-            .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-            .controlSize(actionControlSize)
-            .help("Add Provider")
-        }
-      }
-      if showsLocalModels {
-        Picker("Models", selection: $page) {
-          Text("Providers").tag(Page.providers)
-          Text("Local Models").tag(Page.localModels)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .frame(maxWidth: 330)
-        .padding(.vertical, 10)
-      }
       if page == .providers {
-        ModelProvidersTable(providers: providers, selection: $selectedProviderIDs,
+        ModelProvidersTable(providers: visibleProviders, selection: $selectedProviderIDs,
                             isLoading: isLoadingProviders, edit: editProvider)
-          .fritzButtonSize(.regular)
-          .scrollContentBackground(.hidden)
-          .alternatingRowBackgrounds(.disabled)
-          .background(Self.collectionBackground)
           .contextMenu(forSelectionType: ProviderID.self) { ids in
             if ids.count == 1, let id = ids.first, providers.contains(where: { $0.id == id }) {
               Button("Edit Models", systemImage: "pencil") { editProvider(id) }
@@ -151,14 +121,39 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         if let localModelError { errorLabel(localModelError) }
       } else {
-        LocalModelSessionsList(sessions: sessions, start: startSession,
+        LocalModelSessionsList(sessions: visibleSessions, start: startSession,
                                stop: stopSession, restart: restartSession)
-          .scrollContentBackground(.hidden)
-          .background(Self.collectionBackground)
         if let localModelError { errorLabel(localModelError) }
       }
     }
-    .background(background)
+    .navigationTitle("Models")
+    .searchable(text: $search, placement: .toolbar, prompt: "Search Models")
+    .toolbar {
+      ToolbarItemGroup {
+        if showsLocalModels {
+          Picker("Models", selection: $page) {
+            Text("Providers").tag(Page.providers)
+            Text("Local Models").tag(Page.localModels)
+          }.pickerStyle(.menu)
+        }
+        if page == .providers { transferActions }
+        Button("Download Models", systemImage: "arrow.down", action: downloadModels)
+          .help("Download Models")
+        if page == .providers {
+          Button("Add Provider", systemImage: "plus", action: addProvider).help("Add Provider")
+        }
+      }
+    }
+  }
+
+  private var visibleProviders: [ModelProviderItem<ProviderID>] {
+    providers.filter { search.isEmpty || $0.name.localizedStandardContains(search)
+      || ($0.models?.localizedStandardContains(search) == true) }
+  }
+
+  private var visibleSessions: [LocalModelSessionItem<SessionID>] {
+    sessions.filter { search.isEmpty || $0.modelName.localizedStandardContains(search)
+      || $0.modelID.localizedStandardContains(search) || $0.scope.localizedStandardContains(search) }
   }
 
   private func errorLabel(_ message: String) -> some View {
@@ -168,14 +163,4 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
       .padding(12)
   }
 
-  private static var collectionBackground: Color {
-    Color(nsColor: NSColor(name: nil) { appearance in
-      var color = NSColor.controlBackgroundColor
-      appearance.performAsCurrentDrawingAppearance {
-        color = NSColor.controlBackgroundColor.blended(withFraction: 0.04, of: .labelColor)
-          ?? .controlBackgroundColor
-      }
-      return color
-    })
-  }
 }

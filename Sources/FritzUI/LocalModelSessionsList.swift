@@ -97,7 +97,7 @@ public struct LocalModelSessionsList<ID: Hashable>: View {
           }
         }
         .frame(width: 125, alignment: .trailing)
-        .buttonStyle(FritzButtonStyle(.inline))
+        .buttonStyle(.borderless)
       }
       .padding(.vertical, 6)
     }

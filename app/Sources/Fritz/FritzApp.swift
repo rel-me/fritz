@@ -266,8 +266,8 @@ private struct FritzWorkspaceView: View {
         }
         .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
-        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
-        .sheet(item: $state.editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection, initialPreset: $0.preset) }
+        .sheet(isPresented: $state.isCreatingProject) { NavigationStack { NewProjectSheet(workspace: state.workspace) } }
+        .sheet(item: $state.editor) { selection in NavigationStack { ProviderEditor(store: state.providers, localModels: state.localModels, existing: selection.connection, initialPreset: selection.preset) } }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {

@@ -1,54 +1,5 @@
 import SwiftUI
 
-struct IntegrationSettingsPageTitle<SectionHeader: View>: View {
-  @Environment(\.fritzSettingsTitleStyle) private var titleStyle
-  let title: String
-  let description: String?
-  let sectionHeader: SectionHeader
-
-  init(
-    _ title: String,
-    description: String? = nil,
-    @ViewBuilder sectionHeader: () -> SectionHeader
-  ) {
-    self.title = title
-    self.description = description
-    self.sectionHeader = sectionHeader()
-  }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      VStack(alignment: .leading, spacing: 3) {
-        Text(title)
-          .font(titleStyle.font)
-          .padding(.bottom, titleStyle.bottomPadding)
-          .accessibilityAddTraits(.isHeader)
-
-        if let description {
-          Text(description)
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-      }
-
-      sectionHeader
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .foregroundStyle(.primary)
-    .listRowBackground(Color.clear)
-    .listRowSeparator(.hidden)
-  }
-}
-
-extension IntegrationSettingsPageTitle where SectionHeader == EmptyView {
-  init(_ title: String, description: String? = nil) {
-    self.init(title, description: description) {
-      EmptyView()
-    }
-  }
-}
-
 struct IntegrationSettingsItemLabel: View {
   let title: String
   var help: String? = nil

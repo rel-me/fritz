@@ -69,7 +69,6 @@ public struct RemoteAccessSettingsView: View {
           .disabled(certificate.isEmpty || privateKey.isEmpty)
         }
       } header: {
-        IntegrationSettingsPageTitle("Remote Access")
       } footer: {
         VStack(alignment: .leading, spacing: 8) {
           Text(
@@ -136,10 +135,10 @@ public struct RemoteAccessSettingsView: View {
         }
       }
     }
+    .navigationTitle("Remote Access")
     .formStyle(.grouped)
     .contentMargins(.vertical, 0, for: .scrollContent)
-    .scrollContentBackground(.hidden)
-    .background(contentBackground)
+
     .fritzButtonSize(.regular)
     .task {
       guard refreshesOnAppear else { return }
