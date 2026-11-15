@@ -161,8 +161,10 @@ both color schemes. Floating Liquid Glass styles produce incomplete transparent
 readbacks with this renderer on macOS 26; verify those styles in the staged app
 instead of committing blank baselines. App-specific loading/error, streaming,
 keyboard routing, and persistence
-still require the native workflow checks above. Snapshot comparisons complement
-`make test`; they do not replace those interaction checks.
+still require the native workflow checks above. Native sheet navigation titles and toolbar actions live outside the hosted-view
+bitmap; the setup snapshots cover form content, while titles, buttons, shortcuts,
+and modal shutdown must be exercised in the staged app. Snapshot comparisons
+complement `make test`; they do not replace those interaction checks.
 
 If a task introduces snapshot tests, compare the affected suites before updating
 references. Inspect actual, expected, and diff images. Record only intentional

@@ -428,8 +428,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                         Text(isDiscovering ? "Loading…" : "\(models.count) available").foregroundStyle(.secondary)
                         Button("Show Models") { showsModels = true }
                             .disabled(models.isEmpty)
-                            .popover(isPresented: $showsModels) {
-                                ProviderModelsPopover(models: models, recentModelIDs: store.recentIDs, connectionID: id)
+                            .sheet(isPresented: $showsModels) {
+                                ProviderModelsSheet(models: models, recentModelIDs: store.recentIDs, connectionID: id)
                             }
                         Button("Refresh Models", systemImage: "arrow.clockwise") { refreshID += 1 }
                             .labelStyle(.iconOnly).frame(width: 24, height: 20).help("Refresh Models")
@@ -637,7 +637,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     }
 }
 
-private struct ProviderModelsPopover: View {
+private struct ProviderModelsSheet: View {
+    @Environment(\.dismiss) private var dismiss
     let models: [DiscoveredAIModel]
     let recentModelIDs: [String]
     let connectionID: UUID
@@ -654,6 +655,11 @@ private struct ProviderModelsPopover: View {
             }
             .navigationTitle("Models")
             .searchable(text: $searchText, placement: .toolbar, prompt: "Search Models")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+                }
+            }
             .overlay {
                 if filteredModels.isEmpty { ContentUnavailableView.search(text: searchText) }
             }
