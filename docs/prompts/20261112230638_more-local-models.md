@@ -105,3 +105,14 @@ Monitor PR #112 after the model-first UX update is pushed. Inspect failures, fix
 - Verified selecting Claude Sonnet 4.6 opens setup for Anthropic and that exact model, with API key required; cancelling retained the prior local selection and draft. No personal credentials were used.
 - Verified Settings exposes General/Service/Debug only, File exposes New Local Model/New Remote Model, and toolbar routes open distinct Local Models and Remote Models catalog tables. Reviewed the local table without a contrasting custom fill. Verified New Remote Model form and Command-Q shutdown with its sheet focused.
 - Native menu automation briefly returned stale accessibility IDs; restarted only the isolated test app and continued via the toolbar menu. Light/dark picker and setup layouts were covered by reviewed snapshots. No live model-quality evaluation was performed.
+
+## User follow-up: remote provider rows and direct toolbar buttons
+
+- For Remote Models list UI, don't show each model, show the providers with a list of the recent models first comma delimited and tail truncated.
+- Window icon, should not have drop down.. have two icons.. first one is cpu icon for local models and other one is network icon for remote models.
+
+Show one row per saved remote connection, plus unconfigured provider presets. Order each comma-separated model summary by recent selection, then existing catalog order; deduplicate model IDs and truncate at the tail. Preserve setup/edit/remove actions at the provider level. Replace the main window Models menu with adjacent Local Models (cpu) and Remote Models (network) toolbar buttons.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the remote-provider rows and direct toolbar buttons update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.

@@ -24,10 +24,10 @@ disk image, then open Fritz from Applications.
    when needed. Fritz stores credentials in macOS Keychain. Successful setup
    selects that model in the conversation; cancellation preserves the draft.
 3. Use **File → New Local Model** or **File → New Remote Model**, the toolbar's
-   Models menu, or the **Models** menu to open the separate model lists. Local
-   Models includes downloadable choices and local services. Remote Models
-   combines the bundled chat catalog with models discovered from your configured
-   connections; **New Remote Model…** also supports custom endpoints and model
+   CPU (local) and network (remote) buttons, or the **Models** menu to open the
+   separate lists. Local Models includes downloadable choices and local services.
+   Remote Models shows providers with a comma-separated model summary, recent
+   selections first; **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
 
 Model management is outside Settings. Conversations retain their own

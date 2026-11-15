@@ -275,13 +275,15 @@ private struct FritzWorkspaceView: View {
                                   createRemoteModel: { openWindow(id: "remote-models") },
                                   createLocalModel: { openWindow(id: "local-models") })
             }
-            ToolbarItem(placement: .principal) {
-                Menu {
-                    Button("Local Models…") { openWindow(id: "local-models") }
-                    Button("Remote Models…") { openWindow(id: "remote-models") }
-                } label: { Label("Models", systemImage: "cpu") }
-                .labelStyle(.iconOnly).menuIndicator(.hidden)
-                .buttonStyle(FritzButtonStyle(.toolbar)).help("Models")
+            ToolbarItemGroup(placement: .principal) {
+                Button("Local Models", systemImage: "cpu") { openWindow(id: "local-models") }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(FritzButtonStyle(.toolbar))
+                    .help("Local Models")
+                Button("Remote Models", systemImage: "network") { openWindow(id: "remote-models") }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(FritzButtonStyle(.toolbar))
+                    .help("Remote Models")
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 newThreadToolbarButton

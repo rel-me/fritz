@@ -19,6 +19,7 @@ public struct ModelsCatalogView: View {
     @State private var checkedInventory = false
     @State private var selection: String?
     @State private var setup: ChatModelOption?
+    @State private var providerSetup: RemoteProviderRow?
     @State private var showsCustomSetup = false
     @State private var showsImport = false
     @State private var export: ProviderTextExport?
@@ -42,6 +43,71 @@ public struct ModelsCatalogView: View {
         }
     }
 
+    private struct RemoteProviderRow: Identifiable {
+        let id: String
+        let name: String
+        let preset: AIProviderPreset
+        let connection: ProviderConnection?
+        let models: [ChatModelOption]
+        var modelNames: String { models.map(\.displayName).joined(separator: ", ") }
+    }
+
+    private var remoteProviders: [RemoteProviderRow] {
+        let available = store.availableModels.filter { ModelsLocation.remote.contains($0) }
+        let recents = store.recentIDs
+        func row(_ preset: AIProviderPreset, connection: ProviderConnection?) -> RemoteProviderRow {
+            let candidates = available.filter {
+                $0.displayProvider == preset && ($0.connectionID == nil || $0.connectionID == connection?.id)
+            }
+            let ordered = candidates.enumerated().sorted { lhs, rhs in
+                let left = recents.firstIndex(of: lhs.element.id) ?? Int.max
+                let right = recents.firstIndex(of: rhs.element.id) ?? Int.max
+                return left == right ? lhs.offset < rhs.offset : left < right
+            }.map(\.element)
+            var seen = Set<String>()
+            return RemoteProviderRow(id: connection?.id.uuidString ?? "provider:\(preset.id)",
+                                     name: connection?.name ?? preset.displayName, preset: preset,
+                                     connection: connection, models: ordered.filter { seen.insert($0.modelID).inserted })
+        }
+        var rows = connections.map { row(AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL), connection: $0) }
+        for preset in AIProviderPreset.allCases where AIProviderCategory.remote.contains(preset) {
+            if !rows.contains(where: { $0.preset == preset }) { rows.append(row(preset, connection: nil)) }
+        }
+        return rows.filter { query.isEmpty || $0.name.localizedStandardContains(query)
+            || $0.preset.displayName.localizedStandardContains(query)
+            || $0.models.contains { $0.displayName.localizedStandardContains(query) || $0.modelID.localizedStandardContains(query) } }
+    }
+
+    private var selectedProvider: RemoteProviderRow? { remoteProviders.first { $0.id == selection } }
+
+    private var remoteProviderTable: some View {
+        Table(remoteProviders, selection: $selection) {
+            TableColumn("Provider") { row in
+                Text(row.name).lineLimit(1).truncationMode(.tail)
+            }.width(min: 180, ideal: 240)
+            TableColumn("Models") { row in
+                Text(row.modelNames).lineLimit(1).truncationMode(.tail).help(row.modelNames)
+            }.width(min: 240, ideal: 480)
+            TableColumn("Status") { row in
+                Text(row.connection.map { store.discoveryErrors[$0.id] == nil ? "Ready" : "Needs Setup" } ?? "Setup Required")
+                    .foregroundStyle(.secondary)
+            }.width(min: 120, ideal: 140)
+        }
+        .scrollContentBackground(.hidden)
+        .alternatingRowBackgrounds(.disabled)
+        .accessibilityLabel("Remote Providers")
+        .contextMenu(forSelectionType: String.self) { ids in
+            if let row = remoteProviders.first(where: { ids.contains($0.id) }) {
+                Button("Set Up Provider…") { providerSetup = row }
+                if let connection = row.connection {
+                    Button("Remove Connection…", role: .destructive) { removing = connection }
+                }
+            }
+        } primaryAction: { ids in
+            providerSetup = remoteProviders.first { ids.contains($0.id) }
+        }
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
             ModelManagementHeader(location.title, background: ModelsConfigurationStyle.workspaceBackground) {
@@ -52,35 +118,39 @@ public struct ModelsCatalogView: View {
                 .labelStyle(.iconOnly).menuIndicator(.hidden)
                 .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
             }
-            TextField("Search models", text: $query)
+            TextField(location == .local ? "Search models" : "Search providers", text: $query)
                 .textFieldStyle(.roundedBorder)
                 .padding(.horizontal, 20).padding(.bottom, 12)
-            Table(models, selection: $selection) {
-                TableColumn("Name") { model in
-                    Text(model.displayName).lineLimit(1).help(model.modelID)
-                }.width(min: 230, ideal: 350)
-                TableColumn("Provider") { model in Text(model.displayProvider.displayName) }
-                    .width(min: 100, ideal: 140)
-                TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
-                    .width(75)
-                TableColumn("Status") { model in Text(status(model)).foregroundStyle(.secondary) }
-                    .width(min: 120, ideal: 140)
-            }
-            .scrollContentBackground(.hidden)
-            .alternatingRowBackgrounds(.disabled)
-            .accessibilityLabel(location.title)
-            .contextMenu(forSelectionType: String.self) { ids in
-                if let id = ids.first, let model = models.first(where: { $0.id == id }) {
-                    Button("Set Up Model…") { setup = model }
-                    if let connectionID = model.connectionID,
-                       let connection = store.connections.first(where: { $0.id == connectionID }) {
-                        Button("Remove Connection…", role: .destructive) { removing = connection }
-                    }
+            if location == .remote {
+                remoteProviderTable
+            } else {
+                Table(models, selection: $selection) {
+                    TableColumn("Name") { model in
+                        Text(model.displayName).lineLimit(1).help(model.modelID)
+                    }.width(min: 230, ideal: 350)
+                    TableColumn("Provider") { model in Text(model.displayProvider.displayName) }
+                        .width(min: 100, ideal: 140)
+                    TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
+                        .width(75)
+                    TableColumn("Status") { model in Text(status(model)).foregroundStyle(.secondary) }
+                        .width(min: 120, ideal: 140)
                 }
-            } primaryAction: { ids in
-                if let id = ids.first { setup = models.first { $0.id == id } }
+                .scrollContentBackground(.hidden)
+                .alternatingRowBackgrounds(.disabled)
+                .accessibilityLabel(location.title)
+                .contextMenu(forSelectionType: String.self) { ids in
+                    if let id = ids.first, let model = models.first(where: { $0.id == id }) {
+                        Button("Set Up Model…") { setup = model }
+                        if let connectionID = model.connectionID,
+                           let connection = store.connections.first(where: { $0.id == connectionID }) {
+                            Button("Remove Connection…", role: .destructive) { removing = connection }
+                        }
+                    }
+                } primaryAction: { ids in
+                    if let id = ids.first { setup = models.first { $0.id == id } }
+                }
             }
-            if let error = store.error ?? runtime.error {
+            if let error = store.error ?? (location == .local ? runtime.error : nil) {
                 Text(error).foregroundStyle(.orange).textSelection(.enabled).padding(12)
             }
             Divider()
@@ -88,8 +158,10 @@ public struct ModelsCatalogView: View {
                 Button(location == .local ? "Connect Local Service…" : "New Remote Model…") { showsCustomSetup = true }
                 if !checkedInventory || store.isLoading || runtime.isLoading { ProgressView().controlSize(.small) }
                 Spacer()
-                Button("Set Up Model…") { setup = selected }
-                    .disabled(selected == nil)
+                Button(location == .local ? "Set Up Model…" : "Set Up Provider…") {
+                    if location == .local { setup = selected } else { providerSetup = selectedProvider }
+                }
+                    .disabled(location == .local ? selected == nil : selectedProvider == nil)
                     .buttonStyle(FritzButtonStyle(.primary))
                     .keyboardShortcut(.defaultAction)
             }
@@ -101,6 +173,10 @@ public struct ModelsCatalogView: View {
             let connection = store.setupConnection(for: model)
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
                                  initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model)
+        }
+        .sheet(item: $providerSetup) { row in
+            ModelsProviderEditor(store: store, localModels: runtime, existing: row.connection,
+                                 initialPreset: row.preset, remoteOnly: true)
         }
         .sheet(isPresented: $showsCustomSetup) {
             ModelsProviderEditor(store: store, localModels: runtime, existing: nil,

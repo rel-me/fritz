@@ -541,7 +541,9 @@ but cannot undo a command already executing. See
 ### Models configuration and runtime
 
 `ModelsCatalogView(store:runtime:location:)` supplies separate Local Models and
-Remote Models lists in Fritz's model windows. `ModelsStore.pickerModels` combines
+Remote Models lists in Fritz's model windows. Remote rows represent saved
+provider connections or unconfigured presets, with recent-first, comma-separated
+model summaries truncated at the tail. `ModelsStore.pickerModels` combines
 ready connections with local downloads and the bundled remote chat catalog;
 unconfigured entries remain candidates, not usable connection identities.
 `ModelsProviderEditor(initialModel:onSaved:)` presents setup for a specific

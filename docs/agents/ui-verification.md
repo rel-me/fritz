@@ -13,7 +13,7 @@ the following surfaces, include these behaviors:
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
   persistent sidebar without a toggle, + menu, New Project default folder creation,
   custom folder selection/cancel, and Settings
-  opening with Command-comma. The toolbar Models menu opens the separate Local Models and Remote Models windows.
+  opening with Command-comma. The toolbar CPU and network buttons open Local Models and Remote Models directly, without a dropdown.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
   should match the workspace surround in both modes. Preserve the sidebar's rounded
   outline through the titlebar around the traffic lights; it must not stop below
@@ -68,6 +68,8 @@ the following surfaces, include these behaviors:
   update channel, and CLI install feedback. Models must not appear in Settings.
 - **Model windows and picker:** New Local Model/New Remote Model commands and
   toolbar routes open the separate lists, including unconfigured catalog choices.
+  Remote Models shows providers with recent models first in comma-separated,
+  tail-truncated summaries; setup/edit/remove acts on the selected provider.
   The composer always offers Choose Model; Local and Remote filters precede
   providers and filter without opening setup. Verify ready selections, remote
   credential setup, local download confirmation, cancellation/draft retention,
