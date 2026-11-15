@@ -36,10 +36,12 @@ Trace shared components to their consumers and check affected appearance,
 loading, empty, error, and populated states. Report what was actually exercised;
 a successful build or launch alone does not prove the UI works.
 
-All app-owned windows, including Settings, must share `FritzWindowStyle`:
+App-owned windows other than Local Models, including Settings, share `FritzWindowStyle`:
 apply `fritzWindowStyle()` to the scene and `fritzWindowBackground()` to its
 root content. Use the unified toolbar with no window title, native traffic
 lights and dragging, and rounded inset detail surfaces with the shared palette.
+Local Models uses a native titled window, toolbar search/actions, and standard
+table appearance, without the custom heading, inset palette, or footer controls.
 Keep native system dialogs native. Let the `Settings` scene own the Settings
 menu item and Command-comma; do not register a duplicate command.
 No window or sheet may prevent the app from quitting. Keep the app-menu Quit
