@@ -116,3 +116,10 @@ Show one row per saved remote connection, plus unconfigured provider presets. Or
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the remote-provider rows and direct toolbar buttons update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+### Provider-row follow-up verification
+
+- `make test-swift` passed (root: 88 tests, 19 ordinary snapshot skips; app: 32 tests). `make check-ui-snapshots` passed all 20 comparisons, with existing references unchanged. `make build` passed.
+- Built the implementation commit in a disposable checkout with a separate Debug bundle/data namespace. Seeded a keyless loopback mock provider; no personal connections or credentials were used.
+- Verified the remote table has one saved-provider row, unconfigured preset rows, comma-separated model names, and visible tail truncation in light and dark appearance. Seeded synthetic recent selections and verified Slow Test Model and Fritz Test Model move before the remaining names. Searching by model name retains the provider row.
+- Verified double-click opens the saved provider editor and cancel retains the table. Verified the CPU toolbar button directly opens Local Models and the network button directly opens Remote Models; neither is a menu. Quit the isolated app and removed its test data and checkout.
