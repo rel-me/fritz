@@ -97,8 +97,6 @@ public struct ModelsCatalogView: View {
                     .foregroundStyle(.secondary)
             }.width(min: 120, ideal: 140)
         }
-        .scrollContentBackground(.hidden)
-        .alternatingRowBackgrounds(.disabled)
         .accessibilityLabel("Remote Providers")
         .contextMenu(forSelectionType: String.self) { ids in
             if let row = remoteProviders.first(where: { ids.contains($0.id) }) {
@@ -136,22 +134,27 @@ public struct ModelsCatalogView: View {
         }
     }
 
-    private var nativeLocalContent: some View {
+    public var body: some View {
         VStack(spacing: 0) {
-            localModelTable
-            if let error = store.error ?? runtime.error {
+            if location == .local { localModelTable } else { remoteProviderTable }
+            if let error = store.error ?? (location == .local ? runtime.error : nil) {
                 Text(error).foregroundStyle(.red).textSelection(.enabled).padding()
             }
         }
-        .navigationTitle("Local Models")
-        .searchable(text: $query, placement: .toolbar, prompt: "Search Models")
+        .navigationTitle(location.title)
+        .searchable(text: $query, placement: .toolbar,
+                    prompt: location == .local ? "Search Models" : "Search Providers")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button("Connect Local Service…", systemImage: "plus") { showsCustomSetup = true }
-                    .help("Connect Local Service…")
-                Button("Set Up Model…", systemImage: "slider.horizontal.3") { setup = selected }
-                    .disabled(selected == nil)
-                    .help("Set Up Model…")
+                Button(location == .local ? "Connect Local Service…" : "New Remote Model…", systemImage: "plus") {
+                    showsCustomSetup = true
+                }
+                .help(location == .local ? "Connect Local Service…" : "New Remote Model…")
+                Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "slider.horizontal.3") {
+                    if location == .local { setup = selected } else { providerSetup = selectedProvider }
+                }
+                .disabled(location == .local ? selected == nil : selectedProvider == nil)
+                .help(location == .local ? "Set Up Model…" : "Set Up Provider…")
                 Menu {
                     Button("Import…") { showsImport = true }
                     Button("Export…") { confirmsExport = true }.disabled(connections.isEmpty)
@@ -159,49 +162,10 @@ public struct ModelsCatalogView: View {
                 .help("Import and Export")
             }
             ToolbarItem(placement: .status) {
-                if !checkedInventory || store.isLoading || runtime.isLoading {
+                if store.isLoading || (location == .local && (!checkedInventory || runtime.isLoading)) {
                     ProgressView().controlSize(.small).accessibilityLabel("Loading models")
                 }
             }
-        }
-    }
-
-    private var remoteContent: some View {
-        VStack(spacing: 0) {
-            ModelManagementHeader(location.title, background: ModelsConfigurationStyle.workspaceBackground) {
-                Menu {
-                    Button("Import…") { showsImport = true }
-                    Button("Export…") { confirmsExport = true }.disabled(connections.isEmpty)
-                } label: { Label("Import and Export", systemImage: "ellipsis") }
-                .labelStyle(.iconOnly).menuIndicator(.hidden)
-                .buttonStyle(FritzButtonStyle(.floating, shape: .circle))
-            }
-            TextField("Search providers", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal, 20).padding(.bottom, 12)
-            remoteProviderTable
-            if let error = store.error {
-                Text(error).foregroundStyle(.orange).textSelection(.enabled).padding(12)
-            }
-            Divider()
-            HStack {
-                Button("New Remote Model…") { showsCustomSetup = true }
-                if store.isLoading { ProgressView().controlSize(.small) }
-                Spacer()
-                Button("Set Up Provider…") { providerSetup = selectedProvider }
-                    .disabled(selectedProvider == nil)
-                    .buttonStyle(FritzButtonStyle(.primary))
-                    .keyboardShortcut(.defaultAction)
-            }
-            .padding(.horizontal, 20).padding(.vertical, 12)
-        }
-        .background(ModelsConfigurationStyle.workspaceBackground)
-        .buttonStyle(FritzButtonStyle())
-    }
-
-    public var body: some View {
-        Group {
-            if location == .local { nativeLocalContent } else { remoteContent }
         }
         .sheet(item: $setup, onDismiss: { Task { await runtime.refresh() } }) { model in
             let connection = store.setupConnection(for: model)

@@ -168,11 +168,13 @@ struct FritzApp: App {
         .windowToolbarStyle(.unified(showsTitle: true))
 
         Window("Remote Models", id: "remote-models") {
-            modelWindow(.remote)
+            ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .remote)
+                .frame(minWidth: 800, minHeight: 520)
         }
         .defaultSize(width: 900, height: 620)
         .defaultLaunchBehavior(.suppressed)
-        .fritzWindowStyle()
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
 
         Window("Browser", id: "browser") {
             BrowserWindow()
@@ -187,21 +189,6 @@ struct FritzApp: App {
         }
         .defaultSize(width: 900, height: 580)
         .fritzWindowStyle()
-    }
-    private func modelWindow(_ location: ModelsLocation) -> some View {
-        ModelsCatalogView(store: state.providers, runtime: state.localModels, location: location)
-            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
-            .padding(8)
-            .fritzWindowBackground()
-            .toolbar {
-                if #available(macOS 26.0, *) {
-                    ToolbarItem(placement: .automatic) { Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) }
-                        .sharedBackgroundVisibility(.hidden)
-                } else {
-                    ToolbarItem(placement: .automatic) { Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) }
-                }
-            }
-            .frame(minWidth: 800, minHeight: 520)
     }
 
 }

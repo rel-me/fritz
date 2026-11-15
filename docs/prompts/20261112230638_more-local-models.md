@@ -155,3 +155,13 @@ Monitor PR #112 after the native Local Models window update is pushed. Inspect f
 - `make test-swift` passed (root 88 tests with 19 normal snapshot skips; app 32 tests), `make check-ui-snapshots` passed 20 comparisons without changing references, and `make build` passed.
 - Built the implementation in a disposable isolated checkout. Reviewed the visible Local Models window title, native toolbar search/actions, and standard Table selection/alternating rows in light and dark appearance. Verified typed search, native clear, double-click and toolbar setup actions, cancellation retaining search/selection, and Command-Q with setup focused. No weights were downloaded or credentials used.
 - Updated repository UI guidance to preserve the explicitly requested native Local Models exception to custom Fritz window styling. Closed the test app and removed its data and checkout after verification.
+
+## User follow-up: native Remote Models window
+
+"Make the same change for Remote Models... window title, native search, toolbar and table UI. No custom stuff."
+
+Give Remote Models a standard titled macOS window, toolbar search/actions, and default Table appearance, retaining provider rows with recent-first comma-separated, tail-truncated model summaries. Share the native catalog layout with Local Models and remove the obsolete custom model-window wrapper, header, search field, background, buttons, and footer. Extend the documented model-window exception to Remote Models.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the native Remote Models window update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.

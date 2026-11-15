@@ -68,9 +68,9 @@ the following surfaces, include these behaviors:
   update channel, and CLI install feedback. Models must not appear in Settings.
 - **Model windows and picker:** New Local Model/New Remote Model commands and
   toolbar routes open the separate lists, including unconfigured catalog choices.
-  Local Models uses a visible native window title, toolbar search and actions, and
-  the standard Table appearance without a duplicate content heading or custom footer.
-  It shows individual models with recent selections first and no Provider
+  Local Models and Remote Models use visible native window titles, toolbar search
+  and actions, and standard Table appearance without duplicate content headings
+  or custom footers. Local Models shows individual models with recent selections first and no Provider
   column or provider picker in local setup/edit. Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.
   The composer always offers Choose Model; Local and Remote filters precede
