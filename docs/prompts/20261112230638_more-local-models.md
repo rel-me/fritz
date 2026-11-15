@@ -204,3 +204,12 @@ Use test-audit for the updated category contract and the picker-boundary locatio
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the local toolbar, Settings licenses and service classification update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+### Local toolbar, service classification and license verification
+
+- The existing provider category test and new picker-boundary test pass; the latter first failed on Ollama's previous Local classification. `make test-swift` passes with 89 root tests and 32 app tests.
+- Reviewed the 12 changed light/dark setup/download/editor snapshots, recorded only those families, and byte-compared references to reviewed actuals. All 20 snapshot comparisons pass without precision changes.
+- Built and launched an isolated staged app. Local Models exposes only setup/search, lists native downloads, and has no plus or More/import/export. A synthetic keyless Ollama connection against a local mock remains Ready in Remote Models, which retains New Remote Model and import/export. No personal credentials were used.
+- Opened Qwen3 0.6B setup and verified the license link is absent while the destination control and Cancel/Download actions remain. General Settings starts with Licenses collapsed; expanding it reveals Local Model Licenses and the Ollama library, and expanding the nested disclosure shows the pinned catalog license links. No license URLs were opened and no weights were downloaded for this check.
+- Quit the isolated app normally, stopped the mock, and removed the isolated data and disposable checkout. Chat location behavior is covered by the picker-boundary test; it was not additionally exercised in the running app for this follow-up.
+- Final full `make test`, `make check`, `make check-ui-snapshots`, and staged `make build` passed. Reviewed the diff and `git diff --check`; no unrelated files were changed.
