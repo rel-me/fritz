@@ -12,8 +12,8 @@ public struct ModelsConfigurationScreen: View {
 
     public var body: some View {
         ModelsConfigurationView(store: store, localModels: runtime, editor: $editor)
-            .sheet(item: $editor) {
-                ModelsProviderEditor(store: store, localModels: runtime, existing: $0.connection, initialPreset: $0.preset)
+            .sheet(item: $editor) { selection in
+                NavigationStack { ModelsProviderEditor(store: store, localModels: runtime, existing: selection.connection, initialPreset: selection.preset) }
             }
             .task { await store.refresh(); await runtime.refresh() }
     }

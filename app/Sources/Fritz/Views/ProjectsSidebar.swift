@@ -54,9 +54,11 @@ struct ProjectsSidebar: View {
         .listStyle(.sidebar)
         .onChange(of: workspace.selectedProject?.id) { _, id in if let id { collapsedProjects.remove(id) } }
         .sheet(item: $renaming) { item in
-            RenameItemSheet(item: item) { name in
-                if item.isProject { workspace.renameProject(item.id, to: name) }
-                else { workspace.renameThread(item.id, to: name) }
+            NavigationStack {
+                RenameItemSheet(item: item) { name in
+                    if item.isProject { workspace.renameProject(item.id, to: name) }
+                    else { workspace.renameThread(item.id, to: name) }
+                }
             }
         }
     }
@@ -75,7 +77,6 @@ private struct RenameItemSheet: View {
     @State private var name = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(item.isProject ? "Rename Project" : "Rename Thread").font(.headline)
             TextField("Name", text: $name)
             HStack {
                 Spacer()
@@ -83,7 +84,9 @@ private struct RenameItemSheet: View {
                 Button("Save") { save(name); dismiss() }.keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-        }.padding(20).frame(width: 380).onAppear { name = item.title }
+        }
+        .navigationTitle(item.isProject ? "Rename Project" : "Rename Thread")
+        .padding(20).frame(width: 380).onAppear { name = item.title }
     }
 }
 
@@ -92,11 +95,11 @@ struct NewProjectSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var directory: URL?
+    @State private var folderPanel: NSOpenPanel?
     @State private var error: String?
 
     var body: some View {
         VStack(spacing: 0) {
-            FritzManagementHeader("New Project")
             Form {
                 TextField("Name", text: $name, prompt: Text("Project name"))
                 LabeledContent("Folder") {
@@ -108,31 +111,44 @@ struct NewProjectSheet: View {
                         Button("Choose…", action: chooseFolder)
                     }
                 }
-            }.fritzSettingsFormStyle()
+            }.formStyle(.grouped)
             if let error { Text(error).foregroundStyle(.red).padding(.horizontal, 20).padding(.bottom, 12) }
             Divider()
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Create Project", action: create)
-                    .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave)
             }
             .padding(16)
-            .background(FritzWindowStyle.workspaceBackground)
-        }.frame(width: 540, height: 280)
+        }
+        .navigationTitle("New Project")
+        .frame(width: 540, height: 280)
+        .onDisappear { folderPanel?.cancel(nil); folderPanel = nil }
     }
 
     private func chooseFolder() {
+        guard folderPanel == nil else { return }
         let panel = NSOpenPanel()
+        panel.preventsApplicationTerminationWhenModal = false
         panel.title = "Choose a Project Folder"
         panel.prompt = "Choose Folder"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url {
-            directory = url
-            if name.isEmpty { name = url.lastPathComponent }
+        folderPanel = panel
+        let completion: (NSApplication.ModalResponse) -> Void = { response in
+            if response == .OK, let url = panel.url {
+                directory = url
+                if name.isEmpty { name = url.lastPathComponent }
+            }
+            folderPanel = nil
+        }
+        if let window = NSApp.keyWindow {
+            panel.beginSheetModal(for: window, completionHandler: completion)
+        } else {
+            panel.begin(completionHandler: completion)
         }
     }
     private func create() {

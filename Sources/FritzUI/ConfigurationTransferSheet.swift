@@ -21,7 +21,6 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(exported == nil ? "Import" : "Export").font(.title2.bold())
             Text(guidance).font(.callout).foregroundStyle(.secondary)
             if let exported {
                 ScrollView {
@@ -68,15 +67,15 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
                     .keyboardShortcut(.cancelAction).disabled(isImporting)
                 if exported == nil {
                     Button("Import", action: importProviders)
-                        .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
+                        .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
                         .disabled(isImporting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
+        .navigationTitle(exported == nil ? "Import" : "Export")
         .padding(24).frame(width: 600, height: exported == nil ? 460 : 350)
-        .background(ModelsConfigurationStyle.contentBackground)
         .interactiveDismissDisabled(isImporting)
-        .buttonStyle(FritzButtonStyle())
+        .buttonStyle(.automatic)
         .onDisappear { importTask?.cancel() }
     }
 

@@ -78,7 +78,7 @@ struct WindowNewItemMenu: View {
 // Keep scene chrome and root backgrounds paired on every app-owned window.
 extension Scene {
     func fritzWindowStyle() -> some Scene {
-        windowToolbarStyle(.unified(showsTitle: false))
+        windowToolbarStyle(.unified)
     }
 }
 
@@ -86,9 +86,6 @@ extension View {
     func fritzWindowBackground() -> some View {
         background { FritzWorkspaceBackground().ignoresSafeArea() }
             .background(FritzWindowChrome())
-            .toolbarBackground(FritzWindowStyle.workspaceBackground, for: .windowToolbar)
-            // Preserve the sidebar’s rounded outline through the titlebar.
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
             // Keep the workspace palette behind the native fullscreen toolbar.
             .containerBackground(FritzWindowStyle.workspaceBackground, for: .window)
     }
@@ -112,7 +109,7 @@ private struct FritzWindowChrome: NSViewRepresentable {
         func applyStyle() {
             guard let window else { return }
             if window.toolbarStyle != .unified { window.toolbarStyle = .unified }
-            if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
+            if window.titleVisibility != .visible { window.titleVisibility = .visible }
         }
     }
 }

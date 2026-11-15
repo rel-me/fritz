@@ -112,20 +112,23 @@ final class SharedControlSnapshots: XCTestCase {
 
     func testModelProvidersList() throws {
         let view = VStack(spacing: 0) {
-            ModelManagementHeader("Models", background: Color(nsColor: .windowBackgroundColor)) {
-                Button("Add Provider", systemImage: "plus") {}
-            }
             ModelProvidersTable(providers: [
                 .init(id: "openai", name: "OpenAI", warning: nil, isLocal: false,
                       isDefault: true, models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
-                .init(id: "local", name: "Local", warning: "Download a model", isLocal: true,
+                .init(id: "local", name: "Qwen Small", warning: "Download a model", isLocal: true,
                       isDefault: false, models: "Local Model")
             ], selection: .constant([]), isLoading: false) { _ in }
-            .scrollContentBackground(.hidden)
-            .alternatingRowBackgrounds(.disabled)
         }
         try snapshot(view, name: "model-providers-list", size: .init(width: 760, height: 300))
         try snapshot(view, name: "model-providers-list-compact", size: .init(width: 520, height: 300))
+    }
+
+    func testConfiguredModelRecords() throws {
+        // Exercise the owning view: native models keep their names and identities,
+        // while each remote connection summarizes its catalog with recents first.
+        try snapshot(ModelsConfigurationView(store: ModelsFixture(state: "records"),
+                                             localModels: RuntimeFixture(), editor: .constant(nil)),
+                     name: "configured-model-records", size: .init(width: 900, height: 320))
     }
 
     func testLocalModelSessionsList() throws {
@@ -379,11 +382,29 @@ final class SharedControlSnapshots: XCTestCase {
     let state: String
     var error: String?
     var isLoading: Bool { state == "loading" }
-    var connections: [ProviderConnection] { ["empty", "loading"].contains(state) ? [] : [.init(id: connectionID, name: "Test", provider: .ollama)] }
+    var connections: [ProviderConnection] {
+        if ["empty", "loading"].contains(state) { return [] }
+        if state == "records" {
+            return [
+                .init(id: connectionID, name: "Test account", provider: .openAI),
+                .init(id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, name: "Local one",
+                      provider: .fritz, modelID: nativeModelCatalog[0].id),
+                .init(id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!, name: "Local two",
+                      provider: .fritz, modelID: nativeModelCatalog[1].id)
+            ]
+        }
+        return [.init(id: connectionID, name: "Test", provider: .ollama)]
+    }
     var defaultConnectionID: UUID? { connections.first?.id }
-    var catalog: [UUID: [DiscoveredAIModel]] { [connectionID: [.init(id: "test-model", displayName: "Test Model")]] }
+    var catalog: [UUID: [DiscoveredAIModel]] {
+        [connectionID: state == "records" ? [
+            .init(id: "gpt-5", displayName: "Current Model"),
+            .init(id: "gpt-4", displayName: "Recently Used Model"),
+            .init(id: "gpt-3", displayName: "Older Model With A Long Display Name")
+        ] : [.init(id: "test-model", displayName: "Test Model")]]
+    }
     var discoveryErrors: [UUID: String] { state == "error" ? [connectionID: "The provider is unavailable."] : [:] }
-    var recentIDs: [String] { [] }
+    var recentIDs: [String] { state == "records" ? ["connection:\(connectionID.uuidString):gpt-4"] : [] }
     var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
     private let connectionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     private var downloadedIDs: Set<String> = []

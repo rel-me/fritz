@@ -17,7 +17,7 @@ public struct ServiceSettingsView: View {
         }
         LabeledContent("Control Worker", value: workerStatusText)
       } header: {
-        IntegrationSettingsPageTitle("Service") {
+        Group {
           IntegrationSettingsItemLabel(
             title: "Local Service",
             help: "\(configuration.appName).app supervises this agent "
@@ -69,10 +69,9 @@ public struct ServiceSettingsView: View {
         Button("View Open Source Licenses", action: showLicenses)
       }
     }
+    .navigationTitle("Service")
     .formStyle(.grouped)
     .contentMargins(.vertical, 0, for: .scrollContent)
-    .scrollContentBackground(.hidden)
-    .background(configuration.contentBackground)
     .fritzButtonSize(.regular)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }

@@ -38,8 +38,10 @@ a successful build or launch alone does not prove the UI works.
 
 All app-owned windows, including Settings, must share `FritzWindowStyle`:
 apply `fritzWindowStyle()` to the scene and `fritzWindowBackground()` to its
-root content. Use the unified toolbar with no window title, native traffic
-lights and dragging, and rounded inset detail surfaces with the shared palette.
+root content. Use native window titles, unified toolbars, traffic lights and dragging. Shared
+management screens use standard List/Table and Form surfaces, native toolbar
+search/actions, menu pickers and native sheet titles. Keep the chat palette and
+transcript/composer behavior within their existing ownership.
 Keep native system dialogs native. Let the `Settings` scene own the Settings
 menu item and Command-comma; do not register a duplicate command.
 No window or sheet may prevent the app from quitting. Keep the app-menu Quit

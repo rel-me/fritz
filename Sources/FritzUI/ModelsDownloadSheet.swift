@@ -14,8 +14,6 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            ConfigurationManagementHeader("Download Local Model")
-            Divider()
             ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
                 get: { model.selectedModelID },
                 set: { model.select($0) }
@@ -39,17 +37,16 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                 .keyboardShortcut(.cancelAction)
                 if !hasVisibleSelection || model.state != .installed {
                     Button(downloadTitle) { if hasVisibleSelection { model.install() } }
-                        .buttonStyle(FritzButtonStyle(.primary))
+                        .buttonStyle(.borderedProminent)
                         .keyboardShortcut(.defaultAction)
                         .disabled(!hasVisibleSelection || model.state.isBusy)
                 }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
-            .background(ModelsConfigurationStyle.workspaceBackground)
         }
+        .navigationTitle("Download Local Model")
         .frame(width: 840, height: 540)
-        .background(ModelsConfigurationStyle.contentBackground)
-        .buttonStyle(FritzButtonStyle())
+        .buttonStyle(.automatic)
         .task { model.refresh() }
         .onDisappear { model.cancel() }
         .onChange(of: filters) { _, newFilters in

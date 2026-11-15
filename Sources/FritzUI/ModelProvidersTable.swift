@@ -46,34 +46,22 @@ public struct ModelProvidersTable<ID: Hashable>: View {
       if geometry.size.width > 0 && geometry.size.height > 0 {
         Table(providers, selection: $selection) {
           TableColumn("Name") { profile in
-            HStack(spacing: 6) {
-              Text(profile.name)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            HStack {
+              Text(profile.name).lineLimit(1).truncationMode(.tail)
                 .help(profile.nameHelp ?? profile.name)
-              if let warning = profile.warning {
-                Button {
-                  edit(profile.id)
-                } label: {
-                  providerChip("Needs Setup", color: .orange)
-                }
-                .buttonStyle(FritzButtonStyle(.inline))
-                .help(warning)
-                .accessibilityLabel("\(profile.name): \(warning)")
-              } else if isLoading {
-                providerChip("Loading", color: .secondary)
-              } else {
-                providerChip("Ready", color: .green)
-              }
-              if profile.isLocal {
-                providerChip("Local")
-              }
-              if profile.isDefault {
-                providerChip("Default")
-              }
+              if profile.isDefault { Text("Default").foregroundStyle(.secondary) }
             }
           }
           .width(nameWidth)
+
+          TableColumn("Status") { profile in
+            if let warning = profile.warning {
+              Button("Needs Setup") { edit(profile.id) }.help(warning)
+                .accessibilityLabel("\(profile.name): \(warning)")
+            } else if isLoading {
+              ProgressView().controlSize(.small).accessibilityLabel("Loading models")
+            } else { Text("Ready").foregroundStyle(.secondary) }
+          }.width(90)
 
           TableColumn("Models") { profile in
             if let names = profile.models {
@@ -92,16 +80,6 @@ public struct ModelProvidersTable<ID: Hashable>: View {
         .scrollIndicators(.hidden, axes: .horizontal)
       }
     }
-  }
-
-  private func providerChip(_ title: String, color: Color = .secondary) -> some View {
-    Text(title)
-      .font(.caption)
-      .foregroundStyle(color)
-      .padding(.horizontal, 6)
-      .padding(.vertical, 2)
-      .background(color.opacity(0.12), in: Capsule())
-      .fixedSize()
   }
 
 }

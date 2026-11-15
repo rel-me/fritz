@@ -50,7 +50,7 @@ public struct MCPSettingsView: View {
           .foregroundStyle(agentConnected ? .green : .secondary)
         }
       } header: {
-        IntegrationSettingsPageTitle("MCP") {
+        Group {
           IntegrationSettingsItemLabel(
             title: "MCP Adapter",
             help: "Each MCP client starts its own adapter process, which forwards "
@@ -98,14 +98,14 @@ public struct MCPSettingsView: View {
         Link("Open MCP Documentation", destination: documentationURL)
       }
     }
+    .navigationTitle("MCP")
     .onDisappear {
       connectionTest?.cancel()
       connectionTest = nil
     }
     .formStyle(.grouped)
     .contentMargins(.vertical, 0, for: .scrollContent)
-    .scrollContentBackground(.hidden)
-    .background(contentBackground)
+
     .fritzButtonSize(.regular)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
   }
