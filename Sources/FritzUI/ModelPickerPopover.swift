@@ -183,7 +183,7 @@ public struct ModelPickerPopover<Value>: View {
   private var providerFilters: [PickerProvider] {
     let providers = ModelPickerData<Value>.providers(
       from: locationModels, providerOrder: modelProviders, supportedProviders: supportedProviders.filter { provider in
-        selectedLocal == nil || (["fritz", "ollama", "ollaya"].contains(provider.groupID) == selectedLocal)
+        selectedLocal == nil || (["fritz", "ollaya"].contains(provider.groupID) == selectedLocal)
       })
     let popularIDs = ["openai", "anthropic", "gemini", "ollama", "openrouter"]
     let popular = popularIDs.compactMap { id in providers.first { $0.id == id } }

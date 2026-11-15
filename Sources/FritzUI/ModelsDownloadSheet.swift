@@ -24,15 +24,13 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                         Text("\(model.selectedModel.name) · \(hardware.summary)")
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        HStack {
-                            Link("Model license", destination: model.selectedModel.licenseURL)
-                                .fixedSize()
-                            if model.state != .installed {
+                        if model.state != .installed {
+                            HStack {
                                 ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
                                     .disabled(model.state.isBusy)
                                     .layoutPriority(-1)
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
                         }
                     }
                     .padding()

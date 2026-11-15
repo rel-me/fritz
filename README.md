@@ -25,7 +25,8 @@ disk image, then open Fritz from Applications.
    selects that model in the conversation; cancellation preserves the draft.
 3. Use **File → New Local Model** or **File → New Remote Model**, the toolbar's
    CPU (local) and network (remote) buttons, or the **Models** menu to open the
-   separate lists. Local Models includes downloadable choices and local services.
+   separate lists. Local Models contains models downloaded and run by Fritz.
+   API services such as Ollama belong to Remote Models, including when hosted on this Mac.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first; **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
@@ -42,7 +43,8 @@ Decision models provide separately invoked typed judgments and are not chat mode
 The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
 8B), Hermes 3 Llama 3.1 8B, and Mistral Nemo 12B Instruct alongside Qwen and
 the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
-picker shows download sizes, recommended memory, and model licenses.
+picker shows download sizes and recommended memory. Model licenses are available
+under **Settings → General → Licenses**.
 
 For fewer refusals, [Dolphin's publisher](https://huggingface.co/dphn/Dolphin3.0-Llama3.1-8B)
 describes its models as steerable, with alignment controlled by your system

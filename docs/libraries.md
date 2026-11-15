@@ -435,8 +435,8 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
 - `ModelProvidersTable` renders provider readiness, local/default badges, model
   inventory and native multi-selection. Hosts attach selection context menus,
   deletion commands, export and edit callbacks.
-- `ModelProviderEditor` supplies sheet layout, license, cancel and save actions.
-  Its optional saving state shows progress and disables both footer actions.
+- `ModelProviderEditor` supplies native sheet navigation, cancel and save actions.
+  Its optional saving state shows progress and disables both actions.
   `ProviderConnectionSection` supplies endpoint and secure/revealed credential
   fields, model discovery feedback and the default-provider toggle. Hosts supply
   field copy, credential-reveal policy and provider-specific sections.
@@ -542,7 +542,7 @@ but cannot undo a command already executing. See
 
 `ModelsCatalogView(store:runtime:location:)` supplies separate Local Models and
 Remote Models lists in Fritz's model windows. Remote rows represent saved
-provider connections or unconfigured presets, with recent-first, comma-separated
+provider connections or unconfigured presets (including Ollama), with recent-first, comma-separated
 model summaries truncated at the tail. `ModelsStore.pickerModels` combines
 ready connections with local downloads and the bundled remote chat catalog;
 unconfigured entries remain candidates, not usable connection identities.

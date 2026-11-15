@@ -6,7 +6,6 @@ public struct ModelProviderEditor<Content: View>: View {
     let primaryActionTitle: String
     let canSave: Bool
     let isSaving: Bool
-    let licenseURL: URL?
     let width: CGFloat
     let height: CGFloat
     let cancel: () -> Void
@@ -19,7 +18,7 @@ public struct ModelProviderEditor<Content: View>: View {
 
     public init(
         title: String, primaryActionTitle: String, canSave: Bool, isSaving: Bool = false,
-        licenseURL: URL? = nil, width: CGFloat = 600, height: CGFloat,
+        width: CGFloat = 600, height: CGFloat,
         cancel: @escaping () -> Void, save: @escaping () -> Void,
         downloadModels: (() -> Void)? = nil,
         downloadDirectory: URL? = nil, chooseDownloadDirectory: ((URL) -> Void)? = nil,
@@ -29,7 +28,6 @@ public struct ModelProviderEditor<Content: View>: View {
         self.primaryActionTitle = primaryActionTitle
         self.canSave = canSave
         self.isSaving = isSaving
-        self.licenseURL = licenseURL
         self.width = width
         self.height = height
         self.cancel = cancel
@@ -45,9 +43,8 @@ public struct ModelProviderEditor<Content: View>: View {
         NavigationStack {
             VStack(spacing: 0) {
                 content
-                if licenseURL != nil || chooseDownloadDirectory != nil || downloadModels != nil {
+                if chooseDownloadDirectory != nil || downloadModels != nil {
                     HStack {
-                        if let licenseURL { Link("Model license", destination: licenseURL).fixedSize() }
                         if let chooseDownloadDirectory {
                             ConfigurationDownloadLocation(directory: downloadDirectory, choose: chooseDownloadDirectory)
                                 .disabled(isSaving || isInstalling)

@@ -12,6 +12,13 @@ final class PickerTests: XCTestCase {
       sourceName: "Work account", isRecommended: recommended)
   }
 
+  func testModelLocationsKeepServiceConnectionsRemote() {
+    XCTAssertTrue(model("download", group: "fritz").isLocal)
+    XCTAssertTrue(model("decision-download", group: "ollaya").isLocal)
+    XCTAssertFalse(model("service", group: "ollama").isLocal)
+    XCTAssertFalse(model("gateway", group: "openai-compatible").isLocal)
+  }
+
   func testSectionsKeepRecentIdentityScopedAndSeparateHostedAdapters() {
     let models = [
       model("local"), model("generic", group: "compatible"),

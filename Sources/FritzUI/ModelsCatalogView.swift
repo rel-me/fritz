@@ -146,20 +146,22 @@ public struct ModelsCatalogView: View {
                     prompt: location == .local ? "Search Models" : "Search Providers")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button(location == .local ? "Connect Local Service…" : "New Remote Model…", systemImage: "plus") {
-                    showsCustomSetup = true
+                if location == .remote {
+                    Button("New Remote Model…", systemImage: "plus") { showsCustomSetup = true }
+                        .help("New Remote Model…")
                 }
-                .help(location == .local ? "Connect Local Service…" : "New Remote Model…")
                 Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "slider.horizontal.3") {
                     if location == .local { setup = selected } else { providerSetup = selectedProvider }
                 }
                 .disabled(location == .local ? selected == nil : selectedProvider == nil)
                 .help(location == .local ? "Set Up Model…" : "Set Up Provider…")
-                Menu {
-                    Button("Import…") { showsImport = true }
-                    Button("Export…") { confirmsExport = true }.disabled(connections.isEmpty)
-                } label: { Label("Import and Export", systemImage: "ellipsis") }
-                .help("Import and Export")
+                if location == .remote {
+                    Menu {
+                        Button("Import…") { showsImport = true }
+                        Button("Export…") { confirmsExport = true }.disabled(connections.isEmpty)
+                    } label: { Label("Import and Export", systemImage: "ellipsis") }
+                    .help("Import and Export")
+                }
             }
             ToolbarItem(placement: .status) {
                 if store.isLoading || (location == .local && (!checkedInventory || runtime.isLoading)) {
@@ -178,10 +180,7 @@ public struct ModelsCatalogView: View {
                                  initialPreset: row.preset, remoteOnly: true)
         }
         .sheet(isPresented: $showsCustomSetup) {
-            ModelsProviderEditor(store: store, localModels: runtime, existing: nil,
-                                 initialPreset: location == .local ? .adapter(.ollama) : nil,
-                                 remoteOnly: location == .remote,
-                                 providerOptions: location == .local ? [.adapter(.ollama)] : nil)
+            ModelsProviderEditor(store: store, localModels: runtime, existing: nil, remoteOnly: true)
         }
         .sheet(isPresented: $showsImport) { ConfigurationTransferSheet(store: store) }
         .sheet(item: $export) { ConfigurationTransferSheet(store: store, exported: $0) }

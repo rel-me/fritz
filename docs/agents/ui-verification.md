@@ -70,7 +70,10 @@ the following surfaces, include these behaviors:
   toolbar routes open the separate lists, including unconfigured catalog choices.
   Local Models and Remote Models use visible native window titles, toolbar search
   and actions, and standard Table appearance without duplicate content headings
-  or custom footers. Local Models shows individual models with recent selections first and no Provider
+  or custom footers. Local Models has no add/import/export controls; Remote Models
+  owns these actions and includes API services such as Ollama. Model licenses are
+  under Settings → General → Licenses, with no license links in setup/download sheets.
+  Local Models shows individual models with recent selections first and no Provider
   column or provider picker in local setup/edit. Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.
   The composer always offers Choose Model; Local and Remote filters precede

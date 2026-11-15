@@ -42,6 +42,9 @@ root content. Use the unified toolbar with no window title, native traffic
 lights and dragging, and rounded inset detail surfaces with the shared palette.
 Local Models and Remote Models use native titled windows, toolbar search/actions,
 and standard table appearance, without custom headings, inset palettes, or footer controls.
+Local Models contains Fritz-managed downloads only, without add/import/export
+controls. API services such as Ollama belong to Remote Models even on localhost.
+Model license links live under Settings → General → Licenses, not setup dialogs.
 Model setup, download, and configuration transfer sheets use native navigation
 titles, forms, pickers, disclosure controls, and buttons without custom palettes or headers.
 Keep native system dialogs native. Let the `Settings` scene own the Settings

@@ -190,3 +190,17 @@ Monitor PR #112 after the native model setup dialogs update is pushed. Inspect f
 - Chose isolated TestModels storage through NSOpenPanel, downloaded Qwen3 0.6B, and verified completion automatically saved setup and returned the model as Ready. Cancelling another model's setup left it uninstalled. No model-quality evaluation was performed.
 - Command-Q closed the native setup sheet normally. Its delivery while the native file panel had focus could not be confirmed through automation. Read-only LLDB inspection of the verified test process showed the app active, the setup/panel termination flags disabled, and the app-menu Quit action enabled. No speculative command-routing workaround was added; file-panel shortcut automation remains a verification limit.
 - Closed the test app, stopped the mock provider, and removed its test data, downloaded weight, and disposable checkout. Updated the native sheet API documentation and snapshot-scope guidance.
+
+## User follow-up: local-only downloads and Settings licenses
+
+For local models remove plus ... dropdown import... those are only for remote...
+Remove "Model license" button, put those buried in Settings.
+Ollama and stuff like that should fall in "Remote Models"
+
+Keep only model setup and native search in the Local Models toolbar; add/import/export belong to Remote Models. Treat API services, including localhost Ollama, as remote in catalog lists, provider presets/badges, and chat location filters. Only Fritz-managed native chat/decision downloads remain Local. Remove model license links from setup/download surfaces and put the pinned model links under General → Licenses → Local Model Licenses in Settings, alongside the Ollama library link. Preserve endpoint IDs, credentials and installed files.
+
+Use test-audit for the updated category contract and the picker-boundary location test. The latter failed on the prior Ollama-is-local behavior before implementation. It independently protects chat filtering, while the existing category test protects provider/window classification; neither adds a production seam.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the local toolbar, Settings licenses and service classification update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.

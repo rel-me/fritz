@@ -107,7 +107,7 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
             return ModelProviderItem(
                 id: connection.id, name: connection.providerDisplayName,
                 warning: store.discoveryErrors[connection.id],
-                isLocal: connection.provider.isNative || connection.provider == .ollama,
+                isLocal: connection.provider.isNative,
                 isDefault: connection.id == store.defaultConnectionID,
                 models: names, nameHelp: connection.name
             )
@@ -191,7 +191,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     public var body: some View {
         ModelProviderEditor(
             title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit, isSaving: isSaving,
-            licenseURL: initialModel != nil && managesLocalModels ? nativeModel.selectedModel.licenseURL : nil,
             height: editorHeight,
             cancel: { nativeModel.cancel(); dismiss() }, save: submit,
             downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,

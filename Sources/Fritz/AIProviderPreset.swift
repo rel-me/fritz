@@ -91,7 +91,7 @@ public enum AIProviderCategory: String, CaseIterable, Identifiable {
         switch self {
         case .all: true
         case .system1: preset.category == .decision
-        case .local: [.fritz, .ollama, .ollaya].contains(preset.provider)
+        case .local: preset.provider.isNative
         case .remote: !AIProviderCategory.local.contains(preset)
         case .frontier: [.openAI, .anthropic, .gemini].contains(preset.provider)
         case .hosted: [.adapter(.openRouter), .fireworks, .amazonBedrock, .baseten].contains(preset)
@@ -103,8 +103,8 @@ public enum AIProviderCategory: String, CaseIterable, Identifiable {
         switch self {
         case .all: "Show all providers"
         case .system1: "OpenAI, TypeSafe, and Ollaya decision models"
-        case .local: "Fritz, Ollama, and Ollaya"
-        case .remote: "Remote services and configurable API endpoints"
+        case .local: "Models downloaded and run by Fritz"
+        case .remote: "API services, including Ollama and configurable endpoints"
         case .frontier: "OpenAI, Anthropic, and Google"
         case .hosted: "OpenRouter, Fireworks, Amazon Bedrock, and Baseten"
         case .custom: "Configure an OpenAI-compatible endpoint"

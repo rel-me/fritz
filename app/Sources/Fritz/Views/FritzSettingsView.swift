@@ -133,6 +133,16 @@ private struct FritzGeneralSettingsView: View {
                         .textSelection(.enabled)
                 }
             }
+            Section {
+                DisclosureGroup("Licenses") {
+                    DisclosureGroup("Local Model Licenses") {
+                        ForEach(NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog) { model in
+                            Link(model.name, destination: model.licenseURL)
+                        }
+                    }
+                    Link("Ollama Model Library", destination: URL(string: "https://ollama.com/library")!)
+                }
+            }
         }
         .fritzSettingsFormStyle(background: .clear)
         .safeAreaInset(edge: .bottom) {

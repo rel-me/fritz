@@ -50,7 +50,7 @@ public struct ModelPickerItem<Value>: Identifiable {
     self.sourceName = sourceName
     self.isRecommended = isRecommended
     self.badge = badge
-    self.isLocal = ["fritz", "ollama", "ollaya"].contains(provider.groupID)
+    self.isLocal = ["fritz", "ollaya"].contains(provider.groupID)
   }
 }
 
