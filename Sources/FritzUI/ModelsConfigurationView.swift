@@ -197,7 +197,13 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             Form {
                 Section {
                     Picker("Provider", selection: $preset) {
-                        ForEach(AIProviderPreset.allCases) { Text($0.name).tag($0) }
+                        ForEach(AIModelCategory.allCases) { category in
+                            Section(category == .llm ? "LLMs" : "Decision Models") {
+                                ForEach(AIProviderPreset.allCases.filter { $0.category == category }) {
+                                    Text($0.name).tag($0)
+                                }
+                            }
+                        }
                     }.pickerStyle(.menu)
                 }.disabled(nativeModel.state.isBusy)
                 if managesLocalModels {
