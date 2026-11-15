@@ -181,3 +181,12 @@ Use native navigation titles, standard Form styles, native toolbar cancellation/
 ### Delegated monitoring follow-up
 
 Monitor PR #112 after the native model setup dialogs update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.
+
+### Native model dialog verification
+
+- `make test`, `make check`, `make check-ui-snapshots` (20 tests), and `make build` passed. Reviewed all 26 changed setup/editor/download images in light and dark appearance, recorded only the `models-` and `model-setup-` families, and verified the recorded PNGs match the reviewed actuals. Test code and precision thresholds are unchanged.
+- Native titles/actions are outside the hosted-view bitmap; the retained snapshots independently guard form/filter/table/status content. Verified titles, standard Cancel/Add/Save/Download/Done buttons, provider menu picker, Advanced disclosure and model search in the staged app instead of adding test-only rendering seams.
+- In an isolated Debug checkout/data namespace, created a keyless OpenAI-compatible connection against the local mock provider, discovered four models, edited its name through Advanced and saved successfully. Verified nested native model-sheet search and Done, import validation/Cancel, keyless export/Done, and light/dark setup appearance. No personal credentials were used.
+- Chose isolated TestModels storage through NSOpenPanel, downloaded Qwen3 0.6B, and verified completion automatically saved setup and returned the model as Ready. Cancelling another model's setup left it uninstalled. No model-quality evaluation was performed.
+- Command-Q closed the native setup sheet normally. Its delivery while the native file panel had focus could not be confirmed through automation. Read-only LLDB inspection of the verified test process showed the app active, the setup/panel termination flags disabled, and the app-menu Quit action enabled. No speculative command-routing workaround was added; file-panel shortcut automation remains a verification limit.
+- Closed the test app, stopped the mock provider, and removed its test data, downloaded weight, and disposable checkout. Updated the native sheet API documentation and snapshot-scope guidance.
