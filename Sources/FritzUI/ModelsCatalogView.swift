@@ -33,8 +33,12 @@ public struct ModelsCatalogView: View {
     private var models: [ChatModelOption] {
         store.availableModels.filter { location.contains($0) && (query.isEmpty
             || $0.displayName.localizedStandardContains(query)
-            || $0.modelID.localizedStandardContains(query)
-            || $0.displayProvider.displayName.localizedStandardContains(query)) }
+            || $0.modelID.localizedStandardContains(query)) }
+            .enumerated().sorted { lhs, rhs in
+                let left = store.recentIDs.firstIndex(of: lhs.element.id) ?? Int.max
+                let right = store.recentIDs.firstIndex(of: rhs.element.id) ?? Int.max
+                return left == right ? lhs.offset < rhs.offset : left < right
+            }.map(\.element)
     }
     private var selected: ChatModelOption? { models.first { $0.id == selection } }
     private var connections: [ProviderConnection] {
@@ -126,10 +130,8 @@ public struct ModelsCatalogView: View {
             } else {
                 Table(models, selection: $selection) {
                     TableColumn("Name") { model in
-                        Text(model.displayName).lineLimit(1).help(model.modelID)
+                        Text(model.displayName).lineLimit(1).truncationMode(.tail).help(model.modelID)
                     }.width(min: 230, ideal: 350)
-                    TableColumn("Provider") { model in Text(model.displayProvider.displayName) }
-                        .width(min: 100, ideal: 140)
                     TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
                         .width(75)
                     TableColumn("Status") { model in Text(status(model)).foregroundStyle(.secondary) }
@@ -172,7 +174,8 @@ public struct ModelsCatalogView: View {
         .sheet(item: $setup, onDismiss: { Task { await runtime.refresh() } }) { model in
             let connection = store.setupConnection(for: model)
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
-                                 initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model)
+                                 initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model,
+                                 providerOptions: location == .local ? [model.displayProvider] : nil)
         }
         .sheet(item: $providerSetup) { row in
             ModelsProviderEditor(store: store, localModels: runtime, existing: row.connection,

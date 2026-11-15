@@ -251,7 +251,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
 
     private var editorForm: some View {
         Form {
-            if initialModel == nil { Section {
+            if initialModel == nil && providerOptions?.count != 1 { Section {
                 if existing == nil {
                     ConfigurationProviderPicker(selection: $preset, providers: (providerOptions ?? AIProviderPreset.allCases).filter {
                         !remoteOnly || AIProviderCategory.remote.contains($0)
@@ -366,7 +366,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 }
                 if initialModel == nil && category == .llm && store.defaultConnectionID != nil {
                     Section {
-                        Toggle("Use as Default Provider", isOn: $makeDefault)
+                        Toggle("Use as Default Model", isOn: $makeDefault)
                             .disabled(existing?.id == store.defaultConnectionID)
                     }
                 }
@@ -446,7 +446,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 }
             }
             if initialModel == nil && category == .llm && store.defaultConnectionID != nil {
-                Toggle("Use as Default Provider", isOn: $makeDefault)
+                Toggle(AIProviderCategory.local.contains(preset) ? "Use as Default Model" : "Use as Default Provider", isOn: $makeDefault)
                     .disabled(existing?.id == store.defaultConnectionID)
             }
         } footer: {
