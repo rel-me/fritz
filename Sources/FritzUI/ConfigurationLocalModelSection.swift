@@ -114,11 +114,11 @@ struct ConfigurationLocalModelSection: View {
                 Picker("Type", selection: $filters.category) {
                     Text("All Types").tag(AIModelCategory?.none)
                     ForEach(AIModelCategory.allCases) { Text($0 == .llm ? "LLM" : "Decision").tag(Optional($0)) }
-                }.pickerStyle(.menu)
+                }.pickerStyle(.menu).disabled(state.isBusy)
                 Picker("Family", selection: $filters.family) {
                     Text("All Families").tag(String?.none)
                     ForEach(Array(Set(catalog.map(\.family))).sorted(), id: \.self) { Text($0).tag(Optional($0)) }
-                }.pickerStyle(.menu)
+                }.pickerStyle(.menu).disabled(state.isBusy)
             }
         }
     }
