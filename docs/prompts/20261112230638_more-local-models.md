@@ -171,3 +171,13 @@ Monitor PR #112 after the native Remote Models window update is pushed. Inspect 
 - `make test-swift` passed (root 88 tests with 19 normal snapshot skips; app 32 tests), `make check-ui-snapshots` passed all 20 comparisons without reference changes, and `make build` passed.
 - Built the implementation in a disposable isolated checkout. Reviewed the Remote Models title, native toolbar search/actions, and standard provider Table in light and dark appearance, including comma-separated, tail-truncated model summaries. Verified typed provider/model-ID search and clearing, double-click and toolbar setup actions, cancellation retaining search/selection, and Command-Q with setup focused. No credentials were entered or saved.
 - Local Models still opens with its native title/search/table using the shared layout. Closed the test app and removed its data and checkout after verification.
+
+## User follow-up: native model setup dialogs
+
+"Make the model setup dialogs native too... standard macOS forms and buttons, no custom headers or styling."
+
+Use native navigation titles, standard Form styles, native toolbar cancellation/confirmation buttons, menu pickers and DisclosureGroup controls in model setup/edit sheets. Remove custom palettes, headers and button styles from setup, download and import/export sheets, and use native filter pickers/table appearance in the download browser. Preserve setup/download, validation, credentials, cancellation and Quit behavior, including the compact download destination control. Remove custom header/picker/list wrappers once unused. Review intentional existing snapshot changes with test-audit; do not add duplicate behavior tests or relax tolerances.
+
+### Delegated monitoring follow-up
+
+Monitor PR #112 after the native model setup dialogs update is pushed. Inspect failures, fix failures caused by this change, run affected checks, commit and push fixes, and monitor again after any push. Preserve unrelated changes; do not merge. Report final check status and exact blockers.

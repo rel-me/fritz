@@ -1,84 +1,84 @@
 import SwiftUI
 
-/// Common provider sheet layout, license link, cancellation and primary action.
-/// Hosts supply their heading and sections, including provider-specific extensions.
-public struct ModelProviderEditor<Header: View, Content: View>: View {
-  let primaryActionTitle: String
-  let canSave: Bool
-  let isSaving: Bool
-  let licenseURL: URL?
-  let width: CGFloat
-  let height: CGFloat
-  let contentBackground: Color
-  let footerBackground: Color
-  let cancel: () -> Void
-  let save: () -> Void
-  let downloadModels: (() -> Void)?
-  let downloadDirectory: URL?
-  let chooseDownloadDirectory: ((URL) -> Void)?
-  let isInstalling: Bool
-  let header: Header
-  let content: Content
+/// Native model setup sheet with standard navigation, form content and actions.
+public struct ModelProviderEditor<Content: View>: View {
+    let title: String
+    let primaryActionTitle: String
+    let canSave: Bool
+    let isSaving: Bool
+    let licenseURL: URL?
+    let width: CGFloat
+    let height: CGFloat
+    let cancel: () -> Void
+    let save: () -> Void
+    let downloadModels: (() -> Void)?
+    let downloadDirectory: URL?
+    let chooseDownloadDirectory: ((URL) -> Void)?
+    let isInstalling: Bool
+    let content: Content
 
-  public init(
-    primaryActionTitle: String, canSave: Bool, isSaving: Bool = false, licenseURL: URL? = nil,
-    width: CGFloat = 600, height: CGFloat, contentBackground: Color, footerBackground: Color,
-    cancel: @escaping () -> Void, save: @escaping () -> Void,
-    downloadModels: (() -> Void)? = nil,
-    downloadDirectory: URL? = nil, chooseDownloadDirectory: ((URL) -> Void)? = nil,
-    isInstalling: Bool = false,
-    @ViewBuilder header: () -> Header, @ViewBuilder content: () -> Content
-  ) {
-    self.primaryActionTitle = primaryActionTitle
-    self.canSave = canSave
-    self.isSaving = isSaving
-    self.licenseURL = licenseURL
-    self.width = width
-    self.height = height
-    self.contentBackground = contentBackground
-    self.footerBackground = footerBackground
-    self.cancel = cancel
-    self.save = save
-    self.downloadModels = downloadModels
-    self.downloadDirectory = downloadDirectory
-    self.chooseDownloadDirectory = chooseDownloadDirectory
-    self.isInstalling = isInstalling
-    self.header = header()
-    self.content = content()
-  }
-
-  public var body: some View {
-    VStack(spacing: 0) {
-      header
-      Divider()
-      content
-      Divider()
-      HStack(spacing: 8) {
-        if isSaving { ProgressView().controlSize(.small) }
-        if let licenseURL { Link("Model license", destination: licenseURL).fixedSize() }
-        if let chooseDownloadDirectory {
-          ConfigurationDownloadLocation(directory: downloadDirectory, choose: chooseDownloadDirectory)
-            .disabled(isSaving || isInstalling)
-            .layoutPriority(-1)
-        }
-        if let downloadModels {
-          Button("Download Models", action: downloadModels)
-            .disabled(isSaving)
-        }
-        Spacer()
-        Button("Cancel", action: cancel)
-          .keyboardShortcut(.cancelAction)
-          .disabled(isSaving)
-        Button(primaryActionTitle, action: save)
-          .buttonStyle(FritzButtonStyle(.primary))
-          .keyboardShortcut(.defaultAction)
-          .disabled(!canSave || isSaving)
-      }
-      .padding(.horizontal, 20)
-      .padding(.vertical, 12)
-      .background(footerBackground)
+    public init(
+        title: String, primaryActionTitle: String, canSave: Bool, isSaving: Bool = false,
+        licenseURL: URL? = nil, width: CGFloat = 600, height: CGFloat,
+        cancel: @escaping () -> Void, save: @escaping () -> Void,
+        downloadModels: (() -> Void)? = nil,
+        downloadDirectory: URL? = nil, chooseDownloadDirectory: ((URL) -> Void)? = nil,
+        isInstalling: Bool = false, @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.primaryActionTitle = primaryActionTitle
+        self.canSave = canSave
+        self.isSaving = isSaving
+        self.licenseURL = licenseURL
+        self.width = width
+        self.height = height
+        self.cancel = cancel
+        self.save = save
+        self.downloadModels = downloadModels
+        self.downloadDirectory = downloadDirectory
+        self.chooseDownloadDirectory = chooseDownloadDirectory
+        self.isInstalling = isInstalling
+        self.content = content()
     }
-    .frame(width: width, height: height)
-    .background(contentBackground)
-  }
+
+    public var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                content
+                if licenseURL != nil || chooseDownloadDirectory != nil || downloadModels != nil {
+                    HStack {
+                        if let licenseURL { Link("Model license", destination: licenseURL).fixedSize() }
+                        if let chooseDownloadDirectory {
+                            ConfigurationDownloadLocation(directory: downloadDirectory, choose: chooseDownloadDirectory)
+                                .disabled(isSaving || isInstalling)
+                                .layoutPriority(-1)
+                        }
+                        if let downloadModels {
+                            Button("Download Models", action: downloadModels).disabled(isSaving)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: cancel)
+                        .keyboardShortcut(.cancelAction)
+                        .disabled(isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(primaryActionTitle, action: save)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!canSave || isSaving)
+                }
+                ToolbarItem(placement: .status) {
+                    if isSaving { ProgressView().controlSize(.small).accessibilityLabel("Saving model") }
+                }
+            }
+        }
+        .frame(width: width, height: height)
+        .buttonStyle(.automatic)
+    }
 }

@@ -76,6 +76,8 @@ the following surfaces, include these behaviors:
   The composer always offers Choose Model; Local and Remote filters precede
   providers and filter without opening setup. Verify ready selections, remote
   credential setup, local download confirmation, cancellation/draft retention,
+  native setup/edit/download/import/export titles, forms, pickers, disclosure
+  controls and buttons in light/dark appearance,
   successful setup selecting the chosen model, and decision-model exclusion from
   chat. Check blank/populated lists and model process controls (First use
   by default, App start persistence, weight load/unload, installed path and Finder

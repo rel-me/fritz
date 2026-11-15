@@ -190,22 +190,17 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
 
     public var body: some View {
         ModelProviderEditor(
-            primaryActionTitle: primaryActionTitle, canSave: canSubmit, isSaving: isSaving,
+            title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit, isSaving: isSaving,
             licenseURL: initialModel != nil && managesLocalModels ? nativeModel.selectedModel.licenseURL : nil,
             height: editorHeight,
-            contentBackground: ModelsConfigurationStyle.contentBackground,
-            footerBackground: ModelsConfigurationStyle.workspaceBackground,
             cancel: { nativeModel.cancel(); dismiss() }, save: submit,
             downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,
             downloadDirectory: nativeModel.downloadDirectory,
             chooseDownloadDirectory: chooseDownloadDirectory,
             isInstalling: nativeModel.state.isBusy
         ) {
-            ConfigurationManagementHeader(initialModel.map { "Set Up \($0.displayName)" } ?? (existing == nil ? (remoteOnly ? "New Remote Model" : providerOptions != nil ? "New Local Model" : "New Models") : "Edit Models"))
-        } content: {
             editorForm
         }
-        .buttonStyle(FritzButtonStyle())
         .interactiveDismissDisabled(isSaving)
         .sheet(isPresented: $showsDownload, onDismiss: {
             if managesLocalModels { nativeModel.refresh() }
@@ -252,18 +247,14 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     private var editorForm: some View {
         Form {
             if initialModel == nil && providerOptions?.count != 1 { Section {
-                if existing == nil {
-                    ConfigurationProviderPicker(selection: $preset, providers: (providerOptions ?? AIProviderPreset.allCases).filter {
+                Picker("Provider", selection: $preset) {
+                    ForEach((providerOptions ?? AIProviderPreset.allCases).filter {
                         !remoteOnly || AIProviderCategory.remote.contains($0)
-                    })
-                } else {
-                    Picker("Provider", selection: $preset) {
-                        ForEach(providerOptions ?? AIProviderPreset.allCases) { provider in
-                            Text(provider.name).tag(provider)
-                        }
+                    }) { provider in
+                        Text(provider.name).tag(provider)
                     }
-                    .pickerStyle(.menu)
                 }
+                .pickerStyle(.menu)
             }.disabled(nativeModel.state.isBusy) }
             if let initialModel, !managesLocalModels {
                 Section {
@@ -330,7 +321,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                                     NSPasteboard.general.setString(url.path, forType: .string)
                                 }
                                 .labelStyle(.iconOnly)
-                                .buttonStyle(FritzButtonStyle(.inline))
+                                .buttonStyle(.automatic)
                                 .help("Copy Path")
                                 .fixedSize()
                             }
@@ -376,7 +367,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 remoteSections
             }
         }
-        .fritzSettingsFormStyle().disabled(isSaving)
+        .formStyle(.grouped).disabled(isSaving)
     }
 
     private var chooseDownloadDirectory: ((URL) -> Void)? {
@@ -464,7 +455,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             }
         }
         Section {
-            if showsAdvanced {
+            DisclosureGroup("Advanced", isExpanded: $showsAdvanced) {
                 if !requiresEndpoint { endpointField }
                 if category == .llm {
                     TextField("Connection name", text: $name)
@@ -473,25 +464,13 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                             Text("Choose automatically").tag("")
                             if !modelID.isEmpty && !models.contains(where: { $0.id == modelID }) { Text(modelID).tag(modelID) }
                             ForEach(models) { Text($0.displayName).tag($0.id) }
-                        }.disabled(initialModel != nil)
+                        }
                     }
                     if initialModel == nil {
                         TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
                     }
                 }
             }
-        } header: {
-            Button {
-                showsAdvanced.toggle()
-            } label: {
-                Label("Advanced", systemImage: showsAdvanced ? "chevron.down" : "chevron.right")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(FritzButtonStyle(.inline))
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityValue(showsAdvanced ? "Expanded" : "Collapsed")
-            .help(showsAdvanced ? "Hide advanced settings" : "Show advanced settings")
         } footer: {
             if category == .llm, let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
         }
@@ -519,6 +498,10 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     private var resolvedEndpoint: String {
         let value = endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? preset.baseURL : value
+    }
+    private var editorTitle: String {
+        initialModel.map { "Set Up \($0.displayName)" }
+            ?? (existing == nil ? (remoteOnly ? "New Remote Model" : providerOptions != nil ? "New Local Model" : "New Models") : "Edit Models")
     }
     private var editorHeight: CGFloat {
         if initialModel != nil && managesLocalModels {
@@ -659,43 +642,24 @@ private struct ProviderModelsPopover: View {
     let recentModelIDs: [String]
     let connectionID: UUID
     @State private var searchText = ""
-    @FocusState private var isSearchFocused: Bool
-
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                TextField("Search models", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.leading)
-                    .focused($isSearchFocused)
-            }
-            .padding(12)
-
-            Divider()
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    if !recentModels.isEmpty {
-                        section("Recent", models: recentModels)
-                    }
-                    if !otherModels.isEmpty {
-                        section(recentModels.isEmpty ? "Models" : "Other Models", models: otherModels)
-                    }
-                    if recentModels.isEmpty && otherModels.isEmpty {
-                        Text("No matching models")
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding(.top, 40)
-                    }
+        NavigationStack {
+            List {
+                if !recentModels.isEmpty {
+                    Section("Recent") { rows(recentModels) }
                 }
-                .padding(12)
+                if !otherModels.isEmpty {
+                    Section(recentModels.isEmpty ? "Models" : "Other Models") { rows(otherModels) }
+                }
+            }
+            .navigationTitle("Models")
+            .searchable(text: $searchText, placement: .toolbar, prompt: "Search Models")
+            .overlay {
+                if filteredModels.isEmpty { ContentUnavailableView.search(text: searchText) }
             }
         }
         .frame(width: 420, height: 360)
-        .background(ModelsConfigurationStyle.contentBackground)
-        .onAppear { isSearchFocused = true }
+        .buttonStyle(.automatic)
     }
 
     private var filteredModels: [DiscoveredAIModel] {
@@ -720,24 +684,13 @@ private struct ProviderModelsPopover: View {
         return filteredModels.filter { !recentIDs.contains($0.id) }
     }
 
-    private func section(_ title: String, models: [DiscoveredAIModel]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-            ForEach(models) { model in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(model.displayName)
-                    if model.id != model.displayName {
-                        Text(model.id).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
-                .textSelection(.enabled)
-                .accessibilityElement(children: .combine)
+    private func rows(_ models: [DiscoveredAIModel]) -> some View {
+        ForEach(models) { model in
+            VStack(alignment: .leading) {
+                Text(model.displayName)
+                if model.id != model.displayName { Text(model.id).font(.caption).foregroundStyle(.secondary) }
             }
+            .textSelection(.enabled)
         }
     }
 }

@@ -546,6 +546,8 @@ provider connections or unconfigured presets, with recent-first, comma-separated
 model summaries truncated at the tail. `ModelsStore.pickerModels` combines
 ready connections with local downloads and the bundled remote chat catalog;
 unconfigured entries remain candidates, not usable connection identities.
+`ModelProviderEditor(title:primaryActionTitle:content:)` supplies native sheet
+navigation and actions without custom header or palette parameters.
 `ModelsProviderEditor(initialModel:onSaved:)` presents setup for a specific
 selection, downloads a local model after confirmation when needed, and reports
 the saved connection before the host selects it. Hosts keep the originating

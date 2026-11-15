@@ -14,8 +14,6 @@ struct NativeModelFilters: Equatable {
 }
 
 struct ConfigurationLocalModelSection: View {
-    private let filterStyle = PickerStyle()
-    @State private var hoveredFilter: String?
     @Binding var filters: NativeModelFilters
     @Binding var modelID: String
     let state: LocalModelInstallState
@@ -37,7 +35,7 @@ struct ConfigurationLocalModelSection: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            filterCapsules
+            nativeFilters
             Divider()
             Table(filteredModels, selection: selection) {
                 TableColumn("Name") { model in
@@ -65,7 +63,6 @@ struct ConfigurationLocalModelSection: View {
                 }
                 .width(min: 210, ideal: 230)
             }
-            .fritzListSurface()
             .disabled(state.isBusy)
             .accessibilityLabel("Downloadable models")
             .accessibilityIdentifier("native-model-list")
@@ -116,50 +113,25 @@ struct ConfigurationLocalModelSection: View {
         }
     }
 
-    private var filterCapsules: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 6) {
-                filterCapsule("All", id: "all", selected: filters == NativeModelFilters()) {
-                    filters = NativeModelFilters()
-                }
+    private var nativeFilters: some View {
+        HStack {
+            Picker("Type", selection: $filters.category) {
+                Text("All").tag(AIModelCategory?.none)
                 ForEach(AIModelCategory.allCases) { category in
-                    filterCapsule(category == .llm ? "LLM" : "Decision", id: category.rawValue,
-                                  selected: filters.category == category) {
-                        filters.category = filters.category == category ? nil : category
-                    }
-                }
-                Divider().frame(height: 18).padding(.horizontal, 4)
-                ForEach(Array(Set(catalog.map(\.family))).sorted(), id: \.self) { family in
-                    filterCapsule(family, id: family, selected: filters.family == family) {
-                        filters.family = filters.family == family ? nil : family
-                    }
+                    Text(category == .llm ? "LLM" : "Decision").tag(Optional(category))
                 }
             }
-            .padding(.horizontal, 20).padding(.vertical, 12)
+            Picker("Family", selection: $filters.family) {
+                Text("All").tag(String?.none)
+                ForEach(Array(Set(catalog.map(\.family))).sorted(), id: \.self) { family in
+                    Text(family).tag(Optional(family))
+                }
+            }
         }
-        .scrollIndicators(.hidden)
-        .fixedSize(horizontal: false, vertical: true)
+        .pickerStyle(.menu)
+        .padding()
         .disabled(state.isBusy)
         .accessibilityLabel("Filter downloadable models")
-    }
-
-    private func filterCapsule(_ title: String, id: String, selected: Bool,
-                               action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.callout)
-                .foregroundStyle(selected ? .primary : .secondary)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(selected ? filterStyle.selectionFill
-                            : hoveredFilter == id ? filterStyle.hoverFill : filterStyle.quietFill, in: Capsule())
-                .overlay { Capsule().stroke(selected ? filterStyle.border : .clear) }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(FritzButtonStyle(.inline))
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("download-model-filter-\(id)")
-        .help(id == "all" ? "Show all models" : selected ? "Remove the \(title) filter" : "Filter by \(title)")
-        .onHover { hoveredFilter = $0 ? id : nil }
     }
 
     private var statusTitle: String {

@@ -13,51 +13,51 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            ConfigurationManagementHeader("Download Local Model")
-            Divider()
-            ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
-                get: { model.selectedModelID },
-                set: { model.select($0) }
-            ), state: model.state, hardware: hardware, catalog: model.catalog)
-            Divider()
-            VStack(alignment: .leading, spacing: 12) {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
+                    get: { model.selectedModelID },
+                    set: { model.select($0) }
+                ), state: model.state, hardware: hardware, catalog: model.catalog)
                 if hasVisibleSelection {
-                    Text("\(model.selectedModel.name) · \(hardware.summary)")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                HStack(spacing: 8) {
-                    if hasVisibleSelection {
-                        Link("Model license", destination: model.selectedModel.licenseURL)
-                            .fixedSize()
-                        if model.state != .installed {
-                            ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
-                                .disabled(model.state.isBusy)
-                                .layoutPriority(-1)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("\(model.selectedModel.name) · \(hardware.summary)")
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack {
+                            Link("Model license", destination: model.selectedModel.licenseURL)
+                                .fixedSize()
+                            if model.state != .installed {
+                                ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
+                                    .disabled(model.state.isBusy)
+                                    .layoutPriority(-1)
+                            }
+                            Spacer(minLength: 0)
                         }
                     }
-                    Spacer()
+                    .padding()
+                }
+            }
+            .navigationTitle("Download Local Model")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
                     Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
                         model.cancel()
                         dismiss()
                     }
                     .keyboardShortcut(.cancelAction)
+                }
+                ToolbarItem(placement: .confirmationAction) {
                     if !hasVisibleSelection || model.state != .installed {
                         Button(downloadTitle) { if hasVisibleSelection { model.install() } }
-                            .buttonStyle(FritzButtonStyle(.primary))
                             .keyboardShortcut(.defaultAction)
                             .disabled(!hasVisibleSelection || model.state.isBusy)
                     }
                 }
             }
-            .padding(.horizontal, 20).padding(.vertical, 12)
-            .background(ModelsConfigurationStyle.workspaceBackground)
         }
         .frame(width: 840, height: 540)
-        .background(ModelsConfigurationStyle.contentBackground)
-        .buttonStyle(FritzButtonStyle())
+        .buttonStyle(.automatic)
         .task { model.refresh() }
         .onDisappear { model.cancel() }
         .onChange(of: filters) { _, newFilters in
