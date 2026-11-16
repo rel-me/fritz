@@ -305,3 +305,7 @@ Delegated existing-CI repair: monitor agent works in a separate disposable workt
 
 - Final native Command-Q with the fitted sheet open passed after the app-delegate lifecycle correction. Escape cancellation, the separate accessible Settings button, and real error wrapping were verified in the isolated staged app. Test data/fixtures and checkout were removed. Final Swift packages, make check and complete staged make build passed.
 - Independent CI baseline commit 5d86ac6cb7a72d60603e07695804fc0287a70f42 supplies 64 reviewed macOS27 references and fixture-only scrollbar visibility normalization; root supplies four compact setup replacements and four progress/error additions. Run the integrated comparison after cherry-picking; preserve all thresholds and native lifecycle assertions.
+
+- Integrated macOS27 snapshot comparison passed all 21 tests with zero failures after combining the independently reviewed baseline repair and compact setup states. Final diff checks passed.
+
+Delegated final monitoring: monitor PR #112 at the newly pushed head through completion; inspect and fix attributable failures with focused verification, commit/push repairs, and monitor again after each push. Preserve unrelated work, do not merge or duplicate CI runs, and report final checks and exact blockers.
