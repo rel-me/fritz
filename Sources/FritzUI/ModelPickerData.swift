@@ -15,10 +15,16 @@ public enum ModelPickerData<Value> {
     from models: [ModelPickerItem<Value>], providerOrder: [String], selectedModelID: String? = nil,
     supportedProviders: [PickerProvider] = []
   ) -> [PickerProvider] {
-    var seen = Set<String>()
-    var providers = (providerOrder + supportedProviders.map(\.groupID) + models.map { $0.displayProvider.groupID }).flatMap { group in
-      (supportedProviders + models.map(\.displayProvider)).filter { $0.groupID == group }
-    }.filter { seen.insert($0.id).inserted }
+    let choices = supportedProviders + models.map(\.displayProvider)
+    let byGroup = Dictionary(grouping: choices, by: \.groupID)
+    var seenGroups = Set<String>()
+    var seenProviders = Set<String>()
+    var providers: [PickerProvider] = []
+    for group in providerOrder + choices.map(\.groupID) where seenGroups.insert(group).inserted {
+      for provider in byGroup[group] ?? [] where seenProviders.insert(provider.id).inserted {
+        providers.append(provider)
+      }
+    }
     if let selectedProvider = models.first(where: { $0.id == selectedModelID })?.displayProvider,
       let index = providers.firstIndex(where: { $0.id == selectedProvider.id })
     {

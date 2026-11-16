@@ -39,6 +39,7 @@ public struct ModelPickerPopover<Value>: View {
   }
 
   public var body: some View {
+    let filters = providerFilters
     let showsUnfilteredSections = query.isEmpty && selectedProvider == nil && selectedLocal == nil
     let sections = showsUnfilteredSections ? unfilteredSections : []
     let visibleModels =
@@ -89,9 +90,9 @@ public struct ModelPickerPopover<Value>: View {
       .fixedSize(horizontal: false, vertical: true)
 
       ViewThatFits(in: .vertical) {
-        providerFilterRows(providerFilters, showsMore: false)
-        ForEach((0..<providerFilters.count).reversed(), id: \.self) { count in
-          providerFilterRows(Array(providerFilters.prefix(count)), showsMore: true)
+        providerFilterRows(filters, showsMore: false)
+        ForEach((0..<filters.count).reversed(), id: \.self) { count in
+          providerFilterRows(Array(filters.prefix(count)), showsMore: true)
         }
       }
       // Two 26-point chip rows plus the six-point row spacing.
