@@ -309,3 +309,14 @@ Delegated existing-CI repair: monitor agent works in a separate disposable workt
 - Integrated macOS27 snapshot comparison passed all 21 tests with zero failures after combining the independently reviewed baseline repair and compact setup states. Final diff checks passed.
 
 Delegated final monitoring: monitor PR #112 at the newly pushed head through completion; inspect and fix attributable failures with focused verification, commit/push repairs, and monitor again after each push. Preserve unrelated work, do not merge or duplicate CI runs, and report final checks and exact blockers.
+
+## Follow-up: download sheet spacing and alignment
+
+User: "This LOOKS VERY BAD... the content looks fine by padding/spacing/margins are very off" (attached full native sheet).
+
+Replace the centered, tightly packed automatic column-form layout with a leading-aligned native Grid, explicit 12-point row spacing, consistent label/value columns, 24-point vertical margins and horizontal insets matching the native title. Keep native navigation title/actions, fitted sizing and the inline Settings destination. Reuse existing available/installed/progress/error snapshot coverage; no new tests or production seams. Inspect the full native sheet as well as updated content references.
+
+- Full native-sheet review caught a second alignment mismatch beyond the hosted snapshots: the system navigation title uses a larger horizontal inset. Matched the details to that native title inset while retaining native title/actions and fitted sizing. No custom header or button footer was introduced.
+- Reviewed all eight final available/installed/downloading/error references in both appearances. All 21 comparisons pass, without tolerance changes or new tests. Full make test and make check passed before the final horizontal inset adjustment; final Swift checks and staged build verify that layout-only adjustment.
+- In a disposable staged app, verified the final full Dolphin sheet in dark/light, long-path middle truncation, accessible Change opening General at Model Storage, retained setup selection, Escape and Command-Q with the sheet open. Removed the isolated checkout and data after shutdown. No downloads or personal model migration were performed.
+- Delegated CI follow-up: investigate the previous head's four provider-table header-only snapshot mismatches in the monitoring agent's disposable checkout. Validate and commit a focused fixture repair if required, preserve root changes, then continue monitoring the next pushed head and fix attributable failures. No duplicate runs or merges.

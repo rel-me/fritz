@@ -18,36 +18,47 @@ struct LocalModelSetupSheet<Feedback: View>: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Form {
-                    LabeledContent("Model") {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 12) {
+                    GridRow {
+                        Text("Model").foregroundStyle(.secondary)
                         Text(model.name).fixedSize(horizontal: false, vertical: true)
                     }
                     if state != .installed {
-                        LabeledContent("Download", value: ByteCountFormatter.string(fromByteCount: Int64(clamping: model.size), countStyle: .file))
+                        GridRow {
+                            Text("Download").foregroundStyle(.secondary)
+                            Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: model.size), countStyle: .file))
+                        }
                     }
-                    LabeledContent("Memory") {
+                    GridRow {
+                        Text("Memory").foregroundStyle(.secondary)
                         Text("\(model.memoryGB) GB recommended")
                             .foregroundStyle(memoryGB < model.memoryGB ? .orange : .secondary)
                     }
                     if state != .installed {
-                        ModelStorageDestination(storage: storage)
-                            .accessibilityElement(children: .contain)
-                            .disabled(state.isBusy || isSaving)
+                        GridRow {
+                            Text("Saving to").foregroundStyle(.secondary)
+                            ModelStorageDestination(storage: storage)
+                                .labelsHidden()
+                                .accessibilityElement(children: .contain)
+                                .disabled(state.isBusy || isSaving)
+                        }
                     }
                     if state == .installed, let installedDirectory {
-                        LabeledContent("Stored in") {
+                        GridRow {
+                            Text("Stored in").foregroundStyle(.secondary)
                             Label(NSString(string: installedDirectory.path).abbreviatingWithTildeInPath, systemImage: "folder")
                                 .lineLimit(1).truncationMode(.middle).help(installedDirectory.path)
                         }
                     }
                 }
-                .formStyle(.columns)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .contain)
                 installationFeedback
                 feedback
             }
             .accessibilityElement(children: .contain)
-            .padding(20)
+            .padding(.horizontal, 48)
+            .padding(.vertical, 24)
             .fixedSize(horizontal: false, vertical: true)
             .navigationTitle(state == .installed ? "Use Model" : "Download Model")
             .toolbar {
