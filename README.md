@@ -46,6 +46,18 @@ the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
 picker shows download sizes and recommended memory. Model licenses are available
 under **Settings → General → Licenses**.
 
+**Settings → General → Model storage** selects the app-wide folder for future
+native model downloads (initially `~/Models`). Download setup shows the current destination and a **Change…** button that
+opens this preference. The folder picker is available only in Settings. If the previous folder contains downloaded models,
+choose **Move Models**, **Keep Existing**, or **Cancel**. Keep Existing preserves
+those models at their saved locations. Move Models copies and verifies only
+Fritz-managed catalog files, then updates their locations and removes the originals;
+unrelated files and models in other folders stay in place. Stop affected local
+models and finish downloads before moving storage. A cancelled or interrupted copy
+keeps the previous setting and originals; retrying reuses verified completed copies.
+If original-file cleanup fails after publication, Fritz reports that copies remain.
+The installed-model form shows its actual **Stored in** folder.
+
 For fewer refusals, [Dolphin's publisher](https://huggingface.co/dphn/Dolphin3.0-Llama3.1-8B)
 describes its models as steerable, with alignment controlled by your system
 prompt. [Hermes 3](https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B)

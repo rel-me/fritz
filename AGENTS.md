@@ -45,6 +45,9 @@ and standard table appearance, without custom headings, inset palettes, or foote
 Local Models contains Fritz-managed downloads only, without add/import/export
 controls. API services such as Ollama belong to Remote Models even on localhost.
 Model license links live under Settings → General → Licenses, not setup dialogs.
+The editable Model Storage picker lives only in General Settings. Download/setup
+views show the destination and a button opening that preference; preserve the setup
+selection and ordinary Settings page restoration.
 Model setup, download, and configuration transfer sheets use native navigation
 titles, forms, pickers, disclosure controls, and buttons without custom palettes or headers.
 Keep native system dialogs native. Let the `Settings` scene own the Settings

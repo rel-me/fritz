@@ -233,3 +233,40 @@ Delegated monitor: monitor run 43690324734 attempt 3 without duplicate reruns/ca
 - CI attempt 3 had passed setup, tests and Rust checks and reached both-browser builds before cleanup completed. Push this required prompt log to the existing PR to start fresh CI after cleanup. No product or test code change was needed; no new PR is created.
 
 Delegated monitoring after cleanup push: monitor PR #112 at the new head through completion; inspect actual failed jobs, repair attributable failures with focused validation and commit/push if needed, and monitor every subsequent push. Do not merge or make duplicate reruns. Report final checks and exact blockers.
+
+## User follow-up: app-wide Model Storage
+
+"Fix the Download to UI... is there a mac-y idiomatic way to show where downloads are going to with way to change it... But this is an app setting... so if they change it we need to ask whether to move stuff already saved there (if anything has been saved)... research and plan what you think is good UX and design and offer me suggestions before doing it."
+
+Researched Apple's path-control and alert guidance and inspected current per-model directory persistence. Recommended a native pop-up NSPathControl, one durable global default, preserving actual locations of existing models, and Move Models / Keep Existing / Cancel when files exist. No implementation preceded approval.
+
+"Go ahead with the native pop-up path control and app-wide Model Storage setting, including Move Models, Keep Existing, and Cancel when changing folders."
+
+Use native AppKit folder hierarchy/Choose UI and a shared observable model-storage owner in Settings and setup. Persist a default in the model-location database and retain explicit existing locations. Only relocate catalog-managed files from the previous default; verify copied contents before atomically publishing paths and default. Retain originals on cancellation/failure before publication, never overwrite conflicts, and prevent relocating files in active use. Use native progress/cancellation, keep Quit available, and verify actual staged UI.
+
+Test authoring gate: the storage owner tests independently protect actual filesystem/SQLite publication, Keep Existing lookup, collision rejection, cancellation recovery and use-lock exclusion. Existing download tests cover transfers but cannot detect setting publication or relocation errors. Use tiny explicit artifact fixtures at this production owner's internal specification boundary, with no new public test-only API. Snapshot fixture adaptation only supplies the new real host transport contract; retain image precision.
+
+### Model Storage implementation and focused verification
+
+- Added one persisted default to the existing model-location database, preserving per-model locations. New global storage API stays in Fritz's standalone agent; embedded ModelsService hosts retain supplied storage ownership. Default environment paths remain returned as supplied; an unchanged runtime assertion caught an intermediate path-normalization regression, which was corrected at the owner.
+- Added native NSPathControl pop-up folder selection and Show in Finder to General Settings and download setup; source selections are staged until confirmation/publication. A shared observable host transport synchronizes windows. Already installed models show their actual Stored in folder.
+- Relocation uses settings/download locks, directory use locks, and read-only shared locks held by native chat/decision model lifetimes. It copies and verifies catalog-owned files, publishes without replacement, syncs the destination, atomically commits default/mappings, then removes originals. Cross-volume copies use the same algorithm; macOS publication uses renamex_np(RENAME_EXCL), avoiding a hard-link requirement on external filesystems. Unknown files and custom model locations stay untouched.
+- Filesystem/SQLite owner tests pass for Move/Keep semantics, preservation of unknown/custom files, stale proposals, conflicting destinations, active downloads/runtime locks, and interrupted copy plus retry. A separate public Swift storage-lifecycle test reproduced cancellation becoming a false transfer error, then passed after checking task cancellation at stream termination. That transport/UI lifetime contract is distinct from the filesystem tests.
+- In an isolated staged app/data namespace, verified native folder hierarchy/Choose/Show in Finder, chooser cancellation, Move Models/Keep Existing/Cancel confirmation, Cancel retaining the setting, Keep Existing retaining the original model location, and an empty-folder change from setup synchronizing Settings. The setting and retained location survived app relaunch. Reviewed native Settings in dark/light and setup in dark, with both-appearance snapshots and verified Command-Q with setup open.
+- Native Move verification used an intentionally invalid, tiny catalog-named fixture: the app rejected its size and retained the original/current setting. Successful relocation and cancellation/retry were exercised with valid tiny artifact fixtures at the actual filesystem owner, not with multi-gigabyte model downloads. No personal credentials, models or provider data were used. Actual external-volume and insufficient-space UI checks were not performed.
+- Reviewed all 14 intentional light/dark image changes; native titled/action chrome remains outside the hosted bitmap's documented scope. Recorded only the affected models/model-setup families without changing thresholds.
+
+### Follow-up: edit storage only in Settings
+
+"Dont have the model storage picker in the Local Models view... instead, show where it's saving with a button that opens the settings to model storage preference..."
+
+Keep the native pop-up picker exclusively in General Settings. Local model setup/download surfaces show a read-only destination and Change button using the native openSettings action; route General and scroll directly to Model Storage, preserving the original setup sheet and model. Installed model location remains read-only.
+
+Delegated monitoring after Model Storage push: monitor PR #112 at the updated head through completion, inspect failures, fix attributable failures with focused checks and commit/push, and monitor again after every push. Preserve unrelated work, do not merge or duplicate runs, and report final check status and exact blockers.
+
+### Settings-only picker verification
+
+- Verified the final Change button in the isolated staged app while Settings last showed Debug: it opened General directly with Model Storage visible. The original Dolphin setup remained open and updated its read-only Saving to path after a Settings change. The editable pop-up picker is only in Settings.
+- Verified that selecting Debug afterward, closing Settings and using Command-comma reopened Debug; the targeted request is consumed after scrolling rather than changing future normal Settings behavior. Quit with the setup open succeeded.
+- Reviewed the eight additional light/dark destination-button image changes. All 14 final storage-related references byte-match the reviewed actuals, and all 20 snapshot comparisons pass. The full make test passed before the final UI-only routing follow-up; afterward both Swift packages (90 root tests / 32 app tests), make check and the complete staged make build passed.
+- Removed the isolated test data, fixtures and disposable checkout after verification. No installation, personal model migration or live model-quality evaluation was performed.

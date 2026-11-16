@@ -48,7 +48,7 @@ struct FritzSettingsView: View {
                 Group {
                     switch state.settingsTab {
                     case .general:
-                        FritzGeneralSettingsView(updater: updater, settings: state.settings)
+                        FritzGeneralSettingsView(updater: updater, settings: state.settings, modelStorage: state.providers.modelStorage)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
                     case .debug:
@@ -79,6 +79,9 @@ struct FritzSettingsView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .onChange(of: state.providers.modelStorage.settingsRequestID, initial: true) { _, request in
+            if request != nil { state.selectSettings(.general) }
+        }
         .fritzWindowBackground()
         .frame(minWidth: 800, minHeight: 500)
 
@@ -95,64 +98,79 @@ struct FritzSettingsView: View {
 private struct FritzGeneralSettingsView: View {
     @ObservedObject var updater: AppUpdater
     @Bindable var settings: AppSettings
+    let modelStorage: ModelStorage
     @State private var installResult: CommandLineInstaller.InstallResult?
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Appearance") {
-                    Picker("Appearance", selection: $settings.appearance) {
-                        ForEach(AppAppearance.allCases) { option in
-                            Text(option.title).tag(option.rawValue)
+        ScrollViewReader { proxy in
+            Form {
+                Section {
+                    LabeledContent("Appearance") {
+                        Picker("Appearance", selection: $settings.appearance) {
+                            ForEach(AppAppearance.allCases) { option in
+                                Text(option.title).tag(option.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .fixedSize()
+                    }
+                    LabeledContent("Update Channel") {
+                        Picker("Update Channel", selection: $settings.updateChannel) {
+                            ForEach(AppUpdateChannel.allCases) { option in
+                                Text(option.title).tag(option.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .fixedSize()
+                    }
+                    LabeledContent("Fritz Command Line") {
+                        Button("Install Command Line") {
+                            installResult = CommandLineInstaller().install()
                         }
                     }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .fixedSize()
+                } header: {
+                    settingsTitle("General")
+                } footer: {
+                    if let installResult {
+                        Label(installResult.message, systemImage: installResult.systemImage)
+                            .textSelection(.enabled)
+                    }
                 }
-                LabeledContent("Update Channel") {
-                    Picker("Update Channel", selection: $settings.updateChannel) {
-                        ForEach(AppUpdateChannel.allCases) { option in
-                            Text(option.title).tag(option.rawValue)
+                Section {
+                    ModelStorageLocation(storage: modelStorage)
+                        .id("model-storage")
+                }
+                Section {
+                    DisclosureGroup("Licenses") {
+                        DisclosureGroup("Local Model Licenses") {
+                            ForEach(NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog) { model in
+                                Link(model.name, destination: model.licenseURL)
+                            }
                         }
+                        Link("Ollama Model Library", destination: URL(string: "https://ollama.com/library")!)
                     }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .fixedSize()
-                }
-                LabeledContent("Fritz Command Line") {
-                    Button("Install Command Line") {
-                        installResult = CommandLineInstaller().install()
-                    }
-                }
-            } header: {
-                settingsTitle("General")
-            } footer: {
-                if let installResult {
-                    Label(installResult.message, systemImage: installResult.systemImage)
-                        .textSelection(.enabled)
                 }
             }
-            Section {
-                DisclosureGroup("Licenses") {
-                    DisclosureGroup("Local Model Licenses") {
-                        ForEach(NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog) { model in
-                            Link(model.name, destination: model.licenseURL)
-                        }
-                    }
-                    Link("Ollama Model Library", destination: URL(string: "https://ollama.com/library")!)
+            .fritzSettingsFormStyle(background: .clear)
+            .safeAreaInset(edge: .bottom) {
+                if let error = settings.error { Text(error).foregroundStyle(.orange).textSelection(.enabled).padding() }
+            }
+            .onChange(of: settings.appearance) { _, value in
+                (AppAppearance(rawValue: value) ?? .system).apply(to: NSApplication.shared)
+            }
+            .onChange(of: settings.updateChannel) { _, value in
+                updater.setUpdateChannel(AppUpdateChannel(rawValue: value) ?? .release)
+            }
+            .task(id: modelStorage.settingsRequestID) {
+                if let request = modelStorage.settingsRequestID {
+                    await Task.yield()
+                    guard !Task.isCancelled, modelStorage.settingsRequestID == request else { return }
+                    proxy.scrollTo("model-storage", anchor: .center)
+                    modelStorage.settingsRequestID = nil
                 }
             }
-        }
-        .fritzSettingsFormStyle(background: .clear)
-        .safeAreaInset(edge: .bottom) {
-            if let error = settings.error { Text(error).foregroundStyle(.orange).textSelection(.enabled).padding() }
-        }
-        .onChange(of: settings.appearance) { _, value in
-            (AppAppearance(rawValue: value) ?? .system).apply(to: NSApplication.shared)
-        }
-        .onChange(of: settings.updateChannel) { _, value in
-            updater.setUpdateChannel(AppUpdateChannel(rawValue: value) ?? .release)
         }
     }
 }

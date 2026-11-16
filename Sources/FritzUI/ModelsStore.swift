@@ -13,6 +13,7 @@ import Security
     public var error: String?
     public var recentIDs: [String] = []
     private let database: any ModelsPreferences
+    public let modelStorage: ModelStorage
     public let agent: AgentClient
     public let modelCatalog: RemoteModelCatalog
     private let keychainService: String
@@ -20,6 +21,7 @@ import Security
 
     public init(agent: AgentClient, preferences: any ModelsPreferences, keychainService: String, modelCatalog: RemoteModelCatalog? = nil) {
         self.agent = agent
+        self.modelStorage = ModelStorage(agent: agent)
         self.keychainService = keychainService
         self.database = preferences
         self.modelCatalog = modelCatalog ?? RemoteModelCatalog()

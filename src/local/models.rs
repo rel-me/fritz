@@ -21,7 +21,7 @@ pub struct Manifest {
     pub name: String,
     pub disable_thinking: bool,
     pub architecture: String,
-    file: String,
+    pub(crate) file: String,
     repository: String,
     revision: String,
     pub size: u64,
@@ -77,12 +77,12 @@ impl ModelStore {
 
     pub fn configured() -> Result<Self> {
         Ok(Self {
-            directory: crate::config::models_dir(),
+            directory: crate::config::models_dir()?,
             model_directories: crate::config::model_directories()?,
         })
     }
 
-    fn directory_for(&self, model_id: &str) -> &Path {
+    pub(crate) fn directory_for(&self, model_id: &str) -> &Path {
         self.model_directories
             .get(model_id)
             .map(PathBuf::as_path)
@@ -157,6 +157,7 @@ pub(crate) async fn download_file(
     fs::create_dir_all(directory).with_context(|| format!(
         "Could not create model storage at {}. Create this directory and grant your account write access.", directory.display()
     ))?;
+    let _storage_use = crate::model_storage::use_directory(directory)?;
     let lock = OpenOptions::new()
         .create(true)
         .truncate(false)

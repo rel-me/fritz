@@ -56,6 +56,7 @@ impl Drop for Handle {
 }
 pub(crate) struct Model {
     inner: Mutex<Handle>,
+    _storage_use: std::fs::File,
 }
 
 struct Cancellation(Arc<AtomicBool>);
@@ -112,6 +113,7 @@ extern "C" fn event(data: *mut c_void, payload: *const c_char) -> bool {
 }
 impl Model {
     pub(crate) async fn load(path: &Path, context: usize, chat: bool) -> Result<Arc<Self>> {
+        let storage_use = crate::model_storage::use_file(path)?;
         let path = CString::new(path.as_os_str().as_encoded_bytes())?;
         let context = i32::try_from(context).context("Invalid local context size")?;
         anyhow::ensure!(context > 0, "Invalid local context size");
@@ -135,6 +137,7 @@ impl Model {
             };
             Ok(Arc::new(Self {
                 inner: Mutex::new(Handle(value)),
+                _storage_use: storage_use,
             }))
         })
         .await

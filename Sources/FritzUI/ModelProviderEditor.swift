@@ -11,8 +11,7 @@ public struct ModelProviderEditor<Content: View>: View {
     let cancel: () -> Void
     let save: () -> Void
     let downloadModels: (() -> Void)?
-    let downloadDirectory: URL?
-    let chooseDownloadDirectory: ((URL) -> Void)?
+    let modelStorage: ModelStorage?
     let isInstalling: Bool
     let content: Content
 
@@ -21,7 +20,7 @@ public struct ModelProviderEditor<Content: View>: View {
         width: CGFloat = 600, height: CGFloat,
         cancel: @escaping () -> Void, save: @escaping () -> Void,
         downloadModels: (() -> Void)? = nil,
-        downloadDirectory: URL? = nil, chooseDownloadDirectory: ((URL) -> Void)? = nil,
+        modelStorage: ModelStorage? = nil,
         isInstalling: Bool = false, @ViewBuilder content: () -> Content
     ) {
         self.title = title
@@ -33,8 +32,7 @@ public struct ModelProviderEditor<Content: View>: View {
         self.cancel = cancel
         self.save = save
         self.downloadModels = downloadModels
-        self.downloadDirectory = downloadDirectory
-        self.chooseDownloadDirectory = chooseDownloadDirectory
+        self.modelStorage = modelStorage
         self.isInstalling = isInstalling
         self.content = content()
     }
@@ -43,10 +41,10 @@ public struct ModelProviderEditor<Content: View>: View {
         NavigationStack {
             VStack(spacing: 0) {
                 content
-                if chooseDownloadDirectory != nil || downloadModels != nil {
+                if modelStorage != nil || downloadModels != nil {
                     HStack {
-                        if let chooseDownloadDirectory {
-                            ConfigurationDownloadLocation(directory: downloadDirectory, choose: chooseDownloadDirectory)
+                        if let modelStorage {
+                            ModelStorageDestination(storage: modelStorage)
                                 .disabled(isSaving || isInstalling)
                                 .layoutPriority(-1)
                         }

@@ -190,12 +190,11 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
 
     public var body: some View {
         ModelProviderEditor(
-            title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit, isSaving: isSaving,
+            title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit && !store.modelStorage.isBusy, isSaving: isSaving,
             height: editorHeight,
             cancel: { nativeModel.cancel(); dismiss() }, save: submit,
             downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,
-            downloadDirectory: nativeModel.downloadDirectory,
-            chooseDownloadDirectory: chooseDownloadDirectory,
+            modelStorage: initialModel != nil && managesLocalModels && nativeModel.state != .installed ? store.modelStorage : nil,
             isInstalling: nativeModel.state.isBusy
         ) {
             editorForm
@@ -206,6 +205,9 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             Task { await localModels.refresh(); await store.refresh() }
         }) {
             ModelsDownloadSheet(store: store, hardware: .current)
+        }
+        .onChange(of: store.modelStorage.info?.directory) { _, _ in
+            if managesLocalModels { nativeModel.refresh() }
         }
         .onChange(of: preset) { old, new in
             nativeModel.cancel()
@@ -276,9 +278,14 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                         }
                     }
                     .disabled(nativeModel.state.isBusy) }
+                    if nativeModel.state == .installed, let directory = nativeModel.downloadDirectory {
+                        LabeledContent("Stored in") {
+                            ModelStoragePathControl(directory: directory, choose: nil)
+                                .frame(width: 220, height: 24)
+                        }
+                    }
                     if initialModel == nil && nativeModel.state != .installed {
-                        ConfigurationDownloadLocation(directory: nativeModel.downloadDirectory,
-                                                      choose: nativeModel.chooseDirectory)
+                        ModelStorageDestination(storage: store.modelStorage)
                             .disabled(nativeModel.state.isBusy)
                     }
                     if managesLocalAPI && initialModel == nil {
@@ -367,11 +374,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             }
         }
         .formStyle(.grouped).disabled(isSaving)
-    }
-
-    private var chooseDownloadDirectory: ((URL) -> Void)? {
-        guard initialModel != nil, managesLocalModels, nativeModel.state != .installed else { return nil }
-        return { url in nativeModel.chooseDirectory(url) }
     }
 
     private var localSession: ModelsRuntimeSession {

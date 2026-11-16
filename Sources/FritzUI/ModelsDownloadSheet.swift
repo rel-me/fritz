@@ -5,10 +5,12 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: ConfigurationNativeModel<Store>
     @State private var filters = NativeModelFilters()
+    private let storage: ModelStorage
     private let hardware: LocalModelHardware
 
     public init(store: Store, hardware: LocalModelHardware, modelID: String? = nil, category: AIModelCategory? = nil) {
         self.hardware = hardware
+        self.storage = store.modelStorage
         _model = State(initialValue: ConfigurationNativeModel(store: store, modelID: modelID, category: category))
     }
 
@@ -26,7 +28,7 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                             .fixedSize(horizontal: false, vertical: true)
                         if model.state != .installed {
                             HStack {
-                                ConfigurationDownloadLocation(directory: model.downloadDirectory, choose: model.chooseDirectory)
+                                ModelStorageDestination(storage: storage)
                                     .disabled(model.state.isBusy)
                                     .layoutPriority(-1)
                                 Spacer(minLength: 0)
@@ -49,7 +51,7 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                     if !hasVisibleSelection || model.state != .installed {
                         Button(downloadTitle) { if hasVisibleSelection { model.install() } }
                             .keyboardShortcut(.defaultAction)
-                            .disabled(!hasVisibleSelection || model.state.isBusy)
+                            .disabled(!hasVisibleSelection || model.state.isBusy || storage.isBusy)
                     }
                 }
             }
@@ -57,6 +59,7 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
         .frame(width: 840, height: 540)
         .buttonStyle(.automatic)
         .task { model.refresh() }
+        .onChange(of: storage.info?.directory) { _, _ in model.refresh() }
         .onDisappear { model.cancel() }
         .onChange(of: filters) { _, newFilters in
             if !hasVisibleSelection, let first = newFilters.models(in: model.catalog).first {

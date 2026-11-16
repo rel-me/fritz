@@ -687,3 +687,17 @@ private entity payloads out of display metadata; resolve them in host code. This
 API does not change the Fritz agent protocol or automatically send metadata to a
 model. Fritz.app currently registers no built-in mention sources; embedding
 hosts supply their own catalogs and send policy.
+
+`ModelsProviderStore.modelStorage` supplies a shared observable `ModelStorage`
+instance backed by the host's event stream and cancellation callback. Fritz uses
+its private agent transport. `ModelStorageLocation(storage:)` renders the native
+pop-up path control in Settings, stages selections, asks Move Models / Keep Existing
+/ Cancel when needed, and presents native cancellable progress.
+`ModelStorageDestination(storage:)` shows a read-only destination and Change button
+in download/setup views. It uses the native openSettings action and sets
+`settingsRequestID`; the host selects General, reveals its storage preference, and consumes the request
+so ordinary Settings commands retain the selected page. `ModelProviderEditor` takes
+an optional `modelStorage` instead of per-download directory/chooser parameters.
+Hosts must implement durable default/location handling and relocation semantics;
+Fritz's standalone implementation lives in `model_storage`. Existing installed
+models continue to resolve through explicit saved per-model locations.

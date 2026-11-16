@@ -15,6 +15,7 @@ public enum ModelsImportPolicy: String, CaseIterable {
     var isLoading: Bool { get }
     var error: String? { get set }
     var recentIDs: [String] { get }
+    var modelStorage: ModelStorage { get }
     var nativeModelCatalog: [NativeModelDescriptor] { get }
     func refresh() async
     func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws

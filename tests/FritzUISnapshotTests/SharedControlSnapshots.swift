@@ -385,6 +385,12 @@ final class SharedControlSnapshots: XCTestCase {
 }
 
 @MainActor @Observable private final class ModelsFixture: ModelsProviderStore {
+    let modelStorage = ModelStorage(events: { _, _, _ in
+        AsyncThrowingStream { continuation in
+            continuation.yield(Data(#"{"type":"result","result":{"directory":"/Models","modelCount":0,"bytes":0}}"#.utf8))
+            continuation.finish()
+        }
+    }, cancel: { _ in })
     let state: String
     var error: String?
     var isLoading: Bool { state == "loading" }

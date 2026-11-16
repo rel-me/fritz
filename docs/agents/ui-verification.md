@@ -61,6 +61,11 @@ the following surfaces, include these behaviors:
   and open/close the inspector, both at the bottom and while reading history.
   Verify messages remain visible, the latest message stays above the composer
   when following, and scrolling reaches both ends without blank overscroll.
+- **Model storage:** native pop-up path control exclusively in General Settings; download setup
+  shows the destination and Change opens General directly at Model Storage,
+  shared persisted default across windows/relaunch, chooser cancellation, empty storage,
+  Move Models/Keep Existing/Cancel with existing files, actual installed folder display,
+  progress cancellation/retry, conflict and active-use errors, and Quit during a move.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
   selected page; shared title-free unified toolbar, native traffic lights, a
   persistent sidebar without a toggle, and a rounded detail surface that begins
