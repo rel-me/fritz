@@ -315,7 +315,9 @@ final class SharedControlSnapshots: XCTestCase {
                     .environment(\.colorScheme, scheme)
                     .environment(\.locale, Locale(identifier: "en_US"))
                     .environment(\.controlActiveState, .key)
-                    .scrollIndicators(.hidden)
+                    // Suppress indicators before initial layout so a legacy
+                    // scrollbar preference cannot reserve document width.
+                    .scrollIndicators(.never)
                     .tint(.blue), appearance: scheme == .dark ? .darkAqua : .aqua, size: size, settleDuration: settleDuration)
             // Compare the fixed 2x bitmap directly. Hosting it in another view
             // would resample it at the attached display's backing scale.

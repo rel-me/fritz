@@ -135,8 +135,9 @@ fixed size, English locale, light/dark color scheme, blue tint, and hidden scrol
 indicators, with synthetic model/provider values and no network or credentials.
 Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so
 memory warnings and hardware summaries do not depend on the runner's Mac.
-The harness also pins each AppKit scroll view to overlay scrollers: hiding
-indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
+The fixture uses `scrollIndicators(.never)` before initial layout so SwiftUI
+cannot reserve a legacy scrollbar gutter based on the user's preferences.
+AppKit scroll views are also pinned to overlay scrollers.
 Native table column widths are rounded up to whole points before capture to avoid
 a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
@@ -162,9 +163,12 @@ compare; comparison mode ignores this recording selector.
 Recording intentionally reports test failures while writing references. Review
 every new/changed PNG in `tests/FritzUISnapshotTests/__Snapshots__` before the
 comparison run. Never use recording in CI or relax precision to accept a change.
-The initial references were recorded with macOS 26.6.2 (25G83), Xcode 26.6
-(17F113), and Swift 6.3 on Apple Silicon. Native rendering depends on the OS;
-compare on that baseline environment and review intentional OS upgrades.
+The current references use macOS 27.2.1 (26B131), Xcode 26.6 (17F113), and
+Swift 6.3.3 on Apple Silicon. The initial set used macOS 26.6.2 (25G83).
+The macOS 27 refresh was reviewed against the unchanged application at 9c076a1:
+image dimensions and fixture content stayed unchanged; native control tint,
+disabled appearance, and glyph rendering changed. Native rendering depends on
+the OS; compare on the current baseline and review intentional OS upgrades.
 
 Coverage includes model search, empty/no-results, recents/selection, badges,
 Bedrock and generic adapter separation, horizontal provider filters, provider
