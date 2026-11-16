@@ -270,3 +270,11 @@ Delegated monitoring after Model Storage push: monitor PR #112 at the updated he
 - Verified that selecting Debug afterward, closing Settings and using Command-comma reopened Debug; the targeted request is consumed after scrolling rather than changing future normal Settings behavior. Quit with the setup open succeeded.
 - Reviewed the eight additional light/dark destination-button image changes. All 14 final storage-related references byte-match the reviewed actuals, and all 20 snapshot comparisons pass. The full make test passed before the final UI-only routing follow-up; afterward both Swift packages (90 root tests / 32 app tests), make check and the complete staged make build passed.
 - Removed the isolated test data, fixtures and disposable checkout after verification. No installation, personal model migration or live model-quality evaluation was performed.
+
+### CI repair: select the native macOS SDK explicitly
+
+Monitoring run 43817471720 for head 9d238675 found a native CMake compiler-probe failure on runner3: selected Xcode 26.6 AppleClang 21 linked against the independently updated Command Line Tools MacOSX27.2 SDK. Its linker rejected arm64e.x1 architecture records in libSystem.tbd, before application tests ran. CMake 4 defaults CMAKE_OSX_SYSROOT to empty, allowing this mismatch.
+
+Delegated repair: resolve the macOS SDK through the selected Xcode with xcrun when SDKROOT is absent, preserve an explicit SDKROOT, include the resolved SDK in the native cache key, and pass it to CMake. Validate through the existing build wrapper and repository checks; commit/push and monitor the resulting CI run without weakening checks.
+
+SDK repair validation: `make test` passed (Rust, runtime integrations, root Swift and app Swift), `make check` passed, and complete staged `make build` passed. Both generated Cargo/CMake configurations explicitly selected `/Applications/Xcode-26.6.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk` with `/usr/bin/cc` and `/usr/bin/c++`, confirming the selected-Xcode sysroot reaches CMake. No model, UI, test-code or tolerance changes were required.
