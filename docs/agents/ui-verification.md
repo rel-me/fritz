@@ -78,6 +78,11 @@ the following surfaces, include these behaviors:
   or custom footers. Local Models has no add/import/export controls; Remote Models
   owns these actions and includes API services such as Ollama. Model licenses are
   under Settings → General → Licenses, with no license links in setup/download sheets.
+  A selected local model opens a content-sized native column-form sheet, with
+  model/download/memory records and Saving to inline beside Change; no grouped
+  record card, redundant Not installed status, fixed-height empty area, or separate
+  destination footer. Check long names, wrapped errors, linear progress, memory
+  warnings, Settings navigation, Escape, and Command-Q after presentation updates.
   Local Models shows individual models with recent selections first and no Provider
   column or provider picker in local setup/edit. Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.

@@ -701,3 +701,9 @@ an optional `modelStorage` instead of per-download directory/chooser parameters.
 Hosts must implement durable default/location handling and relocation semantics;
 Fritz's standalone implementation lives in `model_storage`. Existing installed
 models continue to resolve through explicit saved per-model locations.
+
+Targeted native-model setup uses the internal `LocalModelSetupSheet` with a native
+column Form and fitted presentation sizing. It keeps records, the read-only
+storage destination/Settings action, progress and error feedback in one content
+flow. Generic and remote setup retain `ModelProviderEditor`; installation/save
+state, cancellation and originating-chat selection remain in `ModelsProviderEditor`.

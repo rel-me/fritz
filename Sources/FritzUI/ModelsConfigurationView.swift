@@ -189,15 +189,29 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     }
 
     public var body: some View {
-        ModelProviderEditor(
-            title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit && !store.modelStorage.isBusy, isSaving: isSaving,
-            height: editorHeight,
-            cancel: { nativeModel.cancel(); dismiss() }, save: submit,
-            downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,
-            modelStorage: initialModel != nil && managesLocalModels && nativeModel.state != .installed ? store.modelStorage : nil,
-            isInstalling: nativeModel.state.isBusy
-        ) {
-            editorForm
+        Group {
+            if initialModel != nil && managesLocalModels {
+                LocalModelSetupSheet(model: nativeModel.selectedModel, state: nativeModel.state,
+                    memoryGB: LocalModelHardware.current.memoryGB, storage: store.modelStorage,
+                    installedDirectory: nativeModel.downloadDirectory,
+                    primaryActionTitle: primaryActionTitle, canSubmit: canSubmit && !store.modelStorage.isBusy,
+                    isSaving: isSaving,
+                    cancel: { nativeModel.cancel(); dismiss() }, submit: submit) {
+                        if let duplicateConnection { duplicateWarning(duplicateConnection) }
+                        if let policyError = localModels.policyError { Text(policyError).foregroundStyle(.red) }
+                        if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
+                    }
+            } else {
+                ModelProviderEditor(
+                    title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit && !store.modelStorage.isBusy, isSaving: isSaving,
+                    height: editorHeight,
+                    cancel: { nativeModel.cancel(); dismiss() }, save: submit,
+                    downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,
+                    isInstalling: nativeModel.state.isBusy
+                ) {
+                    editorForm
+                }
+            }
         }
         .interactiveDismissDisabled(isSaving)
         .sheet(isPresented: $showsDownload, onDismiss: {
@@ -505,9 +519,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             ?? (existing == nil ? (remoteOnly ? "New Remote Model" : providerOptions != nil ? "New Local Model" : "New Models") : "Edit Models")
     }
     private var editorHeight: CGFloat {
-        if initialModel != nil && managesLocalModels {
-            return nativeModel.state == .installed ? 260 : 320
-        }
         let base: CGFloat
         if managesLocalModels {
             base = 340 + (category == .llm && store.defaultConnectionID != nil ? 40 : 0)

@@ -44,6 +44,10 @@ import SwiftUI
             self, selector: #selector(windowWillBeginSheet(_:)),
             name: NSWindow.willBeginSheetNotification, object: nil
         )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowDidUpdate(_:)),
+            name: NSWindow.didUpdateNotification, object: nil
+        )
         for window in NSApp.windows {
             window.preventsApplicationTerminationWhenModal = false
         }
@@ -59,6 +63,16 @@ import SwiftUI
         // The sheet is attached after this notification is sent.
         DispatchQueue.main.async {
             window.attachedSheet?.preventsApplicationTerminationWhenModal = false
+        }
+    }
+
+    @objc private func windowDidUpdate(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window.isSheet, window.preventsApplicationTerminationWhenModal else { return }
+        // SwiftUI can finalize a fitted sheet's modal policy after it becomes key.
+        DispatchQueue.main.async { [weak window] in
+            guard let window, window.isSheet, window.preventsApplicationTerminationWhenModal else { return }
+            window.preventsApplicationTerminationWhenModal = false
         }
     }
 

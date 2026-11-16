@@ -278,3 +278,30 @@ Monitoring run 43817471720 for head 9d238675 found a native CMake compiler-probe
 Delegated repair: resolve the macOS SDK through the selected Xcode with xcrun when SDKROOT is absent, preserve an explicit SDKROOT, include the resolved SDK in the native cache key, and pass it to CMake. Validate through the existing build wrapper and repository checks; commit/push and monitor the resulting CI run without weakening checks.
 
 SDK repair validation: `make test` passed (Rust, runtime integrations, root Swift and app Swift), `make check` passed, and complete staged `make build` passed. Both generated Cargo/CMake configurations explicitly selected `/Applications/Xcode-26.6.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk` with `/usr/bin/cc` and `/usr/bin/c++`, confirming the selected-Xcode sysroot reaches CMake. No model, UI, test-code or tolerance changes were required.
+
+## User follow-up: compact idiomatic download sheet
+
+"Fix the UI for this to be Mac-y and idiomatic.. research how best to do UX for this window" (attached targeted Dolphin download setup screenshot).
+
+Researched Apple's current Sheets and Progress Indicators HIG and native column-form guidance. Replace the fixed-height grouped configuration layout for a selected local model with a content-sized native column form, generic task title, model/size/memory records, inline read-only destination plus Settings button, and native actions. Omit redundant Not installed text; keep linear progress/checking and actionable errors in the content flow. Preserve download/save/selection, Settings navigation, Escape/cancellation, Quit, and remote/generic editor behavior.
+
+Test authoring gate: existing targeted available/installed snapshots own the integration layout. Extend coverage only for checking/downloading/error layout states of the new production-used internal sheet, including warning color and long error wrapping. These visible contracts are not represented by the prior available/installed images, and no production test-only export/seam is added.
+
+Delegated monitoring coordination: current monitor is asked to hold implementation edits during this UI change and report status; resume PR #112 monitoring after the updated head is pushed, repair attributable failures with affected checks, and monitor any subsequent push. Do not merge.
+
+"Make the download sheet fit its content. Remove the big empty area and separate Saving to footer—keep the destination inline, with Change… opening Model Storage in Settings."
+
+Place the read-only destination inside the compact native form itself. Keep the indeterminate checking indicator out of bitmap baselines to avoid asserting animation phase; the deterministic downloading/error images protect progress placement, memory warning, and error wrapping.
+
+Delegated existing-CI repair: monitor agent works in a separate disposable worktree at 9c076a1 to update/review macOS27.2.1 native-rendering baselines after reproducing unchanged button-style failures on HEAD. It must preserve tests/tolerances, exclude root-owned targeted Fritz setup images, keep changes in a focused commit for cherry-pick, and avoid pushing or editing the root checkout. Root retains compact-sheet implementation and native QA ownership.
+
+### Compact-sheet verification
+
+- Built the staged app and an isolated checkout/data namespace. Verified the compact single-model form, inline destination, native Download/Cancel actions and Settings navigation. Reviewed available/error states in dark and light appearance; a deliberately non-directory destination produced the real wrapped installer error and Retry Download without network/download activity. Escape returned to the same selected model.
+- Explicit accessibility containers retain the Change action as a separate accessible button in the native column form. No storage picker was added to download/setup.
+- Native inspection reproduced a late fitted-sheet modal policy of YES despite the earlier app delegate callbacks. The app delegate now catches a sheet's subsequent public didUpdate notification and reapplies the established termination policy, guarded and deferred until SwiftUI's update completes. Command-Q with the compact sheet open then exited normally. The unsuccessful view-local experiment was removed; no custom Quit command or hidden termination bypass was added.
+- Reviewed four updated available/installed images and four new deterministic downloading/error images in both appearances. Checking keeps the same linear indicator position but has no animation-phase bitmap assertion. Full make test/check/build passed before the final app-only lifecycle observer; final Swift/build and integrated snapshot checks follow.
+- Reproduced unrelated snapshot drift on unchanged HEAD after the local/CI host OS changed to 27.2.1. The separate monitoring agent owns the OS baseline repair and scrollbar preference normalization, preserving image tolerances and test behavior.
+
+- Final native Command-Q with the fitted sheet open passed after the app-delegate lifecycle correction. Escape cancellation, the separate accessible Settings button, and real error wrapping were verified in the isolated staged app. Test data/fixtures and checkout were removed. Final Swift packages, make check and complete staged make build passed.
+- Independent CI baseline commit 5d86ac6cb7a72d60603e07695804fc0287a70f42 supplies 64 reviewed macOS27 references and fixture-only scrollbar visibility normalization; root supplies four compact setup replacements and four progress/error additions. Run the integrated comparison after cherry-picking; preserve all thresholds and native lifecycle assertions.

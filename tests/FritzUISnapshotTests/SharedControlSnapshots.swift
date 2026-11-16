@@ -170,7 +170,21 @@ final class SharedControlSnapshots: XCTestCase {
                                         provider: provider, modelID: provider == .fritz ? "qwen2.5-1.5b-instruct-q4_k_m" : "claude-fixture")
             try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(installed: state != "available"),
                                               existing: nil, initialModel: model),
-                         name: "model-setup-\(provider.rawValue)-\(state)", size: .init(width: 600, height: 560), settleDuration: 0.45)
+                         name: "model-setup-\(provider.rawValue)-\(state)",
+                         size: provider == .fritz ? .init(width: 520, height: 240) : .init(width: 600, height: 560), settleDuration: 0.45)
+        }
+    }
+
+    func testLocalModelSetupProgressAndError() throws {
+        let model = NativeModelDescriptor(id: "download-fixture", name: "Dolphin 3.0 Llama 3.1 8B", size: 4_920_000_000,
+                                          memoryGB: 16, licenseURL: URL(string: "https://example.com/license")!)
+        for (name, state) in [("downloading", LocalModelInstallState.downloading(downloaded: 1_230_000_000, total: model.size)),
+                              ("error", .failed("The download could not be completed. Check your connection and try again. Your model storage preference is unchanged."))] {
+            try snapshot(LocalModelSetupSheet(model: model, state: state, memoryGB: 8,
+                         storage: ModelsFixture(state: "available").modelStorage, installedDirectory: nil,
+                         primaryActionTitle: name == "error" ? "Retry Download" : "Download",
+                         canSubmit: !state.isBusy, isSaving: false, cancel: {}, submit: {}) { EmptyView() },
+                         name: "local-model-setup-\(name)", size: .init(width: 520, height: 320), settleDuration: 0.45)
         }
     }
 
