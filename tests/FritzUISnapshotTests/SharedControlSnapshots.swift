@@ -344,6 +344,9 @@ final class SharedControlSnapshots: XCTestCase {
         window.isReleasedWhenClosed = false
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.colorSpace = .sRGB
+        // Native table headers composite against the window, not only the host.
+        // Match the fixture backdrop instead of inheriting the desktop appearance.
+        window.backgroundColor = appearance.name == .darkAqua ? .darkGray : .white
         window.appearance = appearance
         window.contentView = host
         defer { window.contentView = nil; window.close() }

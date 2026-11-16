@@ -129,7 +129,9 @@ Keep the environment and behavior assertions when changing keyboard handling.
 [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing).
 The dependency is test-only. The test harness settles native controls in an
 offscreen AppKit window with
-explicit appearance, sRGB color space, and a fixed 2× window backing scale. It
+explicit appearance, sRGB color space, and a fixed 2× window backing scale. The
+native window backdrop matches the hosted fixture background so translucent table
+headers do not inherit the desktop appearance. It
 captures a 2× bitmap and passes it directly through `assertSnapshot(of:as:)`. Comparing the
 bitmap avoids resampling it at the attached display's backing scale. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
