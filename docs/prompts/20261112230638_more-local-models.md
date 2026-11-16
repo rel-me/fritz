@@ -213,3 +213,23 @@ Monitor PR #112 after the local toolbar, Settings licenses and service classific
 - Opened Qwen3 0.6B setup and verified the license link is absent while the destination control and Cancel/Download actions remain. General Settings starts with Licenses collapsed; expanding it reveals Local Model Licenses and the Ollama library, and expanding the nested disclosure shows the pinned catalog license links. No license URLs were opened and no weights were downloaded for this check.
 - Quit the isolated app normally, stopped the mock, and removed the isolated data and disposable checkout. Chat location behavior is covered by the picker-boundary test; it was not additionally exercised in the running app for this follow-up.
 - Final full `make test`, `make check`, `make check-ui-snapshots`, and staged `make build` passed. Reviewed the diff and `git diff --check`; no unrelated files were changed.
+
+## User follow-up: repair CI and reclaim runner build storage
+
+"Fix CI"
+
+"Clean up old build artifacts on runner-mac-mini-4 (1,2,3,4) and rerun CI."
+
+Original CI failed before tests with ENOSPC during Python installation on runner-mac-mini-4. Attempt 2 was cancelled; attempt 3 was restarted and passed tool installation. Inspect runner 1–4 output ownership/activity/locks before removing disposable generated builds. Preserve sources, credentials, toolchains, active jobs, locks and unresolved evidence.
+
+Delegated monitor: monitor run 43690324734 attempt 3 without duplicate reruns/cancellations; report setup progress and actual failures, preserve all checks and unrelated changes. Root is locating runner access and performing the requested cleanup.
+
+### Runner cleanup outcome
+
+- Connected to the existing known SSH host as `runner-ci`. Inventoried runners 1–4 and Fritz's CI output layout. Runner 1 had no matching runner output tree; runner 2 was actively executing this PR's CI and was preserved. Current toolchain outputs and shared package/compiler caches were preserved.
+- Removed generated Cargo debug/tmp, Swift scratch, app Swift scratch and DerivedData children only from runners 3 and 4's old `60161568860ed86d308b4a2e2858ea91aa869b7d132d3b281c2b411cf7665750` toolchain trees. Runner keys were validated against the workflow's SHA-256 naming and checkout hashes against build-cache.py. Previewed about 21.2 GiB of logical output.
+- Acquired existing checkout locks followed by the root output lock for each tree; revalidated owner, physical directory identity, active processes and open files before deletion. Retained all lock/socket files and directory ancestry required by retained locks. No source checkout, credentials, active job, toolchain, reusable cache or investigation evidence was removed.
+- Free space was initially about 12 GiB, then 22 GiB immediately before application (other activity changed availability). After cleanup it was about 41 GiB, an observed increase of about 19 GiB during application. Stopped at that point.
+- CI attempt 3 had passed setup, tests and Rust checks and reached both-browser builds before cleanup completed. Push this required prompt log to the existing PR to start fresh CI after cleanup. No product or test code change was needed; no new PR is created.
+
+Delegated monitoring after cleanup push: monitor PR #112 at the new head through completion; inspect actual failed jobs, repair attributable failures with focused validation and commit/push if needed, and monitor every subsequent push. Do not merge or make duplicate reruns. Report final checks and exact blockers.
