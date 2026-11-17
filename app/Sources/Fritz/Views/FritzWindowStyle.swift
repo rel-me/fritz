@@ -113,6 +113,7 @@ private struct FritzWindowChrome: NSViewRepresentable {
             guard let window else { return }
             if window.toolbarStyle != .unified { window.toolbarStyle = .unified }
             if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
+            if window.titlebarSeparatorStyle != .none { window.titlebarSeparatorStyle = .none }
         }
     }
 }

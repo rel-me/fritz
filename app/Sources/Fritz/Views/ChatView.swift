@@ -8,6 +8,7 @@ struct ChatView: View {
     let providers: ProviderStore
     let localModels: LocalModelRuntimeStore
     let openModels: (ModelsLocation) -> Void
+    let headerBottom: CGFloat
     @State private var setupModel: ChatModelOption?
     @State private var selectionTask: Task<Void, Never>?
     @State private var isPreparingModel = false
@@ -17,7 +18,6 @@ struct ChatView: View {
     @State private var scrollState = ChatScrollState()
     @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
     @State private var isScrollingTranscript = false
-    @State private var headerScrollGeometry = ChatHeaderScrollGeometry()
     private static let transcriptBottomID = "chat-transcript-bottom"
 
     var body: some View {
@@ -95,7 +95,7 @@ struct ChatView: View {
                         isActive: store.isResponding && message.id == store.messages.last?.id,
                         activity: store.activity
                     )
-                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, scrollGeometry: headerScrollGeometry))
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
                     .id(message.id.uuidString)
                 }
                 if let error = store.error ?? store.agent.startupError {
@@ -107,13 +107,12 @@ struct ChatView: View {
                             Button("Dismiss") { store.error = nil }
                         }
                     }
-                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, scrollGeometry: headerScrollGeometry))
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
                 }
                 Color.clear
                     .frame(height: max(1, composerHeight + 8))
                     .id(Self.transcriptBottomID)
             }
-            .coordinateSpace(name: ChatHeaderCoordinateSpace.transcript)
             .scrollTargetLayout()
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .frame(maxWidth: .infinity)
@@ -135,12 +134,6 @@ struct ChatView: View {
         }
         .onScrollPhaseChange { _, phase in
             isScrollingTranscript = phase == .interacting || phase == .decelerating
-        }
-        .onScrollGeometryChange(for: ChatHeaderScrollGeometry.self) { geometry in
-            ChatHeaderScrollGeometry(offset: geometry.contentOffset.y,
-                                     headerBottom: geometry.contentInsets.top)
-        } action: { _, geometry in
-            headerScrollGeometry = geometry
         }
         .onScrollGeometryChange(for: ChatScrollState.Geometry.self) { geometry in
             ChatScrollState.Geometry(
@@ -216,34 +209,21 @@ struct ChatView: View {
     }
 }
 
-private enum ChatHeaderCoordinateSpace: Hashable {
-    case transcript
-}
-
-private struct ChatHeaderScrollGeometry: Equatable {
-    var offset: CGFloat = 0
-    var headerBottom: CGFloat = 0
-}
-
 private struct ChatHeaderBlur: ViewModifier {
     let isEnabled: Bool
-    let scrollGeometry: ChatHeaderScrollGeometry
+    let headerBottom: CGFloat
     @State private var contentFrame: CGRect = .zero
     private let blurRadius: CGFloat = 24
 
-    private var viewportFrame: CGRect {
-        contentFrame.offsetBy(dx: 0, dy: 28 - scrollGeometry.offset)
-    }
-
     private var overlapsHeader: Bool {
-        viewportFrame.minY < scrollGeometry.headerBottom + 28 && viewportFrame.maxY > 0
+        contentFrame.minY < headerBottom && contentFrame.maxY > 0
     }
 
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content
                 .onGeometryChange(for: CGRect.self) { geometry in
-                    geometry.frame(in: .named(ChatHeaderCoordinateSpace.transcript))
+                    geometry.frame(in: .global)
                 } action: { contentFrame = $0 }
                 .mask {
                     if overlapsHeader {
@@ -261,7 +241,7 @@ private struct ChatHeaderBlur: ViewModifier {
                             .frame(width: contentFrame.width)
                             .padding(.horizontal, blurRadius * 3)
                             .variableBlur(radius: blurRadius, maxSampleCount: 24) { geometry, context in
-                                let start = scrollGeometry.headerBottom - viewportFrame.minY
+                                let start = headerBottom - 28 - contentFrame.minY
                                 context.fill(
                                     Path(CGRect(origin: .zero, size: geometry.size)),
                                     with: .linearGradient(
@@ -283,12 +263,12 @@ private struct ChatHeaderBlur: ViewModifier {
     }
 
     private func edgeMask(blurred: Bool) -> some View {
-        let height = max(1, viewportFrame.height)
-        // Blur actual scrolling content, then blend into sharp text below the title.
+        let height = max(1, contentFrame.height)
+        // Finish the transition inside the header so transcript content below stays sharp.
         return LinearGradient(
             colors: blurred ? [.white, .clear] : [.clear, .white],
-            startPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom - viewportFrame.minY) / height),
-            endPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom + 28 - viewportFrame.minY) / height)
+            startPoint: UnitPoint(x: 0, y: (headerBottom - 28 - contentFrame.minY) / height),
+            endPoint: UnitPoint(x: 0, y: (headerBottom - contentFrame.minY) / height)
         )
     }
 }

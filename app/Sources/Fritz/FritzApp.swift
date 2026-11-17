@@ -212,6 +212,7 @@ private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
     @State private var isRightPanelPresented = false
+    @State private var chatHeaderBottom: CGFloat = 0
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -231,7 +232,8 @@ private struct FritzWorkspaceView: View {
                 } else if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
-                                            openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") })
+                                            openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
+                                            headerBottom: chatHeaderBottom)
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
@@ -239,10 +241,13 @@ private struct FritzWorkspaceView: View {
                                 // Extend real transcript content behind the toolbar;
                                 // reserve its inset for the sharp foreground title.
                                 chatView
-                                    .safeAreaBar(edge: .top, spacing: 0) {
+                                    .safeAreaInset(edge: .top, spacing: 0) {
                                         chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
                                                    threadTitle: thread.title)
                                             .padding(.top, geometry.safeAreaInsets.top)
+                                            .onGeometryChange(for: CGFloat.self) {
+                                                $0.frame(in: .global).maxY
+                                            } action: { chatHeaderBottom = $0 }
                                     }
                                     .scrollEdgeEffectHidden(for: .top)
                                     .ignoresSafeArea(.container, edges: .top)
