@@ -24,7 +24,7 @@ import SwiftUI
         localModels = LocalModelRuntimeStore(agent: agent, database: workspace.database)
     }
     func newThread() {
-        if let project = workspace.selectedProject ?? workspace.projects.first {
+        if let project = workspace.selectedProject ?? workspace.projects.first(where: { workspace.isAvailable($0) }) {
             workspace.createThread(in: project.id)
         } else { isCreatingProject = true }
     }
@@ -157,6 +157,7 @@ struct FritzApp: App {
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Chat") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
+                    .disabled(!state.workspace.projects.isEmpty && !state.workspace.canCreateThread)
                 Divider()
                 Button("New Local Model") { openWindow(id: "local-models") }
                 Button("New Remote Model") { openWindow(id: "remote-models") }
@@ -224,7 +225,10 @@ private struct FritzWorkspaceView: View {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                 }
-                if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
+                if let project = state.workspace.selectedProject, !state.workspace.isAvailable(project) {
+                    ContentUnavailableView("Project Folder Unavailable", systemImage: "folder.badge.questionmark",
+                                           description: Text("Use Fix in the sidebar to reconnect its folder."))
+                } else if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") })
@@ -272,7 +276,7 @@ private struct FritzWorkspaceView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,
+                WindowNewItemMenu(canCreateThread: state.workspace.canCreateThread,
                                   createProject: { state.isCreatingProject = true },
                                   createThread: state.newThread,
                                   createRemoteModel: { openWindow(id: "remote-models") },
@@ -317,7 +321,7 @@ private struct FritzWorkspaceView: View {
     private var newThreadToolbarButton: some View {
         Button("New Chat", systemImage: "square.and.pencil", action: state.newThread)
             .labelStyle(.iconOnly).help("New Chat (⌘N)")
-            .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
+            .disabled(!state.workspace.canCreateThread)
     }
 
 

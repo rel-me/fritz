@@ -6,6 +6,7 @@ import Observation
     private(set) var document = WorkspaceDocument()
     var error: String?
     private(set) var canSave = true
+    private var unavailableProjects: Set<UUID> = []
     let database: AppDatabase
     let modelCatalog: RemoteModelCatalog
     @ObservationIgnored private let agent: AgentClient
@@ -24,6 +25,9 @@ import Observation
     }
 
     var projects: [FritzProject] { document.projects }
+    var canCreateThread: Bool {
+        canSave && (selectedProject.map { isAvailable($0) } ?? projects.contains(where: { isAvailable($0) }))
+    }
     var selectedThreadID: UUID? { document.selectedThreadID }
     var selectedProject: FritzProject? {
         projects.first { project in project.threads.contains { $0.id == selectedThreadID } }
@@ -31,7 +35,80 @@ import Observation
     var selectedThread: ProjectThread? {
         selectedProject?.threads.first { $0.id == selectedThreadID }
     }
-    var selectedChat: ChatStore? { selectedThreadID.map { chat(for: $0) } }
+    var selectedChat: ChatStore? {
+        guard let project = selectedProject, isAvailable(project), let id = selectedThreadID else { return nil }
+        return chat(for: id)
+    }
+
+    static func directoryIsAvailable(_ path: String?) -> Bool {
+        guard let path else { return true }
+        var directory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path, isDirectory: &directory)
+            && directory.boolValue && FileManager.default.isReadableFile(atPath: path)
+            && FileManager.default.isExecutableFile(atPath: path)
+    }
+
+    func isAvailable(_ project: FritzProject) -> Bool {
+        _ = unavailableProjects
+        return Self.directoryIsAvailable(project.directory)
+    }
+
+    func refreshAvailability() {
+        let unavailable = Set(projects.filter { !Self.directoryIsAvailable($0.directory) }.map(\.id))
+        let newlyUnavailable = unavailable.subtracting(unavailableProjects)
+        if unavailable != unavailableProjects { unavailableProjects = unavailable }
+        for project in projects where newlyUnavailable.contains(project.id) {
+            for thread in project.threads { chats[thread.id]?.stop(); chats[thread.id]?.savePreferences() }
+        }
+    }
+
+    func repairProject(_ id: UUID, directory: URL? = nil) throws {
+        guard let index = projects.firstIndex(where: { $0.id == id }) else { return }
+        guard let path = directory?.standardizedFileURL.resolvingSymlinksInPath().path ?? projects[index].directory else {
+            throw AgentFailure(message: "Choose a project folder.")
+        }
+        guard !projects.contains(where: { $0.id != id && $0.directory == path }) else {
+            throw AgentFailure(message: "This folder is already in your projects.")
+        }
+        if directory == nil { try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true) }
+        guard Self.directoryIsAvailable(path) else { throw AgentFailure(message: "Choose an accessible project folder.") }
+        for thread in projects[index].threads {
+            chats[thread.id]?.stop()
+            chats[thread.id]?.savePreferences()
+        }
+        var next = document
+        next.projects[index].directory = path
+        try commit(next)
+        for thread in projects[index].threads { chats.removeValue(forKey: thread.id) }
+    }
+
+    func setArchived(_ id: UUID, _ archived: Bool) {
+        chats[id]?.stop()
+        chats[id]?.savePreferences()
+        guard let project = document.projects.firstIndex(where: { $0.threads.contains(where: { $0.id == id }) }),
+              let thread = document.projects[project].threads.firstIndex(where: { $0.id == id }) else { return }
+        var next = document
+        next.projects[project].threads[thread].isArchived = archived
+        if archived && next.selectedThreadID == id { next.selectedThreadID = nil }
+        do { try commit(next) } catch { self.error = error.localizedDescription }
+    }
+
+    func deleteThread(_ id: UUID) {
+        chats[id]?.stop()
+        var next = document
+        for index in next.projects.indices { next.projects[index].threads.removeAll { $0.id == id } }
+        if next.selectedThreadID == id { next.selectedThreadID = nil }
+        do {
+            try commit(next)
+            chats.removeValue(forKey: id)
+        } catch { self.error = error.localizedDescription }
+    }
+
+    func clearSelection() {
+        var next = document
+        next.selectedThreadID = nil
+        do { try commit(next) } catch { self.error = error.localizedDescription }
+    }
 
     func chat(for id: UUID) -> ChatStore {
         if let chat = chats[id] { return chat }
@@ -43,7 +120,7 @@ import Observation
     }
 
     func select(_ id: UUID?) {
-        guard let id, projects.contains(where: { $0.threads.contains(where: { $0.id == id }) }) else { return }
+        guard let id, projects.contains(where: { isAvailable($0) && $0.threads.contains(where: { $0.id == id }) }) else { return }
         selectedChat?.savePreferences()
         var next = document
         next.selectedThreadID = id
@@ -91,7 +168,7 @@ import Observation
     }
 
     func createThread(in projectID: UUID) {
-        guard let index = document.projects.firstIndex(where: { $0.id == projectID }) else { return }
+        guard let index = document.projects.firstIndex(where: { $0.id == projectID }), isAvailable(document.projects[index]) else { return }
         selectedChat?.savePreferences()
         let thread = ProjectThread()
         var next = document

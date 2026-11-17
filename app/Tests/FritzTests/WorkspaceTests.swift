@@ -11,6 +11,48 @@ import FritzUpdates
         return url
     }
 
+    func testArchiveRestoreAndDeletionPersistWithoutLosingOtherThreads() throws {
+        let root = try directory()
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        let project = try workspace.createProject(name: "Example", directory: root)
+        let first = try XCTUnwrap(workspace.selectedThreadID)
+        workspace.selectedChat?.draft = "Keep this draft"
+        workspace.setArchived(first, true)
+        XCTAssertNil(workspace.selectedThreadID)
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        XCTAssertEqual(restored.projects.first?.threads.first?.isArchived, true)
+        restored.setArchived(first, false)
+        restored.select(first)
+        XCTAssertEqual(restored.selectedChat?.draft, "Keep this draft")
+        restored.createThread(in: project)
+        let second = try XCTUnwrap(restored.selectedThreadID)
+        restored.deleteThread(first)
+        XCTAssertNil(try restored.database.preferences(for: first))
+        XCTAssertEqual(WorkspaceStore(agent: AgentClient(), dataDirectory: root).projects.first?.threads.map(\.id), [second])
+    }
+
+    func testMissingProjectBlocksChatsAndRepairRebindsCachedChat() throws {
+        let root = try directory()
+        let folder = root.appendingPathComponent("Project")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        let id = try workspace.createProject(name: "Example", directory: folder)
+        workspace.selectedChat?.draft = "Retained"
+        workspace.selectedChat?.savePreferences()
+        try FileManager.default.removeItem(at: folder)
+        workspace.refreshAvailability()
+        XCTAssertNil(workspace.selectedChat)
+        workspace.createThread(in: id)
+        XCTAssertEqual(workspace.projects.first?.threads.count, 1)
+        try workspace.repairProject(id)
+        XCTAssertEqual(workspace.selectedChat?.draft, "Retained")
+        let replacement = root.appendingPathComponent("Replacement")
+        try FileManager.default.createDirectory(at: replacement, withIntermediateDirectories: true)
+        try workspace.repairProject(id, directory: replacement)
+        XCTAssertEqual(workspace.selectedChat?.projectPath, replacement.path)
+        XCTAssertEqual(WorkspaceStore(agent: AgentClient(), dataDirectory: root).selectedProject?.directory, replacement.path)
+    }
+
     func testProjectsThreadsAndSelectionSurviveRestart() throws {
         let root = try directory()
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
