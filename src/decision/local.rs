@@ -29,15 +29,15 @@ pub struct Manifest {
     engine: Engine,
     #[serde(default)]
     entry_file: Option<String>,
-    files: Vec<ModelFile>,
+    pub(crate) files: Vec<ModelFile>,
 }
 
 #[derive(Deserialize)]
-struct ModelFile {
-    file: String,
+pub(crate) struct ModelFile {
+    pub(crate) file: String,
     url: String,
-    size: u64,
-    sha256: String,
+    pub(crate) size: u64,
+    pub(crate) sha256: String,
 }
 
 pub fn catalog() -> &'static [Manifest] {
@@ -117,12 +117,12 @@ impl ModelStore {
 
     pub fn configured() -> Result<Self> {
         Ok(Self {
-            directory: crate::config::models_dir(),
+            directory: crate::config::models_dir()?,
             model_directories: crate::config::model_directories()?,
         })
     }
 
-    fn directory_for(&self, model_id: &str) -> &std::path::Path {
+    pub(crate) fn directory_for(&self, model_id: &str) -> &std::path::Path {
         self.model_directories
             .get(model_id)
             .map(PathBuf::as_path)
@@ -234,6 +234,7 @@ fn infer(
 
 /// A scoped loaded ONNX engine. Each run receives fresh state and question tensors.
 struct LoadedModel {
+    _storage_use: Vec<std::fs::File>,
     pin: &'static Manifest,
     model: Box<dyn ollaya_runner::engine::Engine>,
     calibration: ollaya_decision::Calibration,
@@ -241,6 +242,11 @@ struct LoadedModel {
 
 impl LoadedModel {
     fn load(pin: &'static Manifest, directory: &std::path::Path) -> Result<Self> {
+        let storage_use = pin
+            .files
+            .iter()
+            .map(|file| crate::model_storage::use_file(&directory.join(&file.file)))
+            .collect::<Result<Vec<_>>>()?;
         let files = ModelFiles {
             graph: directory.join(format!("{}.onnx", pin.id)),
             tokenizer: directory.join(format!("{}.tokenizer.json", pin.id)),
@@ -260,6 +266,7 @@ impl LoadedModel {
         let model = ollaya_runner::engine::load(&files, Device::Cpu, Some(4))
             .context("Could not load the local decision model.")?;
         Ok(Self {
+            _storage_use: storage_use,
             pin,
             model,
             calibration,

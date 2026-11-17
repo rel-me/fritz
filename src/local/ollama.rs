@@ -369,7 +369,7 @@ pub async fn serve(port: u16, model: Option<String>, managed: bool) -> Result<()
         port,
         model,
         managed,
-        crate::config::models_dir(),
+        crate::config::models_dir()?,
         crate::config::ModelLocationStore::new(crate::config::data_dir()),
     )
     .await

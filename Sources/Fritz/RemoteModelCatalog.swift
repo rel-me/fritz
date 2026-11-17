@@ -150,6 +150,26 @@ public final class RemoteModelCatalog {
         model(provider: kind, modelID: modelID)?.cost
     }
 
+    /// Browsable choices, not proof that a connection can serve a model.
+    public var chatModels: [ChatModelOption] {
+        providers.keys.sorted().flatMap { providerID -> [ChatModelOption] in
+            guard let provider = AIProviderKind(rawValue: providerID), provider.category == .llm else { return [] }
+            return providers[providerID]!.models.keys.sorted().compactMap { id in
+                let info = providers[providerID]!.models[id]!.information
+                guard case let .object(modalities) = info["modalities"],
+                      case let .array(input) = modalities["input"], input.contains(.string("text")),
+                      case let .array(output) = modalities["output"], output.contains(.string("text")),
+                      case let .object(limit) = info["limit"],
+                      case let .number(context) = limit["context"], context > 0 else { return nil }
+                let name: String
+                if case let .string(value) = info["name"] { name = value } else { name = id }
+                let option = ChatModelOption(id: "catalog:\(providerID):\(id)", displayName: name,
+                                             provider: provider, modelID: id)
+                return option.status == .retired ? nil : option
+            }
+        }
+    }
+
     /// Information enriches discovered models; its presence never establishes API availability.
     public func metadata(provider: AIProviderKind, modelID: String) -> [String: ModelCatalogValue]? {
         model(provider: provider, modelID: modelID)?.information

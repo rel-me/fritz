@@ -27,8 +27,11 @@ prepare_chromium() {
     tar -xf "$cef_archive" -C "$PWD/dist"
     touch "$cef_root/.verified-$cef_sha256"
   fi
+  # CMake 4 does not select a sysroot; keep the SDK paired with Xcode.
+  local cef_sdk
+  cef_sdk="${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}"
   env -u MAKEFLAGS cmake -S app/Chromium -B "$cef_build" \
-    -DCEF_ROOT="$cef_root" -DPROJECT_ARCH="$(uname -m)" -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_OSX_SYSROOT="$cef_sdk" -DCEF_ROOT="$cef_root" -DPROJECT_ARCH="$(uname -m)" -DCMAKE_BUILD_TYPE=Release
   env -u MAKEFLAGS cmake --build "$cef_build" --parallel "$(sysctl -n hw.ncpu)"
 }
 

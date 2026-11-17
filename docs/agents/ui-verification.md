@@ -13,7 +13,7 @@ the following surfaces, include these behaviors:
 - **Window and toolbar:** traffic lights, drag regions, resize/minimum width,
   persistent sidebar without a toggle, + menu, New Project default folder creation,
   custom folder selection/cancel, and Settings
-  opening with Command-comma. The toolbar opens the Models page in Settings.
+  opening with Command-comma. The toolbar CPU and network buttons open Local Models and Remote Models directly, without a dropdown.
   Enter and exit fullscreen in light and dark appearance; the toolbar background
   should match the workspace surround in both modes. Preserve the sidebar's rounded
   outline through the titlebar around the traffic lights; it must not stop below
@@ -61,12 +61,39 @@ the following surfaces, include these behaviors:
   and open/close the inspector, both at the bottom and while reading history.
   Verify messages remain visible, the latest message stays above the composer
   when following, and scrolling reaches both ends without blank overscroll.
+- **Model storage:** native pop-up path control exclusively in General Settings; download setup
+  shows the destination and Change opens General directly at Model Storage,
+  shared persisted default across windows/relaunch, chooser cancellation, empty storage,
+  Move Models/Keep Existing/Cancel with existing files, actual installed folder display,
+  progress cancellation/retry, conflict and active-use errors, and Quit during a move.
 - **Settings:** exactly one app-menu Settings item and Command-comma reopening the
   selected page; shared title-free unified toolbar, native traffic lights, a
   persistent sidebar without a toggle, and a rounded detail surface that begins
   below the toolbar in light/dark appearance. General appearance,
-  update channel, CLI install feedback, Models selection, blank and populated model
-  lists, local-model download and New Models/Edit Models process controls (First use
+  update channel, and CLI install feedback. Models must not appear in Settings.
+- **Model windows and picker:** New Local Model/New Remote Model commands and
+  toolbar routes open the separate lists, including unconfigured catalog choices.
+  Local Models and Remote Models use visible native window titles, toolbar search
+  and actions, and standard Table appearance without duplicate content headings
+  or custom footers. Local Models has no add/import/export controls; Remote Models
+  owns these actions and includes API services such as Ollama. Model licenses are
+  under Settings → General → Licenses, with no license links in setup/download sheets.
+  A selected local model opens a content-sized native sheet with a leading-aligned
+  details grid, consistent row spacing and outer margins. Model/download/memory
+  records and Saving to sit inline beside Change; no grouped
+  record card, redundant Not installed status, fixed-height empty area, or separate
+  destination footer. Check long names, wrapped errors, linear progress, memory
+  warnings, Settings navigation, Escape, and Command-Q after presentation updates.
+  Local Models shows individual models with recent selections first and no Provider
+  column or provider picker in local setup/edit. Remote Models shows providers with recent models first in comma-separated,
+  tail-truncated summaries; setup/edit/remove acts on the selected provider.
+  The composer always offers Choose Model; Local and Remote filters precede
+  providers and filter without opening setup. Verify ready selections, remote
+  credential setup, local download confirmation, cancellation/draft retention,
+  native setup/edit/download/import/export titles, forms, pickers, disclosure
+  controls and buttons in light/dark appearance,
+  successful setup selecting the chosen model, and decision-model exclusion from
+  chat. Check blank/populated lists and model process controls (First use
   by default, App start persistence, weight load/unload, installed path and Finder
   reveal, PID, address, multi-model memory warnings including API first-use
   admission, errors, and quit cleanup), automatic Local API startup with no models,
@@ -80,7 +107,7 @@ Check keyboard focus and command targets when moving between chat, popovers,
 and Providers. Exercise accessibility or reduced-motion/transparency settings
 when the changed behavior depends on them. Capture before/after screenshots
 when they help review a visual change, using synthetic text and no credentials.
-With an app-owned sheet open (including New Models), verify that Command-Q,
+With an app-owned sheet open (including model setup and folder choosers), verify that Command-Q,
 the app-menu Quit item, and a system Quit request terminate the staged app
 without first dismissing the sheet. Repeat while the sheet has keyboard focus
 or cancellable work is in progress when those states are affected.
@@ -102,15 +129,18 @@ Keep the environment and behavior assertions when changing keyboard handling.
 [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing).
 The dependency is test-only. The test harness settles native controls in an
 offscreen AppKit window with
-explicit appearance, sRGB color space, and a fixed 2× window backing scale. It
+explicit appearance, sRGB color space, and a fixed 2× window backing scale. The
+native window backdrop matches the hosted fixture background so translucent table
+headers do not inherit the desktop appearance. It
 captures a 2× bitmap and passes it directly through `assertSnapshot(of:as:)`. Comparing the
 bitmap avoids resampling it at the attached display's backing scale. Fixtures set a
 fixed size, English locale, light/dark color scheme, blue tint, and hidden scroll
 indicators, with synthetic model/provider values and no network or credentials.
 Model-download fixtures pass a fixed 32 GB Apple silicon hardware profile so
 memory warnings and hardware summaries do not depend on the runner's Mac.
-The harness also pins each AppKit scroll view to overlay scrollers: hiding
-indicators alone leaves a reserved gutter on Macs using legacy scrollbars.
+The fixture uses `scrollIndicators(.never)` before initial layout so SwiftUI
+cannot reserve a legacy scrollbar gutter based on the user's preferences.
+AppKit scroll views are also pinned to overlay scrollers.
 Native table column widths are rounded up to whole points before capture to avoid
 a half-point autosizing variation in header dividers across AppKit initialization contexts.
 
@@ -136,9 +166,12 @@ compare; comparison mode ignores this recording selector.
 Recording intentionally reports test failures while writing references. Review
 every new/changed PNG in `tests/FritzUISnapshotTests/__Snapshots__` before the
 comparison run. Never use recording in CI or relax precision to accept a change.
-The initial references were recorded with macOS 26.6.2 (25G83), Xcode 26.6
-(17F113), and Swift 6.3 on Apple Silicon. Native rendering depends on the OS;
-compare on that baseline environment and review intentional OS upgrades.
+The current references use macOS 27.2.1 (26B131), Xcode 26.6 (17F113), and
+Swift 6.3.3 on Apple Silicon. The initial set used macOS 26.6.2 (25G83).
+The macOS 27 refresh was reviewed against the unchanged application at 9c076a1:
+image dimensions and fixture content stayed unchanged; native control tint,
+disabled appearance, and glyph rendering changed. Native rendering depends on
+the OS; compare on the current baseline and review intentional OS upgrades.
 
 Coverage includes model search, empty/no-results, recents/selection, badges,
 Bedrock and generic adapter separation, horizontal provider filters, provider
@@ -148,8 +181,10 @@ both color schemes. Floating Liquid Glass styles produce incomplete transparent
 readbacks with this renderer on macOS 26; verify those styles in the staged app
 instead of committing blank baselines. App-specific loading/error, streaming,
 keyboard routing, and persistence
-still require the native workflow checks above. Snapshot comparisons complement
-`make test`; they do not replace those interaction checks.
+still require the native workflow checks above. Native sheet navigation titles and toolbar actions live outside the hosted-view
+bitmap; the setup snapshots cover form content, while titles, buttons, shortcuts,
+and modal shutdown must be exercised in the staged app. Snapshot comparisons
+complement `make test`; they do not replace those interaction checks.
 
 If a task introduces snapshot tests, compare the affected suites before updating
 references. Inspect actual, expected, and diff images. Record only intentional

@@ -120,8 +120,8 @@ fn models_service() -> Result<fritz::models_service::ModelsService> {
     Ok(fritz::models_service::ModelsService::new(
         config::RegistryStore::new(config::data_dir()),
         config::CredentialStore::new(config::keychain_service())?,
-        local::models::ModelStore::new(config::models_dir()),
-        decision::local::ModelStore::new(config::models_dir()),
+        local::models::ModelStore::new(config::models_dir()?),
+        decision::local::ModelStore::new(config::models_dir()?),
         config::ModelLocationStore::new(config::data_dir()),
     ))
 }
@@ -146,6 +146,17 @@ struct Request {
 
 async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Value> {
     let params = &request.params;
+    let _storage_read = if matches!(
+        request.method.as_str(),
+        "localModels.install" | "decisionModels.install"
+    ) {
+        Some(fritz::model_storage::read_settings(&config::data_dir())?)
+    } else {
+        None
+    };
+    if request.method.starts_with("modelStorage.") {
+        return fritz::model_storage::dispatch(&request.method, params, &emit).await;
+    }
     if let Some(result) = models_service()?
         .dispatch(&request.method, params, &emit)
         .await?

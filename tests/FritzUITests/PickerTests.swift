@@ -12,6 +12,13 @@ final class PickerTests: XCTestCase {
       sourceName: "Work account", isRecommended: recommended)
   }
 
+  func testModelLocationsKeepServiceConnectionsRemote() {
+    XCTAssertTrue(model("download", group: "fritz").isLocal)
+    XCTAssertTrue(model("decision-download", group: "ollaya").isLocal)
+    XCTAssertFalse(model("service", group: "ollama").isLocal)
+    XCTAssertFalse(model("gateway", group: "openai-compatible").isLocal)
+  }
+
   func testSectionsKeepRecentIdentityScopedAndSeparateHostedAdapters() {
     let models = [
       model("local"), model("generic", group: "compatible"),
@@ -40,6 +47,13 @@ final class PickerTests: XCTestCase {
     XCTAssertEqual(ModelPickerData<String>.providers(
       from: [], providerOrder: [], supportedProviders: supported).map(\.id),
       ["compatible", "bedrock", "anthropic"])
+  }
+
+  func testProviderSectionsIncludeAllChoicesBeyondRecommendations() {
+    let choices = (1...8).map { model("choice-\($0)", recommended: $0 < 3) }
+    let sections = ModelPickerData.sections(from: choices, recentModels: [], providerOrder: ["rel"])
+    XCTAssertEqual(sections.count, 1)
+    XCTAssertEqual(sections[0].models.map(\.id), choices.map(\.id))
   }
 
   func testSectionsExcludeSelectedModelFromRecents() {

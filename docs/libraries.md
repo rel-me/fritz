@@ -435,8 +435,8 @@ the staged app, framework/resource packaging, Rust binaries and signatures.
 - `ModelProvidersTable` renders provider readiness, local/default badges, model
   inventory and native multi-selection. Hosts attach selection context menus,
   deletion commands, export and edit callbacks.
-- `ModelProviderEditor` supplies sheet layout, license, cancel and save actions.
-  Its optional saving state shows progress and disables both footer actions.
+- `ModelProviderEditor` supplies native sheet navigation, cancel and save actions.
+  Its optional saving state shows progress and disables both actions.
   `ProviderConnectionSection` supplies endpoint and secure/revealed credential
   fields, model discovery feedback and the default-provider toggle. Hosts supply
   field copy, credential-reveal policy and provider-specific sections.
@@ -476,7 +476,7 @@ and process monitoring in their editor on the Models page.
 
 ### Shared chat presentation
 
-`ChatProviderSetupButton(action:)` provides the composer's “Add Provider” action.
+`ChatProviderSetupButton(action:)` provides a standalone “Choose Model…” action; Fritz uses `ModelPickerLabel` for both empty and configured composer selections.
 Place it in `ChatComposer`'s accessory builder when a provider needs configuration;
 the host owns the setup flow and decides when to show the action.
 
@@ -540,11 +540,24 @@ but cannot undo a command already executing. See
 
 ### Models configuration and runtime
 
-`ModelsConfigurationScreen(store:runtime:)` is the Models page used by Fritz's
-Settings. It owns editor presentation and uses `ModelsProviderEditor` for both
-remote and local providers. Local models are managed inside that editor; they
-are not a separate Settings page. `ModelsDownloadSheet(store:modelID:category:)`
-provides the same filtered catalog and cancellable installer used by Fritz.
+`ModelsCatalogView(store:runtime:location:)` supplies separate Local Models and
+Remote Models lists in Fritz's model windows. Remote rows represent saved
+provider connections or unconfigured presets (including Ollama), with recent-first, comma-separated
+model summaries truncated at the tail. `ModelsStore.pickerModels` combines
+ready connections with local downloads and the bundled remote chat catalog;
+unconfigured entries remain candidates, not usable connection identities.
+`ModelProviderEditor(title:primaryActionTitle:content:)` supplies native sheet
+navigation and actions without custom header or palette parameters.
+`ModelsProviderEditor(initialModel:onSaved:)` presents setup for a specific
+selection, downloads a local model after confirmation when needed, and reports
+the saved connection before the host selects it. Hosts keep the originating
+conversation and its draft alive until completion or cancellation.
+
+`ModelsConfigurationScreen(store:runtime:)` remains a combined configuration
+surface for library hosts; Fritz no longer places it in Settings.
+`ModelsDownloadSheet(store:modelID:category:)` provides the filtered download
+catalog and cancellable installer. Its destination is a path-valued footer
+button rather than a separate location row.
 
 Create one `ModelsStore` and one `ModelsLocalRuntime` per app with the same
 `AgentClient`. `ModelsPreferences` supplies the app's existing nonsecret settings
@@ -621,7 +634,7 @@ thresholds. Complete provider-reported costs take precedence; local inference is
 free. Missing counters/rates and unsupported service tiers show unavailable cost.
 Total-only usage can still show tokens without inventing input/output costs.
 
-`ModelPickerPopover` accepts `supportedProviders`, `configuredProviderIDs`, and an `addProvider` callback to expose setup from provider filters. Pass configured IDs from saved connections rather than discovered models. `PickerProvider.chatProviders` supplies the supported language-model presets. `ModelsProviderEditor(initialPreset:)` selects a preset for a new connection; an existing connection retains its saved provider. `ModelPickerLabel` shares the compact composer display.
+`ModelPickerPopover` accepts `supportedProviders` and optional `configureLocalModels` routing. Local and Remote filters precede provider filters; filters only narrow choices and never open setup. `selectModel` returns the chosen value so the host can select a ready connection or present setup. All supplied chat choices remain browsable beyond the recommendation list. `PickerProvider.chatProviders` supplies language-model presets. `ModelsProviderEditor(initialModel:onSaved:)` fixes setup to a selected model and reports its saved connection. `ModelPickerLabel` shares the compact composer display.
 
 ### Registered @ references
 
@@ -674,3 +687,24 @@ private entity payloads out of display metadata; resolve them in host code. This
 API does not change the Fritz agent protocol or automatically send metadata to a
 model. Fritz.app currently registers no built-in mention sources; embedding
 hosts supply their own catalogs and send policy.
+
+`ModelsProviderStore.modelStorage` supplies a shared observable `ModelStorage`
+instance backed by the host's event stream and cancellation callback. Fritz uses
+its private agent transport. `ModelStorageLocation(storage:)` renders the native
+pop-up path control in Settings, stages selections, asks Move Models / Keep Existing
+/ Cancel when needed, and presents native cancellable progress.
+`ModelStorageDestination(storage:)` shows a read-only destination and Change button
+in download/setup views. It uses the native openSettings action and sets
+`settingsRequestID`; the host selects General, reveals its storage preference, and consumes the request
+so ordinary Settings commands retain the selected page. `ModelProviderEditor` takes
+an optional `modelStorage` instead of per-download directory/chooser parameters.
+Hosts must implement durable default/location handling and relocation semantics;
+Fritz's standalone implementation lives in `model_storage`. Existing installed
+models continue to resolve through explicit saved per-model locations.
+
+Targeted native-model setup uses the internal `LocalModelSetupSheet` with a native
+details grid and fitted presentation sizing. Labels and values share leading
+alignment, with consistent row spacing and content margins. It keeps records, the read-only
+storage destination/Settings action, progress and error feedback in one content
+flow. Generic and remote setup retain `ModelProviderEditor`; installation/save
+state, cancellation and originating-chat selection remain in `ModelsProviderEditor`.

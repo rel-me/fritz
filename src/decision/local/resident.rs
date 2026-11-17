@@ -37,6 +37,11 @@ impl ResidentOllaya {
         );
         let directory = std::fs::canonicalize(store.installed_path(model).await?)
             .context("Could not resolve the installed decision model directory.")?;
+        let storage_use = pin
+            .files
+            .iter()
+            .map(|file| crate::model_storage::use_file(&directory.join(&file.file)))
+            .collect::<Result<Vec<_>>>()?;
         let (jobs, receiver) = mpsc::sync_channel::<Job>(1);
         let busy = Arc::new(AtomicBool::new(false));
         let worker_busy = Arc::clone(&busy);
@@ -44,6 +49,7 @@ impl ResidentOllaya {
         std::thread::Builder::new()
             .name("resident-ollaya-decision".into())
             .spawn(move || {
+                let _storage_use = storage_use;
                 let mut loaded: Option<LoadedModel> = None;
                 let mut failure: Option<String> = None;
                 while let Ok(job) = receiver.recv() {

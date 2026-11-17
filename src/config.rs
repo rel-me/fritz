@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 pub mod migration;
-mod model_locations;
+pub(crate) mod model_locations;
 pub use model_locations::ModelLocationStore;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, clap::ValueEnum)]
@@ -179,12 +179,16 @@ pub fn data_dir() -> PathBuf {
 }
 
 /// Model weights can be shared independently from provider and conversation data.
-pub fn models_dir() -> PathBuf {
+pub fn default_models_dir() -> PathBuf {
     std::env::var_os("FRITZ_MODELS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join("Models")
         })
+}
+
+pub fn models_dir() -> Result<PathBuf> {
+    crate::model_storage::directory(&data_dir(), &default_models_dir())
 }
 
 pub fn model_directories() -> Result<std::collections::BTreeMap<String, PathBuf>> {

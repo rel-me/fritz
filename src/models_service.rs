@@ -267,9 +267,7 @@ impl ModelsService {
                         .as_str()
                         .context("Choose a local model.")?;
                     store.download(id, &emit).await?;
-                    if let Some(directory) = directory {
-                        self.model_locations.remember(id, &directory)?;
-                    }
+                    self.model_locations.remember(id, store.directory_for(id))?;
                     Ok(json!({"modelId":id,"installed":true}))
                 } else {
                     match params["modelId"].as_str() {
@@ -295,9 +293,7 @@ impl ModelsService {
                         .as_str()
                         .context("Choose a local decision model.")?;
                     store.download(id, &emit).await?;
-                    if let Some(directory) = directory {
-                        self.model_locations.remember(id, &directory)?;
-                    }
+                    self.model_locations.remember(id, store.directory_for(id))?;
                     Ok(json!({"modelId":id,"installed":true}))
                 } else {
                     store.inventory(params["modelId"].as_str()).await

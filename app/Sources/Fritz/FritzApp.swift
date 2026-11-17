@@ -1,3 +1,4 @@
+import FritzUI
 import FritzUpdates
 import Fritz
 import SwiftUI
@@ -10,11 +11,9 @@ import SwiftUI
     let localModels: LocalModelRuntimeStore
     let settings: AppSettings
     var settingsTab: FritzSettingsTab {
-        settings.selectedTab == "localModels" ? .providers : FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
+        FritzSettingsTab(rawValue: settings.selectedTab) ?? .general
     }
     var isCreatingProject = false
-    var editor: ProviderEditorSelection?
-    var showsLocalModelDownload = false
 
     init() {
         let agent = AgentClient()
@@ -32,10 +31,7 @@ import SwiftUI
     func selectSettings(_ tab: FritzSettingsTab) {
         settings.selectedTab = tab.rawValue
     }
-    func newLocalModel() {
-        selectSettings(.providers)
-        showsLocalModelDownload = true
-    }
+
 }
 
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
@@ -47,6 +43,10 @@ import SwiftUI
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowWillBeginSheet(_:)),
             name: NSWindow.willBeginSheetNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(windowDidUpdate(_:)),
+            name: NSWindow.didUpdateNotification, object: nil
         )
         for window in NSApp.windows {
             window.preventsApplicationTerminationWhenModal = false
@@ -63,6 +63,16 @@ import SwiftUI
         // The sheet is attached after this notification is sent.
         DispatchQueue.main.async {
             window.attachedSheet?.preventsApplicationTerminationWhenModal = false
+        }
+    }
+
+    @objc private func windowDidUpdate(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window.isSheet, window.preventsApplicationTerminationWhenModal else { return }
+        // SwiftUI can finalize a fitted sheet's modal policy after it becomes key.
+        DispatchQueue.main.async { [weak window] in
+            guard let window, window.isSheet, window.preventsApplicationTerminationWhenModal else { return }
+            window.preventsApplicationTerminationWhenModal = false
         }
     }
 
@@ -103,7 +113,6 @@ struct FritzApp: App {
     @State private var state = FritzState.shared
     @StateObject private var updater = AppUpdater(updateChannel: AppUpdateChannel(rawValue: FritzState.shared.settings.updateChannel) ?? .release)
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
 
     init() {
         (AppAppearance(rawValue: FritzState.shared.settings.appearance) ?? .system).apply(to: NSApplication.shared)
@@ -149,8 +158,8 @@ struct FritzApp: App {
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Chat") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
                 Divider()
-                Button("New Model") { state.editor = ProviderEditorSelection(); openWindow(id: "main") }
-                Button("New Local Model") { state.newLocalModel(); openSettings() }
+                Button("New Local Model") { openWindow(id: "local-models") }
+                Button("New Remote Model") { openWindow(id: "remote-models") }
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
@@ -158,9 +167,28 @@ struct FritzApp: App {
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
             CommandMenu("Models") {
-                Button("Models…") { state.selectSettings(.providers); openSettings() }
+                Button("Local Models…") { openWindow(id: "local-models") }
+                Button("Remote Models…") { openWindow(id: "remote-models") }
             }
         }
+
+        Window("Local Models", id: "local-models") {
+            ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .local)
+                .frame(minWidth: 640, minHeight: 400)
+        }
+        .defaultSize(width: 900, height: 620)
+        .defaultLaunchBehavior(.suppressed)
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
+
+        Window("Remote Models", id: "remote-models") {
+            ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .remote)
+                .frame(minWidth: 800, minHeight: 520)
+        }
+        .defaultSize(width: 900, height: 620)
+        .defaultLaunchBehavior(.suppressed)
+        .windowStyle(.titleBar)
+        .windowToolbarStyle(.unified(showsTitle: true))
 
         Window("Browser", id: "browser") {
             BrowserWindow()
@@ -176,12 +204,12 @@ struct FritzApp: App {
         .defaultSize(width: 900, height: 580)
         .fritzWindowStyle()
     }
+
 }
 
 private struct FritzWorkspaceView: View {
     @Bindable var state: FritzState
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
     @State private var isRightPanelPresented = false
 
     var body: some View {
@@ -198,8 +226,8 @@ private struct FritzWorkspaceView: View {
                 }
                 if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
-                                            openProviders: openProviders,
-                                            addProvider: { state.editor = ProviderEditorSelection(preset: $0) })
+                                            localModels: state.localModels,
+                                            openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") })
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
@@ -247,12 +275,18 @@ private struct FritzWorkspaceView: View {
                 WindowNewItemMenu(canCreateThread: !state.workspace.projects.isEmpty,
                                   createProject: { state.isCreatingProject = true },
                                   createThread: state.newThread,
-                                  createProvider: { state.editor = ProviderEditorSelection() },
-                                  createLocalModel: { state.newLocalModel(); openSettings() })
+                                  createRemoteModel: { openWindow(id: "remote-models") },
+                                  createLocalModel: { openWindow(id: "local-models") })
             }
-            ToolbarItem(placement: .principal) {
-                Button("Models", systemImage: "cpu") { openProviders() }
-                    .labelStyle(.iconOnly).buttonStyle(FritzButtonStyle(.toolbar)).help("Models")
+            ToolbarItemGroup(placement: .principal) {
+                Button("Local Models", systemImage: "cpu") { openWindow(id: "local-models") }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(FritzButtonStyle(.toolbar))
+                    .help("Local Models")
+                Button("Remote Models", systemImage: "network") { openWindow(id: "remote-models") }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(FritzButtonStyle(.toolbar))
+                    .help("Remote Models")
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 newThreadToolbarButton
@@ -267,7 +301,6 @@ private struct FritzWorkspaceView: View {
         .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
-        .sheet(item: $state.editor) { ProviderEditor(store: state.providers, localModels: state.localModels, existing: $0.connection, initialPreset: $0.preset) }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {
@@ -287,8 +320,5 @@ private struct FritzWorkspaceView: View {
             .disabled(state.workspace.projects.isEmpty || !state.workspace.canSave)
     }
 
-    private func openProviders() {
-        state.selectSettings(.providers)
-        openSettings()
-    }
+
 }

@@ -13,6 +13,8 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `providers.remove` | `id` | Updated registry |
 | `providers.default` | `id` | Updated registry |
 | `models.list` | `connectionId`, or draft `connection` and optional `apiKey` | `models` array |
+| `modelStorage.info` | `{}` | `directory`, `modelCount`, `bytes`, optional `warning` for the current default folder |
+| `modelStorage.change` | `directory`, `previousDirectory`, `moveModels` boolean | Updated storage info; progress events carry `completed`, `total`, `file` |
 | `localModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned catalog entries with `id`, `name`, `size`, download `directory`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId`, optional absolute `directory` | Download progress, then `modelId` and `installed: true`; saves the selected folder after success |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
@@ -300,3 +302,31 @@ relative `fritz-harness` and `fritz-decision-harness` symlinks to it. The invoke
 filename selects the entry point before argument parsing. The agent, chat
 harnesses, and decision harnesses remain separate processes with their existing
 private pipes, cancellation, and lifecycle contracts.
+
+## App-wide model storage
+
+Standalone Fritz persists the default in `model_locations.sqlite`, alongside
+per-model location records. A new namespace defaults to `FRITZ_MODELS_DIR` or
+`~/Models`; a saved Model Storage choice takes precedence. Embedded ModelsService
+hosts retain ownership of their supplied directories/databases; the standalone
+`modelStorage.*` methods are handled by Fritz's agent, not an implicit global
+storage implementation in the embedded service. FritzUI hosts supply the
+`ModelStorage` transport on `ModelsProviderStore`.
+
+`modelStorage.change` rejects stale `previousDirectory` proposals and invalid,
+unwritable, or nested destinations. With `moveModels=false`, existing model files
+keep explicit locations and future downloads use the new default. With true, only
+catalog files in the previous default are copied; files in other saved folders and
+unrelated files are untouched. Sources and pre-existing destination files must match
+catalog size/hash; conflicts are never overwritten. Copy progress is cancellable.
+Temporary files use unique names and verified complete files are published without
+replacement; an interrupted pre-commit operation leaves the previous setting and
+originals intact. A forced process termination may leave an unreferenced temporary
+copy. Retrying reuses complete verified copies.
+
+After destination files are synced, one SQLite transaction saves the preference and
+per-model mappings. Original-file cleanup follows synchronously after commit. A
+cleanup error returns the new setting with an actionable `warning`; it does not
+pretend the setting change rolled back. Setting changes exclude active downloads;
+relocation additionally takes file/directory use locks so affected loaded models
+must stop first. Cancellation and stdin closure release locks normally.

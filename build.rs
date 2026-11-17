@@ -45,6 +45,28 @@ fn main() {
         println!("cargo:rerun-if-env-changed={name}");
         env::var_os(name).hash(&mut native_key);
     }
+    // CMake 4 leaves the sysroot empty by default. Resolve it through the
+    // selected Xcode so /usr/bin/cc cannot pick an unrelated CLT SDK.
+    let sdk = env::var_os("SDKROOT")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            let output = Command::new("xcrun")
+                .args(["--sdk", "macosx", "--show-sdk-path"])
+                .output()
+                .expect("could not resolve the selected Xcode macOS SDK");
+            assert!(
+                output.status.success(),
+                "xcrun could not resolve the macOS SDK"
+            );
+            let path = String::from_utf8(output.stdout).expect("macOS SDK path is not UTF-8");
+            assert!(
+                !path.trim().is_empty(),
+                "xcrun returned an empty macOS SDK path"
+            );
+            PathBuf::from(path.trim())
+        });
+    sdk.hash(&mut native_key);
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap())
         .join(format!("llama-{:016x}", native_key.finish()));
     let arch = match env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str() {
@@ -62,6 +84,7 @@ fn main() {
         .arg(&out)
         .arg(format!("-DCMAKE_BUILD_TYPE={profile}"))
         .arg(format!("-DCMAKE_OSX_ARCHITECTURES={arch}"))
+        .arg(format!("-DCMAKE_OSX_SYSROOT={}", sdk.display()))
         .arg("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"));
     run(Command::new("cmake")
         .arg("--build")
