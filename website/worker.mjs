@@ -1,3 +1,4 @@
+import { recordNetworkUnique, excludedRequest } from "./network-uniques.mjs";
 import { latestDownload } from "./public/appcast.mjs";
 
 const ARCHIVE_PATH = /^\/updates\/(Fritz-\d+\.\d+\.\d+\.dmg)$/;
@@ -50,6 +51,18 @@ async function serveObject(request, bucket, key, contentType, cacheControl) {
 
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.pathname === "/analytics/exclude") {
+      const headers = { "cache-control": "no-store", "content-type": "text/html; charset=utf-8",
+        "content-security-policy": "default-src 'none'; form-action 'self'; frame-ancestors 'none'" };
+      if (request.method === "POST") {
+        if (request.headers.get("origin") !== url.origin) return new Response("Forbidden", { status: 403 });
+        return new Response(null, { status: 303, headers: { ...headers, location: url.pathname,
+          "set-cookie": "__Host-analytics_excluded=1; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=31536000" } });
+      }
+      if (request.method === "GET") return new Response('<!doctype html><title>Exclude testing</title><h1>Exclude this browser</h1><form method="post"><button>Exclude future requests</button></form>', { headers });
+      return new Response("Method not allowed", { status: 405 });
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     }
@@ -66,8 +79,12 @@ export default {
     }
     if (path === "/appcast.xml") {
       const response = await serveObject(request, env.UPDATES, "appcast.xml", "application/xml; charset=utf-8", "no-store");
-      if (request.method === "GET" && [200, 304].includes(response.status)) {
-        // Store only a daily total. No requester or installation metadata is read.
+      const agent = request.headers.get("user-agent") ?? "";
+      const releaseUpdater = /^Fritz\/[^ ]+\s+Sparkle\//.test(agent);
+      const debug = /FritzDebug/i.test(agent) || request.headers.get("x-fritz-runtime") === "debug";
+      const prefetch = /prefetch|prerender/i.test(`${request.headers.get("purpose") ?? ""} ${request.headers.get("sec-purpose") ?? ""}`);
+      if (request.method === "GET" && [200, 304].includes(response.status) && releaseUpdater && !debug && !prefetch && !excludedRequest(request, env)) {
+        // Aggregate feed requests, with optional daily network pseudonyms, never app events.
         ctx.waitUntil((async () => {
           try {
             const result = await env.DB.prepare(`INSERT INTO update_check_counts (app_id, day, version, runtime, checks)
@@ -75,6 +92,7 @@ export default {
               ON CONFLICT (app_id, day, version, runtime) DO UPDATE SET checks = checks + 1`)
               .bind(new Date().toISOString().slice(0, 10)).run();
             if (!result.success) throw new Error("D1 write failed");
+            await recordNetworkUnique(request, env, "dev.fritz.app");
           } catch {
             console.error("Fritz update-request counting failed.");
           }
