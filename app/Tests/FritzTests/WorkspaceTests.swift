@@ -233,6 +233,14 @@ import FritzUpdates
         XCTAssertEqual(body.reduce(0) { $0 + $1.utf8.count }, 4 * 64 * 1024)
         let tool = try await workspace.repository.tool(last.id, callID: "fixture-tool")
         XCTAssertEqual(tool?.result?.utf8.count, 32000)
+        for _ in 0..<6 { await chat.older() }
+        XCTAssertEqual(chat.messages.count, 120)
+        XCTAssertEqual(chat.messages.first?.sequence, 99681)
+        XCTAssertTrue(chat.hasNewer)
+        await chat.newer()
+        XCTAssertEqual(chat.messages.first?.sequence, 99721)
+        await chat.latest()
+        XCTAssertEqual(chat.messages.map(\.sequence), Array(99961...100000))
 
         let thread = try XCTUnwrap(workspace.selectedThreadID)
         var latencies: [Duration] = []

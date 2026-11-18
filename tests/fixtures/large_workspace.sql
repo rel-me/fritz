@@ -7,10 +7,10 @@ INSERT INTO projects(position,id,name,created_at)
 SELECT x, printf('00000000-0000-4000-8000-%012d', x), printf('Fixture Project %d',x), 1 FROM n;
 
 WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000)
-INSERT INTO threads(position,id,project_id,title,archived,created_at,updated_at)
+INSERT INTO threads(position,id,project_id,title,automatic_title,archived,created_at,updated_at)
 SELECT x, printf('10000000-0000-4000-8000-%012d', x),
        printf('00000000-0000-4000-8000-%012d', min((x-1)/19+1,5000)),
-       printf('Fixture Thread %d',x), x%7=0, 1, 1 FROM n;
+       printf('Fixture Thread %d',x), 0, x%7=0, 1, 1 FROM n;
 
 UPDATE navigation SET thread_id = '10000000-0000-4000-8000-000000100000';
 UPDATE threads SET next_sequence = 100001 WHERE position = 100000;

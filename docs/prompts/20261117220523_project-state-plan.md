@@ -14,4 +14,4 @@
 
 ## PR monitoring delegation
 
-> Monitor the project-state PR once published. Follow the latest head until all required checks pass. Diagnose and fix failures attributable to this PR in the existing branch, commit and push any fix, then monitor the new head again. Report observed checks and any exact blocker. Preserve unrelated changes and do not merge the PR.
+> Monitor the project-state PR #124 once published. Follow the latest head until all required checks pass. Diagnose and fix failures attributable to this PR in the existing branch, commit and push any fix, then monitor the new head again. Report observed checks and any exact blocker. Preserve unrelated changes and do not merge the PR. Worktree /Users/local/.codex/worktrees/project-state-plan/fritz. I am doing staged UI verification and might push a follow-up. Coordinate before editing so tests and build do not read concurrently changed sources.
