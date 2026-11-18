@@ -12,6 +12,37 @@ pub(crate) const SYSTEM: &str = "You are Fritz, a personal assistant in a native
 pub struct Message {
     pub role: String,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<HistoricalTool>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoricalTool {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+    pub result: String,
+    pub failed: bool,
+}
+
+impl HistoricalTool {
+    pub(crate) fn exchange(&self) -> Result<(crate::harness::Call, fritz_harness::ToolResult)> {
+        let arguments: Value = serde_json::from_str(&self.arguments)?;
+        anyhow::ensure!(
+            arguments.is_object(),
+            "Historical tool arguments must be an object."
+        );
+        let result = serde_json::from_str(&self.result)?;
+        Ok((
+            crate::harness::Call {
+                id: self.id.clone(),
+                name: self.name.clone(),
+                arguments: self.arguments.clone(),
+            },
+            fritz_harness::ToolResult::json(result, self.failed),
+        ))
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -20,6 +51,8 @@ pub struct ChatRequest {
     pub connection_id: String,
     pub model: String,
     pub messages: Vec<Message>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_version: Option<u8>,
     #[serde(default)]
     pub effort: Option<String>,
     #[serde(default)]
@@ -376,14 +409,63 @@ pub(crate) fn payload(
     {
         bail!("This conversation is too large. Start a new chat.");
     }
+    if let Some(version) = request.history_version {
+        anyhow::ensure!(version == 1, "Unsupported chat history version.");
+        let max = if connection.provider == ProviderKind::Fritz {
+            4_800
+        } else {
+            16_000
+        };
+        anyhow::ensure!(
+            serde_json::to_vec(&request.messages)?.len() <= max,
+            "Chat history exceeds the workspace context limit."
+        );
+    }
+    let mut tool_ids = std::collections::HashSet::new();
+    for message in &request.messages {
+        if message.tools.is_empty() {
+            continue;
+        }
+        anyhow::ensure!(
+            request.history_version == Some(1)
+                && message.role == "assistant"
+                && connection.provider != ProviderKind::Gemini
+                && message.tools.len() <= 64,
+            "Invalid historical tool exchange."
+        );
+        for tool in &message.tools {
+            anyhow::ensure!(
+                tool.name.len() <= 64
+                    && !tool.name.is_empty()
+                    && tool
+                        .name
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+                    && tool.id.len() <= 64
+                    && !tool.id.is_empty()
+                    && tool
+                        .id
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+                    && tool_ids.insert(&tool.id),
+                "Invalid historical tool identity."
+            );
+            tool.exchange()?;
+        }
+    }
+    let plain_messages: Vec<_> = request
+        .messages
+        .iter()
+        .map(|m| json!({"role":m.role,"content":m.content}))
+        .collect();
     let messages = || {
         let mut messages = vec![json!({"role":"system", "content":SYSTEM})];
-        messages.extend(request.messages.iter().map(|m| json!(m)));
+        messages.extend(plain_messages.iter().cloned());
         messages
     };
     Ok(match connection.provider {
         ProviderKind::Openai => {
-            let mut body = json!({"model":request.model,"instructions":SYSTEM,"input":request.messages,"stream":true,"store":false});
+            let mut body = json!({"model":request.model,"instructions":SYSTEM,"input":plain_messages,"stream":true,"store":false});
             let model = request.model.to_lowercase();
             let metadata = openai_metadata(&model);
             if metadata.is_some_and(|entry| matches!(entry.status, OpenAIModelStatus::Retired)) {
@@ -413,7 +495,7 @@ pub(crate) fn payload(
         }
         ProviderKind::Anthropic => (
             "messages",
-            json!({"model":request.model,"system":SYSTEM,"messages":request.messages,"max_tokens":8192,"stream":true}),
+            json!({"model":request.model,"system":SYSTEM,"messages":plain_messages,"max_tokens":8192,"stream":true}),
         ),
         ProviderKind::Gemini => (
             "gemini",
@@ -843,11 +925,13 @@ mod tests {
         let models = discover_with_key(&connection, None).await.unwrap();
         assert_eq!(models[0].id, "jev-latest");
         let request = ChatRequest {
+            history_version: None,
             connection_id: connection.id.to_string(),
             model: "jev-latest".into(),
             messages: vec![Message {
                 role: "user".into(),
                 content: "Hi".into(),
+                tools: vec![],
             }],
             effort: None,
             speed: None,
@@ -953,11 +1037,13 @@ mod tests {
             model_id: String::new(),
         };
         let mut request = ChatRequest {
+            history_version: None,
             connection_id: connection.id.to_string(),
             model: "gpt-6.1-sol".into(),
             messages: vec![Message {
                 role: "user".into(),
                 content: "Hi".into(),
+                tools: vec![],
             }],
             effort: Some("max".into()),
             speed: Some("priority".into()),
@@ -1002,11 +1088,13 @@ mod tests {
             model_id: String::new(),
         };
         let request = ChatRequest {
+            history_version: None,
             connection_id: connection.id.to_string(),
             model: "custom".into(),
             messages: vec![Message {
                 role: "user".into(),
                 content: "Hi".into(),
+                tools: vec![],
             }],
             effort: Some("high".into()),
             speed: Some("priority".into()),

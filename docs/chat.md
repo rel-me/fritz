@@ -13,9 +13,11 @@ message; project and thread context menus also offer Rename.
 Chat uses REL’s native conversation layout: a floating composer, compact live tool
 activity, and a “Worked for…” summary above each completed answer. Expand the summary to
 review all tool calls, then click a call to inspect its arguments and result.
-Interrupted responses retain their work with an interrupted status. Older tool records
-without timing show “Work details.” Scroll up to read without being pulled down by
-incoming text; **Jump** returns to the latest response.
+Interrupted responses retain their last saved text and tool activity. A tool
+without a recorded result may have taken effect. Review the activity before
+retrying. Chats open on their latest messages. Scroll up to load earlier pages,
+or use **Load Older Messages**. **Jump** returns to the latest response.
+Use **Read Full Message** to open the paged text of an unusually large message.
 
 The **+** and **File** menus also offer **New Model** to add a connection and **New
 Local Model** to open the download chooser in Settings.
@@ -51,7 +53,8 @@ selections.
 The message field receives focus when opening or switching threads, without a focus
 border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N
 creates a chat, ⇧⌘N opens New Project, and ⌘, opens Settings. The toolbar opens its
-Models page directly. Projects and the selected thread are restored on the next launch.
+Models page directly. Projects and the selected thread are restored on the next launch. Large sidebars
+page projects and the expanded project's threads independently.
 Switching threads keeps an in-progress response attached to its original thread.
 
 ## Activity and usage
@@ -71,3 +74,10 @@ There is no bottom panel.
 Thread context menus offer Archive Thread and Delete Thread. Archived threads retain their history and drafts; enable Show Archived Threads in the sidebar to restore them. Deleting a thread asks for confirmation and permanently removes its messages and settings.
 
 If a project folder is missing or inaccessible, its threads are disabled. Right-click the project and choose **Recreate Folder** to restore the saved path or **Choose Another Folder…** to select an existing folder. Choosing another folder preserves conversations and uses the replacement folder for future actions. Folder availability is checked while the app is open and when it becomes active.
+
+## Switching to the project database
+
+The first launch using `projects.sqlite` starts with an empty project sidebar.
+Earlier projects, threads, and drafts stay in the old database on disk. App
+settings, provider connections, and model locations carry forward. Project
+folders and their files stay where they are.

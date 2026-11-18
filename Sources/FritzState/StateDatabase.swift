@@ -27,7 +27,9 @@ public final class StateDatabase: @unchecked Sendable {
     private var handle: OpaquePointer?
     private var inTransaction = false
 
-    public init(url: URL, migrations: [String], schema: [String: [String]]) throws {
+    public init(url: URL, migrations: [String], schema: [String: [String]],
+                checkDataOnOpen: Bool = true, allowAdditionalTables: Bool = false,
+                durableCommits: Bool = false) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let descriptor = Darwin.open(url.path, O_CREAT | O_RDWR, 0o600)
         guard descriptor >= 0 else { throw StateDatabaseError("Could not create or open state database.") }
@@ -41,7 +43,7 @@ public final class StateDatabase: @unchecked Sendable {
         do {
             try enableWAL()
             sqlite3_busy_timeout(handle, 5_000)
-            try executeScript("PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA wal_autocheckpoint = 1000; PRAGMA journal_size_limit = 67108864;")
+            try executeScript("PRAGMA foreign_keys = ON; PRAGMA synchronous = \(durableCommits ? "FULL" : "NORMAL"); PRAGMA wal_autocheckpoint = 1000; PRAGMA journal_size_limit = 67108864;")
             try transaction {
                 let version = Int(try query("PRAGMA user_version").first?["user_version"]?.integer ?? 0)
                 guard version >= 0, version <= migrations.count else { throw StateDatabaseError("State database is newer than this build supports.") }
@@ -50,7 +52,8 @@ public final class StateDatabase: @unchecked Sendable {
                     try executeScript(migrations[index])
                     try executeScript("PRAGMA user_version = \(index + 1)")
                 }
-                try validate(schema)
+                try validate(schema, allowAdditionalTables: allowAdditionalTables)
+                if checkDataOnOpen { try checkIntegrity() }
             }
             for suffix in ["-wal", "-shm"] where FileManager.default.fileExists(atPath: url.path + suffix) {
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path + suffix)
@@ -165,12 +168,18 @@ public final class StateDatabase: @unchecked Sendable {
         Set(try query("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").compactMap { $0["name"]?.string })
     }
 
-    private func validate(_ schema: [String: [String]]) throws {
-        guard try tableNames() == Set(schema.keys) else { throw StateDatabaseError("State database contains missing or unsupported tables.") }
+    private func validate(_ schema: [String: [String]], allowAdditionalTables: Bool) throws {
+        let names = try tableNames()
+        guard allowAdditionalTables ? Set(schema.keys).isSubset(of: names) : names == Set(schema.keys) else { throw StateDatabaseError("State database contains missing or unsupported tables.") }
         for (table, columns) in schema {
             let actual = Set(try query("SELECT name FROM pragma_table_info(?)", [.text(table)]).compactMap { $0["name"]?.string })
             guard Set(columns).isSubset(of: actual) else { throw StateDatabaseError("State database is missing required columns in \(table).") }
         }
+    }
+
+    /// Runs the data-wide checks on demand. Large stores can opt out of running these at open.
+    public func checkIntegrity() throws {
+        lock.lock(); defer { lock.unlock() }
         guard try query("PRAGMA foreign_key_check").isEmpty else { throw StateDatabaseError("State database contains invalid references.") }
         guard try query("PRAGMA quick_check").first?["quick_check"]?.string == "ok" else { throw StateDatabaseError("State database failed its integrity check.") }
     }

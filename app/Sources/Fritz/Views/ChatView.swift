@@ -16,9 +16,12 @@ struct ChatView: View {
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
-    @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
+    @State private var scrollPosition = ScrollPosition(idType: UUID.self, edge: .bottom)
     @State private var isScrollingTranscript = false
-    private static let transcriptBottomID = "chat-transcript-bottom"
+    @State private var bodyEntry: ChatMessage?
+    @State private var viewportHeight: CGFloat = 0
+    @State private var rowFrames: [UUID: CGRect] = [:]
+    @State private var historyAnchor: HistoryAnchor?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -50,6 +53,7 @@ struct ChatView: View {
                     },
                     stop: store.stop
                 )
+                .disabled(!store.isReady)
             }
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
@@ -63,7 +67,7 @@ struct ChatView: View {
         .task {
             // Let the previous thread release its field before focusing this one.
             await Task.yield()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, store.isReady else { return }
             isFocused = true
         }
         .sheet(item: $setupModel) { model in
@@ -76,27 +80,52 @@ struct ChatView: View {
             }
         }
         .onAppear(perform: synchronizeModel)
-        .onDisappear { selectionTask?.cancel(); store.savePreferences() }
+        .onDisappear { selectionTask?.cancel() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
-        .onChange(of: store.effort) { _, _ in store.savePreferences() }
-        .onChange(of: store.speed) { _, _ in store.savePreferences() }
+        .onChange(of: store.isReady) { _, ready in
+            if ready {
+                synchronizeModel()
+                isFocused = true
+            }
+        }
+        .sheet(item: $bodyEntry) { entry in
+            ChatStoredBody(entry: entry, repository: store.repository)
+        }
         .onChange(of: store.isResponding) { _, responding in if !responding { synchronizeModel() } }
     }
 
     private var transcript: some View {
         ScrollView {
-            // Markdown reflows when the window or inspector changes width. Measure
-            // every row so scroll bounds and bottom anchoring use actual heights.
+            // ChatStore bounds this window. Measure Markdown rows so paging can
+            // restore the reading position using their actual heights.
             VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+                if store.hasOlder {
+                    Button("Load Older Messages") { loadHistory(older: true) }
+                        .disabled(store.isPaging)
+                }
                 ForEach(store.messages) { message in
+                    let isActive = store.activeEntryID == message.id
+                    let isEdge = message.id == store.messages.first?.id || message.id == store.messages.last?.id
                     ChatMessageRow(
                         message: message,
-                        isActive: store.isResponding && message.id == store.messages.last?.id,
-                        activity: store.activity
+                        isActive: isActive,
+                        activity: isActive ? store.activity : nil,
+                        activeTools: isActive ? store.activeTools : [],
+                        repository: store.repository,
+                        openBody: { bodyEntry = message }
                     )
                     .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
-                    .id(message.id.uuidString)
+                    .onGeometryChange(for: CGRect?.self) { proxy in
+                        isEdge ? proxy.frame(in: .scrollView) : nil
+                    } action: { frame in
+                        rowFrames[message.id] = frame
+                    }
+                    .onDisappear { rowFrames.removeValue(forKey: message.id) }
+                }
+                if store.hasNewer {
+                    Button("Load Newer Messages") { loadHistory(older: false) }
+                        .disabled(store.isPaging)
                 }
                 if let error = store.error ?? store.agent.startupError {
                     VStack(alignment: .leading, spacing: 8) {
@@ -111,7 +140,6 @@ struct ChatView: View {
                 }
                 Color.clear
                     .frame(height: max(1, composerHeight + 8))
-                    .id(Self.transcriptBottomID)
             }
             .scrollTargetLayout()
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
@@ -123,7 +151,18 @@ struct ChatView: View {
         .scrollClipDisabled(extendsTranscriptBehindToolbar)
         .defaultScrollAnchor(scrollState.followsLatest ? .bottom : nil, for: .sizeChanges)
         .scrollPosition($scrollPosition)
-        .onChange(of: store.messages) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.messages.last?.content) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.messages.last?.id) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.windowRevision) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: historyAnchor) { _, anchor in
+            guard let anchor else { return }
+            // The updated scroll targets are registered after this view update.
+            DispatchQueue.main.async {
+                guard historyAnchor == anchor else { return }
+                scrollPosition.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0.5, y: anchor.offset))
+                historyAnchor = nil
+            }
+        }
         .onChange(of: store.activity) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.error) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.agent.startupError) { _, _ in scrollToLatestIfFollowing() }
@@ -142,7 +181,11 @@ struct ChatView: View {
                 visibleBottom: geometry.visibleRect.maxY
             )
         } action: { old, new in
-            scrollState.update(to: new, isUserScrolling: isScrollingTranscript)
+            viewportHeight = new.viewportHeight
+            if !store.hasNewer { scrollState.update(to: new, isUserScrolling: isScrollingTranscript) }
+            if isScrollingTranscript && new.visibleBottom < new.viewportHeight + 96 && store.hasOlder {
+                loadHistory(older: true)
+            }
             if old.contentHeight != new.contentHeight || old.viewportHeight != new.viewportHeight {
                 scrollToLatestIfFollowing()
             }
@@ -150,8 +193,12 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             if !scrollState.followsLatest {
                 Button {
-                    scrollState = ChatScrollState()
-                    scrollPosition.scrollTo(edge: .bottom)
+                    historyAnchor = nil
+                    Task {
+                        await store.latest()
+                        scrollState = ChatScrollState()
+                        scrollPosition.scrollTo(edge: .bottom)
+                    }
                 } label: {
                     Label("Jump", systemImage: "arrow.down")
                         .padding(.horizontal, 12)
@@ -171,7 +218,7 @@ struct ChatView: View {
     }
 
     private func scrollToLatestIfFollowing() {
-        guard scrollState.followsLatest, !isScrollingTranscript else { return }
+        guard scrollState.followsLatest, !isScrollingTranscript, !store.hasNewer else { return }
         scrollPosition.scrollTo(edge: .bottom)
     }
 
@@ -198,14 +245,31 @@ struct ChatView: View {
         }
     }
 
-    private func synchronizeModel() {
-        guard providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
-        if let selected = store.selectedModel, let current = providers.models.first(where: { $0.id == selected.id }) {
-            if current != selected { store.select(current) }
-            return
+    private func loadHistory(older: Bool) {
+        guard !store.isPaging else { return }
+        scrollState = ChatScrollState(followsLatest: false)
+        // Loading is triggered at a transcript edge. Keep the old edge
+        // message visible, with its measured offset when it was on screen.
+        guard let id = (older ? store.messages.first : store.messages.last)?.id else { return }
+        let frame = rowFrames[id]
+        let distance = viewportHeight - (frame?.height ?? 0)
+        let offset = abs(distance) > 1 ? (frame?.minY ?? 0) / distance : 0
+        Task {
+            let revision = store.windowRevision
+            if older { await store.older() } else { await store.newer() }
+            guard store.windowRevision != revision, store.messages.contains(where: { $0.id == id }) else { return }
+            historyAnchor = HistoryAnchor(id: id, offset: offset)
         }
-        if let model = providers.defaultModel { store.select(model) }
-        else { store.selectedModel = nil }
+    }
+
+    private struct HistoryAnchor: Equatable {
+        let id: UUID
+        let offset: CGFloat
+    }
+
+    private func synchronizeModel() {
+        guard store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
+        store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
     }
 }
 

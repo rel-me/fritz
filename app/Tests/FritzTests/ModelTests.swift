@@ -96,7 +96,7 @@ final class ModelTests: XCTestCase {
     @MainActor func testChangingModelsKeepsOnlySupportedReasoningAndSpeedSettings() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let store = ChatStore(agent: AgentClient(), database: AppDatabase(directory: root), threadID: UUID())
+        let store = ChatStore(agent: AgentClient(), repository: ProjectRepository(directory: root), threadID: UUID())
         store.select(ChatModelOption(connection: ProviderConnection(name: "OpenAI", provider: .openAI, modelID: "gpt-6-luna")))
         XCTAssertEqual(store.effort, .medium)
         XCTAssertEqual(store.speed, .standard)
@@ -174,32 +174,7 @@ final class ModelTests: XCTestCase {
         }
     }
 
-    @MainActor func testCorruptTranscriptSurfacesErrorWithoutOverwriting() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let url = directory.appendingPathComponent("workspace.sqlite")
-        try Data("corrupt".utf8).write(to: url)
-        let store = ChatStore(agent: AgentClient(), database: AppDatabase(directory: directory), threadID: UUID())
-        XCTAssertNotNil(store.error)
-        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "corrupt")
-    }
 
-    @MainActor func testRestoresTranscriptAndPreservesInterruptedState() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let database = AppDatabase(directory: directory)
-        let thread = ProjectThread()
-        try database.saveWorkspace(WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id))
-        let messages = [ChatMessage(role: "user", content: "Hello"), ChatMessage(role: "assistant", content: "Partial", isComplete: false)]
-        try database.save(messages: messages, preferences: ChatPreferences(draft: "", effort: .medium, speed: .standard), for: thread.id)
-        let store = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
-        XCTAssertEqual(store.messages, messages)
-        XCTAssertFalse(store.canSend)
-        store.clear()
-        XCTAssertEqual(try database.messages(for: thread.id), [])
-    }
 }
 
 private final class OfflineCatalogProtocol: URLProtocol, @unchecked Sendable {

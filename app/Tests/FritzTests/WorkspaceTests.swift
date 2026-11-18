@@ -1,5 +1,6 @@
 import XCTest
 import Fritz
+import FritzState
 import FritzUpdates
 @testable import FritzApp
 
@@ -11,112 +12,130 @@ import FritzUpdates
         return url
     }
 
-    func testArchiveRestoreAndDeletionPersistWithoutLosingOtherThreads() throws {
+    func testArchiveRestoreAndDeletionPersistWithoutLosingOtherThreads() async throws {
         let root = try directory()
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        let project = try workspace.createProject(name: "Example", directory: root)
+        await workspace.restore()
+        let project = try await workspace.createProject(name: "Example", directory: root)
         let first = try XCTUnwrap(workspace.selectedThreadID)
         workspace.selectedChat?.draft = "Keep this draft"
-        workspace.setArchived(first, true)
+        await workspace.setArchived(first, true)
         XCTAssertNil(workspace.selectedThreadID)
         let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        XCTAssertEqual(restored.projects.first?.threads.first?.isArchived, true)
-        restored.setArchived(first, false)
-        restored.select(first)
+        await restored.restore()
+        let archived = try await restored.repository.lookup(first)
+        XCTAssertEqual(archived?.thread.isArchived, true)
+        await restored.setArchived(first, false)
+        await restored.select(first)
         XCTAssertEqual(restored.selectedChat?.draft, "Keep this draft")
-        restored.createThread(in: project)
+        await restored.createThread(in: project)
         let second = try XCTUnwrap(restored.selectedThreadID)
-        restored.deleteThread(first)
-        XCTAssertNil(try restored.database.preferences(for: first))
-        XCTAssertEqual(WorkspaceStore(agent: AgentClient(), dataDirectory: root).projects.first?.threads.map(\.id), [second])
+        await restored.deleteThread(first)
+        let deleted = try await restored.repository.preferences(for: first)
+        let remaining = try await restored.repository.threads(in: project, includeArchived: true)
+        XCTAssertNil(deleted)
+        XCTAssertEqual(remaining.rows.map(\.id), [second])
     }
 
-    func testMissingProjectBlocksChatsAndRepairRebindsCachedChat() throws {
+    func testMissingProjectBlocksChatsAndRepairRebindsSelectedChat() async throws {
         let root = try directory()
         let folder = root.appendingPathComponent("Project")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        let id = try workspace.createProject(name: "Example", directory: folder)
+        await workspace.restore()
+        let id = try await workspace.createProject(name: "Example", directory: folder)
         workspace.selectedChat?.draft = "Retained"
-        workspace.selectedChat?.savePreferences()
         try FileManager.default.removeItem(at: folder)
-        workspace.refreshAvailability()
+        await workspace.refreshAvailability()
         XCTAssertNil(workspace.selectedChat)
-        workspace.createThread(in: id)
-        XCTAssertEqual(workspace.projects.first?.threads.count, 1)
-        try workspace.repairProject(id)
+        await workspace.createThread(in: id)
+        XCTAssertEqual(workspace.threads.count, 1)
+        await workspace.repairProject(id, directory: nil)
         XCTAssertEqual(workspace.selectedChat?.draft, "Retained")
         let replacement = root.appendingPathComponent("Replacement")
         try FileManager.default.createDirectory(at: replacement, withIntermediateDirectories: true)
-        try workspace.repairProject(id, directory: replacement)
+        await workspace.repairProject(id, directory: replacement)
         XCTAssertEqual(workspace.selectedChat?.projectPath, replacement.path)
-        XCTAssertEqual(WorkspaceStore(agent: AgentClient(), dataDirectory: root).selectedProject?.directory, replacement.path)
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await restored.restore()
+        XCTAssertEqual(restored.selectedProject?.directory, replacement.path)
     }
 
-    func testProjectsThreadsAndSelectionSurviveRestart() throws {
+    func testProjectsThreadsAndSelectionSurviveRestart() async throws {
         let root = try directory()
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        let projectID = try workspace.createProject(name: "Example", directory: root)
+        await workspace.restore()
+        let projectID = try await workspace.createProject(name: "Example", directory: root)
         let first = try XCTUnwrap(workspace.selectedThreadID)
-        workspace.createThread(in: projectID)
+        let firstChat = try XCTUnwrap(workspace.selectedChat)
+        firstChat.draft = "First draft"
+        let model = ChatModelOption(connection: ProviderConnection(name: "Test", provider: .openAI, modelID: "gpt-5"))
+        firstChat.select(model)
+        await workspace.createThread(in: projectID)
         let second = try XCTUnwrap(workspace.selectedThreadID)
         XCTAssertNotEqual(first, second)
-        workspace.renameThread(second, to: "Investigate a failure")
-        workspace.select(first)
+        XCTAssertTrue(workspace.selectedChat?.draft.isEmpty == true)
+        workspace.selectedChat?.draft = "Second draft"
+        await workspace.renameThread(second, to: "Investigate a failure")
+        await workspace.select(first)
+        await workspace.shutdown()
         let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        XCTAssertEqual(restored.projects.first?.threads.count, 2)
+        await restored.restore()
+        XCTAssertEqual(restored.threads.count, 2)
         XCTAssertEqual(restored.selectedThreadID, first)
-        XCTAssertEqual(restored.projects.first?.threads.last?.title, "Investigate a failure")
-    }
-
-    func testSwitchingThreadsPreservesIndependentDraftsAndModels() throws {
-        let root = try directory()
-        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        let project = try workspace.createProject(name: "Example", directory: root)
-        let firstID = try XCTUnwrap(workspace.selectedThreadID)
-        let first = try XCTUnwrap(workspace.selectedChat)
-        first.draft = "First draft"
-        first.select(ChatModelOption(id: "model-a", displayName: "A", provider: .openAI, modelID: "gpt-5"))
-        workspace.createThread(in: project)
-        let second = try XCTUnwrap(workspace.selectedChat)
-        XCTAssertTrue(second.draft.isEmpty)
-        second.draft = "Second draft"
-        workspace.shutdown()
-        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        XCTAssertEqual(restored.selectedChat?.draft, "Second draft")
-        restored.select(firstID)
+        XCTAssertEqual(restored.threads.last?.title, "Investigate a failure")
         XCTAssertEqual(restored.selectedChat?.draft, "First draft")
-        XCTAssertEqual(restored.selectedChat?.selectedModel?.id, "model-a")
+        restored.selectedChat?.synchronizeModel(models: [model], defaultModel: nil)
+        XCTAssertEqual(restored.selectedChat?.selectedModel, model)
+        await restored.select(second)
+        XCTAssertEqual(restored.selectedChat?.draft, "Second draft")
     }
 
-    func testLegacyStateIsIgnored() throws {
-        let root = try directory()
-        for name in ["chat.json", "workspace.json", "providers.json"] {
-            try Data("old state".utf8).write(to: root.appendingPathComponent(name))
-        }
-        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        XCTAssertTrue(workspace.projects.isEmpty)
-        XCTAssertTrue(workspace.canSave)
-        try workspace.createProject(name: "Fresh", directory: root)
-        XCTAssertEqual(WorkspaceStore(agent: AgentClient(), dataDirectory: root).projects.first?.name, "Fresh")
-    }
-
-    func testUnreadableWorkspaceCannotBeOverwritten() throws {
+    func testLegacyWorkspaceDataIsIgnoredButSettingsSurvive() async throws {
         let root = try directory()
         let file = root.appendingPathComponent("workspace.sqlite")
+        let old = try StateDatabase(url: file, migrations: ["""
+            CREATE TABLE projects (payload TEXT NOT NULL);
+            INSERT INTO projects VALUES ('old project');
+            CREATE TABLE settings (key TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
+            INSERT INTO settings VALUES ('appearance', '"dark"');
+            """], schema: ["projects": ["payload"], "settings": ["key", "payload"]])
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await workspace.restore()
+        XCTAssertTrue(workspace.projects.isEmpty)
+        XCTAssertTrue(workspace.canSave)
+        XCTAssertEqual(AppSettings(database: workspace.database).appearance, "dark")
+        try await workspace.createProject(name: "Fresh", directory: root)
+        XCTAssertEqual(try old.query("SELECT payload FROM projects"), [["payload": .text("old project")]])
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await restored.restore()
+        XCTAssertEqual(restored.projects.first?.name, "Fresh")
+    }
+
+    func testUnreadableWorkspaceCannotBeOverwritten() async throws {
+        let root = try directory()
+        let file = root.appendingPathComponent("projects.sqlite")
         try Data("invalid".utf8).write(to: file)
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await workspace.restore()
         XCTAssertFalse(workspace.canSave)
         XCTAssertNotNil(workspace.error)
-        XCTAssertThrowsError(try workspace.createProject(name: "New", directory: root))
+        do {
+            try await workspace.createProject(name: "New", directory: root)
+            XCTFail("An unreadable workspace must reject writes.")
+        } catch {}
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "invalid")
     }
 
-    func testDuplicateProjectFolderIsRejected() throws {
+    func testDuplicateProjectFolderIsRejected() async throws {
         let root = try directory()
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        try workspace.createProject(name: "One", directory: root)
-        XCTAssertThrowsError(try workspace.createProject(name: "Two", directory: root.appendingPathComponent(".")))
+        await workspace.restore()
+        try await workspace.createProject(name: "One", directory: root)
+        do {
+            try await workspace.createProject(name: "Two", directory: root.appendingPathComponent("."))
+            XCTFail("Normalized duplicate folder was accepted.")
+        } catch { XCTAssertEqual(error.localizedDescription, "This folder is already in your projects.") }
         XCTAssertEqual(workspace.projects.count, 1)
     }
 
@@ -126,9 +145,7 @@ import FritzUpdates
             ("  My Project  ", "My-Project"),
             ("Notes/2026: plans\\draft?*<>|\"", "Notes-2026-plans-draft-"),
             ("Two\twords\nnext\u{0000}part", "Two-words-next-part"),
-            ("../Outside", "-Outside"),
-            (".", "Project"),
-            ("..", "Project"),
+            ("../Outside", "-Outside"), (".", "Project"), ("..", "Project"),
             ("Café 日記", "Café-日記"),
         ] {
             XCTAssertEqual(WorkspaceStore.defaultProjectDirectory(name: name).path,
@@ -136,87 +153,116 @@ import FritzUpdates
         }
     }
 
-    func testProjectWithoutChosenFolderCreatesAndPersistsDefaultDirectory() throws {
-        let data = try directory()
-        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: data)
-        let prefix = "Fritz-test-\(UUID())"
-        let folder = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Documents/Fritz/\(prefix)-My-Project")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+    func testDefaultFolderIsCreatedAndPersistedAcrossLaunch() async throws {
+        let root = try directory()
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await workspace.restore()
+        let name = "Fritz-test-\(UUID()) My/Project"
+        let folder = WorkspaceStore.defaultProjectDirectory(name: name)
         addTeardownBlock { try? FileManager.default.removeItem(at: folder) }
-        let projectID = try workspace.createProject(name: "\(prefix) My/Project")
+        let project = try await workspace.createProject(name: name)
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await restored.restore()
+        XCTAssertEqual(restored.selectedProject?.id, project)
+        XCTAssertEqual(restored.selectedChat?.projectPath, folder.resolvingSymlinksInPath().path)
         var isDirectory: ObjCBool = false
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory))
         XCTAssertTrue(isDirectory.boolValue)
-        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: data)
-        XCTAssertEqual(restored.selectedProject?.id, projectID)
-        XCTAssertEqual(restored.selectedProject?.name, "\(prefix) My/Project")
-        XCTAssertEqual(restored.selectedChat?.projectPath, folder.resolvingSymlinksInPath().path)
-        // Distinct display names can normalize to the same folder; do not add it twice.
-        XCTAssertThrowsError(try workspace.createProject(name: "\(prefix) My:Project"))
-        XCTAssertEqual(workspace.projects.count, 1)
     }
 
-    func testProjectThreadsKeepTheirOwnWorkspace() throws {
+    func testInterruptedTurnRetainsTextAndReceiptsAndDoesNotReplayUnknownOutcome() async throws {
         let root = try directory()
-        let firstFolder = root.appendingPathComponent("first")
-        let secondFolder = root.appendingPathComponent("second")
-        try FileManager.default.createDirectory(at: firstFolder, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: secondFolder, withIntermediateDirectories: true)
+        let repository = ProjectRepository(directory: root)
+        let item = try await repository.createProject(name: "Test", directory: root, defaultDirectory: root)
+        let id = item.thread.id
+        let turn = UUID()
+        let model = ChatModelOption(connection: ProviderConnection(name: "Mock", provider: .openAICompatible, modelID: "fixture"))
+        _ = try await repository.beginTurn(thread: id, turn: turn, prompt: "Hello", preferences: .init(),
+                                           model: model, projectPath: item.project.directory)
+        try await repository.checkpoint(turn: turn, text: "Partial", tool: .init(id: "call", name: "edit_file",
+                                                                                summary: "hello.txt", arguments: "{}"))
+        let restored = ProjectRepository(directory: root)
+        let entries = try await restored.transcript(id)
+        XCTAssertEqual(entries.map(\.content), ["Partial", "Hello"])
+        XCTAssertFalse(try XCTUnwrap(entries.first).isComplete)
+        let receipt = try await restored.tool(turn, callID: "call")
+        XCTAssertNil(receipt?.success)
+        let next = try await restored.beginTurn(thread: id, turn: UUID(), prompt: "Continue",
+                                                preferences: .init(), model: model, projectPath: item.project.directory)
+        XCTAssertTrue(next.context.contains { $0.content.contains("Outcome unknown") })
+        XCTAssertTrue(next.context.allSatisfy { $0.tools.isEmpty })
+        try await restored.delete(id)
+        let deleted = try await restored.transcript(id)
+        let deletedReceipt = try await restored.tool(turn, callID: "call")
+        XCTAssertTrue(deleted.isEmpty)
+        XCTAssertNil(deletedReceipt)
+    }
+
+    func testLargeWorkspaceLoadsRecentAndDeepPagesAndLazilyLoadsLargePayloads() async throws {
+        let root = try directory()
+        let initializer = ProjectRepository(directory: root)
+        _ = try await initializer.projects()
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("tests/fixtures/large_workspace.sql")
+        let seed = Process()
+        seed.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        seed.arguments = [root.appendingPathComponent("projects.sqlite").path]
+        seed.standardInput = try FileHandle(forReadingFrom: fixture)
+        try seed.run()
+        seed.waitUntilExit()
+        XCTAssertEqual(seed.terminationStatus, 0)
+
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        try workspace.createProject(name: "One", directory: firstFolder)
-        let firstID = try XCTUnwrap(workspace.selectedThreadID)
-        let first = try XCTUnwrap(workspace.selectedChat)
-        XCTAssertEqual(first.projectPath, firstFolder.resolvingSymlinksInPath().path)
-        try workspace.createProject(name: "Two", directory: secondFolder)
-        XCTAssertEqual(workspace.selectedChat?.projectPath, secondFolder.resolvingSymlinksInPath().path)
-        workspace.shutdown()
-        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
-        restored.select(firstID)
-        XCTAssertEqual(restored.selectedChat?.projectPath, firstFolder.resolvingSymlinksInPath().path)
-    }
+        let start = ContinuousClock.now
+        await workspace.restore()
+        let restoreTime = start.duration(to: .now)
+        XCTAssertNil(workspace.error)
+        XCTAssertEqual(workspace.projects.count, 50)
+        XCTAssertTrue(workspace.hasMoreProjects)
+        XCTAssertTrue(workspace.hasMoreThreads)
+        XCTAssertEqual(workspace.selectedProject?.name, "Fixture Project 5000")
+        let chat = try XCTUnwrap(workspace.selectedChat)
+        XCTAssertEqual(chat.draft, "Fixture draft")
+        XCTAssertEqual(chat.messages.map(\.sequence), Array(99961...100000))
+        await chat.older()
+        XCTAssertEqual(chat.messages.first?.sequence, 99921)
+        let last = try XCTUnwrap(chat.messages.last)
+        XCTAssertTrue(last.hasMoreBody)
+        XCTAssertLessThan(chat.messages.reduce(0) { $0 + $1.content.utf8.count }, 256 * 1024)
+        let body = try await workspace.repository.body(last.id, from: 12)
+        XCTAssertEqual(body.reduce(0) { $0 + $1.utf8.count }, 4 * 64 * 1024)
+        let tool = try await workspace.repository.tool(last.id, callID: "fixture-tool")
+        XCTAssertEqual(tool?.result?.utf8.count, 32000)
+        for _ in 0..<6 { await chat.older() }
+        XCTAssertEqual(chat.messages.count, 120)
+        XCTAssertEqual(chat.messages.first?.sequence, 99681)
+        XCTAssertTrue(chat.hasNewer)
+        await chat.newer()
+        XCTAssertEqual(chat.messages.first?.sequence, 99721)
+        await chat.latest()
+        XCTAssertEqual(chat.messages.map(\.sequence), Array(99961...100000))
 
-    func testInterruptedToolsSurviveRestartAndRemainInContext() throws {
-        let root = try directory()
-        let database = AppDatabase(directory: root)
-        let thread = ProjectThread()
-        try database.saveWorkspace(WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id))
-        let preferences = ChatPreferences(draft: "", effort: .medium, speed: .standard)
-        let assistantID = UUID()
-        let messages = [ChatMessage(id: assistantID, role: "assistant", content: "", isComplete: false)]
-        try database.save(messages: messages, preferences: preferences, for: thread.id)
-        let store = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
-        let start = Data(#"{"id":"request","type":"tool_start","toolCallId":"call","name":"edit_file","summary":"hello.txt","details":"arguments"}"#.utf8)
-        store.recordToolEvent(try JSONDecoder().decode(AgentEvent.self, from: start), assistantID: assistantID)
-        // Serialize an interrupted run as it would be saved on Stop or at each tool event.
-        try database.save(messages: store.messages, preferences: preferences, for: thread.id)
-        let restored = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
-        XCTAssertEqual(restored.messages.first?.tools?.count, 1)
-        XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("may have taken effect") == true)
-        let end = Data(#"{"id":"request","type":"tool_end","toolCallId":"call","name":"edit_file","success":true,"details":"edited hello.txt"}"#.utf8)
-        restored.recordToolEvent(try JSONDecoder().decode(AgentEvent.self, from: end), assistantID: assistantID)
-        XCTAssertEqual(restored.messages.first?.tools?.first?.success, true)
-        XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("edited hello.txt") == true)
-    }
+        let thread = try XCTUnwrap(workspace.selectedThreadID)
+        var latencies: [Duration] = []
+        for cursor: Int64 in [99960, 90001, 80001, 70001, 60001, 50001, 40001, 30001, 20001, 10001, 1001] {
+            let start = ContinuousClock.now
+            let page = try await workspace.repository.transcript(thread, before: cursor)
+            latencies.append(start.duration(to: .now))
+            XCTAssertEqual(page.prefix(40).map(\.sequence), Array((cursor-40..<cursor).reversed()))
+        }
+        print("Large workspace restore: \(restoreTime). Warm transcript page p95: \(latencies.sorted().last ?? .zero).")
+        await workspace.pageProjects(forward: true)
+        XCTAssertEqual(workspace.projects.first?.position, 51)
+        XCTAssertEqual(workspace.selectedThreadID, thread)
+        await workspace.pageThreads(forward: true)
+        XCTAssertTrue(workspace.threads.allSatisfy { !$0.isArchived })
 
-    func testConversationBeforeWorkTimingStillLoadsAndKeepsToolDetails() throws {
-        let legacy = Data(#"{"id":"00000000-0000-0000-0000-000000000001","role":"assistant","content":"Done","isComplete":true,"tools":[{"id":"call","name":"read_file","summary":"notes.txt","arguments":"{}","result":"Notes","success":true}]}"#.utf8)
-        var message = try JSONDecoder().decode(ChatMessage.self, from: legacy)
-        XCTAssertNil(message.elapsedTime)
-        XCTAssertNil(message.usageSummary)
-        let database = AppDatabase(directory: try directory())
-        let thread = ProjectThread()
-        try database.saveWorkspace(WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id))
-        message.elapsedTime = 12.5
-        message.usageSummary = ChatResponseUsageSummary(usage: ChatUsage(calls: [ChatUsageCall(reported: true, inputTokens: 100, outputTokens: 20, totalTokens: 120, cachedInputTokens: 50)]), modelName: "Fixture", costUSD: 0.0123, costSource: "provider")
-        try database.save(messages: [message], preferences: ChatPreferences(draft: "", effort: .medium, speed: .standard), for: thread.id)
-        let restored = ChatStore(agent: AgentClient(), database: database, threadID: thread.id)
-        XCTAssertEqual(restored.messages.first?.elapsedTime, 12.5)
-        XCTAssertEqual(restored.messages.first?.usageSummary, message.usageSummary)
-        XCTAssertEqual(restored.messages.first?.tools?.first?.result, "Notes")
-        XCTAssertTrue(restored.contextMessages[0]["content"]?.contains("Notes") == true)
+        let model = ChatModelOption(connection: ProviderConnection(name: "Mock", provider: .openAICompatible, modelID: "fixture"))
+        let prepared = try await workspace.repository.beginTurn(thread: thread, turn: UUID(), prompt: "Continue",
+                                                                 preferences: .init(), model: model, projectPath: nil)
+        XCTAssertEqual(prepared.sequence, 100001)
+        XCTAssertLessThan(try JSONEncoder().encode(prepared.context).count, 16_000)
     }
-
     func testSettingsAndRecentsAreIsolatedAndSurviveRestart() throws {
         let root = try directory()
         let database = AppDatabase(directory: root)
@@ -252,21 +298,6 @@ import FritzUpdates
         XCTAssertEqual(settings.updateChannel, "staging")
         XCTAssertEqual(try database.setting("updateChannel"), "staging")
         XCTAssertEqual(AppSettings(database: AppDatabase(directory: root)).updateChannel, "staging")
-    }
-
-    func testRemovingThreadsCascadesTheirHistoryAndPreferences() throws {
-        let database = AppDatabase(directory: try directory())
-        let thread = ProjectThread()
-        let document = WorkspaceDocument(projects: [FritzProject(name: "Test", threads: [thread])], selectedThreadID: thread.id)
-        try database.saveWorkspace(document)
-        let preferences = ChatPreferences(draft: "Draft", effort: .medium, speed: .standard)
-        try database.save(messages: [ChatMessage(role: "user", content: "Hello")], preferences: preferences, for: thread.id)
-        try database.saveWorkspace(WorkspaceDocument())
-        XCTAssertTrue(try database.messages(for: thread.id).isEmpty)
-        XCTAssertNil(try database.preferences(for: thread.id))
-        XCTAssertNil(try database.loadWorkspace().selectedThreadID)
-        XCTAssertThrowsError(try database.save(messages: [ChatMessage(role: "user", content: "Orphan")], preferences: preferences, for: thread.id))
-        XCTAssertTrue(try database.messages(for: thread.id).isEmpty)
     }
 
     func testProviderCategoriesDistinguishCustomEndpointsAndHostedPresets() {

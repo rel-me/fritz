@@ -23,7 +23,16 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
-A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`.
+A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`. The
+workspace app sets `historyVersion: 1` for bounded history (16,000 encoded
+message bytes for remote models and 4,800 for local Fritz). Prior assistant
+messages may include `tools` records with `id`, `name`, JSON strings
+`arguments` and `result`, and `failed`. The harness validates the records
+and reconstructs paired provider messages without dispatching those calls.
+The app sends readable activity when a provider/model changes, when an exact
+record is unavailable, or when the adapter requires opaque signatures (Gemini).
+Workspace tool events may include `historyDetails`, the full event payload
+as a string up to 128 KiB. `details` remains the bounded display field.
 
 OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of
