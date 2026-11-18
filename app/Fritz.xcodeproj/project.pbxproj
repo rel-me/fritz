@@ -34,7 +34,6 @@
 		89B6D813E2FBEBA2A97810EB /* ProvidersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18739264547CAB0D6256B2E5 /* ProvidersView.swift */; };
 		8DDFD3E78BC0C05278E5EBC0 /* Inferno in Frameworks */ = {isa = PBXBuildFile; productRef = B3FD16680C7450D449DF981B /* Inferno */; };
 		8F147A4C15E74308B8D82119 /* FritzUpdates in Frameworks */ = {isa = PBXBuildFile; productRef = 63772291272E2EF06FD92CDD /* FritzUpdates */; };
-		9059AEEE3D804A479CB20541 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 68687E6286C4B45962191548 /* AppIcon.icon */; };
 		955EF7C684AAAAFCB7FA6A07 /* CommandLineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */; };
 		9CE52D82C7FF3C4602E3CAC9 /* Bonsplit in Frameworks */ = {isa = PBXBuildFile; productRef = DF707874F5442E6BB1553D9D /* Bonsplit */; };
 		A02E7F00B4FAA0B6DFF02839 /* ProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3EFB0AB4243DFD650939B5D /* ProjectRepository.swift */; };
@@ -48,6 +47,7 @@
 		E6BEAD3F9AB633444F29F637 /* BrowserPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551E85ADE69D850FE126F68 /* BrowserPage.swift */; };
 		ED9BEFA0DC02CB891B1CF9C1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2862844991E65C805050ED5 /* Assets.xcassets */; };
 		F0BA81F78DB6FF75B6ECE009 /* FritzButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */; };
+		F2E00DDF8861694D6A6ECFD4 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 49DCB87ECD73091A7033FCDD /* AppIcon.icns */; };
 		F91798FA22D9742E3FE02131 /* ChatStartScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */; };
 		FB2702D68C41763A32649373 /* FritzManagementHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */; };
 		FC235D1B9D0AC95700F84A25 /* BrowserDataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C232494A41369FA47798164A /* BrowserDataSheet.swift */; };
@@ -65,11 +65,11 @@
 		31B41D0524C0C81414318C5F /* FritzSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzSettingsView.swift; sourceTree = "<group>"; };
 		368E954ED0C803B0A5BCCA8B /* FritzApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzApp.swift; sourceTree = "<group>"; };
 		37A70DD8998C4DB53EEA1333 /* ChatCompletedWorkDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatCompletedWorkDisclosure.swift; sourceTree = "<group>"; };
+		49DCB87ECD73091A7033FCDD /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		4A721DA543AEE01311130E2D /* ChatMessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageRow.swift; sourceTree = "<group>"; };
 		4B07E94B391896D246239ED0 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzButtonStyle.swift; sourceTree = "<group>"; };
 		5D889D2A5A39ECE1194232E5 /* ChatAssistantMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAssistantMessage.swift; sourceTree = "<group>"; };
-		68687E6286C4B45962191548 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		68E2C42C88F12B1800D985E2 /* Project.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Project.swift; sourceTree = "<group>"; };
 		719A85DBFDE6DF38AB9624B4 /* ChatScrollState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScrollState.swift; sourceTree = "<group>"; };
 		73835E7146A92557D60E42ED /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
@@ -207,7 +207,7 @@
 		6A1A95158920937FE034930A /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				68687E6286C4B45962191548 /* AppIcon.icon */,
+				49DCB87ECD73091A7033FCDD /* AppIcon.icns */,
 				B2862844991E65C805050ED5 /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -303,7 +303,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9059AEEE3D804A479CB20541 /* AppIcon.icon in Resources */,
+				F2E00DDF8861694D6A6ECFD4 /* AppIcon.icns in Resources */,
 				ED9BEFA0DC02CB891B1CF9C1 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

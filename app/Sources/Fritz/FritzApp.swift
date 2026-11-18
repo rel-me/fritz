@@ -37,6 +37,13 @@ import SwiftUI
 
 @MainActor final class FritzAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Use the original silhouette where AppKit lets the running app set its own icon.
+        if #available(macOS 26.0, *),
+           let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let icon = NSImage(contentsOf: iconURL) {
+            NSApp.applicationIconImage = icon
+        }
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidBecomeKey(_:)),
             name: NSWindow.didBecomeKeyNotification, object: nil
@@ -137,7 +144,13 @@ struct FritzApp: App {
         .defaultSize(width: 1080, height: 760)
         .fritzWindowStyle()
         .commands {
-            CommandGroup(after: .appInfo) {
+            CommandGroup(replacing: .appInfo) {
+                let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Fritz"
+                Button("About \(appName)") {
+                    guard let icon = NSApp.applicationIconImage.copy() as? NSImage else { return }
+                    icon.isTemplate = true
+                    NSApp.orderFrontStandardAboutPanel(options: [.applicationIcon: icon])
+                }
                 CheckForUpdatesCommand(updater: updater)
             }
             CommandGroup(replacing: .newItem) {
