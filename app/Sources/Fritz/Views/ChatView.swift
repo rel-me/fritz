@@ -16,13 +16,12 @@ struct ChatView: View {
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
-    @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
+    @State private var scrollPosition = ScrollPosition(idType: UUID.self, edge: .bottom)
     @State private var isScrollingTranscript = false
     @State private var bodyEntry: ChatMessage?
-    @State private var contentOffset: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 0
     @State private var rowFrames: [UUID: CGRect] = [:]
-    @State private var restoreAnchor: (UUID, CGFloat)?
-    private static let transcriptBottomID = "chat-transcript-bottom"
+    @State private var historyAnchor: HistoryAnchor?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -98,13 +97,16 @@ struct ChatView: View {
 
     private var transcript: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+            // ChatStore bounds this window. Measure Markdown rows so paging can
+            // restore the reading position using their actual heights.
+            VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
                 if store.hasOlder {
                     Button("Load Older Messages") { loadHistory(older: true) }
                         .disabled(store.isPaging)
                 }
                 ForEach(store.messages) { message in
                     let isActive = store.activeEntryID == message.id
+                    let isEdge = message.id == store.messages.first?.id || message.id == store.messages.last?.id
                     ChatMessageRow(
                         message: message,
                         isActive: isActive,
@@ -114,13 +116,10 @@ struct ChatView: View {
                         openBody: { bodyEntry = message }
                     )
                     .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
-                    .id(message.id.uuidString)
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .scrollView) } action: { frame in
+                    .onGeometryChange(for: CGRect?.self) { proxy in
+                        isEdge ? proxy.frame(in: .scrollView) : nil
+                    } action: { frame in
                         rowFrames[message.id] = frame
-                        if let (id, target) = restoreAnchor, id == message.id {
-                            restoreAnchor = nil
-                            scrollPosition.scrollTo(y: contentOffset + frame.minY - target)
-                        }
                     }
                     .onDisappear { rowFrames.removeValue(forKey: message.id) }
                 }
@@ -141,7 +140,6 @@ struct ChatView: View {
                 }
                 Color.clear
                     .frame(height: max(1, composerHeight + 8))
-                    .id(Self.transcriptBottomID)
             }
             .scrollTargetLayout()
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
@@ -156,8 +154,14 @@ struct ChatView: View {
         .onChange(of: store.messages.last?.content) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.messages.last?.id) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.windowRevision) { _, _ in scrollToLatestIfFollowing() }
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
-            contentOffset = offset
+        .onChange(of: historyAnchor) { _, anchor in
+            guard let anchor else { return }
+            // The updated scroll targets are registered after this view update.
+            DispatchQueue.main.async {
+                guard historyAnchor == anchor else { return }
+                scrollPosition.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0.5, y: anchor.offset))
+                historyAnchor = nil
+            }
         }
         .onChange(of: store.activity) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.error) { _, _ in scrollToLatestIfFollowing() }
@@ -177,6 +181,7 @@ struct ChatView: View {
                 visibleBottom: geometry.visibleRect.maxY
             )
         } action: { old, new in
+            viewportHeight = new.viewportHeight
             if !store.hasNewer { scrollState.update(to: new, isUserScrolling: isScrollingTranscript) }
             if isScrollingTranscript && new.visibleBottom < new.viewportHeight + 96 && store.hasOlder {
                 loadHistory(older: true)
@@ -188,7 +193,7 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             if !scrollState.followsLatest {
                 Button {
-                    restoreAnchor = nil
+                    historyAnchor = nil
                     Task {
                         await store.latest()
                         scrollState = ChatScrollState()
@@ -213,7 +218,7 @@ struct ChatView: View {
     }
 
     private func scrollToLatestIfFollowing() {
-        guard scrollState.followsLatest, !isScrollingTranscript, !store.hasNewer, restoreAnchor == nil else { return }
+        guard scrollState.followsLatest, !isScrollingTranscript, !store.hasNewer else { return }
         scrollPosition.scrollTo(edge: .bottom)
     }
 
@@ -243,19 +248,23 @@ struct ChatView: View {
     private func loadHistory(older: Bool) {
         guard !store.isPaging else { return }
         scrollState = ChatScrollState(followsLatest: false)
-        let visibleID = scrollPosition.viewID(type: String.self).flatMap { UUID(uuidString: $0) }
-        // Edge and accessibility scrolling may leave ScrollPosition without a row ID.
-        let visibleRow = rowFrames.filter { $0.value.maxY > 0 }.min { $0.value.minY < $1.value.minY }
-        let anchor = visibleID.flatMap { id in rowFrames[id].map { (id, $0.minY) } }
-            ?? visibleRow.map { ($0.key, $0.value.minY) }
+        // Loading is triggered at a transcript edge. Keep the old edge
+        // message visible, with its measured offset when it was on screen.
+        guard let id = (older ? store.messages.first : store.messages.last)?.id else { return }
+        let frame = rowFrames[id]
+        let distance = viewportHeight - (frame?.height ?? 0)
+        let offset = abs(distance) > 1 ? (frame?.minY ?? 0) / distance : 0
         Task {
             let revision = store.windowRevision
             if older { await store.older() } else { await store.newer() }
-            guard store.windowRevision != revision,
-                  let anchor, store.messages.contains(where: { $0.id == anchor.0 }) else { return }
-            restoreAnchor = anchor
-            scrollPosition.scrollTo(id: anchor.0.uuidString, anchor: .top)
+            guard store.windowRevision != revision, store.messages.contains(where: { $0.id == id }) else { return }
+            historyAnchor = HistoryAnchor(id: id, offset: offset)
         }
+    }
+
+    private struct HistoryAnchor: Equatable {
+        let id: UUID
+        let offset: CGFloat
     }
 
     private func synchronizeModel() {
