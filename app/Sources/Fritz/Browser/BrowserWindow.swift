@@ -83,6 +83,7 @@ struct BrowserPanel: View {
     @State private var filling = false
     @State private var fillPage: BrowserPage?
     @FocusState private var addressFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var selectedTab: BrowserTab? {
         tabs.selectedTab
@@ -101,7 +102,6 @@ struct BrowserPanel: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(10)
                     }
-                    if tab.page.state.isLoading { ProgressView().progressViewStyle(.linear) }
                     BrowserSurface(page: tab.page).id(tab.id)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay {
@@ -209,6 +209,26 @@ struct BrowserPanel: View {
                         .strokeBorder(addressFocused ? Color.accentColor : Color.primary.opacity(0.14),
                                       lineWidth: addressFocused ? 2 : 0.5)
                         .allowsHitTesting(false)
+                }
+                .overlay(alignment: .bottom) {
+                    if tab.page.state.isLoading && tab.page.state.error == nil {
+                        Group {
+                            if reduceMotion {
+                                Capsule().fill(Color.accentColor.opacity(0.5))
+                            } else {
+                                ProgressView()
+                                    .progressViewStyle(.linear)
+                                    .controlSize(.mini)
+                                    .frame(maxHeight: .infinity)
+                            }
+                        }
+                        .frame(height: 2)
+                        .clipped()
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 2)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    }
                 }
                 .focused($addressFocused)
                 .onSubmit {

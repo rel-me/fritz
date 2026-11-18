@@ -23,6 +23,8 @@ the following surfaces, include these behaviors:
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
+  During a slow load, verify the progress overlay stays inside the address field
+  without shifting the page and clears after completion, Stop, or an error.
   Verify opening and reopening splits the workspace evenly after excluding the
   left sidebar, including after dragging the divider or resizing the window.
   Check the browser’s 320-point minimum while resizing.

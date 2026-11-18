@@ -89,3 +89,12 @@ and a seam between the address bar and the blank page.
 
 Monitor updated PR #113 after the browser appearance fix. Fix related CI failures,
 verify any fixes, push them, and monitor again. Report the final checks and blockers.
+
+## Follow-up user request
+
+> Make the loading progress bar an overlay in the url input bar (like in REL)
+
+## Follow-up delegated prompt
+
+Monitor PR #113 after the address-field progress overlay change. Fix related
+CI failures, verify and push any fixes, and monitor the resulting revision.
