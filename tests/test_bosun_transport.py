@@ -33,9 +33,15 @@ class OwnedGroupLifetime(unittest.TestCase):
                 os.killpg(pid,0)
             except ProcessLookupError:
                 return
-            if time.monotonic() >= until:
-                os.killpg(pid,signal.SIGKILL)
-                self.fail('Exclusively owned mock group remained after cleanup')
+            except PermissionError:
+                # Darwin can transiently deny observation while a group is reaped.
+                # Keep unknown distinct from gone, and never signal an unknown group.
+                if time.monotonic() >= until:
+                    self.fail('Exclusively owned mock group could not be observed during cleanup')
+            else:
+                if time.monotonic() >= until:
+                    os.killpg(pid,signal.SIGKILL)
+                    self.fail('Exclusively owned mock group remained after cleanup')
             time.sleep(0.02)
 
     def test_exit_zero_parent_gets_full_eof_grace_for_its_owned_descendant(self):

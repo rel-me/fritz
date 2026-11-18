@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 /// A Models page driven by the host's provider, model and runtime state.
@@ -114,7 +113,6 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
           .fritzButtonSize(.regular)
           .scrollContentBackground(.hidden)
           .alternatingRowBackgrounds(.disabled)
-          .background(Self.collectionBackground)
           .contextMenu(forSelectionType: ProviderID.self) { ids in
             if ids.count == 1, let id = ids.first, providers.contains(where: { $0.id == id }) {
               Button("Edit Models", systemImage: "pencil") { editProvider(id) }
@@ -154,7 +152,6 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
         LocalModelSessionsList(sessions: sessions, start: startSession,
                                stop: stopSession, restart: restartSession)
           .scrollContentBackground(.hidden)
-          .background(Self.collectionBackground)
         if let localModelError { errorLabel(localModelError) }
       }
     }
@@ -168,14 +165,4 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
       .padding(12)
   }
 
-  private static var collectionBackground: Color {
-    Color(nsColor: NSColor(name: nil) { appearance in
-      var color = NSColor.controlBackgroundColor
-      appearance.performAsCurrentDrawingAppearance {
-        color = NSColor.controlBackgroundColor.blended(withFraction: 0.04, of: .labelColor)
-          ?? .controlBackgroundColor
-      }
-      return color
-    })
-  }
 }

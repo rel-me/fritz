@@ -12,7 +12,6 @@ import Observation
     private(set) var state: LocalModelInstallState = .available
     private(set) var installedURL: URL?
     private(set) var downloadDirectory: URL?
-    @ObservationIgnored private var selectedDirectory: URL?
     var selectedModel: NativeModelDescriptor {
         catalog.first { $0.id == selectedModelID }!
     }
@@ -31,16 +30,8 @@ import Observation
         guard id != selectedModelID, catalog.contains(where: { $0.id == id }) else { return }
         cancel()
         selectedModelID = id
-        selectedDirectory = nil
         downloadDirectory = nil
         refresh()
-    }
-    func chooseDirectory(_ url: URL) {
-        cancel()
-        selectedDirectory = url
-        downloadDirectory = url
-        installedURL = nil
-        state = .available
     }
     func refresh() { run(install: false) }
     func install() { run(install: true) }
@@ -60,7 +51,7 @@ import Observation
         let modelID = selectedModelID
         requestID = id
         let events = store.modelEvents(category: category, modelID: modelID, install: install,
-                                       directory: selectedDirectory, requestID: id)
+                                       directory: nil, requestID: id)
         task = Task { [weak self] in
             var completed = false
             do {

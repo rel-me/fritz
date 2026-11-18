@@ -95,7 +95,6 @@ public struct OllamaModelsView<ModelDetails: View, ErrorContent: View>: View {
       if let error { errorContent(error) }
       Spacer(minLength: 0)
       HStack {
-        Link("Model licenses", destination: URL(string: "https://ollama.com/library/qwen3")!)
         Spacer()
         Button("Cancel") { cancel() }.keyboardShortcut(.cancelAction)
         Button(isSelectedModelInstalled ? "Add Provider" : "Download & Add", action: install)

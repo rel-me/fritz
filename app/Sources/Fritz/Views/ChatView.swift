@@ -6,16 +6,22 @@ import SwiftUI
 struct ChatView: View {
     @Bindable var store: ChatStore
     let providers: ProviderStore
-    let openProviders: () -> Void
-    let addProvider: (AIProviderPreset?) -> Void
+    let localModels: LocalModelRuntimeStore
+    let openModels: (ModelsLocation) -> Void
+    let headerBottom: CGFloat
+    @State private var setupModel: ChatModelOption?
+    @State private var selectionTask: Task<Void, Never>?
+    @State private var isPreparingModel = false
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var isFocused: Bool
     @State private var composerHeight: CGFloat = 0
     @State private var scrollState = ChatScrollState()
-    @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
+    @State private var scrollPosition = ScrollPosition(idType: UUID.self, edge: .bottom)
     @State private var isScrollingTranscript = false
-    @State private var headerScrollGeometry = ChatHeaderScrollGeometry()
-    private static let transcriptBottomID = "chat-transcript-bottom"
+    @State private var bodyEntry: ChatMessage?
+    @State private var viewportHeight: CGFloat = 0
+    @State private var rowFrames: [UUID: CGRect] = [:]
+    @State private var historyAnchor: HistoryAnchor?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -25,28 +31,29 @@ struct ChatView: View {
                 ChatComposer(
                     draft: $store.draft,
                     placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
-                    canSend: store.canSend,
+                    canSend: store.canSend && !isPreparingModel,
+                    isPreparingModel: isPreparingModel,
                     isResponding: store.isResponding,
                     isFocused: $isFocused,
-                    models: providers.models,
+                    models: providers.pickerModels,
                     recentModels: providers.recentModels,
                     modelProviders: providers.providerOrder,
-                    configuredProviderIDs: Set(providers.connections.map {
-                        AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL).id
-                    }),
-                    hasConfiguredModels: !providers.connections.isEmpty,
-                    isLoadingModels: providers.isLoading,
                     selectedModel: store.selectedModel,
                     selectedEffort: store.effort,
                     selectedSpeed: store.speed,
-                    selectModel: { store.select($0); providers.record($0) },
+                    selectModel: chooseModel,
                     selectEffort: { store.effort = $0 },
                     selectSpeed: { store.speed = $0 },
-                    configureModels: openProviders,
-                    addProvider: addProvider,
-                    send: { if let model = store.selectedModel { providers.record(model) }; store.send() },
+                    configureModels: { openModels(.remote) },
+                    configureLocalModels: { openModels(.local) },
+                    send: {
+                        guard !isPreparingModel else { return }
+                        if let model = store.selectedModel { providers.record(model) }
+                        store.send()
+                    },
                     stop: store.stop
                 )
+                .disabled(!store.isReady)
             }
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
@@ -60,31 +67,65 @@ struct ChatView: View {
         .task {
             // Let the previous thread release its field before focusing this one.
             await Task.yield()
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, store.isReady else { return }
             isFocused = true
         }
+        .sheet(item: $setupModel) { model in
+            ModelsProviderEditor(store: providers, localModels: localModels,
+                                 existing: providers.setupConnection(for: model), initialModel: model) { connection in
+                let selected = ChatModelOption(connection: connection,
+                    model: DiscoveredAIModel(id: connection.modelID, displayName: model.displayName))
+                store.select(selected)
+                providers.record(selected)
+            }
+        }
         .onAppear(perform: synchronizeModel)
-        .onDisappear { store.savePreferences() }
+        .onDisappear { selectionTask?.cancel() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
-        .onChange(of: store.effort) { _, _ in store.savePreferences() }
-        .onChange(of: store.speed) { _, _ in store.savePreferences() }
+        .onChange(of: store.isReady) { _, ready in
+            if ready {
+                synchronizeModel()
+                isFocused = true
+            }
+        }
+        .sheet(item: $bodyEntry) { entry in
+            ChatStoredBody(entry: entry, repository: store.repository)
+        }
         .onChange(of: store.isResponding) { _, responding in if !responding { synchronizeModel() } }
     }
 
     private var transcript: some View {
         ScrollView {
-            // Markdown reflows when the window or inspector changes width. Measure
-            // every row so scroll bounds and bottom anchoring use actual heights.
+            // ChatStore bounds this window. Measure Markdown rows so paging can
+            // restore the reading position using their actual heights.
             VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+                if store.hasOlder {
+                    Button("Load Older Messages") { loadHistory(older: true) }
+                        .disabled(store.isPaging)
+                }
                 ForEach(store.messages) { message in
+                    let isActive = store.activeEntryID == message.id
+                    let isEdge = message.id == store.messages.first?.id || message.id == store.messages.last?.id
                     ChatMessageRow(
                         message: message,
-                        isActive: store.isResponding && message.id == store.messages.last?.id,
-                        activity: store.activity
+                        isActive: isActive,
+                        activity: isActive ? store.activity : nil,
+                        activeTools: isActive ? store.activeTools : [],
+                        repository: store.repository,
+                        openBody: { bodyEntry = message }
                     )
-                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, scrollGeometry: headerScrollGeometry))
-                    .id(message.id.uuidString)
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
+                    .onGeometryChange(for: CGRect?.self) { proxy in
+                        isEdge ? proxy.frame(in: .scrollView) : nil
+                    } action: { frame in
+                        rowFrames[message.id] = frame
+                    }
+                    .onDisappear { rowFrames.removeValue(forKey: message.id) }
+                }
+                if store.hasNewer {
+                    Button("Load Newer Messages") { loadHistory(older: false) }
+                        .disabled(store.isPaging)
                 }
                 if let error = store.error ?? store.agent.startupError {
                     VStack(alignment: .leading, spacing: 8) {
@@ -95,13 +136,11 @@ struct ChatView: View {
                             Button("Dismiss") { store.error = nil }
                         }
                     }
-                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, scrollGeometry: headerScrollGeometry))
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
                 }
                 Color.clear
                     .frame(height: max(1, composerHeight + 8))
-                    .id(Self.transcriptBottomID)
             }
-            .coordinateSpace(name: ChatHeaderCoordinateSpace.transcript)
             .scrollTargetLayout()
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .frame(maxWidth: .infinity)
@@ -112,7 +151,18 @@ struct ChatView: View {
         .scrollClipDisabled(extendsTranscriptBehindToolbar)
         .defaultScrollAnchor(scrollState.followsLatest ? .bottom : nil, for: .sizeChanges)
         .scrollPosition($scrollPosition)
-        .onChange(of: store.messages) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.messages.last?.content) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.messages.last?.id) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.windowRevision) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: historyAnchor) { _, anchor in
+            guard let anchor else { return }
+            // The updated scroll targets are registered after this view update.
+            DispatchQueue.main.async {
+                guard historyAnchor == anchor else { return }
+                scrollPosition.scrollTo(id: anchor.id, anchor: UnitPoint(x: 0.5, y: anchor.offset))
+                historyAnchor = nil
+            }
+        }
         .onChange(of: store.activity) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.error) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.agent.startupError) { _, _ in scrollToLatestIfFollowing() }
@@ -124,12 +174,6 @@ struct ChatView: View {
         .onScrollPhaseChange { _, phase in
             isScrollingTranscript = phase == .interacting || phase == .decelerating
         }
-        .onScrollGeometryChange(for: ChatHeaderScrollGeometry.self) { geometry in
-            ChatHeaderScrollGeometry(offset: geometry.contentOffset.y,
-                                     headerBottom: geometry.contentInsets.top)
-        } action: { _, geometry in
-            headerScrollGeometry = geometry
-        }
         .onScrollGeometryChange(for: ChatScrollState.Geometry.self) { geometry in
             ChatScrollState.Geometry(
                 contentHeight: geometry.contentSize.height,
@@ -137,7 +181,11 @@ struct ChatView: View {
                 visibleBottom: geometry.visibleRect.maxY
             )
         } action: { old, new in
-            scrollState.update(to: new, isUserScrolling: isScrollingTranscript)
+            viewportHeight = new.viewportHeight
+            if !store.hasNewer { scrollState.update(to: new, isUserScrolling: isScrollingTranscript) }
+            if isScrollingTranscript && new.visibleBottom < new.viewportHeight + 96 && store.hasOlder {
+                loadHistory(older: true)
+            }
             if old.contentHeight != new.contentHeight || old.viewportHeight != new.viewportHeight {
                 scrollToLatestIfFollowing()
             }
@@ -145,8 +193,12 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             if !scrollState.followsLatest {
                 Button {
-                    scrollState = ChatScrollState()
-                    scrollPosition.scrollTo(edge: .bottom)
+                    historyAnchor = nil
+                    Task {
+                        await store.latest()
+                        scrollState = ChatScrollState()
+                        scrollPosition.scrollTo(edge: .bottom)
+                    }
                 } label: {
                     Label("Jump", systemImage: "arrow.down")
                         .padding(.horizontal, 12)
@@ -166,55 +218,84 @@ struct ChatView: View {
     }
 
     private func scrollToLatestIfFollowing() {
-        guard scrollState.followsLatest, !isScrollingTranscript else { return }
+        guard scrollState.followsLatest, !isScrollingTranscript, !store.hasNewer else { return }
         scrollPosition.scrollTo(edge: .bottom)
     }
 
-    private func synchronizeModel() {
-        guard providers.hasLoadedModels, !store.isResponding else { return }
-        if let selected = store.selectedModel, let current = providers.models.first(where: { $0.id == selected.id }) {
-            if current != selected { store.select(current) }
+    private func chooseModel(_ model: ChatModelOption) {
+        guard !store.isResponding, selectionTask == nil else { return }
+        guard model.provider == .fritz else {
+            if model.connectionID != nil { store.select(model); providers.record(model) }
+            else { setupModel = model }
             return
         }
-        if let model = providers.defaultModel { store.select(model) }
-        else { store.selectedModel = nil }
+        isPreparingModel = true
+        selectionTask = Task {
+            defer { isPreparingModel = false; selectionTask = nil }
+            do {
+                if let ready = try await providers.prepareLocalModel(model) {
+                    try Task.checkCancellation()
+                    store.select(ready); providers.record(ready)
+                } else {
+                    try Task.checkCancellation()
+                    setupModel = model
+                }
+            } catch is CancellationError {
+            } catch { store.error = error.localizedDescription }
+        }
     }
-}
 
-private enum ChatHeaderCoordinateSpace: Hashable {
-    case transcript
-}
+    private func loadHistory(older: Bool) {
+        guard !store.isPaging else { return }
+        scrollState = ChatScrollState(followsLatest: false)
+        // Loading is triggered at a transcript edge. Keep the old edge
+        // message visible, with its measured offset when it was on screen.
+        guard let id = (older ? store.messages.first : store.messages.last)?.id else { return }
+        let frame = rowFrames[id]
+        let distance = viewportHeight - (frame?.height ?? 0)
+        let offset = abs(distance) > 1 ? (frame?.minY ?? 0) / distance : 0
+        Task {
+            let revision = store.windowRevision
+            if older { await store.older() } else { await store.newer() }
+            guard store.windowRevision != revision, store.messages.contains(where: { $0.id == id }) else { return }
+            historyAnchor = HistoryAnchor(id: id, offset: offset)
+        }
+    }
 
-private struct ChatHeaderScrollGeometry: Equatable {
-    var offset: CGFloat = 0
-    var headerBottom: CGFloat = 0
+    private struct HistoryAnchor: Equatable {
+        let id: UUID
+        let offset: CGFloat
+    }
+
+    private func synchronizeModel() {
+        guard store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
+        store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
+    }
 }
 
 private struct ChatHeaderBlur: ViewModifier {
     let isEnabled: Bool
-    let scrollGeometry: ChatHeaderScrollGeometry
+    let headerBottom: CGFloat
     @State private var contentFrame: CGRect = .zero
     private let blurRadius: CGFloat = 24
 
-    private var viewportFrame: CGRect {
-        contentFrame.offsetBy(dx: 0, dy: 28 - scrollGeometry.offset)
-    }
-
     private var overlapsHeader: Bool {
-        viewportFrame.minY < scrollGeometry.headerBottom + 28 && viewportFrame.maxY > 0
+        contentFrame.minY < headerBottom && contentFrame.maxY > 0
     }
 
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content
                 .onGeometryChange(for: CGRect.self) { geometry in
-                    geometry.frame(in: .named(ChatHeaderCoordinateSpace.transcript))
+                    geometry.frame(in: .global)
                 } action: { contentFrame = $0 }
-                .mask {
+                .overlay {
                     if overlapsHeader {
-                        edgeMask(blurred: false)
-                    } else {
-                        Color.white
+                        // An alpha mask on the original row flattens its text into
+                        // a composited layer, even below the toolbar.
+                        headerFade(from: ChatVisualStyle.pageBackground)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                 }
                 .overlay {
@@ -226,7 +307,7 @@ private struct ChatHeaderBlur: ViewModifier {
                             .frame(width: contentFrame.width)
                             .padding(.horizontal, blurRadius * 3)
                             .variableBlur(radius: blurRadius, maxSampleCount: 24) { geometry, context in
-                                let start = scrollGeometry.headerBottom - viewportFrame.minY
+                                let start = headerBottom - 28 - contentFrame.minY
                                 context.fill(
                                     Path(CGRect(origin: .zero, size: geometry.size)),
                                     with: .linearGradient(
@@ -237,7 +318,7 @@ private struct ChatHeaderBlur: ViewModifier {
                                 )
                             }
                             .opacity(0.3)
-                            .mask { edgeMask(blurred: true) }
+                            .mask { headerFade(from: .white) }
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
@@ -247,13 +328,13 @@ private struct ChatHeaderBlur: ViewModifier {
         }
     }
 
-    private func edgeMask(blurred: Bool) -> some View {
-        let height = max(1, viewportFrame.height)
-        // Blur actual scrolling content, then blend into sharp text below the title.
+    private func headerFade(from color: Color) -> some View {
+        let height = max(1, contentFrame.height)
+        // Finish the transition inside the header so transcript content below stays sharp.
         return LinearGradient(
-            colors: blurred ? [.white, .clear] : [.clear, .white],
-            startPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom - viewportFrame.minY) / height),
-            endPoint: UnitPoint(x: 0, y: (scrollGeometry.headerBottom + 28 - viewportFrame.minY) / height)
+            colors: [color, color.opacity(0)],
+            startPoint: UnitPoint(x: 0, y: (headerBottom - 28 - contentFrame.minY) / height),
+            endPoint: UnitPoint(x: 0, y: (headerBottom - contentFrame.minY) / height)
         )
     }
 }

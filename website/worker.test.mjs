@@ -8,6 +8,10 @@ db.exec(`CREATE TABLE update_check_counts (
   app_id TEXT NOT NULL, day TEXT NOT NULL, version TEXT NOT NULL,
   runtime TEXT NOT NULL, checks INTEGER NOT NULL,
   PRIMARY KEY (app_id, day, version, runtime))`);
+db.exec(`CREATE TABLE daily_network_keys (app_id TEXT NOT NULL, day TEXT NOT NULL, network_hash TEXT NOT NULL, PRIMARY KEY(app_id, day, network_hash));
+CREATE TABLE daily_network_counts (app_id TEXT NOT NULL, day TEXT NOT NULL, networks INTEGER NOT NULL, PRIMARY KEY(app_id, day));
+CREATE TRIGGER daily_network_observed AFTER INSERT ON daily_network_keys BEGIN
+INSERT INTO daily_network_counts VALUES (NEW.app_id, NEW.day, 1) ON CONFLICT(app_id, day) DO UPDATE SET networks=networks+1; END;`);
 after(() => db.close());
 const DB = { prepare(sql) { return { bind(...values) { return { async run() {
   db.prepare(sql).run(...values);
@@ -137,10 +141,38 @@ test("counter failures leave signed feed bytes and response headers intact", asy
     { prepare() { throw new Error("unavailable"); } },
     { prepare() { return { bind() { return { run: async () => ({ success: false }) }; } }; } },
   ]) {
-    const response = await worker.fetch(new Request("https://fritz.rel.me/appcast.xml"), { ...env, DB });
+    const response = await worker.fetch(new Request("https://fritz.rel.me/appcast.xml", { headers: { "user-agent": "Fritz/0.1.10 Sparkle/2" } }), { ...env, DB });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(await response.text(), "<rss/>");
   }
   assert.equal(errors.mock.callCount(), 2);
+});
+
+test("Debug, browser, prefetch and excluded testing requests serve feed bytes without counting", async () => {
+  db.exec("DELETE FROM update_check_counts");
+  for (const headers of [ {}, { "user-agent": "FritzDebug/0.1.10 Sparkle/2" },
+    { "user-agent": "Fritz/0.1.10 Sparkle/2", "x-fritz-runtime": "debug" },
+    { "user-agent": "Fritz/0.1.10 Sparkle/2", "x-analytics-excluded": "1" },
+    { "user-agent": "Fritz/0.1.10 Sparkle/2", cookie: "__Host-analytics_excluded=1" },
+    { "user-agent": "Fritz/0.1.10 Sparkle/2", purpose: "prefetch" },
+    { "user-agent": "Fritz/0.1.10 Sparkle/2", "cf-connecting-ip": "192.0.2.1" },
+  ]) {
+    const response = await worker.fetch(new Request("https://fritz.rel.me/appcast.xml", { headers }), { ...env, ANALYTICS_EXCLUDED_IPS: "192.0.2.1" });
+    assert.equal(await response.text(), "<rss/>");
+  }
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM update_check_counts").get().n, 0);
+  const result = await worker.fetch(new Request("https://fritz.rel.me/analytics/exclude", { method: "POST", headers: { origin: "https://fritz.rel.me" } }), env);
+  assert.equal(result.status, 303);
+  assert.match(result.headers.get("set-cookie"), /^__Host-analytics_excluded=1;/);
+  assert.equal((await worker.fetch(new Request("https://fritz.rel.me/analytics/exclude", { method: "POST", headers: { origin: "https://other.example" } }), env)).status, 403);
+});
+
+test("release checks count daily networks without retaining the raw IP", async () => {
+  const headers = { "user-agent": "Fritz/0.1.10 Sparkle/2", "cf-connecting-ip": "192.0.2.1" };
+  const environment = { ...env, ANALYTICS_UNIQUES_KEY: "test-only-secret" };
+  for (let i = 0; i < 2; i++) await worker.fetch(new Request("https://fritz.rel.me/appcast.xml", { headers }), environment);
+  assert.equal(db.prepare("SELECT networks FROM daily_network_counts").get().networks, 1);
+  assert.match(db.prepare("SELECT network_hash FROM daily_network_keys").get().network_hash, /^[0-9a-f]{64}$/);
+  assert.ok(!JSON.stringify(db.prepare("SELECT * FROM daily_network_keys").all()).includes("192.0.2.1"));
 });

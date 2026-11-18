@@ -163,6 +163,31 @@ final class SharedControlSnapshots: XCTestCase {
                      name: "models-editor-fritz-available", size: .init(width: 600, height: 560), settleDuration: 0.45)
     }
 
+    func testModelSetupDialogs() throws {
+        for (state, provider) in [("available", AIProviderKind.fritz), ("populated", .fritz), ("empty", .anthropic)] {
+            let store = ModelsFixture(state: state)
+            let model = ChatModelOption(id: "choice", displayName: provider == .fritz ? "Qwen2.5 1.5B" : "Claude",
+                                        provider: provider, modelID: provider == .fritz ? "qwen2.5-1.5b-instruct-q4_k_m" : "claude-fixture")
+            try snapshot(ModelsProviderEditor(store: store, localModels: RuntimeFixture(installed: state != "available"),
+                                              existing: nil, initialModel: model),
+                         name: "model-setup-\(provider.rawValue)-\(state)",
+                         size: provider == .fritz ? .init(width: 520, height: 240) : .init(width: 600, height: 560), settleDuration: 0.45)
+        }
+    }
+
+    func testLocalModelSetupProgressAndError() throws {
+        let model = NativeModelDescriptor(id: "download-fixture", name: "Dolphin 3.0 Llama 3.1 8B", size: 4_920_000_000,
+                                          memoryGB: 16, licenseURL: URL(string: "https://example.com/license")!)
+        for (name, state) in [("downloading", LocalModelInstallState.downloading(downloaded: 1_230_000_000, total: model.size)),
+                              ("error", .failed("The download could not be completed. Check your connection and try again. Your model storage preference is unchanged."))] {
+            try snapshot(LocalModelSetupSheet(model: model, state: state, memoryGB: 8,
+                         storage: ModelsFixture(state: "available").modelStorage, installedDirectory: nil,
+                         primaryActionTitle: name == "error" ? "Retry Download" : "Download",
+                         canSubmit: !state.isBusy, isSaving: false, cancel: {}, submit: {}) { EmptyView() },
+                         name: "local-model-setup-\(name)", size: .init(width: 520, height: 320), settleDuration: 0.45)
+        }
+    }
+
     func testDownloadCompletionRefreshesInstalledPath() async throws {
         let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
         defer { model.cancel() }
@@ -188,9 +213,7 @@ final class SharedControlSnapshots: XCTestCase {
         ModelPickerPopover(models: models, recentModels: recent,
                            modelProviders: providers.map(\.groupID), selectedModelID: "fritz",
                            selectModel: { _ in }, configureModels: {}, initialSearchText: query,
-                           supportedProviders: PickerProvider.chatProviders,
-                           configuredProviderIDs: Set(models.map { $0.displayProvider.id }),
-                           addProvider: { _ in })
+                           supportedProviders: PickerProvider.chatProviders)
     }
 
     private var categories: [PickerCategory] {
@@ -292,7 +315,9 @@ final class SharedControlSnapshots: XCTestCase {
                     .environment(\.colorScheme, scheme)
                     .environment(\.locale, Locale(identifier: "en_US"))
                     .environment(\.controlActiveState, .key)
-                    .scrollIndicators(.hidden)
+                    // Suppress indicators before initial layout so a legacy
+                    // scrollbar preference cannot reserve document width.
+                    .scrollIndicators(.never)
                     .tint(.blue), appearance: scheme == .dark ? .darkAqua : .aqua, size: size, settleDuration: settleDuration)
             // Compare the fixed 2x bitmap directly. Hosting it in another view
             // would resample it at the attached display's backing scale.
@@ -319,6 +344,9 @@ final class SharedControlSnapshots: XCTestCase {
         window.isReleasedWhenClosed = false
         window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
         window.colorSpace = .sRGB
+        // Native table headers composite against the window, not only the host.
+        // Match the fixture backdrop instead of inheriting the desktop appearance.
+        window.backgroundColor = appearance.name == .darkAqua ? .darkGray : .white
         window.appearance = appearance
         window.contentView = host
         defer { window.contentView = nil; window.close() }
@@ -376,6 +404,12 @@ final class SharedControlSnapshots: XCTestCase {
 }
 
 @MainActor @Observable private final class ModelsFixture: ModelsProviderStore {
+    let modelStorage = ModelStorage(events: { _, _, _ in
+        AsyncThrowingStream { continuation in
+            continuation.yield(Data(#"{"type":"result","result":{"directory":"/Models","modelCount":0,"bytes":0}}"#.utf8))
+            continuation.finish()
+        }
+    }, cancel: { _ in })
     let state: String
     var error: String?
     var isLoading: Bool { state == "loading" }

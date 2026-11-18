@@ -72,7 +72,8 @@ The checkout-path hash continues to isolate the bundle ID, data directory,
 Keychain service, and UserDefaults domain. Model weights are shared by all Debug
 apps and the regular app at `~/Models/`; chat GGUFs and decision artifacts use
 that same flat directory. The first download creates it; listing models does not.
-`FRITZ_MODELS_DIR` is an explicit override for isolated model tests. Use
+`FRITZ_MODELS_DIR` selects the initial default for isolated model tests. A saved
+Model Storage setting takes precedence; use a fresh `FRITZ_DATA_DIR` to isolate it. Use
 `CONFIGURATION=release make build` for `dist/Fritz.app`, including
 `Contents/Resources/fritz`, `Contents/Resources/fritz-harness`,
 `Contents/Resources/fritz-decision-harness`, Sparkle, and package resources.
@@ -309,14 +310,22 @@ Keep that app running while checking the affected workflow, then quit only that
 instance and stop the mock server with Ctrl-C in its terminal.
 
 `FRITZ_DATA_DIR` isolates provider metadata, projects, threads, and drafts for
-the Release app. It does **not** isolate its Keychain service
+Release and Debug apps. It does **not** isolate its Keychain service
 `dev.fritz.provider-credentials`, macOS/Sparkle-managed window and update-engine preferences. Use newly created, keyless mock connections for Release app tests.
 Debug apps use a worktree-specific bundle ID, data directory, Keychain
 service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR`,
 `FRITZ_MODELS_DIR`, and `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug
 identity and model storage outside the app. For isolated Debug app verification,
-launch with `open -n --env "FRITZ_MODELS_DIR=$fritz_test_data/Models"` and use the
+launch with `open -n --env "FRITZ_DATA_DIR=$fritz_test_data" --env "FRITZ_MODELS_DIR=$fritz_test_data/Models"` and use the
 same explicit override for its bundled CLI; this avoids reading shared weights.
+
+For a large workspace smoke test, launch the staged app against a disposable
+profile once to create its schema and quit it. Seed the profile with
+`sqlite3 "$fritz_test_data/projects.sqlite" < tests/fixtures/large_workspace.sql`
+and relaunch. The fixture restores a thread beyond the first sidebar pages
+with 100,000 entries, a 1 MiB message and a saved tool result. Check older
+messages, opening the large text and tool details, and switching threads.
+`WorkspaceTests` exercises the same fixture through the production stores.
 
 Local-model unit tests use small deterministic HTTP fixtures for checksums,
 interruption, cancellation, and atomic installation. CLI integration tests verify
@@ -389,6 +398,9 @@ Chat and Bosun statically link llama.cpp at
 `7c2653acc749258dc62067da62d07024d971ccd2` through `native/bridge.cpp`.
 CMake enables CPU and Metal with embedded shaders and Jinja chat support;
 servers, tools, examples, subprocess support, OpenSSL, BLAS and OpenMP are disabled.
+The native and opt-in Chromium builds pass an explicit macOS SDK to CMake,
+honoring `SDKROOT` or resolving it with `xcrun` from the selected Xcode. This keeps an independently
+updated Command Line Tools SDK from being mixed with an older Xcode linker.
 The CMake build tree is keyed by checkout path and compiler environment inside
 Cargo output storage, because CMake caches absolute source paths.
 The app needs no additional runtime dylibs or inference service. `make setup`

@@ -5,13 +5,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn database(directory: &Path) -> Result<Database> {
+pub(crate) fn database(directory: &Path) -> Result<Database> {
     Database::open(
         &directory.join("model_locations.sqlite"),
         &[
             "CREATE TABLE model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL);",
+            "CREATE TABLE model_storage (id INTEGER PRIMARY KEY CHECK(id = 1), directory TEXT NOT NULL);",
         ],
-        &[("model_locations", &["model_id", "directory"])],
+        &[
+            ("model_locations", &["model_id", "directory"]),
+            ("model_storage", &["id", "directory"]),
+        ],
     )
 }
 

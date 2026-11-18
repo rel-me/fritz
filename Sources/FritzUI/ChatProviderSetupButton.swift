@@ -9,10 +9,10 @@ public struct ChatProviderSetupButton: View {
     }
 
     public var body: some View {
-        Button("Setup Model", action: action)
+        Button("Choose Model…", action: action)
             .font(.body)
             .controlSize(.regular)
             .buttonStyle(FritzButtonStyle())
-            .help("Setup Model")
+            .help("Choose Model…")
     }
 }

@@ -20,63 +20,79 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
     @State private var importTask: Task<Void, Never>?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(exported == nil ? "Import" : "Export").font(.title2.bold())
-            Text(guidance).font(.callout).foregroundStyle(.secondary)
-            if let exported {
-                ScrollView {
-                    Text(exported.text)
-                        .font(.system(.body, design: .monospaced)).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .topLeading).padding(10)
-                }
-                .border(.separator)
-                .accessibilityLabel("Exported cURL")
-                .privacySensitive(exported.includesKeys)
-            } else {
-                TextEditor(text: $text)
-                    .font(.system(.body, design: .monospaced)).border(.separator)
-                    .accessibilityLabel("cURL to import").privacySensitive()
-                    .disabled(isImporting)
-                Toggle("Overwrite existing", isOn: $overwritesExisting)
-                    .toggleStyle(.checkbox).disabled(isImporting)
-                Text("Matches the service name. Overwrite keeps saved keys when no key is included and the endpoint is unchanged.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
-            HStack {
-                if let exported {
-                    Button(copied ? "Copied" : "Copy", systemImage: "doc.on.doc") {
-                        NSPasteboard.general.clearContents()
-                        copied = NSPasteboard.general.setString(exported.text, forType: .string)
+        NavigationStack {
+            Form {
+                Section {
+                    if let exported {
+                        ScrollView {
+                            Text(exported.text)
+                                .font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                        }
+                        .frame(minHeight: 130)
+                        .accessibilityLabel("Exported cURL")
+                        .privacySensitive(exported.includesKeys)
+                    } else {
+                        TextEditor(text: $text)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 180)
+                            .accessibilityLabel("cURL to import").privacySensitive()
+                            .disabled(isImporting)
                     }
-                } else {
-                    Button("Paste", systemImage: "doc.on.clipboard") {
-                        guard let value = NSPasteboard.general.string(forType: .string), !value.isEmpty else {
-                            error = "Copy a cURL request first, then paste it here."
-                            return
-                        }
-                        guard value.utf8.count <= 1_048_576 else {
-                            error = "The configuration must be no larger than 1 MB."
-                            return
-                        }
-                        text = value; error = nil
-                    }.disabled(isImporting)
+                } footer: {
+                    Text(guidance)
+                    if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                 }
-                Spacer()
-                if isImporting { ProgressView().controlSize(.small) }
-                Button(exported == nil ? "Cancel" : "Done") { dismiss() }
-                    .keyboardShortcut(.cancelAction).disabled(isImporting)
                 if exported == nil {
-                    Button("Import", action: importProviders)
-                        .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
-                        .disabled(isImporting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Section {
+                        Toggle("Overwrite existing", isOn: $overwritesExisting)
+                            .toggleStyle(.checkbox).disabled(isImporting)
+                    } footer: {
+                        Text("Matches the service name. Overwrite keeps saved keys when no key is included and the endpoint is unchanged.")
+                    }
+                }
+                Section {
+                    if let exported {
+                        Button(copied ? "Copied" : "Copy", systemImage: "doc.on.doc") {
+                            NSPasteboard.general.clearContents()
+                            copied = NSPasteboard.general.setString(exported.text, forType: .string)
+                        }
+                    } else {
+                        Button("Paste", systemImage: "doc.on.clipboard") {
+                            guard let value = NSPasteboard.general.string(forType: .string), !value.isEmpty else {
+                                error = "Copy a cURL request first, then paste it here."
+                                return
+                            }
+                            guard value.utf8.count <= 1_048_576 else {
+                                error = "The configuration must be no larger than 1 MB."
+                                return
+                            }
+                            text = value; error = nil
+                        }.disabled(isImporting)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(exported == nil ? "Import Models" : "Export Models")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(exported == nil ? "Cancel" : "Done") { dismiss() }
+                        .keyboardShortcut(.cancelAction).disabled(isImporting)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    if exported == nil {
+                        Button("Import", action: importProviders).keyboardShortcut(.defaultAction)
+                            .disabled(isImporting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                ToolbarItem(placement: .status) {
+                    if isImporting { ProgressView().controlSize(.small).accessibilityLabel("Importing models") }
                 }
             }
         }
-        .padding(24).frame(width: 600, height: exported == nil ? 460 : 350)
-        .background(ModelsConfigurationStyle.contentBackground)
+        .frame(width: 600, height: exported == nil ? 460 : 350)
+        .buttonStyle(.automatic)
         .interactiveDismissDisabled(isImporting)
-        .buttonStyle(FritzButtonStyle())
         .onDisappear { importTask?.cancel() }
     }
 

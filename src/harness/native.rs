@@ -25,6 +25,7 @@ struct ReceiptSlot {
 
 pub struct Session {
     pub history: Vec<Value>,
+    pub initial_boundaries: Vec<usize>,
     kind: ProviderKind,
     suffix: &'static str,
     base: Value,
@@ -61,15 +62,62 @@ impl Session {
         if kind == ProviderKind::Ollama {
             base["options"] = json!({"num_predict":8192});
         }
-        Ok(Self {
+        let offset = history.len() - request.messages.len();
+        let plain = history.split_off(offset);
+        let mut session = Self {
             history,
+            initial_boundaries: vec![offset],
             kind,
             suffix,
             base,
             receipts: Vec::new(),
             strict_tools: false,
             request_byte_limit: 2_000_000,
-        })
+        };
+        for (message, native) in request.messages.iter().zip(plain) {
+            if !message.tools.is_empty() {
+                let results = message
+                    .tools
+                    .iter()
+                    .map(provider::HistoricalTool::exchange)
+                    .collect::<Result<Vec<_>>>()?;
+                session.append_historical_tools(&results)?;
+            }
+            if message.tools.is_empty() || !message.content.is_empty() {
+                session.history.push(native);
+            }
+            session.initial_boundaries.push(session.history.len());
+        }
+        session.receipts.clear();
+        Ok(session)
+    }
+
+    fn append_historical_tools(&mut self, results: &[(Call, ToolResult)]) -> Result<()> {
+        match self.kind {
+            ProviderKind::Openai => self.history.extend(results.iter().map(|(call, _)| json!({
+                "type":"function_call", "call_id":call.id, "name":call.name, "arguments":call.arguments
+            }))),
+            ProviderKind::Anthropic => {
+                let items = results.iter().map(|(call, _)| Ok(json!({
+                    "type":"tool_use", "id":call.id, "name":call.name, "input":serde_json::from_str::<Value>(&call.arguments)?
+                }))).collect::<Result<Vec<_>>>()?;
+                self.history.push(json!({"role":"assistant","content":items}));
+            }
+            ProviderKind::Ollama => {
+                let calls = results.iter().map(|(call, _)| Ok(json!({
+                    "function":{"name":call.name,"arguments":serde_json::from_str::<Value>(&call.arguments)?}
+                }))).collect::<Result<Vec<_>>>()?;
+                self.history.push(json!({"role":"assistant","content":"","tool_calls":calls}));
+            }
+            ProviderKind::OpenaiCompatible | ProviderKind::Openrouter => {
+                let calls = results.iter().map(|(call, _)| json!({
+                    "id":call.id, "type":"function", "function":{"name":call.name,"arguments":call.arguments}
+                })).collect::<Vec<_>>();
+                self.history.push(json!({"role":"assistant","content":null,"tool_calls":calls}));
+            }
+            _ => bail!("This provider does not support portable tool history."),
+        }
+        self.results(results)
     }
 
     pub fn append_user(&mut self, content: &str) {
@@ -145,6 +193,7 @@ impl Session {
         replacement.failed = slot.failed;
         let mut encoded = Self {
             history: Vec::new(),
+            initial_boundaries: Vec::new(),
             kind: self.kind,
             suffix: "",
             base: json!({}),
@@ -743,6 +792,7 @@ mod tests {
             let opaque = json!({"opaque":"signed-history"});
             let mut session = Session {
                 history: vec![opaque.clone()],
+                initial_boundaries: Vec::new(),
                 kind,
                 suffix: "",
                 base: json!({}),
@@ -833,6 +883,7 @@ mod tests {
             ));
             let mut session = Session {
                 history: Vec::new(),
+                initial_boundaries: Vec::new(),
                 kind,
                 suffix: "",
                 base: json!({"instructions":"active instructions"}),

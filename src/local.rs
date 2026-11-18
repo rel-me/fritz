@@ -101,6 +101,36 @@ fn literal_result(mut request: Vec<Value>, result: &Value, id: &str) -> Vec<Valu
     request
 }
 
+fn literal_history(
+    mut history: Vec<Value>,
+    role: &str,
+    message: &crate::provider::Message,
+) -> Result<Vec<Value>> {
+    if !message.tools.is_empty() {
+        let exchanges = message
+            .tools
+            .iter()
+            .map(crate::provider::HistoricalTool::exchange)
+            .collect::<Result<Vec<_>>>()?;
+        let calls = exchanges
+            .iter()
+            .map(|(call, _)| NativeCall {
+                id: call.id.clone(),
+                name: call.name.clone(),
+                arguments: call.arguments.clone(),
+            })
+            .collect();
+        history = literal_tools(history, "", calls);
+        for (call, result) in exchanges {
+            history = literal_result(history, &result.value, &call.id);
+        }
+    }
+    if message.tools.is_empty() || !message.content.is_empty() {
+        history = literal_message(history, role, &message.content);
+    }
+    Ok(history)
+}
+
 enum Record {
     User(String),
     Assistant(String),
@@ -136,7 +166,7 @@ impl Session {
                 "assistant" => "assistant",
                 _ => bail!("Invalid role in Fritz conversation."),
             };
-            messages = literal_message(messages, role, &message.content);
+            messages = literal_history(messages, role, message)?;
         }
         Ok(Self {
             engine,
@@ -179,6 +209,7 @@ impl Session {
             crate::provider::Message {
                 role: "user".into(),
                 content: summary.into(),
+                tools: vec![],
             },
         );
         Ok(())
@@ -210,15 +241,9 @@ impl Session {
         self.system = system.into();
         let mut messages = literal_message(Vec::new(), "system", system);
         for message in &self.initial {
-            messages = literal_message(
-                messages,
-                if message.role == "assistant" {
-                    "assistant"
-                } else {
-                    "user"
-                },
-                &message.content,
-            );
+            // The initial history is validated during construction.
+            messages = literal_history(messages, &message.role, message)
+                .expect("validated initial tool exchanges");
         }
         for record in &self.rounds {
             match record {

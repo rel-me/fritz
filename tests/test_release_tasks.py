@@ -94,6 +94,7 @@ class PrereleaseVersionTests(unittest.TestCase):
             [sys.executable, str(scripts / "build-cache.py"), "--derived-data"],
             env=self.environment, text=True).strip()
         key_tool = Path(derived) / "SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
+        self.key_tool = key_tool
         key_tool.parent.mkdir(parents=True)
         self.executable(key_tool, "import os\nprint(os.environ['FRITZ_SPARKLE_PUBLIC_ED_KEY'])\n")
         website = self.root / "website"
@@ -159,6 +160,19 @@ Path('prepared.json').write_text(json.dumps([sys.argv[1], Path('dist/updates/app
     def run_release(self, channel, **overrides):
         return subprocess.run(["/bin/bash", str(self.root / "scripts/prerelease.sh"), channel],
                               env=dict(self.environment, **overrides), capture_output=True, text=True)
+
+    def test_missing_sparkle_key_reports_recovery_before_building(self):
+        self.executable(self.key_tool,
+                        "print('ERROR: No existing signing key found!')\nraise SystemExit(1)\n")
+        for channel in ("beta", "staging"):
+            with self.subTest(channel=channel):
+                result = self.run_release(channel)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("No existing signing key found!", result.stderr)
+                self.assertIn("restore the existing Fritz signing key", result.stderr)
+                self.assertIn("fritz", result.stderr)
+                self.assertFalse((self.root / "built.json").exists())
+                self.assertFalse((self.root / "published").exists())
 
     def test_next_version_across_local_and_published_channels(self):
         # A stale source version and mismatched appcast previously stopped staging.
@@ -321,11 +335,17 @@ if os.environ.get('GH_FAILURE'):
 if args[0] == 'api':
     if args[1] == 'repos/rel-me/fritz':
         print(json.dumps({'permissions': {'push': True}}))
-    elif state and not state['isDraft']:
-        print(json.dumps({'sha': state['targetCommitish']}))
+    elif args[1].startswith(('repos/rel-me/fritz/git/ref/tags/', 'repos/rel-me/fritz/commits/')):
+        if state and not state['isDraft']:
+            print(json.dumps({'sha': state['targetCommitish']}))
+        else:
+            if '/commits/' in args[1]:
+                print(f'No commit found for SHA: {args[1].split("/")[-1]} (HTTP 422)', file=sys.stderr)
+            else:
+                print('Not Found (HTTP 404)', file=sys.stderr)
+            sys.exit(1)
     else:
-        print('not found (HTTP 404)', file=sys.stderr)
-        sys.exit(1)
+        raise SystemExit(f'unexpected GitHub API request: {args}')
 elif args[:2] == ['release', 'view']:
     if state:
         print(json.dumps(state))
@@ -368,7 +388,7 @@ if state:
                         # An interrupted first upload leaves a draft; the real retry resumes it.
                         result = subprocess.run([sys.executable, str(scripts / 'publish-github-release.py'), 'beta'],
                             cwd=root, env=dict(environment, GH_UPLOAD_FAILURE='1'), capture_output=True, text=True)
-                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn('upload interrupted', result.stderr)
                         self.assertTrue(json.loads(github_state.read_text())['isDraft'])
                     result = subprocess.run(["/bin/bash", *args], env=environment,
                                             capture_output=True, text=True)

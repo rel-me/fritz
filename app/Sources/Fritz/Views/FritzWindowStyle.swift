@@ -54,7 +54,7 @@ struct WindowNewItemMenu: View {
     let canCreateThread: Bool
     let createProject: () -> Void
     let createThread: () -> Void
-    let createProvider: () -> Void
+    let createRemoteModel: () -> Void
     let createLocalModel: () -> Void
 
     var body: some View {
@@ -62,8 +62,8 @@ struct WindowNewItemMenu: View {
             Button("New Project", action: createProject)
             Button("New Chat", action: createThread).disabled(!canCreateThread)
             Divider()
-            Button("New Model", action: createProvider)
             Button("New Local Model", action: createLocalModel)
+            Button("New Remote Model", action: createRemoteModel)
         } label: {
             Label("New", systemImage: "plus")
         }
@@ -113,6 +113,7 @@ private struct FritzWindowChrome: NSViewRepresentable {
             guard let window else { return }
             if window.toolbarStyle != .unified { window.toolbarStyle = .unified }
             if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
+            if window.titlebarSeparatorStyle != .none { window.titlebarSeparatorStyle = .none }
         }
     }
 }

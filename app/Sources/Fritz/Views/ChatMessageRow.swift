@@ -6,6 +6,9 @@ struct ChatMessageRow: View {
     let message: ChatMessage
     let isActive: Bool
     let activity: String?
+    let activeTools: [ChatToolActivity]
+    let repository: ProjectRepository
+    let openBody: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
@@ -13,9 +16,9 @@ struct ChatMessageRow: View {
                 ChatUserMessage(content: message.content)
             } else {
                 if isActive {
-                    ChatActivityRow(activities: message.tools ?? [], activity: activity)
-                } else if message.elapsedTime != nil || !(message.tools ?? []).isEmpty {
-                    ChatCompletedWorkDisclosure(message: message)
+                    ChatActivityRow(activities: activeTools, activity: activity, entryID: message.id, repository: repository)
+                } else if message.elapsedTime != nil || message.toolCount > 0 {
+                    ChatCompletedWorkDisclosure(message: message, repository: repository)
                 }
                 if !message.content.isEmpty {
                     ChatAssistantMessage(content: message.content)
@@ -26,6 +29,10 @@ struct ChatMessageRow: View {
                 if !isActive, let summary = message.usageSummary {
                     FritzUI.ChatResponseUsageFooter(summary: summary)
                 }
+            }
+            if message.hasMoreBody {
+                Button("Read Full Message", action: openBody)
+                    .buttonStyle(.link)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -38,19 +45,25 @@ struct ChatActivityRow: View {
     let showsHeading: Bool
     let isActive: Bool
     let activity: String?
+    let entryID: UUID
+    let repository: ProjectRepository
 
     init(
         activities: [ChatToolActivity],
         maximumActivityCount: Int? = 6,
         showsHeading: Bool = true,
         isActive: Bool = true,
-        activity: String? = nil
+        activity: String? = nil,
+        entryID: UUID,
+        repository: ProjectRepository
     ) {
         self.activities = activities
         self.maximumActivityCount = maximumActivityCount
         self.showsHeading = showsHeading
         self.isActive = isActive
         self.activity = activity
+        self.entryID = entryID
+        self.repository = repository
     }
 
     var body: some View {
@@ -68,10 +81,78 @@ struct ChatActivityRow: View {
                 }
             ) { item in
                 if let tool = activities.first(where: { $0.id == item.id }) {
-                    ChatToolDetails(activity: tool, isActive: isActive)
+                    ChatStoredToolDetails(activity: tool, isActive: isActive, entryID: entryID, repository: repository)
                 }
             }
 
+        }
+    }
+}
+
+struct ChatStoredBody: View {
+    let entry: ChatMessage
+    let repository: ProjectRepository
+    @Environment(\.dismiss) private var dismiss
+    @State private var chunks: [String] = []
+    @State private var cursor: Int64 = 0
+    @State private var hasMore = false
+    @State private var isLoading = true
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            if let error { Text(error).foregroundStyle(.red) }
+            else if isLoading { ProgressView() }
+            else {
+                ScrollView {
+                    Text(chunks.joined()).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            HStack {
+                if cursor > 0 { Button("Previous") { Task { await load(max(0, cursor - 4)) } }.disabled(isLoading) }
+                if hasMore { Button("Next") { Task { await load(cursor + 4) } }.disabled(isLoading) }
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 640, height: 440)
+        .task { await load(0) }
+    }
+
+    private func load(_ offset: Int64) async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let page = try await repository.body(entry.id, from: offset)
+            chunks = Array(page.prefix(4))
+            hasMore = page.count > 4
+            cursor = offset
+            error = nil
+        } catch { self.error = error.localizedDescription }
+    }
+}
+
+private struct ChatStoredToolDetails: View {
+    let activity: ChatToolActivity
+    let isActive: Bool
+    let entryID: UUID
+    let repository: ProjectRepository
+    @State private var loaded: ChatToolActivity?
+    @State private var error: String?
+
+    var body: some View {
+        Group {
+            if let loaded { ChatToolDetails(activity: loaded, isActive: isActive) }
+            else if let error { Text(error).padding() }
+            else { ProgressView().padding() }
+        }
+        .task(id: activity.success) {
+            do {
+                loaded = try await repository.tool(entryID, callID: activity.id)
+                if loaded == nil { error = "This tool record is unavailable." }
+            } catch { self.error = error.localizedDescription }
         }
     }
 }

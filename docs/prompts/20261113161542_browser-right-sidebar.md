@@ -63,3 +63,17 @@ changes together with the proportional sidebar sizing in PR #113.
 Apply the selected-tab background to the empty browser area and blank tabs,
 with a transparent horizontal tab strip. Include these visual changes in the
 same PR monitoring scope.
+
+## Follow-up user request
+
+> Update from origin
+
+Fetch origin and merge the latest origin/main into the browser sidebar PR branch,
+preserving the sidebar work and upstream model-window and chat-header updates.
+
+## Follow-up delegated prompt
+
+Monitor PR #113 after merging origin/main. Fix failures introduced by the merge
+resolution, run appropriate local checks, commit and push fixes, and monitor
+any updated revision again. Preserve unrelated changes and do not merge the PR.
+Report final checks and exact blockers; append further delegated prompts here.

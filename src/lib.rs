@@ -13,6 +13,7 @@ pub mod decision_client;
 pub mod harness;
 pub mod harness_client;
 pub mod local;
+pub mod model_storage;
 #[cfg(target_os = "macos")]
 pub mod models_service;
 pub mod provider;

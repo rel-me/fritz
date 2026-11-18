@@ -35,7 +35,8 @@ import Observation
 
     public convenience init(agent: AgentClient, preferences: any ModelsPreferences) {
         var environment = ProcessInfo.processInfo.environment
-        if let directory = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
+        if environment["FRITZ_DATA_DIR"] == nil,
+           let directory = Bundle.main.object(forInfoDictionaryKey: "FritzDataDirectory") as? String {
             environment["FRITZ_DATA_DIR"] = NSString(string: directory).expandingTildeInPath
         }
         if environment["FRITZ_MODELS_DIR"] == nil, let directory = Bundle.main.object(forInfoDictionaryKey: "FritzModelsDirectory") as? String {
@@ -79,8 +80,8 @@ import Observation
         isLoading = true
         defer { isLoading = false }
         do {
-            let inventory: Inventory = try await agent.request("localModels.list")
-            installedIDs = Set(inventory.models.filter(\.installed).map(\.id))
+            let inventory: LocalModelInventory = try await agent.request("localModels.list")
+            installedIDs = inventory.installedIDs
             error = nil
         } catch { self.error = error.localizedDescription }
     }
@@ -317,7 +318,8 @@ private struct ServiceEvent: Decodable {
     public var error: String?
 }
 
-private struct Inventory: Decodable {
+struct LocalModelInventory: Decodable {
     struct Model: Decodable { let id: String; let installed: Bool }
     let models: [Model]
+    var installedIDs: Set<String> { Set(models.filter(\.installed).map(\.id)) }
 }
