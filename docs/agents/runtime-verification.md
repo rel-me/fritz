@@ -84,7 +84,10 @@ development and integration checks. Release staging strips local symbols from
 the Rust executable and native app before signing, without modifying cached
 build products.
 Inspect that artifact for packaging failures; a raw Swift executable omits
-required resources. `make dev-open` builds and opens the app for normal use.
+required resources. `make dev-open` (also `make run`) builds the app, requests a normal quit for
+any instances of the same app edition staged in this checkout, then launches
+the fresh build. It waits for the old processes to exit before opening.
+Set `FRITZ_DATA_DIR` and `FRITZ_MODELS_DIR` on the command to isolate test data.
 Neither command installs to `/Applications`.
 
 `make release-build` is the optimized local build at the current Cargo version

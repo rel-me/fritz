@@ -98,3 +98,15 @@ verify any fixes, push them, and monitor again. Report the final checks and bloc
 
 Monitor PR #113 after the address-field progress overlay change. Fix related
 CI failures, verify and push any fixes, and monitor the resulting revision.
+
+## Follow-up user request
+
+> Change the scripts to close existing if re-starting or starting new version?
+
+Update the development launcher after finding three instances of the same staged
+app running. Quit old instances from this checkout before opening the fresh build.
+
+## Follow-up delegated prompt
+
+Monitor PR #113 after the dev launcher change. Fix related CI failures, verify
+and push any fixes, and monitor the resulting revision.

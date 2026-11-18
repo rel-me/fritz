@@ -17,7 +17,7 @@ release-build:
 	@CONFIGURATION=release $(MAKE) --no-print-directory build
 
 run dev-open: build
-	open -n "$$(cat dist/.last-built-app)"
+	swift scripts/open-staged-app.swift "$$(cat dist/.last-built-app)"
 
 test: test-runtime test-swift
 
