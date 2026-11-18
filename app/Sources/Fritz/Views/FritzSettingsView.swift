@@ -6,7 +6,6 @@ import SwiftUI
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
     case service
-    case debug
 
     var id: String { rawValue }
 
@@ -14,7 +13,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .service: "Service"
-        case .debug: "Debug"
         }
     }
 
@@ -22,7 +20,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .service: "gearshape.2"
-        case .debug: "ladybug"
         }
     }
 }
@@ -51,11 +48,6 @@ struct FritzSettingsView: View {
                         FritzGeneralSettingsView(updater: updater, settings: state.settings, modelStorage: state.providers.modelStorage)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
-                    case .debug:
-                        Text("Debug")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .padding(24)
                     }
                 }
                 // Bound list-based pages to the window while reserving the bottom inset.
