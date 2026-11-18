@@ -6,7 +6,6 @@ struct ProjectsSidebar: View {
     @State private var collapsedProjects: Set<UUID> = []
     @State private var renaming: RenameItem?
     @State private var deleting: ProjectThread?
-    @State private var repairing: FritzProject?
     @State private var showArchived = false
 
     var body: some View {
@@ -40,24 +39,26 @@ struct ProjectsSidebar: View {
                                 .disabled(!workspace.isAvailable(project))
                             }
                         } label: {
-                            HStack {
-                                Label(project.name, systemImage: "folder")
-                                    .lineLimit(1).help(project.directory ?? project.name)
-                                    .foregroundStyle(workspace.isAvailable(project) ? .primary : .secondary)
-
-                            }
+                            let isAvailable = workspace.isAvailable(project)
+                            Label(project.name, systemImage: "folder")
+                                .lineLimit(1).help(project.directory ?? project.name)
+                                .foregroundStyle(isAvailable ? .primary : .secondary)
                             .contextMenu {
                                 Button("New Chat", systemImage: "square.and.pencil") {
                                     collapsedProjects.remove(project.id)
                                     workspace.createThread(in: project.id)
-                                }.disabled(!workspace.isAvailable(project))
+                                }.disabled(!isAvailable)
                                 Button("Rename Project", systemImage: "pencil") {
                                     renaming = RenameItem(id: project.id, title: project.name, isProject: true)
                                 }
-                                if let directory = project.directory {
+                                if !isAvailable {
+                                    Divider()
+                                    Button("Recreate Folder") { repair(project) }
+                                    Button("Choose Another Folder…") { chooseReplacement(for: project) }
+                                } else if let directory = project.directory {
                                     Button("Show in Finder", systemImage: "folder") {
                                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: directory)])
-                                    }.disabled(!workspace.isAvailable(project))
+                                    }
                                 }
                             }
                         }
@@ -76,32 +77,13 @@ struct ProjectsSidebar: View {
             workspace.refreshAvailability()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(workspace.projects.filter { !workspace.isAvailable($0) }) { project in
-                    HStack {
-                        Label(project.name, systemImage: "folder.badge.questionmark")
-                            .lineLimit(1).foregroundStyle(.secondary)
-                        Spacer(minLength: 4)
-                        Button("Fix") { repairing = project }
-                            .controlSize(.small)
-                            .help("Fix the unavailable folder for \(project.name)")
-                    }
+            if workspace.projects.contains(where: { $0.threads.contains(where: \.isArchived) }) {
+                Toggle("Show Archived Threads", isOn: $showArchived)
+                    .toggleStyle(.checkbox)
                     .font(.caption)
-                }
-                if workspace.projects.contains(where: { $0.threads.contains(where: \.isArchived) }) {
-                    Toggle("Show Archived Threads", isOn: $showArchived)
-                        .toggleStyle(.checkbox)
-                        .font(.caption)
-                }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
             }
-            .padding(workspace.projects.contains(where: { !workspace.isAvailable($0) || $0.threads.contains(where: \.isArchived) }) ? 12 : 0)
-        }
-        .confirmationDialog("Fix Project Folder", isPresented: Binding(
-            get: { repairing != nil }, set: { if !$0 { repairing = nil } }
-        ), presenting: repairing) { project in
-            Button("Recreate Folder") { repair(project) }
-            Button("Choose Another Folder…") { chooseReplacement(for: project) }
-            Button("Cancel", role: .cancel) {}
         }
         .confirmationDialog("Delete Thread?", isPresented: Binding(
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }

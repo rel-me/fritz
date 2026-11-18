@@ -70,4 +70,4 @@ There is no bottom panel.
 
 Thread context menus offer Archive Thread and Delete Thread. Archived threads retain their history and drafts; enable Show Archived Threads in the sidebar to restore them. Deleting a thread asks for confirmation and permanently removes its messages and settings.
 
-If a project folder is missing or inaccessible, its threads are disabled. Use Fix beside the project to recreate the folder at its saved path or choose another existing folder. Choosing another folder preserves conversations and uses the replacement folder for future actions. Folder availability is checked while the app is open and when it becomes active.
+If a project folder is missing or inaccessible, its threads are disabled. Right-click the project and choose **Recreate Folder** to restore the saved path or **Choose Another Folder…** to select an existing folder. Choosing another folder preserves conversations and uses the replacement folder for future actions. Folder availability is checked while the app is open and when it becomes active.

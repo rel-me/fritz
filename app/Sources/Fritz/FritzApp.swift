@@ -209,7 +209,7 @@ private struct FritzWorkspaceView: View {
                 }
                 if let project = state.workspace.selectedProject, !state.workspace.isAvailable(project) {
                     ContentUnavailableView("Project Folder Unavailable", systemImage: "folder.badge.questionmark",
-                                           description: Text("Use Fix in the sidebar to reconnect its folder."))
+                                           description: Text("Open the project’s context menu to recreate the folder or choose another one."))
                 } else if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,

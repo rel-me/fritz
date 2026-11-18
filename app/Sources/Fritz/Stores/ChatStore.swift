@@ -97,7 +97,7 @@ struct ChatPreferences: Codable {
 
     func send() {
         guard WorkspaceStore.directoryIsAvailable(projectPath) else {
-            error = "The project folder is unavailable. Use Fix in the sidebar to reconnect it."
+            error = "The project folder is unavailable. Open the project’s context menu to reconnect it."
             return
         }
         guard canSend, let model = selectedModel, let connectionID = model.connectionID else { return }
