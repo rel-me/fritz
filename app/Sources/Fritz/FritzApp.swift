@@ -120,27 +120,8 @@ struct FritzApp: App {
 
     var body: some Scene {
         Window("Fritz", id: "main") {
-            Group {
-                if updater.allowsAppUse {
-                    FritzWorkspaceView(state: state)
-                } else if let version = updater.requiredVersion {
-                    ContentUnavailableView {
-                        Label("Fritz \(version) is required", systemImage: "arrow.down.circle")
-                    } description: {
-                        Text("Install the required update to continue.")
-                    } actions: {
-                        Button("Update Fritz") { updater.checkForUpdates() }
-                    }
-                } else {
-                    ProgressView("Checking for updates…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
+            FritzWorkspaceView(state: state)
                 .task {
-                    updater.checkForUpdatesAtStartup()
-                }
-                .task(id: updater.allowsAppUse) {
-                    guard updater.allowsAppUse else { return }
                     state.agent.start()
                     state.localModels.startService()
                     await state.providers.refresh()

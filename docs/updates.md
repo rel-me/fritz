@@ -4,9 +4,10 @@
 
 Fritz includes Sparkle 2.9.6. Open **Fritz → Settings… → General** to choose
 **Release**, **Beta**, or **Staging**. Beta accepts beta and release items; Staging also
-accepts staging items. Saved Dev selections migrate to Staging on launch. A configured
-build checks for updates at startup, and **Fritz → Check for Updates** opens Sparkle's
-update UI. A critical update blocks chat until it is installed. Settings also includes
+accepts staging items. Saved Dev selections migrate to Staging on launch. Sparkle
+checks for updates in the background on configured builds. The workspace opens
+immediately and stays available when an update is found, including critical updates.
+**Fritz → Check for Updates** opens Sparkle's update UI. Settings also includes
 Models, bundled Service status, and Debug.
 
 ## Build configuration
