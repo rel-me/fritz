@@ -225,11 +225,13 @@ private struct ChatHeaderBlur: ViewModifier {
                 .onGeometryChange(for: CGRect.self) { geometry in
                     geometry.frame(in: .global)
                 } action: { contentFrame = $0 }
-                .mask {
+                .overlay {
                     if overlapsHeader {
-                        edgeMask(blurred: false)
-                    } else {
-                        Color.white
+                        // An alpha mask on the original row flattens its text into
+                        // a composited layer, even below the toolbar.
+                        headerFade(from: ChatVisualStyle.pageBackground)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                 }
                 .overlay {
@@ -252,7 +254,7 @@ private struct ChatHeaderBlur: ViewModifier {
                                 )
                             }
                             .opacity(0.3)
-                            .mask { edgeMask(blurred: true) }
+                            .mask { headerFade(from: .white) }
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
@@ -262,11 +264,11 @@ private struct ChatHeaderBlur: ViewModifier {
         }
     }
 
-    private func edgeMask(blurred: Bool) -> some View {
+    private func headerFade(from color: Color) -> some View {
         let height = max(1, contentFrame.height)
         // Finish the transition inside the header so transcript content below stays sharp.
         return LinearGradient(
-            colors: blurred ? [.white, .clear] : [.clear, .white],
+            colors: [color, color.opacity(0)],
             startPoint: UnitPoint(x: 0, y: (headerBottom - 28 - contentFrame.minY) / height),
             endPoint: UnitPoint(x: 0, y: (headerBottom - contentFrame.minY) / height)
         )
