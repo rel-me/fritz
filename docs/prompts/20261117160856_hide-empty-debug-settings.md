@@ -23,3 +23,7 @@ this prompt log, run appropriate checks, commit and push, and monitor the new
 head again. Report the PR number, head commit, checks, and exact blockers. Do not
 merge the PR. Use bounded waits of at most 60 seconds and keep the parent updated
 when there is meaningful progress.
+
+## User follow-up
+
+“Create PR”
