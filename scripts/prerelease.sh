@@ -66,7 +66,12 @@ fi
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
 key_tool="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
 test -x "$key_tool" || { echo "error: run make setup to resolve Sparkle tools" >&2; exit 1; }
-public_key="$("$key_tool" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p)"
+if ! public_key="$("$key_tool" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p)"; then
+  # Sparkle reports missing keys on stdout, which command substitution captures.
+  if [[ -n "$public_key" ]]; then printf '%s\n' "$public_key" >&2; fi
+  echo "error: cannot read the Sparkle public key for Keychain account '$FRITZ_SPARKLE_KEY_ACCOUNT'; unlock the Keychain or restore the existing Fritz signing key, then retry make $channel. Do not generate a replacement key for the published feed." >&2
+  exit 1
+fi
 [[ "$public_key" == "$FRITZ_SPARKLE_PUBLIC_ED_KEY" ]] || {
   echo "error: Fritz's Sparkle Keychain key does not match the configured public key" >&2
   exit 1

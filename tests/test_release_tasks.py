@@ -94,6 +94,7 @@ class PrereleaseVersionTests(unittest.TestCase):
             [sys.executable, str(scripts / "build-cache.py"), "--derived-data"],
             env=self.environment, text=True).strip()
         key_tool = Path(derived) / "SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
+        self.key_tool = key_tool
         key_tool.parent.mkdir(parents=True)
         self.executable(key_tool, "import os\nprint(os.environ['FRITZ_SPARKLE_PUBLIC_ED_KEY'])\n")
         website = self.root / "website"
@@ -159,6 +160,19 @@ Path('prepared.json').write_text(json.dumps([sys.argv[1], Path('dist/updates/app
     def run_release(self, channel, **overrides):
         return subprocess.run(["/bin/bash", str(self.root / "scripts/prerelease.sh"), channel],
                               env=dict(self.environment, **overrides), capture_output=True, text=True)
+
+    def test_missing_sparkle_key_reports_recovery_before_building(self):
+        self.executable(self.key_tool,
+                        "print('ERROR: No existing signing key found!')\nraise SystemExit(1)\n")
+        for channel in ("beta", "staging"):
+            with self.subTest(channel=channel):
+                result = self.run_release(channel)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("No existing signing key found!", result.stderr)
+                self.assertIn("restore the existing Fritz signing key", result.stderr)
+                self.assertIn("fritz", result.stderr)
+                self.assertFalse((self.root / "built.json").exists())
+                self.assertFalse((self.root / "published").exists())
 
     def test_next_version_across_local_and_published_channels(self):
         # A stale source version and mismatched appcast previously stopped staging.

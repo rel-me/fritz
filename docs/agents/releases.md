@@ -16,6 +16,14 @@ in this macOS user's Keychain. To inspect the public key on this machine:
   --account fritz -p
 ```
 
+If prerelease preparation reports `No existing signing key found!`, unlock the
+Keychain containing the existing Fritz Sparkle signing key or restore that key
+from its secure backup into the configured `FRITZ_SPARKLE_KEY_ACCOUNT` (default
+`fritz`). Retry the public-key inspection above and confirm it matches the
+configured public key before rerunning `make beta` or `make staging`. Do not
+generate a replacement key for the published feed; existing installations trust
+the configured public key.
+
 Set up Cloudflare access with `cd website && npx wrangler login` in an
 interactive terminal, or supply `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` for Wrangler. Create the dedicated bucket once:
