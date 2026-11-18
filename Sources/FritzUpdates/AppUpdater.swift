@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import OSLog
 import Sparkle
 import SwiftUI
 
@@ -45,6 +46,7 @@ public final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     public let isConfigured: Bool
     public private(set) var updateChannel: AppUpdateChannel
     private var controller: SPUStandardUpdaterController?
+    private let logger = Logger(subsystem: "dev.fritz.updates", category: "startup")
 
     public init(bundle: Bundle = .main, updateChannel: AppUpdateChannel = .release) {
         let configuration = AppUpdateConfiguration(infoDictionary: bundle.infoDictionary)
@@ -55,17 +57,23 @@ public final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
 
         // Keep Sparkle's windows top-level so its cancellation and modal teardown
         // retain their native lifecycle.
+        guard configuration.isConfigured else { return }
+
         let controller = SPUStandardUpdaterController(
-            startingUpdater: configuration.isConfigured,
+            startingUpdater: false,
             updaterDelegate: self,
             userDriverDelegate: nil
         )
-        self.controller = controller
-
-        if configuration.isConfigured {
-            controller.updater.publisher(for: \.canCheckForUpdates)
-                .assign(to: &$canCheckForUpdates)
+        do {
+            try controller.updater.start()
+        } catch {
+            logger.error("Sparkle could not start: \(error.localizedDescription, privacy: .public)")
+            startupState = .failed
+            return
         }
+        self.controller = controller
+        controller.updater.publisher(for: \.canCheckForUpdates)
+            .assign(to: &$canCheckForUpdates)
     }
 
     public var hasCompletedStartupCheck: Bool {
@@ -81,12 +89,23 @@ public final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 
     public func checkForUpdatesAtStartup() {
-        guard isConfigured, startupState == .pending, let controller else {
+        guard startupState == .pending, let updater = controller?.updater else {
             return
         }
 
         startupState = .checking
-        controller.updater.checkForUpdatesInBackground()
+        // Sparkle may have started a scheduled check before the main window appeared.
+        if !updater.sessionInProgress {
+            updater.checkForUpdatesInBackground()
+        }
+
+        // The session can be awaiting permission, an installer, or a network response.
+        // Bound the launch wait while leaving Sparkle's session and delegate intact.
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(10)) { [weak self] in
+            guard let self, self.startupState == .checking else { return }
+            self.logger.error("Startup update check timed out. Sparkle may still be checking for updates.")
+            self.startupState = .failed
+        }
     }
 
     public func checkForUpdates() {
