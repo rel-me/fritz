@@ -98,14 +98,6 @@ public final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         if !updater.sessionInProgress {
             updater.checkForUpdatesInBackground()
         }
-
-        // The session can be awaiting permission, an installer, or a network response.
-        // Bound the launch wait while leaving Sparkle's session and delegate intact.
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(10)) { [weak self] in
-            guard let self, self.startupState == .checking else { return }
-            self.logger.error("Startup update check timed out. Sparkle may still be checking for updates.")
-            self.startupState = .failed
-        }
     }
 
     public func checkForUpdates() {
