@@ -16,6 +16,7 @@ public struct AgentEvent: Decodable, Sendable {
     public let name: String?
     public let summary: String?
     public let details: String?
+    public let historyDetails: String?
     public let success: Bool?
 }
 

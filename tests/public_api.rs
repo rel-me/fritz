@@ -106,6 +106,7 @@ async fn native_harness_uses_only_host_tools_and_refreshes_them_after_execution(
                 model_id: "fixture".into(),
             },
             request: fritz::provider::ChatRequest {
+                history_version: None,
                 connection_id: id.to_string(),
                 model: "fixture".into(),
                 messages: (0..10)
@@ -116,6 +117,7 @@ async fn native_harness_uses_only_host_tools_and_refreshes_them_after_execution(
                         } else {
                             "Look up the number".into()
                         },
+                        tools: vec![],
                     })
                     .collect(),
                 effort: None,

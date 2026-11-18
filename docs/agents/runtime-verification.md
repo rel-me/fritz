@@ -310,14 +310,22 @@ Keep that app running while checking the affected workflow, then quit only that
 instance and stop the mock server with Ctrl-C in its terminal.
 
 `FRITZ_DATA_DIR` isolates provider metadata, projects, threads, and drafts for
-the Release app. It does **not** isolate its Keychain service
+Release and Debug apps. It does **not** isolate its Keychain service
 `dev.fritz.provider-credentials`, macOS/Sparkle-managed window and update-engine preferences. Use newly created, keyless mock connections for Release app tests.
 Debug apps use a worktree-specific bundle ID, data directory, Keychain
 service, and UserDefaults domain. The bundled CLI needs `FRITZ_DATA_DIR`,
 `FRITZ_MODELS_DIR`, and `FRITZ_KEYCHAIN_SERVICE` set explicitly to use that Debug
 identity and model storage outside the app. For isolated Debug app verification,
-launch with `open -n --env "FRITZ_MODELS_DIR=$fritz_test_data/Models"` and use the
+launch with `open -n --env "FRITZ_DATA_DIR=$fritz_test_data" --env "FRITZ_MODELS_DIR=$fritz_test_data/Models"` and use the
 same explicit override for its bundled CLI; this avoids reading shared weights.
+
+For a large workspace smoke test, launch the staged app against a disposable
+profile once to create its schema and quit it. Seed the profile with
+`sqlite3 "$fritz_test_data/projects.sqlite" < tests/fixtures/large_workspace.sql`
+and relaunch. The fixture restores a thread beyond the first sidebar pages
+with 100,000 entries, a 1 MiB message and a saved tool result. Check older
+messages, opening the large text and tool details, and switching threads.
+`WorkspaceTests` exercises the same fixture through the production stores.
 
 Local-model unit tests use small deterministic HTTP fixtures for checksums,
 interruption, cancellation, and atomic installation. CLI integration tests verify

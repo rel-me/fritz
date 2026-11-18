@@ -3,21 +3,19 @@ import Combine
 
 struct ProjectsSidebar: View {
     @Bindable var workspace: WorkspaceStore
-    @State private var collapsedProjects: Set<UUID> = []
     @State private var renaming: RenameItem?
     @State private var deleting: ProjectThread?
-    @State private var showArchived = false
 
     var body: some View {
-        List(selection: Binding(get: { workspace.selectedThreadID }, set: { workspace.select($0) })) {
+        List(selection: Binding(get: { workspace.selectedThreadID }, set: { id in Task { await workspace.select(id) } })) {
             if !workspace.projects.isEmpty {
                 Section("Projects") {
-                    ForEach(workspace.projects) { project in
+                    ForEach(workspace.sidebarProjects) { project in
                         DisclosureGroup(isExpanded: Binding(
-                            get: { !collapsedProjects.contains(project.id) },
-                            set: { if $0 { collapsedProjects.remove(project.id) } else { collapsedProjects.insert(project.id) } }
+                            get: { workspace.expandedProjectID == project.id },
+                            set: { expanded in Task { await workspace.expand(project.id, expanded: expanded) } }
                         )) {
-                            ForEach(project.threads.filter { showArchived || !$0.isArchived }) { thread in
+                            ForEach(workspace.expandedProjectID == project.id ? workspace.sidebarThreads : []) { thread in
                                 HStack(spacing: 7) {
                                     Label(thread.title, systemImage: thread.isArchived ? "archivebox" : "bubble.left")
                                         .lineLimit(1).truncationMode(.tail)
@@ -30,13 +28,17 @@ struct ProjectsSidebar: View {
                                         renaming = RenameItem(id: thread.id, title: thread.title, isProject: false)
                                     }
                                     Button(thread.isArchived ? "Restore Thread" : "Archive Thread", systemImage: "archivebox") {
-                                        workspace.setArchived(thread.id, !thread.isArchived)
+                                        Task { await workspace.setArchived(thread.id, !thread.isArchived) }
                                     }
-                                    Button("New Chat", systemImage: "square.and.pencil") { workspace.createThread(in: project.id) }
+                                    Button("New Chat", systemImage: "square.and.pencil") { Task { await workspace.createThread(in: project.id) } }
                                     Divider()
                                     Button("Delete Thread…", systemImage: "trash", role: .destructive) { deleting = thread }
                                 }
                                 .disabled(!workspace.isAvailable(project))
+                            }
+                            if workspace.expandedProjectID == project.id {
+                                pageControls(label: "Threads", previous: workspace.threadCursors.count > 1,
+                                             next: workspace.hasMoreThreads, page: workspace.pageThreads)
                             }
                         } label: {
                             let isAvailable = workspace.isAvailable(project)
@@ -45,8 +47,7 @@ struct ProjectsSidebar: View {
                                 .foregroundStyle(isAvailable ? .primary : .secondary)
                             .contextMenu {
                                 Button("New Chat", systemImage: "square.and.pencil") {
-                                    collapsedProjects.remove(project.id)
-                                    workspace.createThread(in: project.id)
+                                    Task { await workspace.createThread(in: project.id) }
                                 }.disabled(!isAvailable)
                                 Button("Rename Project", systemImage: "pencil") {
                                     renaming = RenameItem(id: project.id, title: project.name, isProject: true)
@@ -64,21 +65,23 @@ struct ProjectsSidebar: View {
                         }
 
                     }
+                    pageControls(label: "Projects", previous: workspace.projectCursors.count > 1,
+                                 next: workspace.hasMoreProjects, page: workspace.pageProjects)
                 }
             }
         }
         .listStyle(.sidebar)
-        .onAppear { if workspace.selectedThread?.isArchived == true { showArchived = true } }
-        .onChange(of: showArchived) { _, showing in
-            if !showing && workspace.selectedThread?.isArchived == true { workspace.clearSelection() }
-        }
-        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in workspace.refreshAvailability() }
+        .task { await workspace.restore() }
+        .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in Task { await workspace.refreshAvailability() } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            workspace.refreshAvailability()
+            Task { await workspace.refreshAvailability() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if workspace.projects.contains(where: { $0.threads.contains(where: \.isArchived) }) {
-                Toggle("Show Archived Threads", isOn: $showArchived)
+            if !workspace.projects.isEmpty {
+                Toggle("Show Archived Threads", isOn: Binding(
+                    get: { workspace.showArchived },
+                    set: { value in Task { await workspace.setShowArchived(value) } }
+                ))
                     .toggleStyle(.checkbox)
                     .font(.caption)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -88,23 +91,40 @@ struct ProjectsSidebar: View {
         .confirmationDialog("Delete Thread?", isPresented: Binding(
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }
         ), presenting: deleting) { thread in
-            Button("Delete Thread", role: .destructive) { workspace.deleteThread(thread.id) }
+            Button("Delete Thread", role: .destructive) { Task { await workspace.deleteThread(thread.id) } }
             Button("Cancel", role: .cancel) {}
         } message: { thread in
             Text("“\(thread.title)” and its messages will be permanently deleted.")
         }
-        .onChange(of: workspace.selectedProject?.id) { _, id in if let id { collapsedProjects.remove(id) } }
         .sheet(item: $renaming) { item in
             RenameItemSheet(item: item) { name in
-                if item.isProject { workspace.renameProject(item.id, to: name) }
-                else { workspace.renameThread(item.id, to: name) }
+                Task {
+                    if item.isProject { await workspace.renameProject(item.id, to: name) }
+                    else { await workspace.renameThread(item.id, to: name) }
+                }
             }
         }
     }
 
+    @ViewBuilder private func pageControls(label: String, previous: Bool, next: Bool,
+                                          page: @escaping (Bool) async -> Void) -> some View {
+        if previous || next {
+            HStack {
+                if previous {
+                    Button { Task { await page(false) } } label: { Label("Previous \(label)", systemImage: "chevron.left") }
+                }
+                if next {
+                    Button { Task { await page(true) } } label: { Label("More \(label)", systemImage: "chevron.right") }
+                }
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .disabled(workspace.isEditing)
+        }
+    }
+
     private func repair(_ project: FritzProject, directory: URL? = nil) {
-        do { try workspace.repairProject(project.id, directory: directory) }
-        catch { workspace.error = error.localizedDescription }
+        Task { await workspace.repairProject(project.id, directory: directory) }
     }
 
     private func chooseReplacement(for project: FritzProject) {
@@ -174,7 +194,7 @@ struct NewProjectSheet: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Create Project", action: create)
                     .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave || workspace.isEditing)
             }
             .padding(16)
             .background(FritzWindowStyle.workspaceBackground)
@@ -194,8 +214,10 @@ struct NewProjectSheet: View {
         }
     }
     private func create() {
-        do { try workspace.createProject(name: name, directory: directory); dismiss() }
-        catch { self.error = error.localizedDescription }
+        Task {
+            do { try await workspace.createProject(name: name, directory: directory); dismiss() }
+            catch { self.error = error.localizedDescription }
+        }
     }
 }
 

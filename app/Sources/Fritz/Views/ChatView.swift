@@ -18,6 +18,10 @@ struct ChatView: View {
     @State private var scrollState = ChatScrollState()
     @State private var scrollPosition = ScrollPosition(idType: String.self, edge: .bottom)
     @State private var isScrollingTranscript = false
+    @State private var bodyEntry: ChatMessage?
+    @State private var contentOffset: CGFloat = 0
+    @State private var offsets: [UUID: CGFloat] = [:]
+    @State private var restoreAnchor: (UUID, CGFloat)?
     private static let transcriptBottomID = "chat-transcript-bottom"
 
     var body: some View {
@@ -50,6 +54,7 @@ struct ChatView: View {
                     },
                     stop: store.stop
                 )
+                .disabled(!store.isReady)
             }
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
@@ -76,27 +81,47 @@ struct ChatView: View {
             }
         }
         .onAppear(perform: synchronizeModel)
-        .onDisappear { selectionTask?.cancel(); store.savePreferences() }
+        .onDisappear { selectionTask?.cancel() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
-        .onChange(of: store.effort) { _, _ in store.savePreferences() }
-        .onChange(of: store.speed) { _, _ in store.savePreferences() }
+        .onChange(of: store.isReady) { _, _ in synchronizeModel() }
+        .sheet(item: $bodyEntry) { entry in
+            ChatStoredBody(entry: entry, repository: store.repository)
+        }
         .onChange(of: store.isResponding) { _, responding in if !responding { synchronizeModel() } }
     }
 
     private var transcript: some View {
         ScrollView {
-            // Markdown reflows when the window or inspector changes width. Measure
-            // every row so scroll bounds and bottom anchoring use actual heights.
-            VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+            LazyVStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
+                if store.hasOlder {
+                    Button("Load Older Messages") { loadHistory(older: true) }
+                        .disabled(store.isPaging)
+                }
                 ForEach(store.messages) { message in
+                    let isActive = store.activeEntryID == message.id
                     ChatMessageRow(
                         message: message,
-                        isActive: store.isResponding && message.id == store.messages.last?.id,
-                        activity: store.activity
+                        isActive: isActive,
+                        activity: isActive ? store.activity : nil,
+                        activeTools: isActive ? store.activeTools : [],
+                        repository: store.repository,
+                        openBody: { bodyEntry = message }
                     )
                     .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
                     .id(message.id.uuidString)
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .scrollView).minY } action: { offset in
+                        offsets[message.id] = offset
+                        if let (id, target) = restoreAnchor, id == message.id {
+                            restoreAnchor = nil
+                            scrollPosition.scrollTo(y: contentOffset + offset - target)
+                        }
+                    }
+                    .onDisappear { offsets.removeValue(forKey: message.id) }
+                }
+                if store.hasNewer {
+                    Button("Load Newer Messages") { loadHistory(older: false) }
+                        .disabled(store.isPaging)
                 }
                 if let error = store.error ?? store.agent.startupError {
                     VStack(alignment: .leading, spacing: 8) {
@@ -123,7 +148,12 @@ struct ChatView: View {
         .scrollClipDisabled(extendsTranscriptBehindToolbar)
         .defaultScrollAnchor(scrollState.followsLatest ? .bottom : nil, for: .sizeChanges)
         .scrollPosition($scrollPosition)
-        .onChange(of: store.messages) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.messages.last?.content) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.messages.last?.id) { _, _ in scrollToLatestIfFollowing() }
+        .onChange(of: store.windowRevision) { _, _ in scrollToLatestIfFollowing() }
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, offset in
+            contentOffset = offset
+        }
         .onChange(of: store.activity) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.error) { _, _ in scrollToLatestIfFollowing() }
         .onChange(of: store.agent.startupError) { _, _ in scrollToLatestIfFollowing() }
@@ -142,7 +172,10 @@ struct ChatView: View {
                 visibleBottom: geometry.visibleRect.maxY
             )
         } action: { old, new in
-            scrollState.update(to: new, isUserScrolling: isScrollingTranscript)
+            if !store.hasNewer { scrollState.update(to: new, isUserScrolling: isScrollingTranscript) }
+            if isScrollingTranscript && new.visibleBottom < new.viewportHeight + 96 && store.hasOlder {
+                loadHistory(older: true)
+            }
             if old.contentHeight != new.contentHeight || old.viewportHeight != new.viewportHeight {
                 scrollToLatestIfFollowing()
             }
@@ -150,8 +183,12 @@ struct ChatView: View {
         .overlay(alignment: .bottom) {
             if !scrollState.followsLatest {
                 Button {
-                    scrollState = ChatScrollState()
-                    scrollPosition.scrollTo(edge: .bottom)
+                    restoreAnchor = nil
+                    Task {
+                        await store.latest()
+                        scrollState = ChatScrollState()
+                        scrollPosition.scrollTo(edge: .bottom)
+                    }
                 } label: {
                     Label("Jump", systemImage: "arrow.down")
                         .padding(.horizontal, 12)
@@ -171,7 +208,7 @@ struct ChatView: View {
     }
 
     private func scrollToLatestIfFollowing() {
-        guard scrollState.followsLatest, !isScrollingTranscript else { return }
+        guard scrollState.followsLatest, !isScrollingTranscript, !store.hasNewer, restoreAnchor == nil else { return }
         scrollPosition.scrollTo(edge: .bottom)
     }
 
@@ -198,14 +235,27 @@ struct ChatView: View {
         }
     }
 
-    private func synchronizeModel() {
-        guard providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
-        if let selected = store.selectedModel, let current = providers.models.first(where: { $0.id == selected.id }) {
-            if current != selected { store.select(current) }
-            return
+    private func loadHistory(older: Bool) {
+        guard !store.isPaging else { return }
+        scrollState = ChatScrollState(followsLatest: false)
+        let visibleID = scrollPosition.viewID(type: String.self).flatMap { UUID(uuidString: $0) }
+        let anchor = visibleID.flatMap { id in offsets[id].map { (id, $0) } }
+        restoreAnchor = anchor
+        Task {
+            if older { await store.older() } else { await store.newer() }
+            if let (id, _) = restoreAnchor {
+                if store.messages.contains(where: { $0.id == id }) {
+                    scrollPosition.scrollTo(id: id.uuidString, anchor: .top)
+                } else {
+                    restoreAnchor = nil
+                }
+            }
         }
-        if let model = providers.defaultModel { store.select(model) }
-        else { store.selectedModel = nil }
+    }
+
+    private func synchronizeModel() {
+        guard store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
+        store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
     }
 }
 

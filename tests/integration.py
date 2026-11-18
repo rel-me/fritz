@@ -378,6 +378,34 @@ def main():
         terminal = [receive(), receive()]
         assert any(e["id"] == chat and e["type"] == "cancelled" for e in terminal)
         assert any(e["id"] == cancel and e["type"] == "result" for e in terminal)
+        # A reopened thread can carry an earlier tool exchange through the
+        # private pipe. It must arrive as native history without running again.
+        calls_before = len(Provider.requests)
+        replay = send("chat", {
+            "connectionId": connection["id"], "model": "fritz-test", "historyVersion": 1,
+            "projectPath": directory, "messages": [
+                {"role": "user", "content": "Review the previous file receipt"},
+                {"role": "assistant", "content": "The file was inspected.", "tools": [{
+                    "id": "call_history_fixture", "name": "read_file",
+                    "arguments": '{"path":"history-fixture.txt"}',
+                    "result": '{"text":"Saved receipt"}', "failed": False,
+                }]},
+                {"role": "user", "content": "Continue"},
+            ],
+        })
+        while True:
+            event = receive()
+            assert event["id"] == replay, event
+            assert event["type"] not in ("tool_start", "tool_end", "error", "cancelled"), event
+            if event["type"] == "result":
+                break
+        assert len(Provider.requests) == calls_before + 1
+        history = Provider.requests[-1]["messages"]
+        call = next(item["tool_calls"][0] for item in history if "tool_calls" in item)
+        result = next(item for item in history if item["role"] == "tool")
+        assert call["id"] == result["tool_call_id"] == "call_history_fixture"
+        assert json.loads(call["function"]["arguments"]) == {"path": "history-fixture.txt"}
+        assert json.loads(result["content"]) == {"text": "Saved receipt"}
         # A changed endpoint cannot reuse a saved connection's credentials.
         modified = dict(connection, baseUrl="http://localhost:1/v1")
         send("models.list", {"connection": modified})

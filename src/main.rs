@@ -473,11 +473,13 @@ async fn run() -> Result<()> {
                 .transpose()?;
             harness_client::chat(
                 provider::ChatRequest {
+                    history_version: None,
                     connection_id: connection.id.to_string(),
                     model,
                     messages: vec![provider::Message {
                         role: "user".into(),
                         content: prompt,
+                        tools: vec![],
                     }],
                     effort,
                     speed,

@@ -37,6 +37,7 @@
 		9059AEEE3D804A479CB20541 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 68687E6286C4B45962191548 /* AppIcon.icon */; };
 		955EF7C684AAAAFCB7FA6A07 /* CommandLineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */; };
 		9CE52D82C7FF3C4602E3CAC9 /* Bonsplit in Frameworks */ = {isa = PBXBuildFile; productRef = DF707874F5442E6BB1553D9D /* Bonsplit */; };
+		A02E7F00B4FAA0B6DFF02839 /* ProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3EFB0AB4243DFD650939B5D /* ProjectRepository.swift */; };
 		A8BDF4E8FA544859D0934804 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = F8FC8A9558DA38A6831276EC /* Textual */; };
 		BCAAD1194A2B092EF0D33F7A /* BrowserWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B14486279C5BFB5215EA2CF /* BrowserWindow.swift */; };
 		CDD5ED6B822EA484C1C8DF65 /* FritzListSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3713CACF28037690000DB8 /* FritzListSurface.swift */; };
@@ -83,12 +84,13 @@
 		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
 		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
 		B2862844991E65C805050ED5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
 		BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
 		C232494A41369FA47798164A /* BrowserDataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDataSheet.swift; sourceTree = "<group>"; };
 		C276B44B2FB70A4B459E4D10 /* ChatToolDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolDetails.swift; sourceTree = "<group>"; };
 		C551E85ADE69D850FE126F68 /* BrowserPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserPage.swift; sourceTree = "<group>"; };
 		D074B702DF3BED67BF3C8EB4 /* Fritz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fritz.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
+		E3EFB0AB4243DFD650939B5D /* ProjectRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRepository.swift; sourceTree = "<group>"; };
 		E6E101476811BD21DF541E81 /* BrowserImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserImport.swift; sourceTree = "<group>"; };
 		F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResponseClipboard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -143,6 +145,7 @@
 				1AB65E88BEA21E9ECFE860AE /* AppSettings.swift */,
 				4B07E94B391896D246239ED0 /* ChatStore.swift */,
 				30CE32C5162893FA5F689978 /* LocalModelRuntimeStore.swift */,
+				E3EFB0AB4243DFD650939B5D /* ProjectRepository.swift */,
 				2F63B541A22F41ADBBFA229D /* ProviderStore.swift */,
 				73835E7146A92557D60E42ED /* WorkspaceStore.swift */,
 			);
@@ -340,6 +343,7 @@
 				7168C2B2CF92A715B4B2061B /* LocalModelDownloadSheet.swift in Sources */,
 				36F4A560A30974915C4101A1 /* LocalModelRuntimeStore.swift in Sources */,
 				5CA3881D23D40ED4FDD3498F /* Project.swift in Sources */,
+				A02E7F00B4FAA0B6DFF02839 /* ProjectRepository.swift in Sources */,
 				0482B75354A7C7F558191547 /* ProjectsSidebar.swift in Sources */,
 				D639AECA5A25873C26188693 /* ProviderConfigurationTransfer.swift in Sources */,
 				59B71A94F4501F11D9835AB4 /* ProviderStore.swift in Sources */,

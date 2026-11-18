@@ -48,6 +48,7 @@ pub async fn run(input: Input, emit: impl Fn(Value) + Sync) -> Result<()> {
     let host = WorkspaceHost {
         registry: workspace.map(|workspace| std::sync::Arc::new(workspace).register()),
         emit: &emit,
+        include_history_details: input.request.history_version == Some(1),
     };
     run_with_host(input, &system, &host, &emit).await
 }
@@ -186,10 +187,7 @@ impl Session {
         }
         let native_boundaries = remote
             .as_ref()
-            .map(|remote| {
-                let offset = remote.history.len() - input.request.messages.len();
-                (offset..=remote.history.len()).collect()
-            })
+            .map(|remote| remote.initial_boundaries.clone())
             .unwrap_or_default();
         let conversation = input
             .request
@@ -497,6 +495,7 @@ impl<E: Fn(Value) + Sync> Model for NativeModel<'_, E> {
 struct WorkspaceHost<'a, E> {
     registry: Option<fritz_harness::tools::ToolSet>,
     emit: &'a E,
+    include_history_details: bool,
 }
 
 impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
@@ -515,10 +514,10 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
         let event_id = uuid::Uuid::new_v4().to_string();
         let value = json!({"error":format!("Unknown tool: {}", call.name)});
         (self.emit)(
-            json!({"type":"tool_start","toolCallId":event_id,"name":call.name,"summary":"Unavailable tool","details":tools::bounded(&call.arguments,8192)}),
+            json!({"type":"tool_start","toolCallId":event_id,"name":call.name,"summary":"Unavailable tool","details":tools::bounded(&call.arguments,8192),"historyDetails":self.history_details(&call.arguments)}),
         );
         (self.emit)(
-            json!({"type":"tool_end","toolCallId":event_id,"name":call.name,"success":false,"details":tools::bounded(&value.to_string(),tools::OUTPUT_LIMIT)}),
+            json!({"type":"tool_end","toolCallId":event_id,"name":call.name,"success":false,"details":tools::bounded(&value.to_string(),tools::OUTPUT_LIMIT),"historyDetails":self.history_details(&value.to_string())}),
         );
         Ok(ToolResult::json(value, true))
     }
@@ -541,7 +540,7 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
         };
         let summary = format!("{action} {target}");
         (self.emit)(
-            json!({"type":"tool_start","toolCallId":event_id,"name":call.name,"summary":tools::bounded(&summary,200),"details":tools::bounded(&call.arguments,8192)}),
+            json!({"type":"tool_start","toolCallId":event_id,"name":call.name,"summary":tools::bounded(&summary,200),"details":tools::bounded(&call.arguments,8192),"historyDetails":self.history_details(&call.arguments)}),
         );
         let result = self
             .registry
@@ -560,8 +559,14 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
             .cloned()
             .unwrap_or_else(|| json!({"error":result.output().render()}));
         (self.emit)(
-            json!({"type":"tool_end","toolCallId":event_id,"name":call.name,"success":!failed,"details":tools::bounded(&value.to_string(),tools::OUTPUT_LIMIT)}),
+            json!({"type":"tool_end","toolCallId":event_id,"name":call.name,"success":!failed,"details":tools::bounded(&value.to_string(),tools::OUTPUT_LIMIT),"historyDetails":self.history_details(&value.to_string())}),
         );
         Ok(ToolResult::json(value, failed))
+    }
+}
+
+impl<E> WorkspaceHost<'_, E> {
+    fn history_details<'value>(&self, value: &'value str) -> Option<&'value str> {
+        (self.include_history_details && value.len() <= 128 * 1024).then_some(value)
     }
 }

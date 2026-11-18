@@ -24,8 +24,9 @@ import SwiftUI
         localModels = LocalModelRuntimeStore(agent: agent, database: workspace.database)
     }
     func newThread() {
+        guard workspace.canSave, !workspace.isEditing else { return }
         if let project = workspace.selectedProject ?? workspace.projects.first(where: { workspace.isAvailable($0) }) {
-            workspace.createThread(in: project.id)
+            Task { await workspace.createThread(in: project.id) }
         } else { isCreatingProject = true }
     }
     func selectSettings(_ tab: FritzSettingsTab) {
@@ -76,20 +77,25 @@ import SwiftUI
         }
     }
 
+    private var isTerminating = false
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !isTerminating else { return .terminateLater }
+        isTerminating = true
         NotificationCenter.default.post(name: .closeFritzBrowser, object: nil)
-        #if FRITZ_CHROMIUM
-        let finished = FritzChromiumApplication.finishBrowserShutdown {
-            NSApp.reply(toApplicationShouldTerminate: true)
+        Task {
+            await FritzState.shared.workspace.shutdown()
+            #if FRITZ_CHROMIUM
+            if !FritzChromiumApplication.finishBrowserShutdown({
+                NSApp.reply(toApplicationShouldTerminate: true)
+            }) { return }
+            #endif
+            sender.reply(toApplicationShouldTerminate: true)
         }
-        return finished ? .terminateNow : .terminateLater
-        #else
-        return .terminateNow
-        #endif
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        FritzState.shared.workspace.shutdown()
         FritzState.shared.localModels.stopAll()
         FritzState.shared.agent.stop()
     }
@@ -138,7 +144,7 @@ struct FritzApp: App {
                 Button("New Project…") { state.isCreatingProject = true; openWindow(id: "main") }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("New Chat") { state.newThread(); openWindow(id: "main") }.keyboardShortcut("n")
-                    .disabled(!state.workspace.projects.isEmpty && !state.workspace.canCreateThread)
+                    .disabled(!state.workspace.canSave || state.workspace.isEditing || (!state.workspace.projects.isEmpty && !state.workspace.canCreateThread))
                 Divider()
                 Button("New Local Model") { openWindow(id: "local-models") }
                 Button("New Remote Model") { openWindow(id: "remote-models") }
