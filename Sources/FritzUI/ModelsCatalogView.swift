@@ -118,15 +118,16 @@ public struct ModelsCatalogView: View {
         Table(remoteProviders, selection: $selection) {
             TableColumn("Provider") { row in
                 Text(row.name).lineLimit(1).truncationMode(.tail)
-            }.width(min: 180, ideal: 240)
+            }.width(240)
             TableColumn("Models") { row in
                 Text(row.modelNames).lineLimit(1).truncationMode(.tail).help(row.modelNames)
-            }.width(min: 240, ideal: 480)
+            }.width(min: 240, max: .infinity)
             TableColumn("Status") { row in
                 Text(row.connection.map { store.discoveryErrors[$0.id] == nil ? "Ready" : "Needs Setup" } ?? "Setup Required")
                     .foregroundStyle(.secondary)
-            }.width(min: 120, ideal: 140)
+            }.width(140)
         }
+        .scrollIndicators(.never, axes: .horizontal)
         .accessibilityLabel("Remote Providers")
         .contextMenu(forSelectionType: String.self) { ids in
             if let row = remoteProviders.first(where: { ids.contains($0.id) }) {
