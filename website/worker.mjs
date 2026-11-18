@@ -85,14 +85,15 @@ export default {
       const prefetch = /prefetch|prerender/i.test(`${request.headers.get("purpose") ?? ""} ${request.headers.get("sec-purpose") ?? ""}`);
       if (request.method === "GET" && [200, 304].includes(response.status) && releaseUpdater && !debug && !prefetch && !excludedRequest(request, env)) {
         // Aggregate feed requests, with optional daily network pseudonyms, never app events.
+        const observedAt = new Date();
         ctx.waitUntil((async () => {
           try {
             const result = await env.DB.prepare(`INSERT INTO update_check_counts (app_id, day, version, runtime, checks)
               VALUES ('dev.fritz.app', ?, 'unknown', 'release', 1)
               ON CONFLICT (app_id, day, version, runtime) DO UPDATE SET checks = checks + 1`)
-              .bind(new Date().toISOString().slice(0, 10)).run();
+              .bind(observedAt.toISOString().slice(0, 10)).run();
             if (!result.success) throw new Error("D1 write failed");
-            await recordNetworkUnique(request, env, "dev.fritz.app");
+            await recordNetworkUnique(request, env, "dev.fritz.app", observedAt);
           } catch {
             console.error("Fritz update-request counting failed.");
           }

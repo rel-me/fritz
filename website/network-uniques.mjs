@@ -16,8 +16,8 @@ export async function storeNetworkToken(env, appID, network) {
   if (!result.success) throw new Error("Network count failed");
   await env.DB.prepare("DELETE FROM daily_network_keys WHERE day < date('now', '-1 day')").bind().run();
 }
-export async function recordNetworkUnique(request, env, appID) {
-  try { await storeNetworkToken(env, appID, await networkToken(request, env, appID)); }
+export async function recordNetworkUnique(request, env, appID, now = new Date()) {
+  try { await storeNetworkToken(env, appID, await networkToken(request, env, appID, now)); }
   catch { console.error("Daily network counting unavailable"); }
 }
 
