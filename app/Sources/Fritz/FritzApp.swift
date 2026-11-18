@@ -39,7 +39,7 @@ import SwiftUI
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Use the original silhouette where AppKit lets the running app set its own icon.
         if #available(macOS 26.0, *),
-           let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+           let iconURL = Bundle.main.url(forResource: "FritzRaven", withExtension: "icns"),
            let icon = NSImage(contentsOf: iconURL) {
             NSApp.applicationIconImage = icon
         }

@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-ICON = ROOT / "app/Resources/AppIcon.icns"
+ICON = ROOT / "app/Resources/FritzRaven.icns"
 WEBSITE = ROOT / "website/public"
 SVG = "http://www.w3.org/2000/svg"
 ET.register_namespace("", SVG)
@@ -58,7 +58,7 @@ placement = ET.SubElement(icon, f"{{{SVG}}}g", {
 })
 placement.append(artwork())
 with TemporaryDirectory() as temporary:
-    iconset = Path(temporary) / "AppIcon.iconset"
+    iconset = Path(temporary) / "FritzRaven.iconset"
     iconset.mkdir()
     for size in (16, 32, 128, 256, 512):
         render_png(icon, iconset / f"icon_{size}x{size}.png", size, size)
