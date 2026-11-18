@@ -335,11 +335,17 @@ if os.environ.get('GH_FAILURE'):
 if args[0] == 'api':
     if args[1] == 'repos/rel-me/fritz':
         print(json.dumps({'permissions': {'push': True}}))
-    elif state and not state['isDraft']:
-        print(json.dumps({'sha': state['targetCommitish']}))
+    elif args[1].startswith(('repos/rel-me/fritz/git/ref/tags/', 'repos/rel-me/fritz/commits/')):
+        if state and not state['isDraft']:
+            print(json.dumps({'sha': state['targetCommitish']}))
+        else:
+            if '/commits/' in args[1]:
+                print(f'No commit found for SHA: {args[1].split("/")[-1]} (HTTP 422)', file=sys.stderr)
+            else:
+                print('Not Found (HTTP 404)', file=sys.stderr)
+            sys.exit(1)
     else:
-        print('not found (HTTP 404)', file=sys.stderr)
-        sys.exit(1)
+        raise SystemExit(f'unexpected GitHub API request: {args}')
 elif args[:2] == ['release', 'view']:
     if state:
         print(json.dumps(state))
@@ -382,7 +388,7 @@ if state:
                         # An interrupted first upload leaves a draft; the real retry resumes it.
                         result = subprocess.run([sys.executable, str(scripts / 'publish-github-release.py'), 'beta'],
                             cwd=root, env=dict(environment, GH_UPLOAD_FAILURE='1'), capture_output=True, text=True)
-                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn('upload interrupted', result.stderr)
                         self.assertTrue(json.loads(github_state.read_text())['isDraft'])
                     result = subprocess.run(["/bin/bash", *args], env=environment,
                                             capture_output=True, text=True)

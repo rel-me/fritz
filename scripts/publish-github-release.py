@@ -64,9 +64,14 @@ def publish(channel):
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("Release source metadata needs a full Git commit SHA.")
     tag = f"v{version}"
-    tagged = api(f"commits/{tag}")
-    if tagged and tagged["sha"] != commit:
-        raise ValueError(f"GitHub tag {tag} points to a different source commit.")
+    # Missing Git refs return 404. Looking up a missing tag as a commit returns 422.
+    tagged = api(f"git/ref/tags/{tag}")
+    if tagged:
+        resolved = api(f"commits/tags/{tag}")
+        if not resolved:
+            raise ValueError(f"Could not resolve GitHub tag {tag} to a commit.")
+        if resolved["sha"] != commit:
+            raise ValueError(f"GitHub tag {tag} points to a different source commit.")
     release = find_release(tag)
     if release and release["isDraft"] and not tagged and release["targetCommitish"] != commit:
         raise ValueError(f"GitHub draft {tag} targets a different source commit.")
