@@ -6,8 +6,9 @@ struct WorkspaceRightPanel: View {
 
     var body: some View {
         BrowserPanel(tabs: tabs)
-        .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
-        .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+            .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            .background { FritzWorkspaceBackground().ignoresSafeArea() }
     }
 }
 

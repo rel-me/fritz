@@ -77,3 +77,15 @@ Monitor PR #113 after merging origin/main. Fix failures introduced by the merge
 resolution, run appropriate local checks, commit and push fixes, and monitor
 any updated revision again. Preserve unrelated changes and do not merge the PR.
 Report final checks and exact blockers; append further delegated prompts here.
+
+## Follow-up user request
+
+> Fix the UI... after fix view the changes visually with both no tabs and then 1 tab and 2 tabs.. use example.com if you need a site to load
+
+The screenshot shows the inspector tint, a dark rectangle behind the plus button,
+and a seam between the address bar and the blank page.
+
+## Follow-up delegated prompt
+
+Monitor updated PR #113 after the browser appearance fix. Fix related CI failures,
+verify any fixes, push them, and monitor again. Report the final checks and blockers.

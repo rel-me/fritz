@@ -92,24 +92,28 @@ struct BrowserPanel: View {
         VStack(spacing: 0) {
             if let tab = selectedTab {
                 tabBar
-                navigationBar(tab)
-                if let error = tab.page.state.error {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.callout)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                }
-                if tab.page.state.isLoading { ProgressView().progressViewStyle(.linear) }
-                BrowserSurface(page: tab.page).id(tab.id)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .overlay {
-                        if tab.page.state.url == nil {
-                            Color(nsColor: BonsplitTabStyle.selectedBackground)
-                                .allowsHitTesting(false)
-                        }
+                VStack(spacing: 0) {
+                    navigationBar(tab)
+                    if let error = tab.page.state.error {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius))
+                    if tab.page.state.isLoading { ProgressView().progressViewStyle(.linear) }
+                    BrowserSurface(page: tab.page).id(tab.id)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay {
+                            if tab.page.state.url == nil {
+                                Color(nsColor: BonsplitTabStyle.selectedBackground)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                }
+                .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
+                .clipShape(.rect(bottomLeadingRadius: FritzWindowStyle.cornerRadius,
+                                 bottomTrailingRadius: FritzWindowStyle.cornerRadius))
             } else {
                 Button("New Tab", action: newTab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -212,7 +216,6 @@ struct BrowserPanel: View {
                 }
         }
         .padding(6)
-        .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
         .onChange(of: tab.page.state.url, initial: true) {
             if !addressFocused, let url = tab.page.state.url { tab.address = url.absoluteString }
         }
