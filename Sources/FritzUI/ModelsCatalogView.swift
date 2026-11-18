@@ -16,7 +16,11 @@ public struct ModelsCatalogView: View {
     @Bindable private var runtime: ModelsLocalRuntime
     let location: ModelsLocation
     @State private var query = ""
+    @State private var category: AIModelCategory?
+    @State private var downloadFilter: DownloadFilter = .all
     @State private var checkedInventory = false
+    @State private var installedDecisionIDs: Set<String>?
+    @State private var decisionInventoryError: String?
     @State private var selection: String?
     @State private var setup: ChatModelOption?
     @State private var providerSetup: RemoteProviderRow?
@@ -30,10 +34,33 @@ public struct ModelsCatalogView: View {
         self.store = store; self.runtime = runtime; self.location = location
     }
 
+    private enum DownloadFilter: String, CaseIterable {
+        case all = "All Download States"
+        case downloaded = "Downloaded"
+        case notDownloaded = "Not Downloaded"
+    }
+
+    private func isDownloaded(_ model: ChatModelOption) -> Bool? {
+        if model.category == .decision { return installedDecisionIDs?.contains(model.modelID) }
+        guard checkedInventory else { return nil }
+        return runtime.installedIDs.contains(model.modelID)
+    }
+
+    private func matchesDownloadFilter(_ model: ChatModelOption) -> Bool {
+        switch downloadFilter {
+        case .all: true
+        case .downloaded: isDownloaded(model) == true
+        case .notDownloaded: isDownloaded(model) == false
+        }
+    }
+
     private var models: [ChatModelOption] {
-        store.availableModels.filter { location.contains($0) && (query.isEmpty
-            || $0.displayName.localizedStandardContains(query)
-            || $0.modelID.localizedStandardContains(query)) }
+        store.availableModels.filter {
+            location.contains($0) && (category == nil || $0.category == category)
+                && matchesDownloadFilter($0) && (query.isEmpty
+                    || $0.displayName.localizedStandardContains(query)
+                    || $0.modelID.localizedStandardContains(query))
+        }
             .enumerated().sorted { lhs, rhs in
                 let left = store.recentIDs.firstIndex(of: lhs.element.id) ?? Int.max
                 let right = store.recentIDs.firstIndex(of: rhs.element.id) ?? Int.max
@@ -77,9 +104,12 @@ public struct ModelsCatalogView: View {
         for preset in AIProviderPreset.allCases where AIProviderCategory.remote.contains(preset) {
             if !rows.contains(where: { $0.preset == preset }) { rows.append(row(preset, connection: nil)) }
         }
-        return rows.filter { query.isEmpty || $0.name.localizedStandardContains(query)
-            || $0.preset.displayName.localizedStandardContains(query)
-            || $0.models.contains { $0.displayName.localizedStandardContains(query) || $0.modelID.localizedStandardContains(query) } }
+        return rows.filter { row in
+            (category == nil || row.preset.category == category) && (query.isEmpty
+                || row.name.localizedStandardContains(query)
+                || row.preset.displayName.localizedStandardContains(query)
+                || row.models.contains { $0.displayName.localizedStandardContains(query) || $0.modelID.localizedStandardContains(query) })
+        }
     }
 
     private var selectedProvider: RemoteProviderRow? { remoteProviders.first { $0.id == selection } }
@@ -137,7 +167,7 @@ public struct ModelsCatalogView: View {
     public var body: some View {
         VStack(spacing: 0) {
             if location == .local { localModelTable } else { remoteProviderTable }
-            if let error = store.error ?? (location == .local ? runtime.error : nil) {
+            if let error = store.error ?? (location == .local ? runtime.error ?? decisionInventoryError : nil) {
                 Text(error).foregroundStyle(.red).textSelection(.enabled).padding()
             }
         }
@@ -146,11 +176,12 @@ public struct ModelsCatalogView: View {
                     prompt: location == .local ? "Search Models" : "Search Providers")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                filterMenu
                 if location == .remote {
                     Button("New Remote Model…", systemImage: "plus") { showsCustomSetup = true }
                         .help("New Remote Model…")
                 }
-                Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "slider.horizontal.3") {
+                Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "pencil") {
                     if location == .local { setup = selected } else { providerSetup = selectedProvider }
                 }
                 .disabled(location == .local ? selected == nil : selectedProvider == nil)
@@ -163,13 +194,8 @@ public struct ModelsCatalogView: View {
                     .help("Import and Export")
                 }
             }
-            ToolbarItem(placement: .status) {
-                if store.isLoading || (location == .local && (!checkedInventory || runtime.isLoading)) {
-                    ProgressView().controlSize(.small).accessibilityLabel("Loading models")
-                }
-            }
         }
-        .sheet(item: $setup, onDismiss: { Task { await runtime.refresh() } }) { model in
+        .sheet(item: $setup, onDismiss: { Task { await refreshInventory() } }) { model in
             let connection = store.setupConnection(for: model)
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
                                  initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model,
@@ -205,10 +231,50 @@ public struct ModelsCatalogView: View {
             Button("Cancel", role: .cancel) { removing = nil }
         } message: { Text("All models using this connection will need setup again.") }
         .task {
-            await runtime.refresh()
+            if location == .local { await refreshInventory() }
             guard !Task.isCancelled else { return }
-            checkedInventory = true
             await store.refresh()
+        }
+    }
+
+    private var filterMenu: some View {
+        let isActive = category != nil || downloadFilter != .all
+        return Menu {
+            Picker("Model Type", selection: $category) {
+                Text("All Model Types").tag(nil as AIModelCategory?)
+                ForEach(AIModelCategory.allCases) { category in
+                    Text(category.title).tag(category as AIModelCategory?)
+                }
+            }
+            if location == .local {
+                Divider()
+                Picker("Download Status", selection: $downloadFilter) {
+                    ForEach(DownloadFilter.allCases, id: \.self) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
+            }
+        } label: {
+            Label("Filter Models", systemImage: isActive
+                  ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+        }
+        .menuIndicator(.hidden)
+        .help("Filter Models")
+    }
+
+    private func refreshInventory() async {
+        await runtime.refresh()
+        guard !Task.isCancelled else { return }
+        checkedInventory = runtime.error == nil
+        do {
+            let inventory: LocalModelInventory = try await store.agent.request("decisionModels.list")
+            guard !Task.isCancelled else { return }
+            installedDecisionIDs = inventory.installedIDs
+            decisionInventoryError = nil
+        } catch {
+            guard !Task.isCancelled else { return }
+            installedDecisionIDs = nil
+            decisionInventoryError = error.localizedDescription
         }
     }
 
@@ -216,11 +282,9 @@ public struct ModelsCatalogView: View {
         if let id = model.connectionID {
             return store.discoveryErrors[id] == nil ? "Ready" : "Needs Setup"
         }
-        if model.provider == .fritz {
-            if !checkedInventory || runtime.isLoading { return "Checking…" }
-            return runtime.installedIDs.contains(model.modelID) ? "Downloaded" : "Not Downloaded"
-        }
-        return "Setup Required"
+        if let downloaded = isDownloaded(model) { return downloaded ? "Downloaded" : "Not Downloaded" }
+        return (model.category == .decision ? decisionInventoryError : runtime.error) == nil
+            ? "Checking…" : "Unavailable"
     }
     private func exportConnections(keys: Bool) {
         do { export = ProviderTextExport(text: try store.exportProviders(connections, includeKeys: keys), includesKeys: keys) }
