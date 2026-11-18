@@ -28,7 +28,9 @@ disk image, then open Fritz from Applications.
    separate lists. Local Models contains models downloaded and run by Fritz.
    API services such as Ollama belong to Remote Models, including when hosted on this Mac.
    Remote Models shows providers with a comma-separated model summary, recent
-   selections first; **New Remote Model…** also supports custom endpoints and model
+   selections first. Use the filter menu in either window to show LLMs or
+   decision models. Local Models also filters by download status.
+   **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
 
 Model management is outside Settings. Conversations retain their own
