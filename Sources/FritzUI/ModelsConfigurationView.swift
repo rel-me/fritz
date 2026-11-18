@@ -387,7 +387,10 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 remoteSections
             }
         }
-        .formStyle(.grouped).disabled(isSaving)
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .disabled(isSaving)
     }
 
     private var localSession: ModelsRuntimeSession {
@@ -657,24 +660,23 @@ private struct ProviderModelsSheet: View {
     @State private var searchText = ""
     var body: some View {
         NavigationStack {
-            List {
-                if !recentModels.isEmpty {
-                    Section("Recent") { rows(recentModels) }
+            FritzDialog {
+                List {
+                    if !recentModels.isEmpty {
+                        Section("Recent") { rows(recentModels) }
+                    }
+                    if !otherModels.isEmpty {
+                        Section(recentModels.isEmpty ? "Models" : "Other Models") { rows(otherModels) }
+                    }
                 }
-                if !otherModels.isEmpty {
-                    Section(recentModels.isEmpty ? "Models" : "Other Models") { rows(otherModels) }
+                .overlay {
+                    if filteredModels.isEmpty { ContentUnavailableView.search(text: searchText) }
                 }
+            } actions: {
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             .navigationTitle("Models")
             .searchable(text: $searchText, placement: .toolbar, prompt: "Search Models")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
-                }
-            }
-            .overlay {
-                if filteredModels.isEmpty { ContentUnavailableView.search(text: searchText) }
-            }
         }
         .frame(width: 420, height: 360)
         .buttonStyle(.automatic)

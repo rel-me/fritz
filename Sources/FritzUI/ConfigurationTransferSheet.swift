@@ -20,7 +20,7 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
     @State private var importTask: Task<Void, Never>?
 
     var body: some View {
-        NavigationStack {
+        FritzDialog(exported == nil ? "Import Models" : "Export Models") {
             Form {
                 Section {
                     if let exported {
@@ -73,25 +73,22 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(exported == nil ? "Import Models" : "Export Models")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(exported == nil ? "Cancel" : "Done") { dismiss() }
-                        .keyboardShortcut(.cancelAction).disabled(isImporting)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if exported == nil {
-                        Button("Import", action: importProviders).keyboardShortcut(.defaultAction)
-                            .disabled(isImporting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
-                ToolbarItem(placement: .status) {
-                    if isImporting { ProgressView().controlSize(.small).accessibilityLabel("Importing models") }
-                }
+            .scrollContentBackground(.hidden)
+            .contentMargins(.top, 0, for: .scrollContent)
+        } actions: {
+            if isImporting {
+                ProgressView().controlSize(.small).accessibilityLabel("Importing models")
+                Spacer()
+            }
+            Button(exported == nil ? "Cancel" : "Done") { dismiss() }
+                .keyboardShortcut(.cancelAction).disabled(isImporting)
+            if exported == nil {
+                Button("Import", action: importProviders).keyboardShortcut(.defaultAction)
+                    .disabled(isImporting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
+        .padding(.vertical, 12)
         .frame(width: 600, height: exported == nil ? 460 : 350)
-        .buttonStyle(.automatic)
         .interactiveDismissDisabled(isImporting)
         .onDisappear { importTask?.cancel() }
     }

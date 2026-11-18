@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Native model setup sheet with standard navigation, form content and actions.
+/// Window-attached model editor with native form controls.
 public struct ModelProviderEditor<Content: View>: View {
     let title: String
     let primaryActionTitle: String
@@ -38,7 +38,7 @@ public struct ModelProviderEditor<Content: View>: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        FritzDialog(title) {
             VStack(spacing: 0) {
                 content
                 if modelStorage != nil || downloadModels != nil {
@@ -53,27 +53,22 @@ public struct ModelProviderEditor<Content: View>: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding()
+                    .padding(.horizontal, 24)
                 }
             }
-            .navigationTitle(title)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: cancel)
-                        .keyboardShortcut(.cancelAction)
-                        .disabled(isSaving)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(primaryActionTitle, action: save)
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!canSave || isSaving)
-                }
-                ToolbarItem(placement: .status) {
-                    if isSaving { ProgressView().controlSize(.small).accessibilityLabel("Saving model") }
-                }
+        } actions: {
+            if isSaving {
+                ProgressView().controlSize(.small).accessibilityLabel("Saving model")
+                Spacer()
             }
+            Button("Cancel", action: cancel)
+                .keyboardShortcut(.cancelAction)
+                .disabled(isSaving)
+            Button(primaryActionTitle, action: save)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSave || isSaving)
         }
+        .padding(.vertical, 12)
         .frame(width: width, height: height)
-        .buttonStyle(.automatic)
     }
 }

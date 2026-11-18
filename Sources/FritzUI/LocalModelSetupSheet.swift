@@ -16,68 +16,63 @@ struct LocalModelSetupSheet<Feedback: View>: View {
     @ViewBuilder let feedback: Feedback
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(state == .installed ? "Use Model" : "Download Model")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    Text("Model").foregroundStyle(.secondary)
-                    Text(model.name).fixedSize(horizontal: false, vertical: true)
-                }
-                if state != .installed {
+        FritzDialog(state == .installed ? "Use Model" : "Download Model") {
+            VStack(alignment: .leading, spacing: 12) {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                     GridRow {
-                        Text("Download").foregroundStyle(.secondary)
-                        Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: model.size), countStyle: .file))
+                        Text("Model").foregroundStyle(.secondary)
+                        Text(model.name).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if state != .installed {
+                        GridRow {
+                            Text("Download").foregroundStyle(.secondary)
+                            Text(ByteCountFormatter.string(fromByteCount: Int64(clamping: model.size), countStyle: .file))
+                        }
+                    }
+                    GridRow {
+                        Text("Memory").foregroundStyle(.secondary)
+                        Text("\(model.memoryGB) GB recommended")
+                            .foregroundStyle(memoryGB < model.memoryGB ? .orange : .secondary)
+                    }
+                    if state != .installed {
+                        GridRow {
+                            Text("Saving to").foregroundStyle(.secondary).accessibilityHidden(true)
+                            ModelStorageDestination(storage: storage)
+                                .labelsHidden()
+                                .accessibilityElement(children: .contain)
+                                .disabled(state.isBusy || isSaving)
+                        }
+                    }
+                    if state == .installed, let installedDirectory {
+                        GridRow {
+                            Text("Stored in").foregroundStyle(.secondary)
+                            Label(NSString(string: installedDirectory.path).abbreviatingWithTildeInPath, systemImage: "folder")
+                                .lineLimit(1).truncationMode(.middle).help(installedDirectory.path)
+                        }
                     }
                 }
-                GridRow {
-                    Text("Memory").foregroundStyle(.secondary)
-                    Text("\(model.memoryGB) GB recommended")
-                        .foregroundStyle(memoryGB < model.memoryGB ? .orange : .secondary)
-                }
-                if state != .installed {
-                    GridRow {
-                        Text("Saving to").foregroundStyle(.secondary).accessibilityHidden(true)
-                        ModelStorageDestination(storage: storage)
-                            .labelsHidden()
-                            .accessibilityElement(children: .contain)
-                            .disabled(state.isBusy || isSaving)
-                    }
-                }
-                if state == .installed, let installedDirectory {
-                    GridRow {
-                        Text("Stored in").foregroundStyle(.secondary)
-                        Label(NSString(string: installedDirectory.path).abbreviatingWithTildeInPath, systemImage: "folder")
-                            .lineLimit(1).truncationMode(.middle).help(installedDirectory.path)
-                    }
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .contain)
+                installationFeedback
+                feedback
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .contain)
-            installationFeedback
-            feedback
-            HStack(spacing: 8) {
-                if isSaving {
-                    ProgressView().controlSize(.small).accessibilityLabel("Saving model")
-                }
+            .padding(.horizontal, 24)
+        } actions: {
+            if isSaving {
+                ProgressView().controlSize(.small).accessibilityLabel("Saving model")
                 Spacer()
-                Button("Cancel", action: cancel)
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(isSaving)
-                Button(primaryActionTitle, action: submit)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canSubmit || isSaving)
             }
-            .padding(.top, 4)
+            Button("Cancel", action: cancel)
+                .keyboardShortcut(.cancelAction)
+                .disabled(isSaving)
+            Button(primaryActionTitle, action: submit)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSubmit || isSaving)
         }
         .accessibilityElement(children: .contain)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 4)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
         .presentationSizing(.fitted)
-        .buttonStyle(.automatic)
     }
 
     @ViewBuilder private var installationFeedback: some View {

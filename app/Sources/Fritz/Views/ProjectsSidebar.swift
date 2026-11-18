@@ -1,3 +1,4 @@
+import FritzUI
 import SwiftUI
 import Combine
 
@@ -152,16 +153,18 @@ private struct RenameItemSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(item.isProject ? "Rename Project" : "Rename Thread").font(.headline)
+        FritzDialog(item.isProject ? "Rename Project" : "Rename Thread") {
             TextField("Name", text: $name)
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Save") { save(name); dismiss() }.keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-        }.padding(20).frame(width: 380).onAppear { name = item.title }
+                .padding(.horizontal, 24)
+        } actions: {
+            Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+            Button("Save") { save(name); dismiss() }.keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding(.vertical, 12)
+        .frame(width: 380)
+        .presentationSizing(.fitted)
+        .onAppear { name = item.title }
     }
 }
 
@@ -173,32 +176,37 @@ struct NewProjectSheet: View {
     @State private var error: String?
 
     var body: some View {
-        VStack(spacing: 0) {
-            FritzManagementHeader("New Project")
-            Form {
-                TextField("Name", text: $name, prompt: Text("Project name"))
-                LabeledContent("Folder") {
-                    HStack {
-                        Text((directory ?? WorkspaceStore.defaultProjectDirectory(name: name)).abbreviatedPath)
-                            .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            .help((directory ?? WorkspaceStore.defaultProjectDirectory(name: name)).path)
-                        if directory != nil { Button("Use Default") { directory = nil } }
-                        Button("Choose…", action: chooseFolder)
+        FritzDialog("New Project") {
+            VStack(alignment: .leading, spacing: 12) {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Name").foregroundStyle(.secondary).accessibilityHidden(true)
+                        TextField("Name", text: $name, prompt: Text("Project name"))
+                            .labelsHidden()
+                    }
+                    GridRow {
+                        Text("Folder").foregroundStyle(.secondary)
+                        HStack {
+                            Text((directory ?? WorkspaceStore.defaultProjectDirectory(name: name)).abbreviatedPath)
+                                .foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                .help((directory ?? WorkspaceStore.defaultProjectDirectory(name: name)).path)
+                            if directory != nil { Button("Use Default") { directory = nil } }
+                            Button("Choose…", action: chooseFolder)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-            }.fritzSettingsFormStyle()
-            if let error { Text(error).foregroundStyle(.red).padding(.horizontal, 20).padding(.bottom, 12) }
-            Divider()
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Create Project", action: create)
-                    .buttonStyle(FritzButtonStyle(.primary)).keyboardShortcut(.defaultAction)
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave || workspace.isEditing)
+                if let error { Text(error).foregroundStyle(.red) }
             }
-            .padding(16)
-            .background(FritzWindowStyle.workspaceBackground)
-        }.frame(width: 540, height: 280)
+            .padding(.horizontal, 24)
+        } actions: {
+            Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+            Button("Create Project", action: create).keyboardShortcut(.defaultAction)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !workspace.canSave || workspace.isEditing)
+        }
+        .padding(.vertical, 12)
+        .frame(width: 460)
+        .presentationSizing(.fitted)
     }
 
     private func chooseFolder() {
