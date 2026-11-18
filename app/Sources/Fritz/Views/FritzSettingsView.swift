@@ -7,7 +7,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
     case providers
     case service
-    case debug
 
     var id: String { rawValue }
 
@@ -16,7 +15,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         case .general: "General"
         case .providers: "Models"
         case .service: "Service"
-        case .debug: "Debug"
         }
     }
 
@@ -25,7 +23,6 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .providers: "cpu"
         case .service: "gearshape.2"
-        case .debug: "ladybug"
         }
     }
 }
@@ -56,11 +53,6 @@ struct FritzSettingsView: View {
                         ModelsConfigurationScreen(store: state.providers, runtime: state.localModels)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
-                    case .debug:
-                        Text("Debug")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .padding(24)
                     }
                 }
                 // Bound list-based pages to the window while reserving the bottom inset.

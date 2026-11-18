@@ -60,7 +60,8 @@ the following surfaces, include these behaviors:
   reveal, PID, address, multi-model memory warnings including API first-use
   admission, errors, and quit cleanup), automatic Local API startup with no models,
   Service status, and
-  Debug page navigation.
+  reopening a previously selected page (including General when a saved page no
+  longer exists). Omit settings pages that have no controls or status to show.
 - **Providers:** combined LLM and decision provider list, add/edit/cancel, field
   labels, discovery and refresh, default/manual model choices, validation, and
   connection errors.
