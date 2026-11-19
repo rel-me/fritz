@@ -13,7 +13,9 @@ message; project and thread context menus also offer Rename.
 Chat uses REL’s native conversation layout: a floating composer, compact live tool
 activity, and a “Worked for…” summary above each completed answer. Expand the summary to
 review all tool calls, then click a call to inspect its arguments and result.
-Interrupted responses retain their last saved text and tool activity. A tool
+When you stop a response, the transcript shows just “Stopped after…” with the elapsed
+time. Fritz retains the saved partial text and tool records. Unexpected interruptions
+still show the saved text and tool activity. A tool
 without a recorded result may have taken effect. Review the activity before
 retrying. Chats open on their latest messages. Scroll up to load earlier pages,
 or use **Load Older Messages**. **Jump** returns to the latest response.

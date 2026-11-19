@@ -165,7 +165,7 @@ struct FritzApp: App {
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
-                Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
+                Button("Stop Response") { state.workspace.selectedChat?.stopByUser() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
             CommandMenu("Models") {

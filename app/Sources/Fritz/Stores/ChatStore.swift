@@ -8,6 +8,7 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     var role: String
     var content: String
     var isComplete = true
+    var wasStoppedByUser = false
     var hasMoreBody = false
     var toolCount = 0
     var elapsedTime: TimeInterval?
@@ -37,6 +38,7 @@ struct TurnMetadata: Codable, Sendable {
     let modelID: String
     var elapsedTime: TimeInterval?
     var usageSummary: ChatResponseUsageSummary?
+    var wasStoppedByUser: Bool?
 }
 
 struct ContextToolExchange: Codable, Sendable {
@@ -95,7 +97,9 @@ struct PreparedTurn: Sendable {
     @ObservationIgnored private var preferenceTask: Task<Void, Never>?
     @ObservationIgnored private var responseTask: Task<Void, Never>?
     @ObservationIgnored private var requestID: UUID?
-    @ObservationIgnored private var stopRequested = false
+    private enum StopReason { case user, automatic }
+    @ObservationIgnored private var stopReason: StopReason?
+    private var stopRequested: Bool { stopReason != nil }
     @ObservationIgnored private var isStartingTurn = false
     @ObservationIgnored private var pendingText = ""
     @ObservationIgnored private var flushTask: Task<Void, Never>?
@@ -168,7 +172,7 @@ struct PreparedTurn: Sendable {
         responseUsage = ChatUsage()
         activeTools = []
         pendingText = ""
-        stopRequested = false
+        stopReason = nil
         let originalDraft = draft
         let prompt = originalDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         var committedPreferences = preferences
@@ -234,8 +238,10 @@ struct PreparedTurn: Sendable {
                 let elapsed = max(0, Date().timeIntervalSince(started))
                 let usage = modelCatalog.summary(usage: responseUsage, provider: model.provider,
                     modelID: model.modelID, modelName: model.displayName, speed: committedPreferences.speed)
+                let wasStoppedByUser = !complete && stopReason == .user
                 let terminal = TurnMetadata(complete: complete, provider: model.provider, modelID: model.modelID,
-                                            elapsedTime: elapsed, usageSummary: usage)
+                                            elapsedTime: elapsed, usageSummary: usage,
+                                            wasStoppedByUser: wasStoppedByUser ? true : nil)
                 do {
                     try await flush(turn: turn, terminal: terminal)
                 } catch {
@@ -244,6 +250,7 @@ struct PreparedTurn: Sendable {
                     self.error = "Could not save the response: \(error.localizedDescription) Quit and reopen Fritz to recover the saved part."
                 }
                 activeMessage?.isComplete = complete
+                activeMessage?.wasStoppedByUser = wasStoppedByUser
                 activeMessage?.elapsedTime = elapsed
                 activeMessage?.usageSummary = usage
                 publishActive()
@@ -259,9 +266,12 @@ struct PreparedTurn: Sendable {
         }
     }
 
-    func stop() {
-        guard let requestID else { return }
-        stopRequested = true
+    func stopByUser() { stop(reason: .user) }
+    func stop() { stop(reason: .automatic) }
+
+    private func stop(reason: StopReason) {
+        guard let requestID, stopReason == nil else { return }
+        stopReason = reason
         agent.cancel(requestID.uuidString)
     }
 

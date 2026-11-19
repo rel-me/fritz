@@ -250,6 +250,7 @@ actor ProjectRepository {
             let meta = try row["metadata"]?.string.map { try JSONDecoder().decode(TurnMetadata.self, from: Data($0.utf8)) }
             return try ChatMessage(id: row.id("id"), sequence: row.number("sequence"), role: row.text("role"),
                                    content: preview, isComplete: row.number("status") == 1,
+                                   wasStoppedByUser: meta?.wasStoppedByUser == true,
                                    hasMoreBody: row.number("body_bytes") > preview.utf8.count,
                                    toolCount: Int(row.number("tool_count")), elapsedTime: meta?.elapsedTime,
                                    usageSummary: meta?.usageSummary)
