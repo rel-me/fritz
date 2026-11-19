@@ -25,9 +25,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/Fritz
-      - path: Resources/AppIcon.icon
-        buildPhase: resources
-      - path: Resources/Assets.xcassets
+      - path: Resources/FritzRaven.icns
         buildPhase: resources
     dependencies:
       - package: Fritz
@@ -61,6 +59,7 @@ targets:
       properties:
         CFBundleName: Fritz
         CFBundleDisplayName: Fritz
+        CFBundleIconFile: FritzRaven.icns
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSHighResolutionCapable: true

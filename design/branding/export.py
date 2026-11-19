@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Export the supplied raven trace. Requires librsvg's rsvg-convert."""
+"""Export the supplied raven trace. Requires librsvg and macOS iconutil."""
 
 from pathlib import Path
 import shutil
 import subprocess
+from tempfile import TemporaryDirectory
 import xml.etree.ElementTree as ET
 
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-ICON = ROOT / "app/Resources/AppIcon.icon/Assets"
-MARK = ROOT / "app/Resources/Assets.xcassets/FritzMark.imageset"
+ICON = ROOT / "app/Resources/FritzRaven.icns"
 WEBSITE = ROOT / "website/public"
 SVG = "http://www.w3.org/2000/svg"
 ET.register_namespace("", SVG)
@@ -57,19 +57,18 @@ placement = ET.SubElement(icon, f"{{{SVG}}}g", {
     "transform": "translate(108 189) scale(.47)",
 })
 placement.append(artwork())
-save(icon, "01-Raven.svg")
-
-for filename in ("00-Background.svg", "01-Raven.svg"):
-    shutil.copyfile(HERE / filename, ICON / filename)
+with TemporaryDirectory() as temporary:
+    iconset = Path(temporary) / "FritzRaven.iconset"
+    iconset.mkdir()
+    for size in (16, 32, 128, 256, 512):
+        render_png(icon, iconset / f"icon_{size}x{size}.png", size, size)
+        render_png(icon, iconset / f"icon_{size}x{size}@2x.png", size * 2, size * 2)
+    subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(ICON)], check=True)
 
 for suffix, color in (("", "#231F20"), ("Dark", "#FFFFFF")):
     mark = document(1718, 1376, "0 0 1718 1376", "Fritz raven")
     mark.append(artwork(color))
     save(mark, f"FritzMark{suffix}.svg")
-    subprocess.run([
-        "rsvg-convert", "-f", "pdf", str(HERE / f"FritzMark{suffix}.svg"),
-        "-o", str(MARK / f"FritzMark{suffix}.pdf"),
-    ], check=True)
 
     logo = document(760, 320, "0 0 760 320", "Fritz")
     group = ET.SubElement(logo, f"{{{SVG}}}g", {
@@ -89,12 +88,7 @@ ET.SubElement(favicon, f"{{{SVG}}}style").text = (
 favicon.append(artwork())
 save(favicon, WEBSITE / "favicon.svg")
 
-touch = document(1024, 1024, "0 0 1024 1024", "Fritz")
-ET.SubElement(touch, f"{{{SVG}}}rect", {"width": "1024", "height": "1024", "fill": "#FFFFFF"})
-ET.SubElement(touch, f"{{{SVG}}}g", {
-    "transform": "translate(108 189) scale(.47)",
-}).append(artwork())
-render_png(touch, WEBSITE / "apple-touch-icon.png", 180, 180)
+render_png(icon, WEBSITE / "apple-touch-icon.png", 180, 180)
 
 card = document(1200, 630, "0 0 1200 630", "Fritz")
 ET.SubElement(card, f"{{{SVG}}}rect", {"width": "1200", "height": "630", "fill": "#F3EFE7"})
