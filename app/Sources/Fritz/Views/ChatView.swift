@@ -9,6 +9,7 @@ struct ChatView: View {
     let localModels: LocalModelRuntimeStore
     let openModels: (ModelsLocation) -> Void
     let headerBottom: CGFloat
+    let isProjectFolderAvailable: Bool
     @State private var setupModel: ChatModelOption?
     @State private var selectionTask: Task<Void, Never>?
     @State private var isPreparingModel = false
@@ -28,32 +29,42 @@ struct ChatView: View {
             transcript
 
             VStack(alignment: .trailing, spacing: 8) {
-                ChatComposer(
-                    draft: $store.draft,
-                    placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
-                    canSend: store.canSend && !isPreparingModel,
-                    isPreparingModel: isPreparingModel,
-                    isResponding: store.isResponding,
-                    isFocused: $isFocused,
-                    models: providers.pickerModels,
-                    recentModels: providers.recentModels,
-                    modelProviders: providers.providerOrder,
-                    selectedModel: store.selectedModel,
-                    selectedEffort: store.effort,
-                    selectedSpeed: store.speed,
-                    selectModel: chooseModel,
-                    selectEffort: { store.effort = $0 },
-                    selectSpeed: { store.speed = $0 },
-                    configureModels: { openModels(.remote) },
-                    configureLocalModels: { openModels(.local) },
-                    send: {
-                        guard !isPreparingModel else { return }
-                        if let model = store.selectedModel { providers.record(model) }
-                        store.send()
-                    },
-                    stop: store.stop
-                )
-                .disabled(!store.isReady)
+                if isProjectFolderAvailable {
+                    ChatComposer(
+                        draft: $store.draft,
+                        placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
+                        canSend: store.canSend && !isPreparingModel,
+                        isPreparingModel: isPreparingModel,
+                        isResponding: store.isResponding,
+                        isFocused: $isFocused,
+                        models: providers.pickerModels,
+                        recentModels: providers.recentModels,
+                        modelProviders: providers.providerOrder,
+                        selectedModel: store.selectedModel,
+                        selectedEffort: store.effort,
+                        selectedSpeed: store.speed,
+                        selectModel: chooseModel,
+                        selectEffort: { store.effort = $0 },
+                        selectSpeed: { store.speed = $0 },
+                        configureModels: { openModels(.remote) },
+                        configureLocalModels: { openModels(.local) },
+                        send: {
+                            guard !isPreparingModel else { return }
+                            if let model = store.selectedModel { providers.record(model) }
+                            store.send()
+                        },
+                        stop: store.stop
+                    )
+                    .disabled(!store.isReady)
+                } else {
+                    Label("Project folder unavailable. Reconnect it from the project’s context menu to continue chatting.",
+                          systemImage: "folder.badge.questionmark")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(ChatVisualStyle.pageBackground, in: RoundedRectangle(cornerRadius: ChatVisualStyle.composerCornerRadius))
+                }
             }
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
@@ -83,6 +94,12 @@ struct ChatView: View {
         .onDisappear { selectionTask?.cancel() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
+        .onChange(of: isProjectFolderAvailable) { _, available in
+            if available {
+                synchronizeModel()
+                isFocused = true
+            }
+        }
         .onChange(of: store.isReady) { _, ready in
             if ready {
                 synchronizeModel()
@@ -268,7 +285,7 @@ struct ChatView: View {
     }
 
     private func synchronizeModel() {
-        guard store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
+        guard isProjectFolderAvailable, store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
         store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
     }
 }

@@ -227,14 +227,13 @@ private struct FritzWorkspaceView: View {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange).textSelection(.enabled).padding(12)
                 }
-                if let project = state.workspace.selectedProject, !state.workspace.isAvailable(project) {
-                    ContentUnavailableView("Project Folder Unavailable", systemImage: "folder.badge.questionmark",
-                                           description: Text("Open the project’s context menu to recreate the folder or choose another one."))
-                } else if let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
+                if let project = state.workspace.selectedProject,
+                   let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
-                                            headerBottom: chatHeaderBottom)
+                                            headerBottom: chatHeaderBottom,
+                                            isProjectFolderAvailable: state.workspace.isAvailable(project))
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
@@ -243,7 +242,7 @@ private struct FritzWorkspaceView: View {
                                 // reserve its inset for the sharp foreground title.
                                 chatView
                                     .safeAreaInset(edge: .top, spacing: 0) {
-                                        chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                        chatHeader(projectName: project.name,
                                                    threadTitle: thread.title)
                                             .padding(.top, geometry.safeAreaInsets.top)
                                             .onGeometryChange(for: CGFloat.self) {
@@ -257,7 +256,7 @@ private struct FritzWorkspaceView: View {
                         } else {
                             chatView
                                 .safeAreaInset(edge: .top, spacing: 0) {
-                                    chatHeader(projectName: state.workspace.selectedProject?.name ?? "",
+                                    chatHeader(projectName: project.name,
                                                threadTitle: thread.title)
                                 }
                                 .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
