@@ -52,6 +52,7 @@ final class ModelTests: XCTestCase {
             XCTAssertEqual(connection.id, model.connectionID)
             XCTAssertEqual(connection.modelID, model.modelID)
         }
+        XCTAssertEqual(store.recentModels.map(\.modelID), ["qwen3-1.7b-q4_k_m", "qwen3-0.6b-q4_k_m"])
     }
 
     @MainActor func testLocalSelectionRegistersOnlyAfterInstallationAndReturnsTheChosenConnection() async throws {
@@ -84,6 +85,7 @@ final class ModelTests: XCTestCase {
         let missing = try await store.prepareLocalModel(chosen)
         XCTAssertNil(missing)
         XCTAssertTrue(store.connections.isEmpty)
+        XCTAssertTrue(store.recentModels.isEmpty)
         let prepared = try await store.prepareLocalModel(chosen)
         let ready = try XCTUnwrap(prepared)
         XCTAssertEqual(ready.modelID, chosen.modelID)
@@ -91,6 +93,10 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(saved.modelID, chosen.modelID)
         XCTAssertEqual(ready.connectionID, saved.id)
         XCTAssertEqual(store.connections.count, 1)
+        XCTAssertEqual(store.recentModels.map(\.id), [ready.id])
+        let restored = ProviderStore(agent: agent, database: AppDatabase(directory: directory),
+                                     modelCatalog: RemoteModelCatalog(session: session))
+        XCTAssertEqual(restored.recentIDs, [ready.id])
     }
 
     @MainActor func testChangingModelsKeepsOnlySupportedReasoningAndSpeedSettings() throws {
