@@ -89,14 +89,14 @@ public struct ModelPickerPopover<Value>: View {
       .padding(12)
       .fixedSize(horizontal: false, vertical: true)
 
-      ViewThatFits(in: .vertical) {
-        providerFilterRows(filters, showsMore: false)
-        ForEach((0..<filters.count).reversed(), id: \.self) { count in
-          providerFilterRows(Array(filters.prefix(count)), showsMore: true)
+      PickerFilterHeightLimit {
+        ViewThatFits(in: .vertical) {
+          providerFilterRows(filters, showsMore: false)
+          ForEach((0..<filters.count).reversed(), id: \.self) { count in
+            providerFilterRows(Array(filters.prefix(count)), showsMore: true)
+          }
         }
       }
-      // Two 26-point chip rows plus the six-point row spacing.
-      .frame(height: 58, alignment: .top)
       .padding(.horizontal, 12)
       .padding(.bottom, 8)
 
@@ -293,6 +293,23 @@ public struct ModelPickerPopover<Value>: View {
 
     guard !query.isEmpty else { return providerModels }
     return ModelPickerData<Value>.search(providerModels, query: query)
+  }
+}
+
+private struct PickerFilterHeightLimit: Layout {
+  // Give ViewThatFits room for two 26-point rows and their spacing,
+  // while reporting only the height of the candidate it chooses.
+  private let height: CGFloat = 58
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    subviews[0].sizeThatFits(.init(width: proposal.width, height: height))
+  }
+
+  func placeSubviews(
+    in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+  ) {
+    subviews[0].place(at: bounds.origin, anchor: .topLeading,
+                      proposal: .init(width: bounds.width, height: height))
   }
 }
 

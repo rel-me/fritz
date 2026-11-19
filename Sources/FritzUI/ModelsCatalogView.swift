@@ -142,14 +142,19 @@ public struct ModelsCatalogView: View {
     }
 
     private var localModelTable: some View {
-        Table(models, selection: $selection) {
+        let sessions = runtime.sessions
+        return Table(models, selection: $selection) {
             TableColumn("Name") { model in
                 Text(model.displayName).lineLimit(1).truncationMode(.tail).help(model.modelID)
             }.width(min: 230, ideal: 350)
             TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
                 .width(75)
-            TableColumn("Status") { model in Text(status(model)).foregroundStyle(.secondary) }
-                .width(min: 120, ideal: 140)
+            TableColumn("Status") { model in
+                let running = sessions[model.modelID]?.status == .running
+                Text(running ? ModelsRuntimeSession.Status.running.title : status(model))
+                    .foregroundStyle(running ? .green : .secondary)
+            }
+            .width(min: 120, ideal: 140)
         }
         .accessibilityLabel("Local Models")
         .contextMenu(forSelectionType: String.self) { ids in

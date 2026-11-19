@@ -165,7 +165,7 @@ struct FritzApp: App {
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
-                Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
+                Button("Stop Response") { state.workspace.selectedChat?.stopByUser() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
             CommandMenu("Models") {
@@ -213,7 +213,7 @@ private struct FritzWorkspaceView: View {
     @State private var browserTabs = BrowserTabs()
     @State private var browserOpeningID = 0
     @State private var workspaceWidth: CGFloat = 900
-    @State private var chatHeaderBottom: CGFloat = 0
+    @State private var chatHeaderFrame: CGRect = .zero
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
@@ -232,8 +232,9 @@ private struct FritzWorkspaceView: View {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
-                                            headerBottom: chatHeaderBottom,
-                                            isProjectFolderAvailable: state.workspace.isAvailable(project))
+                                            headerFrame: chatHeaderFrame,
+                                            isProjectFolderAvailable: state.workspace.isAvailable(project),
+                                            isArchived: thread.isArchived)
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
@@ -245,13 +246,13 @@ private struct FritzWorkspaceView: View {
                                         chatHeader(projectName: project.name,
                                                    threadTitle: thread.title)
                                             .padding(.top, geometry.safeAreaInsets.top)
-                                            .onGeometryChange(for: CGFloat.self) {
-                                                $0.frame(in: .global).maxY
-                                            } action: { chatHeaderBottom = $0 }
+                                            .onGeometryChange(for: CGRect.self) {
+                                                $0.frame(in: .global)
+                                            } action: { chatHeaderFrame = $0 }
                                     }
                                     .scrollEdgeEffectHidden(for: .top)
-                                    .ignoresSafeArea(.container, edges: .top)
                                     .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius, style: .continuous))
+                                    .ignoresSafeArea(.container, edges: .top)
                             }
                         } else {
                             chatView

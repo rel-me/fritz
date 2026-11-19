@@ -13,7 +13,9 @@ message; project and thread context menus also offer Rename.
 Chat uses REL’s native conversation layout: a floating composer, compact live tool
 activity, and a “Worked for…” summary above each completed answer. Expand the summary to
 review all tool calls, then click a call to inspect its arguments and result.
-Interrupted responses retain their last saved text and tool activity. A tool
+When you stop a response, the transcript shows just “Stopped after…” with the elapsed
+time. Fritz retains the saved partial text and tool records. Unexpected interruptions
+still show the saved text and tool activity. A tool
 without a recorded result may have taken effect. Review the activity before
 retrying. Chats open on their latest messages. Scroll up to load earlier pages,
 or use **Load Older Messages**. **Jump** returns to the latest response.
@@ -47,8 +49,10 @@ Anthropic, Google, Ollama, and OpenRouter first. An ellipsis opens Models for pr
 that do not fit; the Models button also opens provider management. The selected model’s
 provider appears first in the model sections; search still includes all configured
 providers. Recent stays above the provider sections and shows up to five available
-models, excluding the current selection; Fritz remembers the last eight distinct
-selections.
+models, excluding the current selection. Completing setup for a downloaded Fritz chat
+model adds it to Recent before you send a message. Fritz remembers the last eight
+distinct selections and setups, and can fill remaining slots with previously set up
+local models.
 
 The message field receives focus when opening or switching threads, without a focus
 border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N
@@ -59,8 +63,9 @@ Switching threads keeps an in-progress response attached to its original thread.
 
 ## Activity and usage
 
-Each completed or stopped response displays total tokens, cached input tokens, and USD
-cost. When all calls report cost, Fritz uses it; otherwise standard-tier calls use
+Hover over the info button beside **Copy** on a completed or stopped response to see
+total tokens, cached input tokens, and USD cost. Click the button to keep the popover
+open. When all calls report cost, Fritz uses it. Otherwise, standard-tier calls use
 prices in the shared model catalog, accounting for cache and context tiers. Missing
 usage or pricing is shown as unavailable. Earlier summaries remain attached to their
 responses after another request or a model change.
@@ -71,7 +76,10 @@ The toolbar toggles a blank native inspector on the right, with a resizable divi
 Conversations stay in the main chat area and are selected from the project sidebar.
 There is no bottom panel.
 
-Thread context menus offer Archive Thread and Delete Thread. Archived threads retain their history and drafts; enable Show Archived Threads in the sidebar to restore them. Deleting a thread asks for confirmation and permanently removes its messages and settings.
+Thread context menus offer **Archive Thread** and **Delete Thread**. **Settings → Archived Chats**
+lists archived threads across projects, most recent activity first. Open an archived chat to
+read it or choose **Restore** to return it to its project with its history and draft.
+Deleting a thread asks for confirmation and permanently removes its messages and settings.
 
 Right-click a project and choose **Delete Project…** to remove it and all its threads from Fritz. This also removes archived threads and drafts. The folder and its files stay on disk.
 

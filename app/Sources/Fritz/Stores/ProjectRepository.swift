@@ -22,7 +22,7 @@ actor ProjectRepository {
         if let connection { return connection }
         let database = try StateDatabase(
             url: directory.appendingPathComponent("projects.sqlite"),
-            migrations: [Self.schema],
+            migrations: [Self.schema, Self.archivedChatsIndex],
             schema: [
                 "projects": ["position", "id", "name", "directory", "created_at"],
                 "threads": ["position", "id", "project_id", "title", "automatic_title", "archived", "created_at", "updated_at", "next_sequence"],
@@ -90,6 +90,10 @@ actor ProjectRepository {
         );
         """
 
+    private static let archivedChatsIndex = """
+        CREATE INDEX archived_chats_by_activity ON threads(updated_at DESC, position DESC) WHERE archived = 1;
+        """
+
     func projects(after: Int64 = 0) throws -> SidebarPage<FritzProject> {
         let rows = try db().query("""
             SELECT * FROM projects WHERE position > ? ORDER BY position LIMIT ?
@@ -103,6 +107,22 @@ actor ProjectRepository {
             SELECT * FROM threads WHERE project_id = ? AND position > ?\(archive) ORDER BY position LIMIT ?
             """, [.id(projectID), .integer(after), .integer(Int64(Self.sidebarPageSize + 1))])
         return SidebarPage(rows: try rows.prefix(Self.sidebarPageSize).map(thread), hasMore: rows.count > Self.sidebarPageSize)
+    }
+
+    func archivedChats(before cursor: ArchivedChat? = nil) throws -> SidebarPage<ArchivedChat> {
+        let boundary = cursor == nil ? "" : " AND (t.updated_at, t.position) < (?, ?)"
+        var values: [SQLValue] = cursor.map { [.integer($0.updatedAt), .integer($0.position)] } ?? []
+        values.append(.integer(Int64(Self.sidebarPageSize + 1)))
+        let rows = try db().query("""
+            SELECT t.id, t.title, p.name AS project_name, t.updated_at, t.position
+            FROM threads t JOIN projects p ON p.id = t.project_id
+            WHERE t.archived = 1\(boundary)
+            ORDER BY t.updated_at DESC, t.position DESC LIMIT ?
+            """, values)
+        return SidebarPage(rows: try rows.prefix(Self.sidebarPageSize).map {
+            try ArchivedChat(id: $0.id("id"), title: $0.text("title"), projectName: $0.text("project_name"),
+                             updatedAt: $0.number("updated_at"), position: $0.number("position"))
+        }, hasMore: rows.count > Self.sidebarPageSize)
     }
 
     func selection() throws -> ProjectSelection? {
@@ -250,6 +270,7 @@ actor ProjectRepository {
             let meta = try row["metadata"]?.string.map { try JSONDecoder().decode(TurnMetadata.self, from: Data($0.utf8)) }
             return try ChatMessage(id: row.id("id"), sequence: row.number("sequence"), role: row.text("role"),
                                    content: preview, isComplete: row.number("status") == 1,
+                                   wasStoppedByUser: meta?.wasStoppedByUser == true,
                                    hasMoreBody: row.number("body_bytes") > preview.utf8.count,
                                    toolCount: Int(row.number("tool_count")), elapsedTime: meta?.elapsedTime,
                                    usageSummary: meta?.usageSummary)

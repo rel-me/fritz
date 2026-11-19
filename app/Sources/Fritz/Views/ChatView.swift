@@ -8,8 +8,9 @@ struct ChatView: View {
     let providers: ProviderStore
     let localModels: LocalModelRuntimeStore
     let openModels: (ModelsLocation) -> Void
-    let headerBottom: CGFloat
+    let headerFrame: CGRect
     let isProjectFolderAvailable: Bool
+    let isArchived: Bool
     @State private var setupModel: ChatModelOption?
     @State private var selectionTask: Task<Void, Never>?
     @State private var isPreparingModel = false
@@ -24,12 +25,14 @@ struct ChatView: View {
     @State private var rowFrames: [UUID: CGRect] = [:]
     @State private var historyAnchor: HistoryAnchor?
 
+    private var canCompose: Bool { isProjectFolderAvailable && !isArchived }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             transcript
 
             VStack(alignment: .trailing, spacing: 8) {
-                if isProjectFolderAvailable {
+                if canCompose {
                     ChatComposer(
                         draft: $store.draft,
                         placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
@@ -53,12 +56,13 @@ struct ChatView: View {
                             if let model = store.selectedModel { providers.record(model) }
                             store.send()
                         },
-                        stop: store.stop
+                        stop: store.stopByUser
                     )
                     .disabled(!store.isReady)
                 } else {
-                    Label("Project folder unavailable. Reconnect it from the project’s context menu to continue chatting.",
-                          systemImage: "folder.badge.questionmark")
+                    Label(isArchived ? "Archived chat. Restore it in Settings to continue chatting."
+                                    : "Project folder unavailable. Reconnect it from the project’s context menu to continue chatting.",
+                          systemImage: isArchived ? "archivebox" : "folder.badge.questionmark")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -73,7 +77,7 @@ struct ChatView: View {
             .padding(.bottom, 6)
         }
         .background(ChatVisualStyle.pageBackground)
-        .onExitCommand(perform: store.stop)
+        .onExitCommand(perform: store.stopByUser)
         .defaultFocus($isFocused, true)
         .task {
             // Let the previous thread release its field before focusing this one.
@@ -94,7 +98,7 @@ struct ChatView: View {
         .onDisappear { selectionTask?.cancel() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
-        .onChange(of: isProjectFolderAvailable) { _, available in
+        .onChange(of: canCompose) { _, available in
             if available {
                 synchronizeModel()
                 isFocused = true
@@ -132,7 +136,7 @@ struct ChatView: View {
                         repository: store.repository,
                         openBody: { bodyEntry = message }
                     )
-                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerFrame: headerFrame))
                     .onGeometryChange(for: CGRect?.self) { proxy in
                         isEdge ? proxy.frame(in: .scrollView) : nil
                     } action: { frame in
@@ -153,7 +157,7 @@ struct ChatView: View {
                             Button("Dismiss") { store.error = nil }
                         }
                     }
-                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerBottom: headerBottom))
+                    .modifier(ChatHeaderBlur(isEnabled: !reduceTransparency, headerFrame: headerFrame))
                 }
                 Color.clear
                     .frame(height: max(1, composerHeight + 8))
@@ -285,19 +289,19 @@ struct ChatView: View {
     }
 
     private func synchronizeModel() {
-        guard isProjectFolderAvailable, store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
+        guard canCompose, store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
         store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
     }
 }
 
 private struct ChatHeaderBlur: ViewModifier {
     let isEnabled: Bool
-    let headerBottom: CGFloat
+    let headerFrame: CGRect
     @State private var contentFrame: CGRect = .zero
     private let blurRadius: CGFloat = 24
 
     private var overlapsHeader: Bool {
-        contentFrame.minY < headerBottom && contentFrame.maxY > 0
+        !headerFrame.isEmpty && contentFrame.minY < headerFrame.maxY && contentFrame.maxY > headerFrame.minY
     }
 
     func body(content: Content) -> some View {
@@ -324,13 +328,13 @@ private struct ChatHeaderBlur: ViewModifier {
                             .frame(width: contentFrame.width)
                             .padding(.horizontal, blurRadius * 3)
                             .variableBlur(radius: blurRadius, maxSampleCount: 24) { geometry, context in
-                                let start = headerBottom - 28 - contentFrame.minY
+                                let start = headerFrame.minY - contentFrame.minY
                                 context.fill(
                                     Path(CGRect(origin: .zero, size: geometry.size)),
                                     with: .linearGradient(
                                         Gradient(colors: [.white, .clear]),
                                         startPoint: CGPoint(x: 0, y: start),
-                                        endPoint: CGPoint(x: 0, y: start + 28)
+                                        endPoint: CGPoint(x: 0, y: start + headerFrame.height)
                                     )
                                 )
                             }
@@ -347,11 +351,13 @@ private struct ChatHeaderBlur: ViewModifier {
 
     private func headerFade(from color: Color) -> some View {
         let height = max(1, contentFrame.height)
-        // Finish the transition inside the header so transcript content below stays sharp.
+        // Keep only the blurred copy behind the toolbar. Crossfade to the
+        // sharp original within the bottom of the heading.
+        let fadeStart = max(headerFrame.minY, headerFrame.maxY - 28)
         return LinearGradient(
             colors: [color, color.opacity(0)],
-            startPoint: UnitPoint(x: 0, y: (headerBottom - 28 - contentFrame.minY) / height),
-            endPoint: UnitPoint(x: 0, y: (headerBottom - contentFrame.minY) / height)
+            startPoint: UnitPoint(x: 0, y: (fadeStart - contentFrame.minY) / height),
+            endPoint: UnitPoint(x: 0, y: (headerFrame.maxY - contentFrame.minY) / height)
         )
     }
 }

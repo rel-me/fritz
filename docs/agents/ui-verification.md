@@ -55,8 +55,9 @@ the following surfaces, include these behaviors:
   shows only the composer, without an empty conversation message.
   On macOS 26, verify that the chat header's Inferno variable Gaussian blur
   (up to 24 points at 30% opacity) affects only
-  transcript content beneath it, with a gradual transition ending inside the
-  header; transcript text below the header stays sharp. The header has no horizontal divider or bar background.
+  transcript content beneath it, with a gradual transition from the window top
+  to the bottom of the chat heading. Transcript text below the heading stays sharp.
+  The header has no horizontal divider or bar background.
   Verify that actual scrolling content extends behind the toolbar to the top
   window edge, without reflection or repetition, while foreground controls stay sharp.
   Empty space must stay clear, with no material tint. Check the top of history,

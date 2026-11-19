@@ -69,7 +69,7 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
             }
         }
         .padding(.vertical, 12)
-        .frame(width: 600, height: exported == nil ? 460 : 350)
+        .frame(width: 600, height: exported == nil ? 480 : 350)
         .interactiveDismissDisabled(isImporting)
         .onDisappear { importTask?.cancel() }
     }

@@ -15,3 +15,10 @@ Monitor the model download sheet sizing PR through its final head revision. Diag
 ## Follow-up delegated prompt
 
 Monitor PR #138 again after the dialog snapshot coverage is pushed. Verify the exact final revision, diagnose and fix failures caused by the change, and report the final checks and blockers.
+
+## Follow-up delegated prompt
+
+Resolve the snapshot coverage branch’s conflicts with main. Preserve main’s model
+dialog layout with the shared fitting bridge, review only the affected snapshot
+references, and remove the legacy references that the attached-sheet fixtures
+replace. Run both snapshot suites, push, and monitor the merged revision.

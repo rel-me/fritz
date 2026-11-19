@@ -8,6 +8,14 @@ struct ProjectThread: Identifiable, Equatable, Sendable {
     let isArchived: Bool
 }
 
+struct ArchivedChat: Identifiable, Sendable {
+    let id: UUID
+    let title: String
+    let projectName: String
+    let updatedAt: Int64
+    let position: Int64
+}
+
 struct FritzProject: Identifiable, Equatable, Sendable {
     let id: UUID
     let position: Int64
