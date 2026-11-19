@@ -100,23 +100,26 @@ struct ChatStoredBody: View {
     @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading) {
-            if let error { Text(error).foregroundStyle(.red) }
-            else if isLoading { ProgressView() }
-            else {
-                ScrollView {
-                    Text(chunks.joined()).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        FritzDialog {
+            Group {
+                if let error { Text(error).foregroundStyle(.red) }
+                else if isLoading { ProgressView() }
+                else {
+                    ScrollView {
+                        Text(chunks.joined()).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
-            HStack {
-                if cursor > 0 { Button("Previous") { Task { await load(max(0, cursor - 4)) } }.disabled(isLoading) }
-                if hasMore { Button("Next") { Task { await load(cursor + 4) } }.disabled(isLoading) }
-                Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
-            }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, 24)
+        } actions: {
+            if cursor > 0 { Button("Previous") { Task { await load(max(0, cursor - 4)) } }.disabled(isLoading) }
+            if hasMore { Button("Next") { Task { await load(cursor + 4) } }.disabled(isLoading) }
+            Spacer()
+            Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
         }
-        .padding(16)
+        .padding(.vertical, 12)
         .frame(width: 640, height: 440)
         .task { await load(0) }
     }

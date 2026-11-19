@@ -96,7 +96,7 @@ public struct ModelStorageLocation: View {
             }
         }
         .sheet(isPresented: $showsProgress) {
-            NavigationStack {
+            FritzDialog("Moving Models") {
                 Form {
                     Section {
                         ProgressView(value: Double(storage.completed), total: Double(max(1, storage.total)))
@@ -105,12 +105,14 @@ public struct ModelStorageLocation: View {
                         Text(storage.filename).lineLimit(1).truncationMode(.middle)
                         Text("\(ByteCountFormatter.string(fromByteCount: Int64(clamping: storage.completed), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(clamping: storage.total), countStyle: .file))")
                     }
-                }.formStyle(.grouped)
-                .navigationTitle("Moving Models")
-                .toolbar { ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showsProgress = false }.keyboardShortcut(.cancelAction)
-                } }
+                }
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
+                .contentMargins(.top, 0, for: .scrollContent)
+            } actions: {
+                Button("Cancel") { showsProgress = false }.keyboardShortcut(.cancelAction)
             }
+            .padding(.vertical, 12)
             .frame(width: 460, height: 220)
             .task {
                 if let destination { await storage.change(to: destination, previous: previous, moveModels: true) }

@@ -15,7 +15,7 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        FritzDialog("Download Local Model") {
             VStack(spacing: 0) {
                 ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
                     get: { model.selectedModelID },
@@ -35,29 +35,24 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                             }
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
                 }
             }
-            .navigationTitle("Download Local Model")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
-                        model.cancel()
-                        dismiss()
-                    }
-                    .keyboardShortcut(.cancelAction)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if !hasVisibleSelection || model.state != .installed {
-                        Button(downloadTitle) { if hasVisibleSelection { model.install() } }
-                            .keyboardShortcut(.defaultAction)
-                            .disabled(!hasVisibleSelection || model.state.isBusy || storage.isBusy)
-                    }
-                }
+        } actions: {
+            Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
+                model.cancel()
+                dismiss()
+            }
+            .keyboardShortcut(.cancelAction)
+            if !hasVisibleSelection || model.state != .installed {
+                Button(downloadTitle) { if hasVisibleSelection { model.install() } }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!hasVisibleSelection || model.state.isBusy || storage.isBusy)
             }
         }
+        .padding(.vertical, 12)
         .frame(width: 840, height: 540)
-        .buttonStyle(.automatic)
         .task { model.refresh() }
         .onChange(of: storage.info?.directory) { _, _ in model.refresh() }
         .onDisappear { model.cancel() }

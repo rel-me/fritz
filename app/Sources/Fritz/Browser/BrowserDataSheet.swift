@@ -1,3 +1,4 @@
+import FritzUI
 import SwiftUI
 #if !FRITZ_CHROMIUM
 import WebKit
@@ -127,37 +128,38 @@ struct BrowserImportSheet: View {
     private var source: BrowserImportSource? { actions.sources.first { $0.id == selected } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Import Browser Data").font(.title2)
-            if actions.sources.isEmpty && !actions.busy {
-                Text("No supported browser profiles found. Fritz supports local Chrome, Chromium, Brave, and Edge profiles.")
-            } else {
-                Picker("Source", selection: $selected) {
-                    ForEach(actions.sources) { source in Text(source.title).tag(Optional(source.id)) }
+        FritzDialog("Import Browser Data") {
+            VStack(alignment: .leading, spacing: 12) {
+                if actions.sources.isEmpty && !actions.busy {
+                    Text("No supported browser profiles found. Fritz supports local Chrome, Chromium, Brave, and Edge profiles.")
+                } else {
+                    Picker("Source", selection: $selected) {
+                        ForEach(actions.sources) { source in Text(source.title).tag(Optional(source.id)) }
+                    }
+                    .disabled(actions.busy)
+                    Toggle("Cookies", isOn: $cookies).disabled(actions.busy || source?.hasCookies != true)
+                    Toggle("Saved passwords", isOn: $passwords).disabled(actions.busy || source?.hasPasswords != true)
                 }
-                .disabled(actions.busy)
-                Toggle("Cookies", isOn: $cookies).disabled(actions.busy || source?.hasCookies != true)
-                Toggle("Saved passwords", isOn: $passwords).disabled(actions.busy || source?.hasPasswords != true)
+                Text("Import merges data into this Fritz build and replaces matching cookies and accounts. macOS may ask permission to read the source browser’s Keychain item. Passwords are saved in Fritz’s own Keychain and filled only when you choose Fill Password.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if actions.busy { ProgressView("Importing…").controlSize(.small) }
+                if let message = actions.message { Text(message).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
             }
-            Text("Import merges data into this Fritz build and replaces matching cookies and accounts. macOS may ask permission to read the source browser’s Keychain item. Passwords are saved in Fritz’s own Keychain and filled only when you choose Fill Password.")
-                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            if actions.busy { ProgressView("Importing…").controlSize(.small) }
-            if let message = actions.message { Text(message).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) }
-            HStack {
-                Spacer()
-                Button(actions.busy ? "Cancel" : "Close") {
-                    if actions.busy { actions.cancel() } else { dismiss() }
-                }.keyboardShortcut(.cancelAction)
-                Button("Import") {
-                    if let source { actions.importData(source: source, cookies: cookies && source.hasCookies,
-                                                       passwords: passwords && source.hasPasswords) }
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(actions.busy || source == nil || !(cookies && source?.hasCookies == true || passwords && source?.hasPasswords == true))
+            .padding(.horizontal, 24)
+        } actions: {
+            Button(actions.busy ? "Cancel" : "Close") {
+                if actions.busy { actions.cancel() } else { dismiss() }
+            }.keyboardShortcut(.cancelAction)
+            Button("Import") {
+                if let source { actions.importData(source: source, cookies: cookies && source.hasCookies,
+                                                   passwords: passwords && source.hasPasswords) }
             }
+            .keyboardShortcut(.defaultAction)
+            .disabled(actions.busy || source == nil || !(cookies && source?.hasCookies == true || passwords && source?.hasPasswords == true))
         }
-        .padding(24).frame(width: 480)
-        .fritzWindowBackground()
+        .padding(.vertical, 12)
+        .frame(width: 480)
+        .presentationSizing(.fitted)
         .onChange(of: actions.sources.map(\.id), initial: true) { selected = actions.sources.first?.id }
         .onDisappear { actions.cancel() }
     }
@@ -168,20 +170,24 @@ struct BrowserPasswordSheet: View {
     let page: BrowserPage
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Fill Password").font(.title2)
-            if let origin = page.state.url.flatMap(websiteOrigin) { Text(origin).foregroundStyle(.secondary) }
-            if actions.busy { ProgressView().controlSize(.small) }
-            ForEach(actions.accounts) { account in
-                Button(account.username.isEmpty ? "Account without a username" : account.username) {
-                    actions.fill(account, page: page)
-                }.disabled(actions.busy)
+        FritzDialog("Fill Password") {
+            VStack(alignment: .leading, spacing: 12) {
+                if let origin = page.state.url.flatMap(websiteOrigin) { Text(origin).foregroundStyle(.secondary) }
+                if actions.busy { ProgressView().controlSize(.small) }
+                ForEach(actions.accounts) { account in
+                    Button(account.username.isEmpty ? "Account without a username" : account.username) {
+                        actions.fill(account, page: page)
+                    }.disabled(actions.busy)
+                }
+                if let message = actions.message { Text(message).fixedSize(horizontal: false, vertical: true) }
             }
-            if let message = actions.message { Text(message).fixedSize(horizontal: false, vertical: true) }
-            HStack { Spacer(); Button("Close") { dismiss() }.keyboardShortcut(.cancelAction) }
+            .padding(.horizontal, 24)
+        } actions: {
+            Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
         }
-        .padding(24).frame(width: 420)
-        .fritzWindowBackground()
+        .padding(.vertical, 12)
+        .frame(width: 420)
+        .presentationSizing(.fitted)
         .onDisappear { actions.cancel() }
     }
 }

@@ -16,9 +16,9 @@ struct LocalModelSetupSheet<Feedback: View>: View {
     @ViewBuilder let feedback: Feedback
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 12) {
+        FritzDialog(state == .installed ? "Use Model" : "Download Model") {
+            VStack(alignment: .leading, spacing: 12) {
+                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                     GridRow {
                         Text("Model").foregroundStyle(.secondary)
                         Text(model.name).fixedSize(horizontal: false, vertical: true)
@@ -36,7 +36,7 @@ struct LocalModelSetupSheet<Feedback: View>: View {
                     }
                     if state != .installed {
                         GridRow {
-                            Text("Saving to").foregroundStyle(.secondary)
+                            Text("Saving to").foregroundStyle(.secondary).accessibilityHidden(true)
                             ModelStorageDestination(storage: storage)
                                 .labelsHidden()
                                 .accessibilityElement(children: .contain)
@@ -56,31 +56,23 @@ struct LocalModelSetupSheet<Feedback: View>: View {
                 installationFeedback
                 feedback
             }
-            .accessibilityElement(children: .contain)
-            .padding(.horizontal, 48)
-            .padding(.vertical, 24)
-            .fixedSize(horizontal: false, vertical: true)
-            .navigationTitle(state == .installed ? "Use Model" : "Download Model")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: cancel)
-                        .keyboardShortcut(.cancelAction)
-                        .disabled(isSaving)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(primaryActionTitle, action: submit)
-                        .keyboardShortcut(.defaultAction)
-                        .disabled(!canSubmit || isSaving)
-                }
-                ToolbarItem(placement: .status) {
-                    if isSaving { ProgressView().controlSize(.small).accessibilityLabel("Saving model") }
-                }
+            .padding(.horizontal, 24)
+        } actions: {
+            if isSaving {
+                ProgressView().controlSize(.small).accessibilityLabel("Saving model")
+                Spacer()
             }
+            Button("Cancel", action: cancel)
+                .keyboardShortcut(.cancelAction)
+                .disabled(isSaving)
+            Button(primaryActionTitle, action: submit)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canSubmit || isSaving)
         }
-        .frame(width: 520)
+        .accessibilityElement(children: .contain)
+        .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
         .presentationSizing(.fitted)
-        .buttonStyle(.automatic)
     }
 
     @ViewBuilder private var installationFeedback: some View {
