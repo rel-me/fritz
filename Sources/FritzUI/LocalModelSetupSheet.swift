@@ -16,7 +16,7 @@ struct LocalModelSetupSheet<Feedback: View>: View {
     @ViewBuilder let feedback: Feedback
 
     var body: some View {
-        FritzDialog(state == .installed ? "Use Model" : "Download Model") {
+        FritzDialog(state == .installed ? "Use Model" : "Download Model", separatesActions: true) {
             VStack(alignment: .leading, spacing: 12) {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
                     GridRow {
@@ -70,8 +70,8 @@ struct LocalModelSetupSheet<Feedback: View>: View {
                 .disabled(!canSubmit || isSaving)
         }
         .accessibilityElement(children: .contain)
+        .padding(.top, 12)
         .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
         .presentationSizing(.fitted)
     }
 
