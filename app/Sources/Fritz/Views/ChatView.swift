@@ -300,8 +300,16 @@ private struct ChatHeaderBlur: ViewModifier {
     @State private var contentFrame: CGRect = .zero
     private let blurRadius: CGFloat = 24
 
-    private var overlapsHeader: Bool {
-        !headerFrame.isEmpty && contentFrame.minY < headerFrame.maxY && contentFrame.maxY > headerFrame.minY
+    private var fadeStart: CGFloat { max(headerFrame.minY, headerFrame.maxY - 28) }
+    private var fadeEnd: CGFloat { headerFrame.maxY + 48 }
+
+    // Inferno samples up to three times the blur radius. Leave transparent
+    // space on every edge so the blur can extend beyond the message bounds.
+    private var blurPadding: CGFloat { blurRadius * 3 }
+
+    private func overlapsFade(_ frame: CGRect) -> Bool {
+        !headerFrame.isEmpty && !contentFrame.isEmpty
+            && frame.minY < fadeEnd && frame.maxY > headerFrame.minY
     }
 
     func body(content: Content) -> some View {
@@ -311,35 +319,33 @@ private struct ChatHeaderBlur: ViewModifier {
                     geometry.frame(in: .global)
                 } action: { contentFrame = $0 }
                 .overlay {
-                    if overlapsHeader {
-                        // An alpha mask on the original row flattens its text into
-                        // a composited layer, even below the toolbar.
-                        headerFade(from: ChatVisualStyle.pageBackground)
+                    if overlapsFade(contentFrame) {
+                        // Keep the selectable row uncomposited and fade it in
+                        // with a layer of the page background.
+                        headerFade(from: ChatVisualStyle.pageBackground, in: contentFrame)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
                 }
                 .overlay {
-                    if overlapsHeader && isEnabled {
+                    let blurFrame = contentFrame.insetBy(dx: -blurPadding, dy: -blurPadding)
+                    if isEnabled && overlapsFade(blurFrame) {
                         content
                             .environment(\.chatIsVisualEffectCopy, true)
-                            // Inferno samples out to three times its radius. Give the
-                            // shader transparent space without reflowing the message.
-                            .frame(width: contentFrame.width)
-                            .padding(.horizontal, blurRadius * 3)
+                            .frame(width: contentFrame.width, height: contentFrame.height)
+                            .padding(blurPadding)
                             .variableBlur(radius: blurRadius, maxSampleCount: 24) { geometry, context in
-                                let start = headerFrame.minY - contentFrame.minY
                                 context.fill(
                                     Path(CGRect(origin: .zero, size: geometry.size)),
                                     with: .linearGradient(
                                         Gradient(colors: [.white, .clear]),
-                                        startPoint: CGPoint(x: 0, y: start),
-                                        endPoint: CGPoint(x: 0, y: start + headerFrame.height)
+                                        startPoint: CGPoint(x: 0, y: headerFrame.minY - blurFrame.minY),
+                                        endPoint: CGPoint(x: 0, y: fadeEnd - blurFrame.minY)
                                     )
                                 )
                             }
                             .opacity(0.3)
-                            .mask { headerFade(from: .white) }
+                            .mask { headerFade(from: .white, in: blurFrame) }
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
@@ -349,15 +355,11 @@ private struct ChatHeaderBlur: ViewModifier {
         }
     }
 
-    private func headerFade(from color: Color) -> some View {
-        let height = max(1, contentFrame.height)
-        // Keep only the blurred copy behind the toolbar. Crossfade to the
-        // sharp original within the bottom of the heading.
-        let fadeStart = max(headerFrame.minY, headerFrame.maxY - 28)
-        return LinearGradient(
+    private func headerFade(from color: Color, in frame: CGRect) -> some View {
+        LinearGradient(
             colors: [color, color.opacity(0)],
-            startPoint: UnitPoint(x: 0, y: (fadeStart - contentFrame.minY) / height),
-            endPoint: UnitPoint(x: 0, y: (headerFrame.maxY - contentFrame.minY) / height)
+            startPoint: UnitPoint(x: 0, y: (fadeStart - frame.minY) / frame.height),
+            endPoint: UnitPoint(x: 0, y: (fadeEnd - frame.minY) / frame.height)
         )
     }
 }
