@@ -37,19 +37,33 @@ import FritzUpdates
         XCTAssertEqual(remaining.rows.map(\.id), [second])
     }
 
-    func testMissingProjectBlocksChatsAndRepairRebindsSelectedChat() async throws {
+    func testMissingProjectKeepsThreadsAccessibleAndRepairRebindsSelectedChat() async throws {
         let root = try directory()
         let folder = root.appendingPathComponent("Project")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
         await workspace.restore()
         let id = try await workspace.createProject(name: "Example", directory: folder)
+        let first = try XCTUnwrap(workspace.selectedThreadID)
         workspace.selectedChat?.draft = "Retained"
+        await workspace.createThread(in: id)
+        let second = try XCTUnwrap(workspace.selectedThreadID)
+
         try FileManager.default.removeItem(at: folder)
         await workspace.refreshAvailability()
-        XCTAssertNil(workspace.selectedChat)
+        XCTAssertFalse(workspace.canCreateThread)
         await workspace.createThread(in: id)
-        XCTAssertEqual(workspace.threads.count, 1)
+        XCTAssertEqual(workspace.sidebarThreads.map(\.id), [first, second])
+        await workspace.select(first)
+        XCTAssertEqual(workspace.selectedThreadID, first)
+        XCTAssertEqual(workspace.selectedChat?.draft, "Retained")
+        await workspace.deleteThread(second)
+        XCTAssertEqual(workspace.sidebarThreads.map(\.id), [first])
+
+        let missingFolderWorkspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await missingFolderWorkspace.restore()
+        XCTAssertEqual(missingFolderWorkspace.selectedThreadID, first)
+        XCTAssertEqual(missingFolderWorkspace.selectedChat?.draft, "Retained")
         await workspace.repairProject(id, directory: nil)
         XCTAssertEqual(workspace.selectedChat?.draft, "Retained")
         let replacement = root.appendingPathComponent("Replacement")

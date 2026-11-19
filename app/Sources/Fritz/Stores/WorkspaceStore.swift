@@ -81,15 +81,6 @@ import Observation
         guard revision == projectRevision else { return }
         unavailableProjects = unavailable
         for (id, chat) in Array(chats.values) where unavailable.contains(id) { chat.stop() }
-        if let selectedProject, let selectedThread {
-            if unavailable.contains(selectedProject.id) {
-                selectedChat = nil
-                if let chat = chats[selectedThread.id]?.1 { _ = await chat.savePreferences() }
-                pruneChats()
-            } else if selectedChat == nil {
-                await show(ProjectSelection(project: selectedProject, thread: selectedThread))
-            }
-        }
     }
 
     func expand(_ projectID: UUID, expanded: Bool) async {
@@ -144,7 +135,7 @@ import Observation
         }
         guard id != selectedThreadID else { return }
         await run {
-            guard let selection = try await self.repository.lookup(id), self.isAvailable(selection.project) else { return }
+            guard let selection = try await self.repository.lookup(id) else { return }
             try await self.flushSelectedPreferences()
             try await self.repository.select(id)
             await self.show(selection)
@@ -266,7 +257,7 @@ import Observation
     private func show(_ selection: ProjectSelection?) async {
         let priorChat = selectedChat
         let chat: ChatStore?
-        if let selection, isAvailable(selection.project) {
+        if let selection {
             let id = selection.thread.id
             if let existing = chats[id]?.1 {
                 chat = existing

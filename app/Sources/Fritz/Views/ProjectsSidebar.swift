@@ -12,6 +12,7 @@ struct ProjectsSidebar: View {
             if !workspace.projects.isEmpty {
                 Section("Projects") {
                     ForEach(workspace.sidebarProjects) { project in
+                        let isAvailable = workspace.isAvailable(project)
                         DisclosureGroup(isExpanded: Binding(
                             get: { workspace.expandedProjectID == project.id },
                             set: { expanded in Task { await workspace.expand(project.id, expanded: expanded) } }
@@ -31,18 +32,18 @@ struct ProjectsSidebar: View {
                                     Button(thread.isArchived ? "Restore Thread" : "Archive Thread", systemImage: "archivebox") {
                                         Task { await workspace.setArchived(thread.id, !thread.isArchived) }
                                     }
-                                    Button("New Chat", systemImage: "square.and.pencil") { Task { await workspace.createThread(in: project.id) } }
+                                    Button("New Chat", systemImage: "square.and.pencil") {
+                                        Task { await workspace.createThread(in: project.id) }
+                                    }.disabled(!isAvailable)
                                     Divider()
                                     Button("Delete Thread…", systemImage: "trash", role: .destructive) { deleting = thread }
                                 }
-                                .disabled(!workspace.isAvailable(project))
                             }
                             if workspace.expandedProjectID == project.id {
                                 pageControls(label: "Threads", previous: workspace.threadCursors.count > 1,
                                              next: workspace.hasMoreThreads, page: workspace.pageThreads)
                             }
                         } label: {
-                            let isAvailable = workspace.isAvailable(project)
                             Label(project.name, systemImage: "folder")
                                 .lineLimit(1).help(project.directory ?? project.name)
                                 .foregroundStyle(isAvailable ? .primary : .secondary)
