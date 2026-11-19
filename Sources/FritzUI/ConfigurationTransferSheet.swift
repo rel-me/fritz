@@ -51,26 +51,6 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
                         Text("Matches the service name. Overwrite keeps saved keys when no key is included and the endpoint is unchanged.")
                     }
                 }
-                Section {
-                    if let exported {
-                        Button(copied ? "Copied" : "Copy", systemImage: "doc.on.doc") {
-                            NSPasteboard.general.clearContents()
-                            copied = NSPasteboard.general.setString(exported.text, forType: .string)
-                        }
-                    } else {
-                        Button("Paste", systemImage: "doc.on.clipboard") {
-                            guard let value = NSPasteboard.general.string(forType: .string), !value.isEmpty else {
-                                error = "Copy a cURL request first, then paste it here."
-                                return
-                            }
-                            guard value.utf8.count <= 1_048_576 else {
-                                error = "The configuration must be no larger than 1 MB."
-                                return
-                            }
-                            text = value; error = nil
-                        }.disabled(isImporting)
-                    }
-                }
             }
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
@@ -78,8 +58,9 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
         } actions: {
             if isImporting {
                 ProgressView().controlSize(.small).accessibilityLabel("Importing models")
-                Spacer()
             }
+            transferAction
+            Spacer()
             Button(exported == nil ? "Cancel" : "Done") { dismiss() }
                 .keyboardShortcut(.cancelAction).disabled(isImporting)
             if exported == nil {
@@ -88,9 +69,30 @@ struct ConfigurationTransferSheet<Store: ModelsProviderStore>: View {
             }
         }
         .padding(.vertical, 12)
-        .frame(width: 600, height: exported == nil ? 460 : 350)
+        .frame(width: 600, height: exported == nil ? 480 : 350)
         .interactiveDismissDisabled(isImporting)
         .onDisappear { importTask?.cancel() }
+    }
+
+    @ViewBuilder private var transferAction: some View {
+        if let exported {
+            Button(copied ? "Copied" : "Copy", systemImage: "doc.on.doc") {
+                NSPasteboard.general.clearContents()
+                copied = NSPasteboard.general.setString(exported.text, forType: .string)
+            }
+        } else {
+            Button("Paste", systemImage: "doc.on.clipboard") {
+                guard let value = NSPasteboard.general.string(forType: .string), !value.isEmpty else {
+                    error = "Copy a cURL request first, then paste it here."
+                    return
+                }
+                guard value.utf8.count <= 1_048_576 else {
+                    error = "The configuration must be no larger than 1 MB."
+                    return
+                }
+                text = value; error = nil
+            }.disabled(isImporting)
+        }
     }
 
     private var guidance: String {

@@ -652,7 +652,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     }
 }
 
-private struct ProviderModelsSheet: View {
+struct ProviderModelsSheet: View {
     @Environment(\.dismiss) private var dismiss
     let models: [DiscoveredAIModel]
     let recentModelIDs: [String]

@@ -176,19 +176,6 @@ final class SharedControlSnapshots: XCTestCase {
         }
     }
 
-    func testLocalModelSetupProgressAndError() throws {
-        let model = NativeModelDescriptor(id: "download-fixture", name: "Dolphin 3.0 Llama 3.1 8B", size: 4_920_000_000,
-                                          memoryGB: 16, licenseURL: URL(string: "https://example.com/license")!)
-        for (name, state) in [("downloading", LocalModelInstallState.downloading(downloaded: 1_230_000_000, total: model.size)),
-                              ("error", .failed("The download could not be completed. Check your connection and try again. Your model storage preference is unchanged."))] {
-            try snapshot(LocalModelSetupSheet(model: model, state: state, memoryGB: 8,
-                         storage: ModelsFixture(state: "available").modelStorage, installedDirectory: nil,
-                         primaryActionTitle: name == "error" ? "Retry Download" : "Download",
-                         canSubmit: !state.isBusy, isSaving: false, cancel: {}, submit: {}) { EmptyView() },
-                         name: "local-model-setup-\(name)", size: .init(width: 520, height: 320), settleDuration: 0.45)
-        }
-    }
-
     func testDownloadCompletionRefreshesInstalledPath() async throws {
         let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
         defer { model.cancel() }
@@ -471,4 +458,107 @@ final class SharedControlSnapshots: XCTestCase {
     func refresh() async {}
     func start(_ modelID: String) {}
     func stop(_ modelID: String) {}
+}
+
+extension SharedControlSnapshots {
+    func testAttachedModelDownloadStates() async throws {
+        try DialogSnapshot.requireEnabled()
+        let model = NativeModelDescriptor(id: "fixture", name: "Qwen3.5 9B", size: 5_680_000_000,
+                                          memoryGB: 16, licenseURL: URL(string: "https://example.com/license")!)
+        for appearance in DialogSnapshot.appearances {
+            let fixture = DownloadSheetFixture(model: model)
+            try await DialogSnapshot.withSheet(fixture, appearance: appearance) { sheet in
+                let initial = try await DialogSnapshot.check(sheet, name: "model-download-ready", appearance: appearance)
+                fixture.progress.state = .downloading(downloaded: 529_200_000, total: model.size)
+                let downloading = try await DialogSnapshot.check(sheet, name: "model-download-progress", appearance: appearance)
+                XCTAssertGreaterThan(downloading.height, initial.height)
+                XCTAssertEqual(downloading.width, initial.width)
+
+                fixture.progress.state = .failed("The connection closed unexpectedly. Check your connection and retry the download. Fritz will resume from the last saved byte.")
+                try await DialogSnapshot.check(sheet, name: "model-download-error", appearance: appearance)
+
+                fixture.progress.state = .installed
+                let installed = try await DialogSnapshot.check(sheet, name: "model-download-installed", appearance: appearance)
+                XCTAssertLessThan(installed.height, downloading.height)
+            }
+        }
+    }
+}
+
+@MainActor private struct DownloadSheetFixture: View {
+    @Observable final class Progress {
+        var state = LocalModelInstallState.available
+    }
+
+    let progress = Progress()
+    let model: NativeModelDescriptor
+    let storage = ModelsFixture(state: "available").modelStorage
+
+    var body: some View {
+        LocalModelSetupSheet(model: model, state: progress.state, memoryGB: 8, storage: storage,
+                             installedDirectory: URL(fileURLWithPath: "/Models"),
+                             primaryActionTitle: actionTitle, canSubmit: !progress.state.isBusy,
+                             isSaving: false, cancel: {}, submit: {}) { EmptyView() }
+    }
+
+    private var actionTitle: String {
+        switch progress.state {
+        case .installed: "Use Model"
+        case .failed: "Retry Download"
+        default: "Download"
+        }
+    }
+}
+
+extension SharedControlSnapshots {
+    func testAttachedModelTransferDialogs() async throws {
+        try DialogSnapshot.requireEnabled()
+        let store = ModelsFixture(state: "empty")
+        let request = "curl https://models.example.com/v1/models"
+        for appearance in DialogSnapshot.appearances {
+            try await DialogSnapshot.withSheet(ConfigurationTransferSheet(store: store), appearance: appearance) { sheet in
+                try await DialogSnapshot.check(sheet, name: "model-import-empty", appearance: appearance)
+            }
+            for includesKeys in [false, true] {
+                let key = includesKeys ? "EXAMPLE_KEY" : "YOUR_API_KEY"
+                let export = ProviderTextExport(text: "\(request) \\\n  -H 'Authorization: Bearer \(key)'", includesKeys: includesKeys)
+                let name = includesKeys ? "model-export-with-keys" : "model-export-without-keys"
+                try await DialogSnapshot.withSheet(ConfigurationTransferSheet(store: store, exported: export),
+                                                    appearance: appearance) { sheet in
+                    try await DialogSnapshot.check(sheet, name: name, appearance: appearance)
+                }
+            }
+        }
+    }
+
+    func testAttachedProviderModelsDialog() async throws {
+        try DialogSnapshot.requireEnabled()
+        let id = UUID()
+        let models = [DiscoveredAIModel(id: "sample-recent", displayName: "Sample Recent"),
+                      DiscoveredAIModel(id: "sample-other", displayName: "Sample Other")]
+        for appearance in DialogSnapshot.appearances {
+            let content = ProviderModelsSheet(models: models, recentModelIDs: ["connection:\(id.uuidString):sample-recent"],
+                                              connectionID: id)
+            try await DialogSnapshot.withSheet(content, appearance: appearance) { sheet in
+                try await DialogSnapshot.check(sheet, name: "provider-models-recent", appearance: appearance)
+            }
+        }
+    }
+
+    func testAttachedModelStorageMoveDialog() async throws {
+        try DialogSnapshot.requireEnabled()
+        for appearance in DialogSnapshot.appearances {
+            let (events, continuation) = AsyncThrowingStream<Data, Error>.makeStream()
+            let storage = ModelStorage(events: { _, _, _ in events }, cancel: { _ in })
+            let move = Task { await storage.change(to: URL(fileURLWithPath: "/New Models"),
+                                                  previous: "/Models", moveModels: true) }
+            defer { move.cancel(); continuation.finish() }
+            try await DialogSnapshot.withSheet(ModelStorageMoveSheet(storage: storage, cancel: {}),
+                                               appearance: appearance) { sheet in
+                try await DialogSnapshot.check(sheet, name: "model-storage-move-start", appearance: appearance)
+                continuation.yield(Data(#"{"type":"progress","completed":2100000000,"total":5000000000,"file":"Qwen3.5-9B-with-a-long-model-filename-Q4_K_M.gguf"}"#.utf8))
+                try await DialogSnapshot.check(sheet, name: "model-storage-move-progress", appearance: appearance)
+            }
+        }
+    }
 }

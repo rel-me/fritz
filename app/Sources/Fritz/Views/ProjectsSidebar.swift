@@ -209,7 +209,7 @@ struct NewProjectSheet: View {
         }
         .padding(.vertical, 12)
         .frame(width: 460)
-        .presentationSizing(.fitted)
+        .fritzFittedSheet()
     }
 
     private func chooseFolder() {

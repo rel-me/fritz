@@ -72,7 +72,7 @@ struct LocalModelSetupSheet<Feedback: View>: View {
         .accessibilityElement(children: .contain)
         .padding(.top, 12)
         .frame(width: 460)
-        .presentationSizing(.fitted)
+        .fritzFittedSheet()
     }
 
     @ViewBuilder private var installationFeedback: some View {

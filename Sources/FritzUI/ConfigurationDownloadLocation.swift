@@ -96,28 +96,11 @@ public struct ModelStorageLocation: View {
             }
         }
         .sheet(isPresented: $showsProgress) {
-            FritzDialog("Moving Models") {
-                Form {
-                    Section {
-                        ProgressView(value: Double(storage.completed), total: Double(max(1, storage.total)))
-                            .accessibilityLabel("Moving models")
-                    } footer: {
-                        Text(storage.filename).lineLimit(1).truncationMode(.middle)
-                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(clamping: storage.completed), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(clamping: storage.total), countStyle: .file))")
-                    }
+            ModelStorageMoveSheet(storage: storage, cancel: { showsProgress = false })
+                .task {
+                    if let destination { await storage.change(to: destination, previous: previous, moveModels: true) }
+                    showsProgress = false
                 }
-                .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
-                .contentMargins(.top, 0, for: .scrollContent)
-            } actions: {
-                Button("Cancel") { showsProgress = false }.keyboardShortcut(.cancelAction)
-            }
-            .padding(.vertical, 12)
-            .frame(width: 460, height: 220)
-            .task {
-                if let destination { await storage.change(to: destination, previous: previous, moveModels: true) }
-                showsProgress = false
-            }
         }
     }
     private func propose(_ url: URL) {
@@ -133,6 +116,36 @@ public struct ModelStorageLocation: View {
     private func apply(move: Bool) {
         guard let destination else { return }
         task = Task { await storage.change(to: destination, previous: previous, moveModels: move) }
+    }
+}
+
+struct ModelStorageMoveSheet: View {
+    let storage: ModelStorage
+    let cancel: () -> Void
+
+    var body: some View {
+        FritzDialog("Moving Models") {
+            Form {
+                Section {
+                    ProgressView(value: Double(storage.completed), total: Double(max(1, storage.total)))
+                        .accessibilityLabel("Moving models")
+                } footer: {
+                    if storage.total > 0 {
+                        Text(storage.filename).lineLimit(1).truncationMode(.middle)
+                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(clamping: storage.completed), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(clamping: storage.total), countStyle: .file))")
+                    } else {
+                        Text("Preparing to move models…")
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .contentMargins(.top, 0, for: .scrollContent)
+        } actions: {
+            Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
+        }
+        .padding(.vertical, 12)
+        .frame(width: 460, height: 220)
     }
 }
 
