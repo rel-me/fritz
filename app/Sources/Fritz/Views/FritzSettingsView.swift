@@ -42,6 +42,7 @@ struct FritzSettingsView: View {
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
                 .background(FritzWindowStyle.workspaceBackground)
+                .frame(minWidth: 190, idealWidth: 205, maxWidth: 280)
                 .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
                 .toolbar(removing: .sidebarToggle)
             } detail: {
