@@ -52,11 +52,22 @@ def text(parent, content, x, y, size, color, weight):
     }).text = content
 
 
-icon = document(1024, 1024, "0 0 1024 1024", "Fritz raven app icon")
-placement = ET.SubElement(icon, f"{{{SVG}}}g", {
-    "transform": "translate(108 189) scale(.47)",
-})
-placement.append(artwork())
+def raven_icon(color, outline=None):
+    icon = document(1024, 1024, "0 0 1024 1024", "Fritz raven app icon")
+    placement = ET.SubElement(icon, f"{{{SVG}}}g", {
+        "transform": "translate(108 189) scale(.47)",
+    })
+    if outline is not None:
+        edge = artwork(outline)
+        edge.set("stroke", outline)
+        edge.set("stroke-width", "44")
+        edge.set("stroke-linejoin", "round")
+        placement.append(edge)
+    placement.append(artwork(color))
+    return icon
+
+
+icon = raven_icon("#FFFFFF", outline="#231F20")
 with TemporaryDirectory() as temporary:
     iconset = Path(temporary) / "FritzRaven.iconset"
     iconset.mkdir()
@@ -88,7 +99,7 @@ ET.SubElement(favicon, f"{{{SVG}}}style").text = (
 favicon.append(artwork())
 save(favicon, WEBSITE / "favicon.svg")
 
-render_png(icon, WEBSITE / "apple-touch-icon.png", 180, 180)
+render_png(raven_icon("#231F20"), WEBSITE / "apple-touch-icon.png", 180, 180)
 
 card = document(1200, 630, "0 0 1200 630", "Fritz")
 ET.SubElement(card, f"{{{SVG}}}rect", {"width": "1200", "height": "630", "fill": "#F3EFE7"})
