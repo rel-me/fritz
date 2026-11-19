@@ -165,7 +165,7 @@ struct FritzApp: App {
             }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
-                Button("Stop Response") { state.workspace.selectedChat?.stop() }.keyboardShortcut(".")
+                Button("Stop Response") { state.workspace.selectedChat?.stopByUser() }.keyboardShortcut(".")
                     .disabled(state.workspace.selectedChat?.isResponding != true)
             }
             CommandMenu("Models") {
@@ -233,7 +233,8 @@ private struct FritzWorkspaceView: View {
                                             localModels: state.localModels,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
                                             headerFrame: chatHeaderFrame,
-                                            isProjectFolderAvailable: state.workspace.isAvailable(project))
+                                            isProjectFolderAvailable: state.workspace.isAvailable(project),
+                                            isArchived: thread.isArchived)
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {

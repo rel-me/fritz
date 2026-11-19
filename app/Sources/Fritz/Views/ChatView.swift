@@ -10,6 +10,7 @@ struct ChatView: View {
     let openModels: (ModelsLocation) -> Void
     let headerFrame: CGRect
     let isProjectFolderAvailable: Bool
+    let isArchived: Bool
     @State private var setupModel: ChatModelOption?
     @State private var selectionTask: Task<Void, Never>?
     @State private var isPreparingModel = false
@@ -24,12 +25,14 @@ struct ChatView: View {
     @State private var rowFrames: [UUID: CGRect] = [:]
     @State private var historyAnchor: HistoryAnchor?
 
+    private var canCompose: Bool { isProjectFolderAvailable && !isArchived }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             transcript
 
             VStack(alignment: .trailing, spacing: 8) {
-                if isProjectFolderAvailable {
+                if canCompose {
                     ChatComposer(
                         draft: $store.draft,
                         placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
@@ -53,12 +56,13 @@ struct ChatView: View {
                             if let model = store.selectedModel { providers.record(model) }
                             store.send()
                         },
-                        stop: store.stop
+                        stop: store.stopByUser
                     )
                     .disabled(!store.isReady)
                 } else {
-                    Label("Project folder unavailable. Reconnect it from the project’s context menu to continue chatting.",
-                          systemImage: "folder.badge.questionmark")
+                    Label(isArchived ? "Archived chat. Restore it in Settings to continue chatting."
+                                    : "Project folder unavailable. Reconnect it from the project’s context menu to continue chatting.",
+                          systemImage: isArchived ? "archivebox" : "folder.badge.questionmark")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -73,7 +77,7 @@ struct ChatView: View {
             .padding(.bottom, 6)
         }
         .background(ChatVisualStyle.pageBackground)
-        .onExitCommand(perform: store.stop)
+        .onExitCommand(perform: store.stopByUser)
         .defaultFocus($isFocused, true)
         .task {
             // Let the previous thread release its field before focusing this one.
@@ -94,7 +98,7 @@ struct ChatView: View {
         .onDisappear { selectionTask?.cancel() }
         .onChange(of: providers.models) { _, _ in synchronizeModel() }
         .onChange(of: providers.hasLoadedModels) { _, _ in synchronizeModel() }
-        .onChange(of: isProjectFolderAvailable) { _, available in
+        .onChange(of: canCompose) { _, available in
             if available {
                 synchronizeModel()
                 isFocused = true
@@ -285,7 +289,7 @@ struct ChatView: View {
     }
 
     private func synchronizeModel() {
-        guard isProjectFolderAvailable, store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
+        guard canCompose, store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
         store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
     }
 }

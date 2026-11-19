@@ -23,10 +23,16 @@ import FritzUpdates
         XCTAssertNil(workspace.selectedThreadID)
         let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
         await restored.restore()
-        let archived = try await restored.repository.lookup(first)
-        XCTAssertEqual(archived?.thread.isArchived, true)
-        await restored.setArchived(first, false)
+        let archived = try await restored.repository.archivedChats()
+        XCTAssertEqual(archived.rows.map(\.id), [first])
         await restored.select(first)
+        XCTAssertEqual(restored.selectedThread?.isArchived, true)
+        XCTAssertTrue(restored.sidebarThreads.isEmpty)
+        await restored.setArchived(first, false)
+        XCTAssertEqual(restored.selectedThread?.isArchived, false)
+        XCTAssertEqual(restored.sidebarThreads.map(\.id), [first])
+        let afterRestore = try await restored.repository.archivedChats()
+        XCTAssertTrue(afterRestore.rows.isEmpty)
         XCTAssertEqual(restored.selectedChat?.draft, "Keep this draft")
         await restored.createThread(in: project)
         let second = try XCTUnwrap(restored.selectedThreadID)
@@ -35,6 +41,44 @@ import FritzUpdates
         let remaining = try await restored.repository.threads(in: project, includeArchived: true)
         XCTAssertNil(deleted)
         XCTAssertEqual(remaining.rows.map(\.id), [second])
+    }
+
+    func testArchivedChatsPageAcrossProjectsByLatestActivity() async throws {
+        let root = try directory()
+        let otherFolder = try directory()
+        let repository = ProjectRepository(directory: root)
+        let early = try await repository.createProject(name: "Early project", directory: root, defaultDirectory: root)
+        let later = try await repository.createProject(name: "Later project", directory: otherFolder, defaultDirectory: otherFolder)
+        try await repository.archive(early.thread.id, archived: true)
+        try await repository.archive(later.thread.id, archived: true)
+        var laterArchives = [later.thread.id]
+        for _ in 0..<ProjectRepository.sidebarPageSize {
+            let chat = try await repository.createThread(in: later.project.id)
+            try await repository.archive(chat.thread.id, archived: true)
+            laterArchives.append(chat.thread.id)
+        }
+        _ = try await repository.createThread(in: early.project.id)
+
+        // Assign distinct activity times independent of thread creation order,
+        // with a tie across the pagination boundary.
+        let seed = Process()
+        seed.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        seed.arguments = [root.appendingPathComponent("projects.sqlite").path, """
+            UPDATE threads SET updated_at = 100;
+            UPDATE threads SET updated_at = 200 WHERE id = '\(early.thread.id.uuidString)';
+            """]
+        try seed.run()
+        seed.waitUntilExit()
+        XCTAssertEqual(seed.terminationStatus, 0)
+
+        let first = try await repository.archivedChats()
+        XCTAssertTrue(first.hasMore)
+        XCTAssertEqual(first.rows.first?.id, early.thread.id)
+        XCTAssertEqual(first.rows.first?.projectName, "Early project")
+        let cursor = try XCTUnwrap(first.rows.last)
+        let last = try await repository.archivedChats(before: cursor)
+        XCTAssertFalse(last.hasMore)
+        XCTAssertEqual((first.rows + last.rows).map(\.id), [early.thread.id] + laterArchives.reversed())
     }
 
     func testMissingProjectKeepsThreadsAccessibleAndRepairRebindsSelectedChat() async throws {
@@ -226,6 +270,45 @@ import FritzUpdates
         var isDirectory: ObjCBool = false
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory))
         XCTAssertTrue(isDirectory.boolValue)
+    }
+
+    func testUserStopRemainsDistinctFromProviderInterruptionAfterReload() async throws {
+        let root = try directory()
+        let repository = ProjectRepository(directory: root)
+        let selection = try await repository.createProject(name: "Test", directory: root, defaultDirectory: root)
+        let script = #"""
+        import json, sys
+        for line in sys.stdin:
+            request = json.loads(line)
+            if request["method"] == "chat":
+                print(json.dumps({"id": request["id"], "type": "error", "message": "Provider disconnected"}), flush=True)
+        """#
+        let agent = AgentClient(executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
+                                arguments: ["-u", "-c", script], environment: ["PATH": "/usr/bin:/bin"])
+        agent.start()
+        defer { agent.stop() }
+
+        let chat = ChatStore(agent: agent, repository: repository, threadID: selection.thread.id,
+                             projectPath: selection.project.directory)
+        await chat.restore()
+        chat.select(ChatModelOption(connection: ProviderConnection(name: "Mock", provider: .openAICompatible, modelID: "fixture")))
+
+        for stopsByUser in [true, false] {
+            let completed = expectation(description: stopsByUser ? "User stop was saved" : "Provider interruption was saved")
+            chat.onIdle = { completed.fulfill() }
+            chat.onFirstPrompt = stopsByUser ? { [weak chat] in chat?.stopByUser() } : nil
+            chat.draft = "Test response"
+            chat.send()
+            await fulfillment(of: [completed], timeout: 2)
+            XCTAssertEqual(chat.messages.last?.wasStoppedByUser, stopsByUser)
+            XCTAssertEqual(chat.error, stopsByUser ? nil : "Provider disconnected")
+        }
+
+        let restored = ProjectRepository(directory: root)
+        let messages = try await restored.transcript(selection.thread.id)
+        let responses = messages.filter { $0.role == "assistant" }
+        XCTAssertEqual(responses.map(\.wasStoppedByUser), [false, true])
+        XCTAssertTrue(responses.allSatisfy { !$0.isComplete && $0.elapsedTime != nil })
     }
 
     func testInterruptedTurnRetainsTextAndReceiptsAndDoesNotReplayUnknownOutcome() async throws {

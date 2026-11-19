@@ -68,7 +68,8 @@ final class SharedControlSnapshots: XCTestCase {
     func testChatTranscript() throws {
         let view = VStack(alignment: .leading, spacing: 20) {
             ChatUserMessage(content: "Summarize the selected notes.")
-            ChatAssistantMessage(copy: { true }) {
+            ChatAssistantMessage(copy: { true },
+                                 usage: .init(usage: ChatUsage(), modelName: "Fixture", costUSD: nil, costSource: nil)) {
                 Text("The notes cover three upcoming milestones.")
             }
             ChatCompletedWorkDisclosure(summary: "Worked for 2 seconds", hasActivities: false) {
