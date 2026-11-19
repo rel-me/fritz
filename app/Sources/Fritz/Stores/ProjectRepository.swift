@@ -172,6 +172,10 @@ actor ProjectRepository {
         }
     }
 
+    func deleteProject(_ id: UUID) throws {
+        try db().execute("DELETE FROM projects WHERE id = ?", [.id(id)])
+    }
+
     func delete(_ id: UUID) throws {
         try db().execute("DELETE FROM threads WHERE id = ?", [.id(id)])
     }

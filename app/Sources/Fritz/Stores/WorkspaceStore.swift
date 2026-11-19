@@ -216,6 +216,38 @@ import Observation
         }
     }
 
+    func deleteProject(_ id: UUID) async {
+        await run {
+            let projectChats = self.chats.values.filter { $0.0 == id }.map(\.1)
+            let deletingSelection = self.selectedProject?.id == id
+            let priorChat = deletingSelection ? self.selectedChat : nil
+            if deletingSelection { self.selectedChat = nil }
+            for chat in projectChats { chat.stop() }
+            for chat in projectChats { await chat.finish() }
+            do {
+                try await self.repository.deleteProject(id)
+            } catch {
+                if let priorChat {
+                    self.chats[priorChat.threadID] = (id, priorChat)
+                    self.selectedChat = priorChat
+                }
+                throw error
+            }
+            for chat in projectChats { self.chats.removeValue(forKey: chat.threadID) }
+            self.unavailableProjects.remove(id)
+            if deletingSelection { await self.show(nil) }
+            if self.expandedProjectID == id {
+                self.expandedProjectID = nil
+                self.threadCursors = [0]
+                try await self.loadThreads()
+            }
+            try await self.loadProjects()
+            if self.projects.isEmpty, self.projectCursors.count > 1 {
+                try await self.loadProjects(cursors: [0])
+            }
+        }
+    }
+
     func deleteThread(_ id: UUID) async {
         await run {
             await self.chats[id]?.1.finish()
