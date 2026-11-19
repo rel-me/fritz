@@ -6,6 +6,7 @@ struct ProjectsSidebar: View {
     @Bindable var workspace: WorkspaceStore
     @State private var renaming: RenameItem?
     @State private var deleting: ProjectThread?
+    @State private var deletingProject: FritzProject?
 
     var body: some View {
         List(selection: Binding(get: { workspace.selectedThreadID }, set: { id in Task { await workspace.select(id) } })) {
@@ -63,6 +64,11 @@ struct ProjectsSidebar: View {
                                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: directory)])
                                     }
                                 }
+                                Divider()
+                                Button("Delete Project…", systemImage: "trash", role: .destructive) {
+                                    deletingProject = project
+                                }
+                                .disabled(workspace.isEditing)
                             }
                         }
 
@@ -97,6 +103,14 @@ struct ProjectsSidebar: View {
             Button("Cancel", role: .cancel) {}
         } message: { thread in
             Text("“\(thread.title)” and its messages will be permanently deleted.")
+        }
+        .alert("Delete Project?", isPresented: Binding(
+            get: { deletingProject != nil }, set: { if !$0 { deletingProject = nil } }
+        ), presenting: deletingProject) { project in
+            Button("Delete Project", role: .destructive) { Task { await workspace.deleteProject(project.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { project in
+            Text("“\(project.name)” and all its chats and drafts will be permanently deleted from Fritz. The project folder and its files will stay on disk.")
         }
         .sheet(item: $renaming) { item in
             RenameItemSheet(item: item) { name in

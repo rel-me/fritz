@@ -75,6 +75,50 @@ import FritzUpdates
         XCTAssertEqual(restored.selectedProject?.directory, replacement.path)
     }
 
+    func testDeletingProjectRemovesItsThreadsButKeepsItsFilesAndOtherProjects() async throws {
+        let root = try directory()
+        let folder = root.appendingPathComponent("Project")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent("keep.txt")
+        try Data("Keep me".utf8).write(to: file)
+
+        let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await workspace.restore()
+        let other = try await workspace.createProject(name: "Other", directory: root)
+        let otherThread = try XCTUnwrap(workspace.selectedThreadID)
+        workspace.selectedChat?.draft = "Other draft"
+
+        let project = try await workspace.createProject(name: "Remove", directory: folder)
+        let archived = try XCTUnwrap(workspace.selectedThreadID)
+        let model = ChatModelOption(connection: ProviderConnection(name: "Mock", provider: .openAICompatible, modelID: "fixture"))
+        _ = try await workspace.repository.beginTurn(thread: archived, turn: UUID(), prompt: "Saved message",
+            preferences: .init(), model: model, projectPath: workspace.selectedProject?.directory)
+        await workspace.setArchived(archived, true)
+        await workspace.createThread(in: project)
+        let active = try XCTUnwrap(workspace.selectedThreadID)
+        workspace.selectedChat?.draft = "Delete this draft"
+
+        await workspace.deleteProject(project)
+
+        XCTAssertEqual(workspace.sidebarProjects.map(\.id), [other])
+        XCTAssertNil(workspace.selectedThreadID)
+        XCTAssertNil(workspace.expandedProjectID)
+        XCTAssertTrue(workspace.sidebarThreads.isEmpty)
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "Keep me")
+
+        let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
+        await restored.restore()
+        XCTAssertNil(restored.selectedThreadID)
+        let deletedThreads = try await restored.repository.threads(in: project, includeArchived: true)
+        let deletedTranscript = try await restored.repository.transcript(archived)
+        let deletedDraft = try await restored.repository.preferences(for: active)
+        XCTAssertTrue(deletedThreads.rows.isEmpty)
+        XCTAssertTrue(deletedTranscript.isEmpty)
+        XCTAssertNil(deletedDraft)
+        await restored.select(otherThread)
+        XCTAssertEqual(restored.selectedChat?.draft, "Other draft")
+    }
+
     func testProjectsThreadsAndSelectionSurviveRestart() async throws {
         let root = try directory()
         let workspace = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
