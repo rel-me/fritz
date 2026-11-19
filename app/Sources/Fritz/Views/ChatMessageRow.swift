@@ -20,14 +20,14 @@ struct ChatMessageRow: View {
                 } else if message.elapsedTime != nil || message.toolCount > 0 {
                     ChatCompletedWorkDisclosure(message: message, repository: repository)
                 }
+                let usage = isActive ? nil : message.usageSummary
                 if !message.content.isEmpty {
-                    ChatAssistantMessage(content: message.content)
+                    ChatAssistantMessage(content: message.content, usage: usage)
+                } else if let usage {
+                    FritzUI.ChatResponseUsageButton(summary: usage)
                 }
                 if !message.isComplete && !isActive {
                     ChatStatusMessage(content: "Response interrupted")
-                }
-                if !isActive, let summary = message.usageSummary {
-                    FritzUI.ChatResponseUsageFooter(summary: summary)
                 }
             }
             if message.hasMoreBody {
