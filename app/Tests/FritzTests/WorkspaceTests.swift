@@ -23,10 +23,16 @@ import FritzUpdates
         XCTAssertNil(workspace.selectedThreadID)
         let restored = WorkspaceStore(agent: AgentClient(), dataDirectory: root)
         await restored.restore()
-        let archived = try await restored.repository.lookup(first)
-        XCTAssertEqual(archived?.thread.isArchived, true)
-        await restored.setArchived(first, false)
+        let archived = try await restored.repository.archivedChats()
+        XCTAssertEqual(archived.rows.map(\.id), [first])
         await restored.select(first)
+        XCTAssertEqual(restored.selectedThread?.isArchived, true)
+        XCTAssertTrue(restored.sidebarThreads.isEmpty)
+        await restored.setArchived(first, false)
+        XCTAssertEqual(restored.selectedThread?.isArchived, false)
+        XCTAssertEqual(restored.sidebarThreads.map(\.id), [first])
+        let afterRestore = try await restored.repository.archivedChats()
+        XCTAssertTrue(afterRestore.rows.isEmpty)
         XCTAssertEqual(restored.selectedChat?.draft, "Keep this draft")
         await restored.createThread(in: project)
         let second = try XCTUnwrap(restored.selectedThreadID)
@@ -35,6 +41,44 @@ import FritzUpdates
         let remaining = try await restored.repository.threads(in: project, includeArchived: true)
         XCTAssertNil(deleted)
         XCTAssertEqual(remaining.rows.map(\.id), [second])
+    }
+
+    func testArchivedChatsPageAcrossProjectsByLatestActivity() async throws {
+        let root = try directory()
+        let otherFolder = try directory()
+        let repository = ProjectRepository(directory: root)
+        let early = try await repository.createProject(name: "Early project", directory: root, defaultDirectory: root)
+        let later = try await repository.createProject(name: "Later project", directory: otherFolder, defaultDirectory: otherFolder)
+        try await repository.archive(early.thread.id, archived: true)
+        try await repository.archive(later.thread.id, archived: true)
+        var laterArchives = [later.thread.id]
+        for _ in 0..<ProjectRepository.sidebarPageSize {
+            let chat = try await repository.createThread(in: later.project.id)
+            try await repository.archive(chat.thread.id, archived: true)
+            laterArchives.append(chat.thread.id)
+        }
+        _ = try await repository.createThread(in: early.project.id)
+
+        // Assign distinct activity times independent of thread creation order,
+        // with a tie across the pagination boundary.
+        let seed = Process()
+        seed.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        seed.arguments = [root.appendingPathComponent("projects.sqlite").path, """
+            UPDATE threads SET updated_at = 100;
+            UPDATE threads SET updated_at = 200 WHERE id = '\(early.thread.id.uuidString)';
+            """]
+        try seed.run()
+        seed.waitUntilExit()
+        XCTAssertEqual(seed.terminationStatus, 0)
+
+        let first = try await repository.archivedChats()
+        XCTAssertTrue(first.hasMore)
+        XCTAssertEqual(first.rows.first?.id, early.thread.id)
+        XCTAssertEqual(first.rows.first?.projectName, "Early project")
+        let cursor = try XCTUnwrap(first.rows.last)
+        let last = try await repository.archivedChats(before: cursor)
+        XCTAssertFalse(last.hasMore)
+        XCTAssertEqual((first.rows + last.rows).map(\.id), [early.thread.id] + laterArchives.reversed())
     }
 
     func testMissingProjectKeepsThreadsAccessibleAndRepairRebindsSelectedChat() async throws {

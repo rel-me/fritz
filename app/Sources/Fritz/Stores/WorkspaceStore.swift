@@ -12,7 +12,7 @@ import Observation
     private(set) var canSave = false
     private(set) var isEditing = false
     private(set) var isLoading = true
-    private(set) var showArchived = false
+    private(set) var archiveRevision = 0
     private(set) var hasMoreProjects = false
     private(set) var hasMoreThreads = false
     private(set) var projectCursors: [Int64] = [0]
@@ -47,7 +47,6 @@ import Observation
             let selection = try await repository.selection()
             selectedProject = selection?.project
             selectedThread = selection?.thread
-            showArchived = selection?.thread.isArchived == true
             expandedProjectID = selection?.project.id
             try await loadProjects()
             try await loadThreads()
@@ -87,20 +86,6 @@ import Observation
         guard !isEditing, expanded || expandedProjectID == projectID else { return }
         await run {
             self.expandedProjectID = expanded ? projectID : nil
-            self.threadCursors = [0]
-            try await self.loadThreads()
-        }
-    }
-
-    func setShowArchived(_ value: Bool) async {
-        guard !isEditing else { return }
-        await run {
-            if !value && self.selectedThread?.isArchived == true {
-                try await self.flushSelectedPreferences()
-                try await self.repository.select(nil)
-                await self.show(nil)
-            }
-            self.showArchived = value
             self.threadCursors = [0]
             try await self.loadThreads()
         }
@@ -191,6 +176,7 @@ import Observation
         guard !name.isEmpty else { return }
         await run {
             try await self.repository.renameProject(id, name: name)
+            self.archiveRevision += 1
             if let threadID = self.selectedThreadID, self.selectedProject?.id == id {
                 self.selectedProject = try await self.repository.lookup(threadID)?.project
             }
@@ -203,6 +189,7 @@ import Observation
         guard !title.isEmpty else { return }
         await run {
             try await self.repository.renameThread(id, title: title)
+            self.archiveRevision += 1
             try await self.refreshThread(id)
         }
     }
@@ -211,7 +198,11 @@ import Observation
         await run {
             await self.chats[id]?.1.finish()
             try await self.repository.archive(id, archived: archived)
-            if archived, self.selectedThreadID == id { await self.show(nil) }
+            self.archiveRevision += 1
+            if self.selectedThreadID == id {
+                if archived { await self.show(nil) }
+                else { self.selectedThread = try await self.repository.lookup(id)?.thread }
+            }
             try await self.loadThreads()
         }
     }
@@ -233,6 +224,7 @@ import Observation
                 }
                 throw error
             }
+            self.archiveRevision += 1
             for chat in projectChats { self.chats.removeValue(forKey: chat.threadID) }
             self.unavailableProjects.remove(id)
             if deletingSelection { await self.show(nil) }
@@ -252,6 +244,7 @@ import Observation
         await run {
             await self.chats[id]?.1.finish()
             try await self.repository.delete(id)
+            self.archiveRevision += 1
             self.chats.removeValue(forKey: id)
             if self.selectedThreadID == id {
                 self.selectedChat = nil
@@ -349,7 +342,7 @@ import Observation
             return
         }
         let cursors = cursors ?? threadCursors
-        let page = try await repository.threads(in: id, after: cursors.last ?? 0, includeArchived: showArchived)
+        let page = try await repository.threads(in: id, after: cursors.last ?? 0, includeArchived: false)
         guard revision == threadRevision else { return }
         threadCursors = cursors
         threadPageEnd = page.rows.last?.position
@@ -364,7 +357,7 @@ import Observation
 
     var sidebarThreads: [ProjectThread] {
         guard let selectedThread, selectedThread.projectID == expandedProjectID,
-              showArchived || !selectedThread.isArchived,
+              !selectedThread.isArchived,
               !threads.contains(where: { $0.id == selectedThread.id }) else { return threads }
         return threads + [selectedThread]
     }
