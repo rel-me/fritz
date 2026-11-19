@@ -57,6 +57,8 @@ are installed. Its address and process ID are in **Settings → Service**. Open 
 **Start**/**Stop**, **Start on**, the installed path, and **Open in Finder** appear
 together with the model's load status and errors. Start loads and retains that model's
 weights in the shared API; Stop unloads those weights while leaving the API available.
+The **Status** column in **Local Models** shows **Running** in green while a model’s
+weights are loaded in the shared API.
 **First use** is the default: the model loads when an API request needs it. **App
 start** preloads saved Fritz connections when the app launches. Startup choices are
 saved per model in the workspace database; Cancel leaves the choice unchanged. Manual
