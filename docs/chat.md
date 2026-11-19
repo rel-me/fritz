@@ -59,8 +59,9 @@ Switching threads keeps an in-progress response attached to its original thread.
 
 ## Activity and usage
 
-Each completed or stopped response displays total tokens, cached input tokens, and USD
-cost. When all calls report cost, Fritz uses it; otherwise standard-tier calls use
+Hover over the info button beside **Copy** on a completed or stopped response to see
+total tokens, cached input tokens, and USD cost. Click the button to keep the popover
+open. When all calls report cost, Fritz uses it. Otherwise, standard-tier calls use
 prices in the shared model catalog, accounting for cache and context tiers. Missing
 usage or pricing is shown as unavailable. Earlier summaries remain attached to their
 responses after another request or a model change.

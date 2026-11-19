@@ -40,3 +40,62 @@ public struct ChatResponseUsageFooter: View {
         }
     }
 }
+
+/// Shows response usage alongside the message's other actions.
+public struct ChatResponseUsageButton: View {
+    private let summary: ChatResponseUsageSummary
+    @State private var isPresented = false
+    @State private var isPinned = false
+    @State private var isHoveringButton = false
+    @State private var isHoveringPopover = false
+    @FocusState private var isPopoverFocused: Bool
+
+    public init(summary: ChatResponseUsageSummary) { self.summary = summary }
+
+    public var body: some View {
+        Button("Response usage", systemImage: "info.circle") {
+            isPinned.toggle()
+            isPresented = isPinned
+        }
+        .modifier(FritzPanelIconControl(isEmphasized: isPresented))
+        .onHover { hovering in
+            isHoveringButton = hovering
+            if hovering { isPresented = true }
+        }
+        .popover(isPresented: $isPresented) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(summary.modelName).font(.headline)
+                ChatResponseUsageFooter(summary: summary)
+            }
+            .padding(12)
+            .frame(idealWidth: 260)
+            .onHover { isHoveringPopover = $0 }
+            .focusable(isPinned)
+            .focusEffectDisabled()
+            .focused($isPopoverFocused)
+            .onExitCommand { isPresented = false }
+            .task(id: isPinned) {
+                guard isPinned else { return }
+                await Task.yield()
+                if !Task.isCancelled { isPopoverFocused = true }
+            }
+        }
+        .onChange(of: isPresented) { _, presented in
+            if !presented {
+                isPinned = false
+                isHoveringPopover = false
+            }
+        }
+        .task(id: shouldDismissPreview) {
+            guard shouldDismissPreview else { return }
+            // Give the pointer time to cross from the button to the popover.
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled, shouldDismissPreview else { return }
+            isPresented = false
+        }
+    }
+
+    private var shouldDismissPreview: Bool {
+        isPresented && !isPinned && !isHoveringButton && !isHoveringPopover
+    }
+}
