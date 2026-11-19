@@ -1,5 +1,5 @@
 {
-  "originHash" : "d677a6eb62815198d844400ea18b872d9235c132b7ee9a56153c6c60feb1b538",
+  "originHash" : "c8dbdfb8b472e98ec089be9e66a89676cb929dbc688a66c992a743ccb76f12c4",
   "pins" : [
     {
       "identity" : "inferno",
@@ -28,6 +28,33 @@
       }
     },
     {
+      "identity" : "swift-custom-dump",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-custom-dump",
+      "state" : {
+        "revision" : "4fb9e7cbb4b8f5a7354005db39447f570d6b3e19",
+        "version" : "1.7.3"
+      }
+    },
+    {
+      "identity" : "swift-snapshot-testing",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/swift-snapshot-testing",
+      "state" : {
+        "revision" : "28e5de025e3fd98991791bfbf83023ab3708da03",
+        "version" : "1.19.6"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax",
+      "state" : {
+        "revision" : "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf",
+        "version" : "604.0.0"
+      }
+    },
+    {
       "identity" : "swiftui-math",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/gonzalezreal/swiftui-math",
@@ -43,6 +70,15 @@
       "state" : {
         "revision" : "01b51875a5406eefc95f52a058cb059e7bc94dc4",
         "version" : "0.5.0"
+      }
+    },
+    {
+      "identity" : "xctest-dynamic-overlay",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/pointfreeco/xctest-dynamic-overlay",
+      "state" : {
+        "revision" : "d9308ad679143c26a30dec52daefe82f54af2b82",
+        "version" : "1.13.1"
       }
     }
   ],

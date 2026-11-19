@@ -156,13 +156,13 @@ struct ProjectsSidebar: View {
     }
 }
 
-private struct RenameItem: Identifiable {
+struct RenameItem: Identifiable {
     let id: UUID
     let title: String
     let isProject: Bool
 }
 
-private struct RenameItemSheet: View {
+struct RenameItemSheet: View {
     let item: RenameItem
     let save: (String) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -221,7 +221,7 @@ struct NewProjectSheet: View {
         }
         .padding(.vertical, 12)
         .frame(width: 460)
-        .presentationSizing(.fitted)
+        .fritzFittedSheet()
     }
 
     private func chooseFolder() {

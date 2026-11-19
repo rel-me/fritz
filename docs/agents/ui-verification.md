@@ -184,6 +184,37 @@ image dimensions and fixture content stayed unchanged; native control tint,
 disabled appearance, and glyph rendering changed. Native rendering depends on
 the OS; compare on the current baseline and review intentional OS upgrades.
 
+## Dialog snapshots
+
+The root package and app package use the same Point-Free SnapshotTesting
+image comparison and an offscreen fixture that attaches a real SwiftUI sheet
+to an AppKit window. The fixture waits for stable pixels and captures the
+sheet at the window's actual content size in light and dark mode. The model
+download and browser dialogs change state while one sheet stays attached,
+and the tests assert that the native window grows to fit new content.
+
+The suite uses synthetic model transfers, browser profiles and account names,
+project names, and stored message text. It does not read browser profiles or
+Keychain items, or use the clipboard. Model provider setup and catalog download
+also retain their hosted-view snapshots. System file panels, native confirmation
+menus, keyboard routing, and actual window interaction require separate native
+workflow checks.
+
+`make check-ui-snapshots` compares both packages. To record reviewed app
+references for an intentional change, run the app suite through the build wrapper:
+
+```sh
+mise exec -- python3 scripts/build-cache.py zsh -c '
+  FRITZ_SNAPSHOT_MODE=record swift test --package-path app \
+    --scratch-path "$FRITZ_APP_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" \
+    --filter AppDialogSnapshots
+'
+```
+
+Set `FRITZ_SNAPSHOT_RECORD_PREFIX` inside that command or narrow the test
+filter to limit recording. Follow the same before-and-after review procedure
+for both packages.
+
 Coverage includes model search, empty/no-results, recents/selection, badges,
 Bedrock and generic adapter separation, horizontal provider filters, provider
 categories/search, and enabled/disabled content, primary, inline, link, panel,
@@ -192,9 +223,8 @@ both color schemes. Floating Liquid Glass styles produce incomplete transparent
 readbacks with this renderer on macOS 26; verify those styles in the staged app
 instead of committing blank baselines. App-specific loading/error, streaming,
 keyboard routing, and persistence
-still require the native workflow checks above. Native sheet navigation titles and toolbar actions live outside the hosted-view
-bitmap; the setup snapshots cover form content, while titles, buttons, shortcuts,
-and modal shutdown must be exercised in the staged app. Snapshot comparisons
+still require the native workflow checks above. Hosted form fixtures cover form content. Use the attached-sheet fixtures for
+actual sheet sizing, and check shortcuts and modal shutdown in the staged app. Snapshot comparisons
 complement `make test`; they do not replace those interaction checks.
 
 If a task introduces snapshot tests, compare the affected suites before updating

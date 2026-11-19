@@ -1,0 +1,1 @@
+../../../tests/FritzUISnapshotTests/DialogSnapshot.swift

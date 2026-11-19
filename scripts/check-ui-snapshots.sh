@@ -12,3 +12,4 @@ export FRITZ_SNAPSHOT_MODE=compare
 export SNAPSHOT_ARTIFACTS="${SNAPSHOT_ARTIFACTS:-$PWD/dist/snapshot-failures}"
 mkdir -p "$SNAPSHOT_ARTIFACTS"
 swift test --scratch-path "$FRITZ_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --filter SharedControlSnapshots
+swift test --package-path app --scratch-path "$FRITZ_APP_SWIFT_BUILD" --cache-path "$FRITZ_SWIFT_CACHE" --filter AppDialogSnapshots

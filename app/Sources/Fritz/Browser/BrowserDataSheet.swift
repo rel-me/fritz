@@ -159,7 +159,7 @@ struct BrowserImportSheet: View {
         }
         .padding(.vertical, 12)
         .frame(width: 480)
-        .presentationSizing(.fitted)
+        .fritzFittedSheet()
         .onChange(of: actions.sources.map(\.id), initial: true) { selected = actions.sources.first?.id }
         .onDisappear { actions.cancel() }
     }
@@ -187,7 +187,7 @@ struct BrowserPasswordSheet: View {
         }
         .padding(.vertical, 12)
         .frame(width: 420)
-        .presentationSizing(.fitted)
+        .fritzFittedSheet()
         .onDisappear { actions.cancel() }
     }
 }
