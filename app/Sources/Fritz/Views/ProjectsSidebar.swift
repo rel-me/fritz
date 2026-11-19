@@ -20,7 +20,7 @@ struct ProjectsSidebar: View {
                         )) {
                             ForEach(workspace.expandedProjectID == project.id ? workspace.sidebarThreads : []) { thread in
                                 HStack(spacing: 7) {
-                                    Label(thread.title, systemImage: thread.isArchived ? "archivebox" : "bubble.left")
+                                    Label(thread.title, systemImage: "bubble.left")
                                         .lineLimit(1).truncationMode(.tail)
                                     Spacer(minLength: 0)
                                 }
@@ -30,8 +30,8 @@ struct ProjectsSidebar: View {
                                     Button("Rename Thread", systemImage: "pencil") {
                                         renaming = RenameItem(id: thread.id, title: thread.title, isProject: false)
                                     }
-                                    Button(thread.isArchived ? "Restore Thread" : "Archive Thread", systemImage: "archivebox") {
-                                        Task { await workspace.setArchived(thread.id, !thread.isArchived) }
+                                    Button("Archive Thread", systemImage: "archivebox") {
+                                        Task { await workspace.setArchived(thread.id, true) }
                                     }
                                     Button("New Chat", systemImage: "square.and.pencil") {
                                         Task { await workspace.createThread(in: project.id) }
@@ -83,18 +83,6 @@ struct ProjectsSidebar: View {
         .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in Task { await workspace.refreshAvailability() } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await workspace.refreshAvailability() }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !workspace.projects.isEmpty {
-                Toggle("Show Archived Threads", isOn: Binding(
-                    get: { workspace.showArchived },
-                    set: { value in Task { await workspace.setShowArchived(value) } }
-                ))
-                    .toggleStyle(.checkbox)
-                    .font(.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-            }
         }
         .confirmationDialog("Delete Thread?", isPresented: Binding(
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }
@@ -156,13 +144,13 @@ struct ProjectsSidebar: View {
     }
 }
 
-private struct RenameItem: Identifiable {
+struct RenameItem: Identifiable {
     let id: UUID
     let title: String
     let isProject: Bool
 }
 
-private struct RenameItemSheet: View {
+struct RenameItemSheet: View {
     let item: RenameItem
     let save: (String) -> Void
     @Environment(\.dismiss) private var dismiss

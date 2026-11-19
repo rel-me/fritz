@@ -76,7 +76,10 @@ The toolbar toggles a blank native inspector on the right, with a resizable divi
 Conversations stay in the main chat area and are selected from the project sidebar.
 There is no bottom panel.
 
-Thread context menus offer Archive Thread and Delete Thread. Archived threads retain their history and drafts; enable Show Archived Threads in the sidebar to restore them. Deleting a thread asks for confirmation and permanently removes its messages and settings.
+Thread context menus offer **Archive Thread** and **Delete Thread**. **Settings → Archived Chats**
+lists archived threads across projects, most recent activity first. Open an archived chat to
+read it or choose **Restore** to return it to its project with its history and draft.
+Deleting a thread asks for confirmation and permanently removes its messages and settings.
 
 Right-click a project and choose **Delete Project…** to remove it and all its threads from Fritz. This also removes archived threads and drafts. The folder and its files stay on disk.
 

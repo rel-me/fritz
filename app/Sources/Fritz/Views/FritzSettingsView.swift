@@ -6,6 +6,7 @@ import SwiftUI
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
     case service
+    case archivedChats
 
     var id: String { rawValue }
 
@@ -13,6 +14,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .service: "Service"
+        case .archivedChats: "Archived Chats"
         }
     }
 
@@ -20,6 +22,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .service: "gearshape.2"
+        case .archivedChats: "archivebox"
         }
     }
 }
@@ -39,6 +42,7 @@ struct FritzSettingsView: View {
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
                 .background(FritzWindowStyle.workspaceBackground)
+                .frame(minWidth: 190, idealWidth: 205, maxWidth: 280)
                 .navigationSplitViewColumnWidth(min: 190, ideal: 205, max: 280)
                 .toolbar(removing: .sidebarToggle)
             } detail: {
@@ -48,6 +52,8 @@ struct FritzSettingsView: View {
                         FritzGeneralSettingsView(updater: updater, settings: state.settings, modelStorage: state.providers.modelStorage)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
+                    case .archivedChats:
+                        FritzArchivedChatsView(workspace: state.workspace)
                     }
                 }
                 // Bound list-based pages to the window while reserving the bottom inset.
@@ -203,6 +209,100 @@ private struct FritzServiceSettingsView: View {
             }
         }
         .fritzSettingsFormStyle(background: .clear)
+    }
+}
+
+private struct FritzArchivedChatsView: View {
+    let workspace: WorkspaceStore
+    @Environment(\.openWindow) private var openWindow
+    @State private var chats: [ArchivedChat] = []
+    @State private var hasMore = false
+    @State private var isLoading = true
+    @State private var loadError: String?
+    @State private var renaming: RenameItem?
+    @State private var deleting: ArchivedChat?
+
+    var body: some View {
+        Group {
+            if chats.isEmpty {
+                if isLoading { ProgressView() }
+                else if loadError == nil { ContentUnavailableView("No Archived Chats", systemImage: "archivebox") }
+            } else {
+                Form {
+                    Section {
+                        ForEach(chats) { chat in
+                            HStack {
+                                Button {
+                                    Task {
+                                        await workspace.select(chat.id)
+                                        if workspace.selectedThreadID == chat.id { openWindow(id: "main") }
+                                    }
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(chat.title).lineLimit(1)
+                                        Text(chat.projectName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                                Button("Restore") { Task { await workspace.setArchived(chat.id, false) } }
+                            }
+                            .contextMenu {
+                                Button("Rename Thread", systemImage: "pencil") {
+                                    renaming = RenameItem(id: chat.id, title: chat.title, isProject: false)
+                                }
+                                Divider()
+                                Button("Delete Thread…", systemImage: "trash", role: .destructive) { deleting = chat }
+                            }
+                            .disabled(!workspace.canSave || workspace.isEditing)
+                        }
+                    } header: {
+                        settingsTitle("Archived Chats")
+                    } footer: {
+                        if hasMore {
+                            Button("Load More") { Task { await load(before: chats.last) } }
+                                .disabled(isLoading)
+                        }
+                    }
+                }
+                .fritzSettingsFormStyle(background: .clear)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom) {
+            if let error = loadError ?? workspace.error {
+                Text(error).foregroundStyle(.orange).textSelection(.enabled).padding()
+            }
+        }
+        .task(id: workspace.archiveRevision) { await load() }
+        .sheet(item: $renaming) { item in
+            RenameItemSheet(item: item) { name in Task { await workspace.renameThread(item.id, to: name) } }
+        }
+        .alert("Delete Thread?", isPresented: Binding(
+            get: { deleting != nil }, set: { if !$0 { deleting = nil } }
+        ), presenting: deleting) { chat in
+            Button("Delete Thread", role: .destructive) { Task { await workspace.deleteThread(chat.id) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { chat in
+            Text("“\(chat.title)” and its messages will be permanently deleted.")
+        }
+    }
+
+    private func load(before cursor: ArchivedChat? = nil) async {
+        if cursor != nil, isLoading { return }
+        let revision = workspace.archiveRevision
+        isLoading = true
+        loadError = nil
+        defer { if revision == workspace.archiveRevision { isLoading = false } }
+        do {
+            let page = try await workspace.repository.archivedChats(before: cursor)
+            guard revision == workspace.archiveRevision, !Task.isCancelled else { return }
+            chats = cursor == nil ? page.rows : chats + page.rows
+            hasMore = page.hasMore
+        } catch {
+            guard revision == workspace.archiveRevision, !Task.isCancelled else { return }
+            loadError = error.localizedDescription
+        }
     }
 }
 

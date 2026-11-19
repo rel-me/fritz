@@ -233,7 +233,8 @@ private struct FritzWorkspaceView: View {
                                             localModels: state.localModels,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
                                             headerBottom: chatHeaderBottom,
-                                            isProjectFolderAvailable: state.workspace.isAvailable(project))
+                                            isProjectFolderAvailable: state.workspace.isAvailable(project),
+                                            isArchived: thread.isArchived)
                         .id(thread.id)
                     Group {
                         if #available(macOS 26.0, *) {
