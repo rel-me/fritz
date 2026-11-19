@@ -1,13 +1,16 @@
 import SwiftUI
 
-/// Shared trailing action for tab strips. Its opaque surface masks overflowing tabs.
+/// Shared trailing action for tab strips. Its background matches the host strip.
 public struct BonsplitNewTabButton: View {
     private let title: String
+    private let background: Color
     private let action: () -> Void
     @State private var isHovered = false
 
-    public init(_ title: String, action: @escaping () -> Void) {
+    public init(_ title: String, background: Color = Color(nsColor: BonsplitTabStyle.stripBackground),
+                action: @escaping () -> Void) {
         self.title = title
+        self.background = background
         self.action = action
     }
 
@@ -28,7 +31,7 @@ public struct BonsplitNewTabButton: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color(nsColor: BonsplitTabStyle.foreground))
-        .background(Color(nsColor: BonsplitTabStyle.stripBackground))
+        .background(background)
         .onHover { isHovered = $0 }
         .help(title)
     }

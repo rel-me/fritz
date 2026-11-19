@@ -11,10 +11,9 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
         allowSplits: false,
         allowCrossPaneTabMove: false,
         autoCloseEmptyPanes: false,
-        appearance: .init(showSplitButtons: false)
+        appearance: .init(tabBarBackground: .clear, showSplitButtons: false)
     ))
     private var pages: [TabID: BrowserTab] = [:]
-    private var isClosingAll = false
 
     init() {
         for id in controller.allTabIds { controller.closeTab(id) }
@@ -69,24 +68,22 @@ final class BrowserTabs: @preconcurrency BonsplitDelegate {
     }
 
     func closeAllTabs() {
-        isClosingAll = true
         for id in controller.allTabIds { controller.closeTab(id) }
-        isClosingAll = false
     }
 
     func splitTabBar(_ controller: BonsplitController, didCloseTab id: TabID, fromPane pane: PaneID) {
         pages.removeValue(forKey: id)?.page.close()
-        if !isClosingAll && controller.allTabIds.isEmpty { newTab() }
     }
 }
 
-struct BrowserWindow: View {
-    @State private var tabs = BrowserTabs()
+struct BrowserPanel: View {
+    let tabs: BrowserTabs
     @State private var dataActions = BrowserDataActions()
     @State private var importing = false
     @State private var filling = false
     @State private var fillPage: BrowserPage?
     @FocusState private var addressFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var selectedTab: BrowserTab? {
         tabs.selectedTab
@@ -94,25 +91,36 @@ struct BrowserWindow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            tabBar
             if let tab = selectedTab {
-                navigationBar(tab)
-                if let error = tab.page.state.error {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .font(.callout)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
+                tabBar
+                VStack(spacing: 0) {
+                    navigationBar(tab)
+                    if let error = tab.page.state.error {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                    }
+                    BrowserSurface(page: tab.page).id(tab.id)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay {
+                            if tab.page.state.url == nil {
+                                Color(nsColor: BonsplitTabStyle.selectedBackground)
+                                    .allowsHitTesting(false)
+                            }
+                        }
                 }
-                if tab.page.state.isLoading { ProgressView().progressViewStyle(.linear) }
-                BrowserSurface(page: tab.page).id(tab.id)
+                .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
+                .clipShape(.rect(bottomLeadingRadius: FritzWindowStyle.cornerRadius,
+                                 bottomTrailingRadius: FritzWindowStyle.cornerRadius))
+            } else {
+                Button("New Tab", action: newTab)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: FritzWindowStyle.cornerRadius))
+                    .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
             }
         }
-        .padding(8)
-        .frame(minWidth: 500, minHeight: 360)
-        .fritzWindowBackground()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .focusedSceneValue(\.browserActions, BrowserActions(
             newTab: newTab, closeTab: closeSelectedTab, focusAddress: { addressFocused = true },
             reload: { selectedTab?.page.reload() },
@@ -136,14 +144,11 @@ struct BrowserWindow: View {
         .sheet(isPresented: $filling) {
             if let fillPage { BrowserPasswordSheet(actions: dataActions, page: fillPage) }
         }
-        .onAppear {
-            if tabs.controller.allTabIds.isEmpty { newTab() }
-        }
         .onChange(of: tabs.titles, initial: true) { tabs.updateTitles() }
         .onChange(of: selectedTab?.id) {
             addressFocused = selectedTab?.page.state.url == nil
         }
-        .onDisappear { dataActions.cancel(); tabs.closeAllTabs() }
+        .onDisappear { dataActions.cancel() }
         .onReceive(NotificationCenter.default.publisher(for: .closeFritzBrowser)) { _ in
             dataActions.cancel()
             tabs.closeAllTabs()
@@ -205,13 +210,32 @@ struct BrowserWindow: View {
                                       lineWidth: addressFocused ? 2 : 0.5)
                         .allowsHitTesting(false)
                 }
+                .overlay(alignment: .bottom) {
+                    if tab.page.state.isLoading && tab.page.state.error == nil {
+                        Group {
+                            if reduceMotion {
+                                Capsule().fill(Color.accentColor.opacity(0.5))
+                            } else {
+                                ProgressView()
+                                    .progressViewStyle(.linear)
+                                    .controlSize(.mini)
+                                    .frame(maxHeight: .infinity)
+                            }
+                        }
+                        .frame(height: 2)
+                        .clipped()
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 2)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    }
+                }
                 .focused($addressFocused)
                 .onSubmit {
                     if tab.openAddress() { addressFocused = false }
                 }
         }
         .padding(6)
-        .background(Color(nsColor: BonsplitTabStyle.selectedBackground))
         .onChange(of: tab.page.state.url, initial: true) {
             if !addressFocused, let url = tab.page.state.url { tab.address = url.absoluteString }
         }
@@ -294,12 +318,12 @@ extension FocusedValues {
 }
 
 struct BrowserCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
+    let showBrowser: () -> Void
     @FocusedValue(\.browserActions) private var browser
 
     var body: some Commands {
         CommandMenu("Browser") {
-            Button("Show Browser") { openWindow(id: "browser") }
+            Button("Show Browser", action: showBrowser)
                 .keyboardShortcut("2")
             Divider()
             Button("New Tab") { browser?.newTab() }

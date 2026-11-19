@@ -23,6 +23,11 @@ public struct BonsplitTabBar<TabContextMenu: View>: View {
         self.tabContextMenu = tabContextMenu
     }
 
+    private var stripBackground: Color {
+        controller.configuration.appearance.tabBarBackground
+            ?? Color(nsColor: BonsplitTabStyle.stripBackground)
+    }
+
     public var body: some View {
         GeometryReader { geometry in
             let widths = controller.allTabIds.compactMap { controller.tab($0) }.map {
@@ -39,14 +44,13 @@ public struct BonsplitTabBar<TabContextMenu: View>: View {
             }
             .frame(width: min(max(0, geometry.size.width), BonsplitTabStyle.barWidth(tabWidths: widths)))
             .overlay(alignment: .topTrailing) {
-                BonsplitNewTabButton(newTabTitle, action: createTab)
+                BonsplitNewTabButton(newTabTitle, background: stripBackground, action: createTab)
                     .disabled(!canCreateTab)
             }
         }
         .frame(height: BonsplitTabStyle.barHeight)
         .clipped()
-        .background(controller.configuration.appearance.tabBarBackground
-                    ?? Color(nsColor: BonsplitTabStyle.stripBackground))
+        .background(stripBackground)
     }
 }
 
