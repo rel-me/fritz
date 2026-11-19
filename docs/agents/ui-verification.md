@@ -56,7 +56,9 @@ the following surfaces, include these behaviors:
   On macOS 26, verify that the chat header's Inferno variable Gaussian blur
   (up to 24 points at 30% opacity) affects only
   transcript content beneath it, with a gradual transition from the window top
-  to the bottom of the chat heading. Transcript text below the heading stays sharp.
+  through 48 points below the chat heading. Text farther down stays sharp.
+  Scroll text across the bottom of the heading and across message boundaries
+  within the fade to check for a visible cutoff.
   The header has no horizontal divider or bar background.
   Verify that actual scrolling content extends behind the toolbar to the top
   window edge, without reflection or repetition, while foreground controls stay sharp.
