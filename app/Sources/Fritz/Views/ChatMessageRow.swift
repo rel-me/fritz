@@ -11,9 +11,14 @@ struct ChatMessageRow: View {
     let openBody: () -> Void
 
     var body: some View {
+        let showsStopOnly = !isActive && message.wasStoppedByUser
         VStack(alignment: .leading, spacing: ChatVisualStyle.transcriptSpacing) {
             if message.role == "user" {
                 ChatUserMessage(content: message.content)
+            } else if showsStopOnly {
+                Text(message.workSummary)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             } else {
                 if isActive {
                     ChatActivityRow(activities: activeTools, activity: activity, entryID: message.id, repository: repository)
@@ -30,7 +35,7 @@ struct ChatMessageRow: View {
                     FritzUI.ChatResponseUsageFooter(summary: summary)
                 }
             }
-            if message.hasMoreBody {
+            if message.hasMoreBody && !showsStopOnly {
                 Button("Read Full Message", action: openBody)
                     .buttonStyle(.link)
             }

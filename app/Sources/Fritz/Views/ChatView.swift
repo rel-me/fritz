@@ -53,7 +53,7 @@ struct ChatView: View {
                             if let model = store.selectedModel { providers.record(model) }
                             store.send()
                         },
-                        stop: store.stop
+                        stop: store.stopByUser
                     )
                     .disabled(!store.isReady)
                 } else {
@@ -73,7 +73,7 @@ struct ChatView: View {
             .padding(.bottom, 6)
         }
         .background(ChatVisualStyle.pageBackground)
-        .onExitCommand(perform: store.stop)
+        .onExitCommand(perform: store.stopByUser)
         .defaultFocus($isFocused, true)
         .task {
             // Let the previous thread release its field before focusing this one.

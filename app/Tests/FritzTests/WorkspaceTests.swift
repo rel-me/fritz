@@ -228,6 +228,45 @@ import FritzUpdates
         XCTAssertTrue(isDirectory.boolValue)
     }
 
+    func testUserStopRemainsDistinctFromProviderInterruptionAfterReload() async throws {
+        let root = try directory()
+        let repository = ProjectRepository(directory: root)
+        let selection = try await repository.createProject(name: "Test", directory: root, defaultDirectory: root)
+        let script = #"""
+        import json, sys
+        for line in sys.stdin:
+            request = json.loads(line)
+            if request["method"] == "chat":
+                print(json.dumps({"id": request["id"], "type": "error", "message": "Provider disconnected"}), flush=True)
+        """#
+        let agent = AgentClient(executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
+                                arguments: ["-u", "-c", script], environment: ["PATH": "/usr/bin:/bin"])
+        agent.start()
+        defer { agent.stop() }
+
+        let chat = ChatStore(agent: agent, repository: repository, threadID: selection.thread.id,
+                             projectPath: selection.project.directory)
+        await chat.restore()
+        chat.select(ChatModelOption(connection: ProviderConnection(name: "Mock", provider: .openAICompatible, modelID: "fixture")))
+
+        for stopsByUser in [true, false] {
+            let completed = expectation(description: stopsByUser ? "User stop was saved" : "Provider interruption was saved")
+            chat.onIdle = { completed.fulfill() }
+            chat.onFirstPrompt = stopsByUser ? { [weak chat] in chat?.stopByUser() } : nil
+            chat.draft = "Test response"
+            chat.send()
+            await fulfillment(of: [completed], timeout: 2)
+            XCTAssertEqual(chat.messages.last?.wasStoppedByUser, stopsByUser)
+            XCTAssertEqual(chat.error, stopsByUser ? nil : "Provider disconnected")
+        }
+
+        let restored = ProjectRepository(directory: root)
+        let messages = try await restored.transcript(selection.thread.id)
+        let responses = messages.filter { $0.role == "assistant" }
+        XCTAssertEqual(responses.map(\.wasStoppedByUser), [false, true])
+        XCTAssertTrue(responses.allSatisfy { !$0.isComplete && $0.elapsedTime != nil })
+    }
+
     func testInterruptedTurnRetainsTextAndReceiptsAndDoesNotReplayUnknownOutcome() async throws {
         let root = try directory()
         let repository = ProjectRepository(directory: root)
