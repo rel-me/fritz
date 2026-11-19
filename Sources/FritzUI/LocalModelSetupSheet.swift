@@ -1,3 +1,4 @@
+import AppKit
 import Fritz
 import SwiftUI
 
@@ -70,8 +71,10 @@ struct LocalModelSetupSheet<Feedback: View>: View {
                 .disabled(!canSubmit || isSaving)
         }
         .accessibilityElement(children: .contain)
+        .padding(.vertical, 12)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+        .background { ModelSetupSheetSizing() }
         .presentationSizing(.fitted)
     }
 
@@ -91,6 +94,35 @@ struct LocalModelSetupSheet<Feedback: View>: View {
         case .failed(let message):
             Text(message).foregroundStyle(.red)
                 .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+        }
+    }
+}
+
+/// SwiftUI fits the sheet at presentation. Keep the attached window fitted as feedback changes.
+private struct ModelSetupSheetSizing: NSViewRepresentable {
+    func makeNSView(context: Context) -> SizingView { SizingView() }
+
+    func updateNSView(_ view: SizingView, context: Context) {}
+
+    final class SizingView: NSView {
+        override func setFrameSize(_ newSize: NSSize) {
+            super.setFrameSize(newSize)
+            resizeSheet()
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            resizeSheet()
+        }
+
+        private func resizeSheet() {
+            // Resize after SwiftUI finishes laying out the sheet content.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window, window.sheetParent != nil,
+                      let content = window.contentView,
+                      frame.height > 0, abs(content.frame.height - frame.height) >= 1 else { return }
+                window.setContentSize(NSSize(width: content.frame.width, height: frame.height))
+            }
         }
     }
 }
