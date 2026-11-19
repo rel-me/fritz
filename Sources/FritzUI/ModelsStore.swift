@@ -30,7 +30,21 @@ import Security
     }
     public var connections: [ProviderConnection] { registry.connections }
     public var providerOrder: [AIProviderKind] { connections.filter { $0.category == .llm }.map(\.provider) }
-    public var recentModels: [ChatModelOption] { recentIDs.compactMap { id in models.first { $0.id == id } } }
+    private var recordedRecentModels: [ChatModelOption] {
+        recentIDs.compactMap { id in models.first { $0.id == id } }
+    }
+    public var recentModels: [ChatModelOption] {
+        let recorded = recordedRecentModels
+        let recordedIDs = Set(recorded.map(\.id))
+        // Include setups saved before setup started recording recents. Match a
+        // connection's own model because discovery can also return its siblings.
+        let earlierSetups = connections.reversed().filter { $0.provider == .fritz }.compactMap { connection in
+            models.first {
+                $0.connectionID == connection.id && $0.modelID == connection.modelID && !recordedIDs.contains($0.id)
+            }
+        }
+        return recorded + earlierSetups
+    }
     public var availableModels: [ChatModelOption] {
         let discovered = models + connections.filter { $0.category == .decision }.flatMap { connection in
             (catalog[connection.id] ?? [DiscoveredAIModel(id: connection.modelID, displayName: connection.modelID)])
@@ -111,7 +125,7 @@ import Security
     }
 
     public var defaultModel: ChatModelOption? {
-        if let recent = recentModels.first { return recent }
+        if let recent = recordedRecentModels.first { return recent }
         if let connection = connections.first(where: { $0.id == registry.defaultConnectionId }),
            let model = models.first(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) { return model }
         return models.first(where: { $0.connectionID == registry.defaultConnectionId && $0.capabilities.isRecommendedInChatPicker })
@@ -170,10 +184,14 @@ import Security
     }
 
     public func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws {
+        let isNewLocalSetup = connection.provider == .fritz && !connections.contains {
+            $0.id == connection.id && $0.provider == .fritz && $0.modelID == connection.modelID
+        }
         var params: [String: Any] = ["connection": try connection.jsonObject(), "makeDefault": makeDefault]
         if !key.isEmpty { params["apiKey"] = key }
         registry = try await agent.request("providers.save", params: params)
         await refresh()
+        if isNewLocalSetup { record(ChatModelOption(connection: connection)) }
     }
 
     /// Rust copies referenced credentials and commits the migration completion record

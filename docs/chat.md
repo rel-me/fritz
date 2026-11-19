@@ -47,8 +47,10 @@ Anthropic, Google, Ollama, and OpenRouter first. An ellipsis opens Models for pr
 that do not fit; the Models button also opens provider management. The selected model’s
 provider appears first in the model sections; search still includes all configured
 providers. Recent stays above the provider sections and shows up to five available
-models, excluding the current selection; Fritz remembers the last eight distinct
-selections.
+models, excluding the current selection. Completing setup for a downloaded Fritz chat
+model adds it to Recent before you send a message. Fritz remembers the last eight
+distinct selections and setups, and can fill remaining slots with previously set up
+local models.
 
 The message field receives focus when opening or switching threads, without a focus
 border. Return sends; Shift-Return inserts a newline. Escape stops generation. ⌘N
