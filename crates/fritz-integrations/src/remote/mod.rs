@@ -119,8 +119,7 @@ struct Job {
 }
 fn secret() -> Result<String, Error> {
     let mut bytes = [0u8; 32];
-    getrandom::getrandom(&mut bytes)
-        .map_err(|_| Error::capture("Secure random generation failed"))?;
+    getrandom::fill(&mut bytes).map_err(|_| Error::capture("Secure random generation failed"))?;
     Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes))
 }
 fn hash(value: &str) -> [u8; 32] {

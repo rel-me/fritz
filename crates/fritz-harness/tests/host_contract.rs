@@ -44,7 +44,7 @@ impl Model for FixtureModel {
 
     async fn turn(&mut self, tools: &[ToolDefinition]) -> Result<Turn> {
         self.advertised
-            .push(tools.iter().map(|tool| tool.name.clone()).collect());
+            .push(tools.iter().map(|tool| tool.name.to_string()).collect());
         Ok(Turn {
             calls: self.turns.pop_front().expect("unexpected model call"),
             text: "Host response".into(),
@@ -70,7 +70,7 @@ impl Host for FixtureHost {
             "finish"
         };
         Ok(vec![ToolDefinition {
-            name: name.into(),
+            name: fritz_harness::message::ToolName::new(name)?,
             description: "Host-owned action".into(),
             parameters: json!({"type":"object","properties":{}}),
         }])

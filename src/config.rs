@@ -344,7 +344,7 @@ fn write_registry(transaction: &rusqlite::Connection, registry: &Registry) -> Re
             "INSERT INTO providers VALUES (?1, ?2, ?3)",
             params![
                 connection.id.to_string(),
-                position,
+                i64::try_from(position)?,
                 serde_json::to_string(connection)?
             ],
         )?;

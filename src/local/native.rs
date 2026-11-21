@@ -13,7 +13,7 @@ use std::{
 use tokio::sync::mpsc;
 
 #[cfg(test)]
-pub(crate) const REVISION: &str = "690b87d88151dbd775bb6eff5581663688785928";
+pub(crate) const REVISION: &str = "b019be0c86e8adaf8b46627c091c24c1597b95f9";
 
 unsafe extern "C" {
     fn fl_model_load(

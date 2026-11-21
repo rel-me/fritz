@@ -392,7 +392,7 @@ impl Session {
                 .await?
         };
         let text = text.into_inner().unwrap();
-        use fritz_harness::message::{AssistantContent, Message, ToolName};
+        use fritz_harness::message::{AssistantContent, AssistantMessage, Message, ToolName};
         let mut content = Vec::new();
         if !text.is_empty() {
             content.push(AssistantContent::text(&text));
@@ -405,7 +405,7 @@ impl Session {
             ));
         }
         self.conversation
-            .push(Message::Assistant { id: None, content });
+            .push(Message::Assistant(AssistantMessage::new(content)));
         self.record_native_boundary();
         Ok(Turn { calls, text })
     }

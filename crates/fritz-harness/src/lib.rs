@@ -8,7 +8,7 @@ use rig_agent::agent::{
     run::{AgentRun, AgentRunStep, ModelTurn, ModelTurnOutcome},
 };
 use rig_core::{
-    completion::Usage,
+    completion::{AssistantMessage, Usage},
     message::{
         AssistantContent, ImageMediaType, Message, MimeType, ToolName, ToolResultContent,
         UserContent,
@@ -148,7 +148,8 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                         if !definition.parameters.is_object() {
                             bail!("Tool parameters must be a JSON schema object.");
                         }
-                        if definition.name.is_empty() || !names.insert(definition.name.clone()) {
+                        if definition.name.is_empty() || !names.insert(definition.name.to_string())
+                        {
                             bail!("Tool names must be nonempty and unique.");
                         }
                     }
@@ -181,12 +182,14 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                         content.push(AssistantContent::tool_call(
                             call.id,
                             ToolName::new(call.name)?,
-                            serde_json::from_str(&call.arguments)
-                                .context("Invalid tool arguments; no tools executed.")?,
+                            Value::Object(
+                                serde_json::from_str(&call.arguments)
+                                    .context("Invalid tool arguments; no tools executed.")?,
+                            ),
                         ));
                     }
                     let mut outcome = run.model_response(ModelTurn::new(
-                        None,
+                        AssistantMessage::default(),
                         content,
                         Usage::default(),
                         names.clone(),
@@ -220,7 +223,7 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                         let call = ToolCall {
                             id: rig_call.id.to_string(),
                             name: rig_call.function.name.to_string(),
-                            arguments: rig_call.function.arguments.to_string(),
+                            arguments: serde_json::to_string(&rig_call.function.arguments)?,
                         };
                         let result = if let Some(result) = rejected.remove(&call.id) {
                             result

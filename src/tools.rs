@@ -53,7 +53,8 @@ impl Workspace {
                     let workspace = self.clone();
                     let name = definition["name"].as_str().unwrap().to_owned();
                     DynamicTool::new(
-                        name.clone(),
+                        fritz_harness::message::ToolName::new(&name)
+                            .expect("Fritz tool names are nonempty"),
                         definition["description"].as_str().unwrap(),
                         definition["parameters"].clone(),
                         move |args| {

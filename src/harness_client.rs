@@ -25,7 +25,8 @@ impl PrivateStdin {
         {
             return Err(std::io::Error::last_os_error().into());
         }
-        Ok(Self(tokio::io::unix::AsyncFd::new(stdin)?))
+        // SAFETY: AsyncFd owns the File and its descriptor for the registration lifetime.
+        Ok(Self(unsafe { tokio::io::unix::AsyncFd::register(stdin) }?))
     }
 }
 

@@ -1,9 +1,9 @@
 #!/bin/bash
 # Sourced by build-app.sh for the opt-in Chromium edition.
-cef_version="156.0.27+ga10dae3+chromium-156.0.8078.88"
+cef_version="158.0.3+g8c29be2+chromium-158.0.8127.18"
 case "$(uname -m)" in
-  arm64) cef_platform=macosarm64; cef_sha256=ddb84a6b9c93270655d9aa136b08db933799fbbae60e207f8a37d0e818050e5d ;;
-  x86_64) cef_platform=macosx64; cef_sha256=eeee6d06764b51be8b45af04efb675668bc9f83794c2057845f8af271344cac6 ;;
+  arm64) cef_platform=macosarm64; cef_sha256=eb4877f894615c0f1b806b699c74d19c476696f7716daee22811b883a9e8441f ;;
+  x86_64) cef_platform=macosx64; cef_sha256=38e5264c72ab4bdc7e3c0889faed8a30496344a7a76a81e2ad6557006d3e24d7 ;;
   *) echo "error: unsupported Chromium architecture" >&2; exit 1 ;;
 esac
 cef_name="cef_binary_${cef_version}_${cef_platform}_minimal"

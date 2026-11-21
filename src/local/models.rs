@@ -230,7 +230,7 @@ pub(crate) async fn download_file(
         }
     }
     progress(emit, received, size, "checking");
-    if received != size || format!("{:x}", hash.finalize()) != sha256 {
+    if received != size || hex::encode(hash.finalize()) != sha256 {
         return Err(anyhow!(
             "Model download failed size or SHA-256 verification. Retry to download a fresh copy.",
         ));
@@ -319,7 +319,7 @@ mod tests {
                 repository: String::new(),
                 revision: String::new(),
                 size: data.len() as u64,
-                sha256: format!("{:x}", Sha256::digest(data)),
+                sha256: hex::encode(Sha256::digest(data)),
             };
             let directory = temp.path();
             let _other_lock = if id == "second-model" {
@@ -379,7 +379,7 @@ mod tests {
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(data)),
+            sha256: hex::encode(Sha256::digest(data)),
         };
         for (body, status, size) in [
             (data.as_slice(), 404, pin.size),
@@ -408,7 +408,7 @@ mod tests {
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(data)),
+            sha256: hex::encode(Sha256::digest(data)),
         };
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -453,7 +453,7 @@ mod tests {
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(data)),
+            sha256: hex::encode(Sha256::digest(data)),
         };
         let (url, server) = fixture(data);
         let events = Mutex::new(Vec::new());

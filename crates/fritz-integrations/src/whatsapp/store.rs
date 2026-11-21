@@ -39,7 +39,7 @@ struct PreKeyEntry {
 type BaseKeyKey = (String, String);
 
 /// Stored msg-secret value: `(secret_bytes, expires_at_secs, message_ts_secs)`.
-type MsgSecretRow = (MessageSecret, i64, i64);
+type MsgSecretRow = (MessageSecretBytes, i64, i64);
 
 #[derive(Eq, Hash, PartialEq, Clone, Serialize, Deserialize)]
 struct MsgSecretKey {
@@ -1216,26 +1216,13 @@ impl MsgSecretStore for KeychainBackend {
         .await
     }
 
-    async fn get_msg_secret(
+    async fn get_stored_msg_secret(
         &self,
         chat: &str,
         sender: &str,
         msg_id: &str,
-    ) -> Result<Option<Vec<u8>>> {
-        Ok(self
-            .get_msg_secret_with_ts(chat, sender, msg_id)
-            .await?
-            .map(|(secret, _)| secret))
-    }
-
-    async fn get_msg_secret_with_ts(
-        &self,
-        chat: &str,
-        sender: &str,
-        msg_id: &str,
-    ) -> Result<Option<(Vec<u8>, i64)>> {
-        Ok(self
-            .state
+    ) -> Result<Option<StoredMessageSecret>> {
+        self.state
             .lock()
             .await
             .msg_secrets
@@ -1244,7 +1231,10 @@ impl MsgSecretStore for KeychainBackend {
                 sender,
                 msg_id,
             })
-            .map(|(secret, _, message_ts)| (secret.to_vec(), *message_ts)))
+            .map(|(secret, _, message_ts)| {
+                StoredMessageSecret::from_stored_bytes(secret, *message_ts)
+            })
+            .transpose()
     }
 
     async fn delete_expired_msg_secrets(&self, cutoff_timestamp: i64) -> Result<u32> {

@@ -176,7 +176,7 @@ async fn verified(path: &Path, a: &Artifact) -> Result<()> {
         hash.update(&buffer[..n]);
     }
     ensure!(
-        format!("{:x}", hash.finalize()) == a.hash,
+        hex::encode(hash.finalize()) == a.hash,
         "Model verification failed: {}. The original has been kept.",
         a.file
     );
@@ -414,7 +414,7 @@ mod tests {
             id: "model".into(),
             file: "model.gguf".into(),
             size: bytes.len() as u64,
-            hash: format!("{:x}", Sha256::digest(bytes)),
+            hash: hex::encode(Sha256::digest(bytes)),
         }];
         (temp, data, old, new, specs)
     }
@@ -495,7 +495,7 @@ mod tests {
         let bytes = vec![7u8; 8 * 1024 * 1024];
         std::fs::write(old.join("model.gguf"), &bytes).unwrap();
         specs[0].size = bytes.len() as u64;
-        specs[0].hash = format!("{:x}", Sha256::digest(&bytes));
+        specs[0].hash = hex::encode(Sha256::digest(&bytes));
         let notified = std::sync::Arc::new(tokio::sync::Notify::new());
         let mut work = {
             let (data, old, new, specs, n) = (

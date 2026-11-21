@@ -36,7 +36,8 @@ impl Database {
         connection.busy_timeout(Duration::from_secs(5))?;
         connection.execute_batch("PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA wal_autocheckpoint = 1000; PRAGMA journal_size_limit = 67108864;")?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let version: usize = transaction.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        let version: i32 = transaction.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        let version = usize::try_from(version).context("Invalid state database schema version.")?;
         if version > migrations.len() {
             bail!("State database is newer than this build supports.");
         }
@@ -45,7 +46,7 @@ impl Database {
         }
         for (index, migration) in migrations.iter().enumerate().skip(version) {
             transaction.execute_batch(migration)?;
-            transaction.pragma_update(None, "user_version", index + 1)?;
+            transaction.pragma_update(None, "user_version", i32::try_from(index + 1)?)?;
         }
         validate(&transaction, schema)?;
         transaction.commit()?;

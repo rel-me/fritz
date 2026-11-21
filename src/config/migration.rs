@@ -210,9 +210,7 @@ mod tests {
             database
                 .connection()
                 .query_row("SELECT count(*) FROM provider_migrations", [], |row| row
-                    .get::<_, usize>(
-                    0
-                ))
+                    .get::<_, i64>(0))
                 .unwrap(),
             0
         );

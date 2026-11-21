@@ -21,15 +21,15 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "1"
-ollaya-decision = { git = "https://github.com/ollaya-dev/ollaya", rev = "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4" }
+ollaya-decision = { git = "https://github.com/ollaya-dev/ollaya", rev = "a8bce962dc8219e696604403a5c2a30e6c9523f0" }
 # coreml selects pyke's macOS runtime build; Fritz explicitly uses Device::Cpu.
-ollaya-runner = { git = "https://github.com/ollaya-dev/ollaya", rev = "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4", features = ["coreml"] }
+ollaya-runner = { git = "https://github.com/ollaya-dev/ollaya", rev = "a8bce962dc8219e696604403a5c2a30e6c9523f0", features = ["coreml"] }
 fritz-state = { path = "crates/fritz-state" }
 fritz-harness = { path = "crates/fritz-harness" }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 futures-util = "0.3"
-reqwest = { version = "=0.13.4", default-features = false, features = ["json", "query", "rustls", "stream"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["json", "query", "rustls", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-std", "io-util", "fs", "sync", "time", "process", "signal", "net"] }
@@ -40,13 +40,9 @@ tempfile = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"
-sha2 = { version = "0.10", features = ["asm"] }
+sha2 = "0.11"
+hex = "0.4"
 
 # Large model checksums must stay fast in development builds too.
-[profile.dev.package.sha2]
+[profile.dev.package."sha2:0.11"]
 opt-level = 3
-
-# Backport upstream's descriptor freshness fix without upgrading the WhatsApp API.
-# Provenance and removal: docs/agents/cargo-build-freshness.md.
-[patch."https://github.com/oxidezap/whatsapp-rust"]
-waproto = { git = "https://github.com/rel-me/whatsapp-rust", rev = "f23447d871e75853c94869a80b764e0107607a13" }
