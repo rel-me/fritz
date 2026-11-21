@@ -11,3 +11,11 @@
 ## Delegated prompt
 
 > Monitor the homepage download PR through completion. Diagnose and fix failures caused by this change, commit and push any fix, and monitor the resulting checks. Preserve unrelated work. Report the final check results and any blockers.
+
+## Follow-up request
+
+> Can you publish a Chromium DMG too and give it a separate download button with its own version and size?
+
+## Delegated follow-up prompt
+
+> Monitor PR #147 again after the Chromium DMG changes are pushed. Diagnose and fix failures caused by the change, commit and push any fixes, and monitor the resulting checks. Report final check results and blockers.

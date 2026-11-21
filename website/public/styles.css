@@ -369,6 +369,10 @@ h1 {
   justify-items: start;
 }
 
+.download-edition > [hidden] {
+  display: none;
+}
+
 .download-edition + .download-edition {
   border-top: 1px solid var(--rule);
   padding-top: 18px;

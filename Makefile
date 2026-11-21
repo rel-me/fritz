@@ -1,4 +1,4 @@
-.PHONY: setup build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast beta staging publish-beta publish-staging promote
+.PHONY: setup build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -6,7 +6,7 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive appcast publish-beta publish-staging promote:
+build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast publish-beta publish-staging promote:
 	+@mise exec -- python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 
 # Setup can install the tools needed to enter the build cache wrapper.
@@ -75,8 +75,13 @@ install-cli:
 	ln -sfn "$(CURDIR)/dist/Fritz.app/Contents/Resources/fritz" "$(HOME)/.local/bin/fritz"
 
 update-archive:
-	@FRITZ_DISTRIBUTION=1 CONFIGURATION=release $(MAKE) --no-print-directory build
+	@FRITZ_DISTRIBUTION=1 CONFIGURATION=release $(MAKE) --no-print-directory build BROWSER_ENGINE=webkit
 	@./scripts/create-update-archive.sh
+
+chromium-archive:
+	@test -n "$(FRITZ_VERSION)" && test -n "$(FRITZ_BUILD_NUMBER)" || { echo "Set FRITZ_VERSION and FRITZ_BUILD_NUMBER" >&2; exit 1; }
+	@FRITZ_DISTRIBUTION=1 CONFIGURATION=release $(MAKE) --no-print-directory build BROWSER_ENGINE=chromium
+	@./scripts/create-update-archive.sh chromium
 
 appcast:
 	@./scripts/prepare-update.sh "$(CHANNEL)"

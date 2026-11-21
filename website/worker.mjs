@@ -2,7 +2,7 @@ import { recordNetworkUnique, excludedRequest } from "./network-uniques.mjs";
 import { latestDownload } from "./public/appcast.mjs";
 import { serveModelCatalog, serveModelCatalogPage } from "./model-catalog.mjs";
 
-const ARCHIVE_PATH = /^\/updates\/(Fritz-\d+\.\d+\.\d+\.dmg)$/;
+const ARCHIVE_PATH = /^\/updates\/(Fritz-(?:\d+\.\d+\.\d+|Chromium-\d+\.\d+\.\d+-arm64)\.dmg)$/;
 
 function rangeFor(header, size) {
   if (!header) return null;
@@ -79,6 +79,23 @@ export default {
         status: 302,
         headers: { location: `/updates/${latest.filename}`, "cache-control": "no-store" },
       });
+    }
+    if (path === "/chromium-download.json") {
+      const current = await env.UPDATES.get("chromium-version.txt");
+      const version = current && (await current.text()).trim();
+      const headers = { "cache-control": "no-store" };
+      if (version && /^\d+\.\d+\.\d+$/.test(version)) {
+        const archive = `/updates/Fritz-Chromium-${version}-arm64.dmg`;
+        const metadata = await env.UPDATES.head(archive.slice(1));
+        if (metadata?.size > 0) {
+          headers["content-type"] = "application/json; charset=utf-8";
+          return new Response(request.method === "HEAD" ? null : JSON.stringify({
+            version, archive, bytes: metadata.size,
+          }), { headers });
+        }
+      }
+      return new Response(request.method === "HEAD" ? null : "No Chromium download is available yet",
+        { status: 404, headers });
     }
     if (path === "/appcast.xml") {
       const response = await serveObject(request, env.UPDATES, "appcast.xml", "application/xml; charset=utf-8", "no-store");

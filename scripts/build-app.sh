@@ -27,16 +27,12 @@ browser_build_settings=()
 case "$browser_engine" in
   webkit) ;;
   chromium)
-    if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
-      echo "error: existing release targets publish the WebKit edition; use a local Chromium build" >&2
-      exit 1
-    fi
     source scripts/chromium-build.sh
     bundle_id+=".chromium"
     if [[ "$configuration" == release ]]; then
       app_name="Fritz Chromium"
-      data_directory="$HOME/Library/Application Support/Fritz Chromium/Data"
-      models_directory="$HOME/Models"
+      data_directory='~/Library/Application Support/Fritz Chromium/Data'
+      models_directory='~/Models'
       keychain_service="dev.fritz.provider-credentials"
     else
       data_directory="${data_directory%/Data}-Chromium/Data"
@@ -91,6 +87,9 @@ if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
     [[ "$status" == 10 ]] || exit "$status"
   fi
 else
+  if [[ "$browser_engine" == chromium ]]; then
+    local_build_settings=(ONLY_ACTIVE_ARCH=YES)
+  fi
   git diff --quiet HEAD || {
     echo "error: commit tracked changes before building a distribution artifact" >&2
     exit 1
@@ -189,13 +188,15 @@ if [[ "${FRITZ_DISTRIBUTION:-0}" != 1 ]]; then
 fi
 printf '%s\n' "$app_bundle" > dist/.last-built-app
 if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
-  python3 - "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$distribution_commit" <<'PYSOURCE'
+  source_record=dist/release-source.json
+  if [[ "$browser_engine" == chromium ]]; then source_record=dist/chromium-release-source.json; fi
+  python3 - "$source_record" "$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$distribution_commit" <<'PYSOURCE'
 import json
 import sys
 from pathlib import Path
-Path('dist/release-source.json').write_text(json.dumps({
-    'version': sys.argv[1], 'build': sys.argv[2],
-    'commit': sys.argv[3],
+Path(sys.argv[1]).write_text(json.dumps({
+    'version': sys.argv[2], 'build': sys.argv[3],
+    'commit': sys.argv[4],
 }) + '\n')
 PYSOURCE
 fi
