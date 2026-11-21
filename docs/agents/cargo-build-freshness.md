@@ -49,10 +49,10 @@ caches the pinned dependency normally; Fritz has no vendored crate, descriptor
 downloader, or extra preparation steps. Existing shared package/compiler caches
 and per-runner build outputs remain unchanged.
 
-The full upstream update would pull in 202 unrelated commits, including breaking
-API changes. When Fritz's WhatsApp pin includes upstream fix `8e171946`, remove
-the `waproto` Cargo patch and regenerate the lockfile. Until then, retain the
-immutable fork commit rather than tracking its branch.
+Fritz now pins upstream WhatsApp revision
+[`a85aa5ca`](https://github.com/oxidezap/whatsapp-rust/commit/a85aa5caad33017b76c6138180869b25852d14da),
+which includes the freshness repair. Cargo resolves `waproto` from that same
+upstream revision.
 
 The patched isolated check sequence took 29.45 s, 0.49 s, and 0.26 s. Generated
 `whatsapp.rs`, `tags.rs`, and `whatsapp.local.desc` hashes matched the original

@@ -46,44 +46,40 @@ impl Workspace {
     /// stay here; Rig handles argument decoding and canonical tool outcomes.
     pub fn register(self: Arc<Self>) -> fritz_harness::tools::ToolSet {
         use fritz_harness::tools::{DynamicTool, ToolExecutionError, ToolOutput, ToolSet};
-        ToolSet::from_dynamic_tools(
-            definitions()
-                .into_iter()
-                .map(|definition| {
-                    let workspace = self.clone();
-                    let name = definition["name"].as_str().unwrap().to_owned();
-                    DynamicTool::new(
-                        name.clone(),
-                        definition["description"].as_str().unwrap(),
-                        definition["parameters"].clone(),
-                        move |args| {
-                            let workspace = workspace.clone();
-                            let name = name.clone();
-                            Box::pin(async move {
-                                let value =
-                                    workspace.execute(&name, args).await.map_err(|error| {
-                                        ToolExecutionError::other(error.to_string())
-                                            .with_model_output(ToolOutput::json(
-                                                json!({"error":error.to_string()}),
-                                            ))
-                                    })?;
-                                let failed = name == "run_command"
-                                    && (value["timed_out"] == true
-                                        || value["exit_code"].as_i64() != Some(0));
-                                if failed {
-                                    Err(ToolExecutionError::other(
-                                        "The command did not complete successfully.",
-                                    )
-                                    .with_model_output(ToolOutput::json(value)))
-                                } else {
-                                    Ok(ToolOutput::json(value))
-                                }
-                            })
-                        },
-                    )
-                })
-                .collect(),
-        )
+        let mut registry = ToolSet::default();
+        for definition in definitions() {
+            let workspace = self.clone();
+            let name = definition["name"].as_str().unwrap().to_owned();
+            registry.add_dynamic_tool(DynamicTool::new(
+                fritz_harness::message::ToolName::new(&name)
+                    .expect("Fritz tool names are nonempty"),
+                definition["description"].as_str().unwrap(),
+                definition["parameters"].clone(),
+                move |args| {
+                    let workspace = workspace.clone();
+                    let name = name.clone();
+                    Box::pin(async move {
+                        let value = workspace.execute(&name, args).await.map_err(|error| {
+                            ToolExecutionError::other(error.to_string()).with_model_output(
+                                ToolOutput::json(json!({"error":error.to_string()})),
+                            )
+                        })?;
+                        let failed = name == "run_command"
+                            && (value["timed_out"] == true
+                                || value["exit_code"].as_i64() != Some(0));
+                        if failed {
+                            Err(ToolExecutionError::other(
+                                "The command did not complete successfully.",
+                            )
+                            .with_model_output(ToolOutput::json(value)))
+                        } else {
+                            Ok(ToolOutput::json(value))
+                        }
+                    })
+                },
+            ));
+        }
+        registry
     }
 
     pub fn new(path: &str) -> Result<Self> {

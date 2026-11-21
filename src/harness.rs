@@ -392,7 +392,7 @@ impl Session {
                 .await?
         };
         let text = text.into_inner().unwrap();
-        use fritz_harness::message::{AssistantContent, Message, ToolName};
+        use fritz_harness::message::{AssistantContent, AssistantMessage, Message, ToolName};
         let mut content = Vec::new();
         if !text.is_empty() {
             content.push(AssistantContent::text(&text));
@@ -405,7 +405,7 @@ impl Session {
             ));
         }
         self.conversation
-            .push(Message::Assistant { id: None, content });
+            .push(Message::Assistant(AssistantMessage::new(content)));
         self.record_native_boundary();
         Ok(Turn { calls, text })
     }
@@ -504,7 +504,10 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
             .registry
             .as_ref()
             .map(|registry| registry.tool_definitions())
-            .unwrap_or_default())
+            .unwrap_or_default()
+            .into_iter()
+            .map(std::sync::Arc::unwrap_or_clone)
+            .collect())
     }
 
     fn unavailable_tool(&self, call: &Call) -> Result<ToolResult> {

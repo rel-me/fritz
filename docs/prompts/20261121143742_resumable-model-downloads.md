@@ -27,3 +27,9 @@ local model cache. Local build activity overlapped the HTTP run.
   `huggingface_hub` 2.4.0. It completed in approximately 26m 02s.
 - Both completed files matched the catalog SHA-256. The default Xet run was
   about 1m 35s faster than the HTTP run with recovery.
+
+> Monitor the updated head of PR #146 after the accessibility follow-up. Verify the full CI result for that head and fix any actionable failures introduced by the change, then report the exact final conclusions.
+
+> Please resolve on the existing PR branch in a separate temporary worktree, or coordinate before changing our attached checkout. Its local suite and staged app builds are running on fd8442e. Preserve the resume implementation and master-catalog changes, and log this follow-up if you edit the prompt record. Tell me the merge result and changed files so I can refresh the staged verification.
+
+> The attached checkout is still in use. Please use the separate temporary checkout for the merge, push the result to the existing PR branch, and append this conflict-resolution delegation to docs/prompts/20261121143742_resumable-model-downloads.md. I’ll fast-forward our worktree after the local sequence exits.

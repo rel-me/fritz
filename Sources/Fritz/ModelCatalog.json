@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "2026-08-25",
+  "catalog_version": 2,
   "generated_at": "2026-08-25T22:17:10Z",
   "minimum_rel_version": "0.1.11",
   "verification_contract": "A verified model completed REL's bounded text generation and synthetic tool-call round trip through the named provider adapter.",
@@ -22367,6 +22367,564 @@
         "defaultReasoning": null,
         "defaultSpeed": "standard"
       }
+    }
+  },
+  "local_chat": {
+    "verified_on": "2026-09-21",
+    "models": [
+      {
+        "id": "inkling-2-mini-iq4_nl",
+        "name": "Inkling 2 Mini",
+        "family": "Inkling",
+        "category": "llm",
+        "benchmark_score": {
+          "points": 20,
+          "configuration": "Inkling 2 Mini",
+          "source_url": "https://artificialanalysis.ai/models/inkling-2-mini"
+        },
+        "repository": "ggml-org/Inkling-2-Mini-GGUF",
+        "revision": "e8a2cecf0e78914f07cc27b9be711a9b2c7561d9",
+        "file": "Inkling-2-Mini-IQ4_NL.gguf",
+        "size": 17627940768,
+        "sha256": "cbdf3fa9dc50a4124977980f37da4f1fa764b0cfe800d275cd43d26ce2a81af4",
+        "architecture": "inkling2_loop",
+        "quantization": "IQ4_NL",
+        "disable_thinking": false,
+        "memory_gb": 24,
+        "license_url": "https://thinkingmachines.ai/model-card/inkling-2-mini/",
+        "repository_created": "2026-11-20"
+      },
+      {
+        "id": "apodex-1.1-mini-q4_k_m",
+        "name": "Apodex 1.1 Mini 35B",
+        "family": "Apodex",
+        "category": "llm",
+        "repository": "apodex/Apodex-1.1-mini-GGUF",
+        "revision": "4ec155733ded2fa90b615bf50d20c59796cc5107",
+        "file": "apodex1.1-35b-Q4_K_M-MTP.gguf",
+        "size": 21713462496,
+        "sha256": "839e0503b26fcc10a6f2a358a539e4cb8e7646d9f5c70e84f373887de4526b0a",
+        "architecture": "qwen35moe",
+        "disable_thinking": true,
+        "memory_gb": 48,
+        "license_url": "https://huggingface.co/apodex/Apodex-1.1-mini-GGUF/blob/4ec155733ded2fa90b615bf50d20c59796cc5107/LICENSE",
+        "repository_created": "2026-09-10"
+      },
+      {
+        "id": "qwopus3.8-27b-flash-q4_k_m",
+        "name": "Qwopus3.8 27B Flash",
+        "family": "Qwopus",
+        "category": "llm",
+        "repository": "Jackrong/Qwopus3.8-27B-Flash-GGUF",
+        "revision": "9b90cd22b19276bc9e75c0e6d1665fa48619dd5b",
+        "file": "Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf",
+        "size": 16810714336,
+        "sha256": "1b76ad1596d6afc0b6e38a2b45b404462920739bd3087960b7a18a74ca938a74",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 32,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE",
+        "repository_created": "2026-09-04"
+      },
+      {
+        "id": "qwen3.8-27b-ud-q4_k_m",
+        "name": "Qwen3.8 27B",
+        "family": "Qwen",
+        "category": "llm",
+        "benchmark_score": {
+          "points": 10,
+          "configuration": "Qwen3.8 27B (non-reasoning)",
+          "source_url": "https://artificialanalysis.ai/models/qwen3-8-27b"
+        },
+        "repository": "unsloth/Qwen3.8-27B-GGUF",
+        "revision": "4ca720788d1e01f1bff70c033e0d0028fd02e502",
+        "file": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+        "size": 16464440224,
+        "sha256": "322e194ff79741c7baa497c240f677f54b201b0efab44ca8e50f122b39123482",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 32,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE",
+        "repository_created": "2026-08-13"
+      },
+      {
+        "id": "qwen3.8-9b-distill-q4_k_m",
+        "name": "Qwen3.8 9B Distill",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "empero-ai/Qwen3.8-9B-Distill-GGUF",
+        "revision": "760121cd70bb4c36b2b5ec58eb765e0df5987efe",
+        "file": "Qwen3.8-9B-Q4_K_M.gguf",
+        "size": 5780090176,
+        "sha256": "df13d66021cef676f82be74053220fd75af6bf2a6a7fb77f5222ab9e50744a7a",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 16,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE",
+        "repository_created": "2026-08-15"
+      },
+      {
+        "id": "qwen3.6-27b-q4_k_m",
+        "name": "Qwen3.6 27B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3.6-27B-GGUF",
+        "revision": "82d411acf4a06cfb8d9b073a5211bf410bfc29bf",
+        "file": "Qwen3.6-27B-Q4_K_M.gguf",
+        "size": 16817244384,
+        "sha256": "5ed60d0af4650a854b1755bd392f9aef4872643dc25a254bc68043fa638392a0",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 32,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.6-27B/blob/6a9e13bd6fc8f0983b9b99948120bc37f49c13e9/LICENSE",
+        "repository_created": "2026-04-22"
+      },
+      {
+        "id": "qwen3.5-0.8b-q4_k_m",
+        "name": "Qwen3.5 0.8B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3.5-0.8B-GGUF",
+        "revision": "6ab461498e2023f6e3c1baea90a8f0fe38ab64d0",
+        "file": "Qwen3.5-0.8B-Q4_K_M.gguf",
+        "size": 532517120,
+        "sha256": "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 8,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.5-0.8B/blob/2fc06364715b967f1860aea9cf38778875588b17/LICENSE",
+        "repository_created": "2026-03-01"
+      },
+      {
+        "id": "qwen3.5-2b-q4_k_m",
+        "name": "Qwen3.5 2B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3.5-2B-GGUF",
+        "revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+        "file": "Qwen3.5-2B-Q4_K_M.gguf",
+        "size": 1280835840,
+        "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 8,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.5-2B/blob/15852e8c16360a2fea060d615a32b45270f8a8fc/LICENSE",
+        "repository_created": "2026-02-28"
+      },
+      {
+        "id": "qwen3.5-4b-q4_k_m",
+        "name": "Qwen3.5 4B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3.5-4B-GGUF",
+        "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+        "file": "Qwen3.5-4B-Q4_K_M.gguf",
+        "size": 2740937888,
+        "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 12,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.5-4B/blob/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/LICENSE",
+        "repository_created": "2026-03-02"
+      },
+      {
+        "id": "qwen3.5-9b-q4_k_m",
+        "name": "Qwen3.5 9B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3.5-9B-GGUF",
+        "revision": "3885219b6810b007914f3a7950a8d1b469d598a5",
+        "file": "Qwen3.5-9B-Q4_K_M.gguf",
+        "size": 5680522464,
+        "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8",
+        "architecture": "qwen35",
+        "disable_thinking": true,
+        "memory_gb": 16,
+        "license_url": "https://huggingface.co/Qwen/Qwen3.5-9B/blob/c202236235762e1c871ad0ccb60c8ee5ba337b9a/LICENSE",
+        "repository_created": "2026-02-28"
+      },
+      {
+        "id": "qwen3-0.6b-q4_k_m",
+        "name": "Qwen3 0.6B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3-0.6B-GGUF",
+        "revision": "50968a4468ef4233ed78cd7c3de230dd1d61a56b",
+        "file": "Qwen3-0.6B-Q4_K_M.gguf",
+        "size": 396705472,
+        "sha256": "ac2d97712095a558e31573f62f466a3f9d93990898b0ec79d7c974c1780d524a",
+        "architecture": "qwen3",
+        "disable_thinking": true,
+        "memory_gb": 4,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-0.6B/blob/c1899de289a04d12100db370d81485cdf75e47ca/LICENSE",
+        "repository_created": "2025-04-28"
+      },
+      {
+        "id": "qwen3-1.7b-q4_k_m",
+        "name": "Qwen3 1.7B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "unsloth/Qwen3-1.7B-GGUF",
+        "revision": "d7f544eead698dbd1f15126ef60b45a1e1933222",
+        "file": "Qwen3-1.7B-Q4_K_M.gguf",
+        "size": 1107409472,
+        "sha256": "b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa181897",
+        "architecture": "qwen3",
+        "disable_thinking": true,
+        "memory_gb": 8,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-1.7B/blob/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/LICENSE",
+        "repository_created": "2025-04-28"
+      },
+      {
+        "id": "qwen3-4b-q4_k_m",
+        "name": "Qwen3 4B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "Qwen/Qwen3-4B-GGUF",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "file": "Qwen3-4B-Q4_K_M.gguf",
+        "size": 2497280256,
+        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+        "architecture": "qwen3",
+        "disable_thinking": true,
+        "memory_gb": 12,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/blob/bc640142c66e1fdd12af0bd68f40445458f3869b/LICENSE",
+        "repository_created": "2025-05-05"
+      },
+      {
+        "id": "qwen3-4b-instruct-2507-abliterated-q4_k_m",
+        "name": "Huihui Qwen3 4B Instruct 2507 Abliterated",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+        "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+        "file": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q4_K_M.gguf",
+        "size": 2497281312,
+        "sha256": "b1324e2f1bd2e0610d591f54f93e38d90b187f69d1f215f4cace349eade678d7",
+        "architecture": "qwen3",
+        "disable_thinking": false,
+        "memory_gb": 12,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/blob/cdbee75f17c01a7cc42f958dc650907174af0554/LICENSE",
+        "repository_created": "2025-08-08",
+        "abliterated": true
+      },
+      {
+        "id": "qwen3-8b-q4_k_m",
+        "name": "Qwen3 8B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "Qwen/Qwen3-8B-GGUF",
+        "revision": "7c41481f57cb95916b40956ab2f0b139b296d974",
+        "file": "Qwen3-8B-Q4_K_M.gguf",
+        "size": 5027783488,
+        "sha256": "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785",
+        "architecture": "qwen3",
+        "disable_thinking": true,
+        "memory_gb": 16,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/7c41481f57cb95916b40956ab2f0b139b296d974/LICENSE",
+        "repository_created": "2025-05-03"
+      },
+      {
+        "id": "qwen3-8b-abliterated-v2-q4_k_m",
+        "name": "Nueva Tech Qwen3 8B Abliterated v2",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "NuevaTechLLC/Qwen3-8B-abliterated-v2-GGUF",
+        "revision": "78874b4790201bd3df3053f0f21b4b3cc93f662a",
+        "file": "big-Qwen3-8B-Q4_K_M.gguf",
+        "size": 5027783680,
+        "sha256": "968d935f911a0c5b84f498f53bfc80f2fc0a40f693e9bc9682b772e471e11455",
+        "architecture": "qwen3",
+        "disable_thinking": true,
+        "memory_gb": 16,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/7c41481f57cb95916b40956ab2f0b139b296d974/LICENSE",
+        "repository_created": "2026-11-15",
+        "abliterated": true
+      },
+      {
+        "id": "qwen3-14b-q4_k_m",
+        "name": "Qwen3 14B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "Qwen/Qwen3-14B-GGUF",
+        "revision": "530227a7d994db8eca5ab5ced2fb692b614357fd",
+        "file": "Qwen3-14B-Q4_K_M.gguf",
+        "size": 9001752960,
+        "sha256": "500a8806e85ee9c83f3ae08420295592451379b4f8cf2d0f41c15dffeb6b81f0",
+        "architecture": "qwen3",
+        "disable_thinking": true,
+        "memory_gb": 24,
+        "license_url": "https://huggingface.co/Qwen/Qwen3-14B-GGUF/blob/530227a7d994db8eca5ab5ced2fb692b614357fd/LICENSE",
+        "repository_created": "2025-05-01"
+      },
+      {
+        "id": "qwen2.5-1.5b-instruct-q4_k_m",
+        "name": "Qwen2.5 1.5B",
+        "family": "Qwen",
+        "category": "llm",
+        "repository": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+        "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+        "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        "size": 1117320736,
+        "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+        "architecture": "qwen2",
+        "disable_thinking": false,
+        "memory_gb": 4,
+        "license_url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/989aa7980e4cf806f80c7fef2b1adb7bc71aa306/LICENSE",
+        "repository_created": "2024-09-19"
+      },
+      {
+        "id": "dolphin3.0-llama3.2-3b-q4_k_m",
+        "name": "Dolphin 3.0 Llama 3.2 3B",
+        "family": "Dolphin",
+        "category": "llm",
+        "repository": "bartowski/Dolphin3.0-Llama3.2-3B-GGUF",
+        "revision": "ac6b1ee98e3864ebd5998216f800a07d74b166b5",
+        "file": "Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf",
+        "size": 2019382400,
+        "sha256": "5d6d02eeefa1ab5dbf23f97afdf5c2c95ad3d946dc3b6e9ab72e6c1637d54177",
+        "architecture": "llama",
+        "disable_thinking": false,
+        "memory_gb": 8,
+        "license_url": "https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/blob/0cb88a4f764b7a12671c53f0838cd831a0843b95/LICENSE.txt",
+        "repository_created": "2025-01-05"
+      },
+      {
+        "id": "dolphin3.0-llama3.1-8b-q4_k_m",
+        "name": "Dolphin 3.0 Llama 3.1 8B",
+        "family": "Dolphin",
+        "category": "llm",
+        "repository": "bartowski/Dolphin3.0-Llama3.1-8B-GGUF",
+        "revision": "a6274707ba8c5f12d4521eabbce1b318bb2f27f5",
+        "file": "Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf",
+        "size": 4920749472,
+        "sha256": "268390e07edd407ad93ea21a868b7ae995b5950e01cad0db9e1802ae5049d405",
+        "architecture": "llama",
+        "disable_thinking": false,
+        "memory_gb": 16,
+        "license_url": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/0e9e39f249a16976918f6564b8830bc894c89659/LICENSE",
+        "repository_created": "2025-01-05"
+      },
+      {
+        "id": "hermes3-llama3.1-8b-q4_k_m",
+        "name": "Hermes 3 Llama 3.1 8B",
+        "family": "Hermes",
+        "category": "llm",
+        "repository": "bartowski/Hermes-3-Llama-3.1-8B-GGUF",
+        "revision": "223c8e24dec0f863b6abe4c89bf20f6941b805e2",
+        "file": "Hermes-3-Llama-3.1-8B-Q4_K_M.gguf",
+        "size": 4920734624,
+        "sha256": "44b5c529dffaf34657a4c44a7919e5958b4270fbd365eed3b87d3444b45a378a",
+        "architecture": "llama",
+        "disable_thinking": false,
+        "memory_gb": 16,
+        "license_url": "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B/tree/896ea440e5a9e6070e3d8a2774daf2b481ab425b",
+        "repository_created": "2024-08-15"
+      },
+      {
+        "id": "mistral-nemo-12b-instruct-q4_k_m",
+        "name": "Mistral Nemo 12B Instruct",
+        "family": "Mistral",
+        "category": "llm",
+        "repository": "bartowski/Mistral-Nemo-Instruct-2407-GGUF",
+        "revision": "a2dd64a0a76ea1bdb2bb6ab6fa5496b003c7c908",
+        "file": "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+        "size": 7477208192,
+        "sha256": "7c1a10d202d8788dbe5628dc962254d10654c853cae6aaeca0618f05490d4a46",
+        "architecture": "llama",
+        "disable_thinking": false,
+        "memory_gb": 24,
+        "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+        "repository_created": "2024-07-18"
+      }
+    ]
+  },
+  "local_decision": {
+    "models": [
+      {
+        "id": "laya-en",
+        "name": "Laya English (Experimental)",
+        "family": "Laya",
+        "category": "decision",
+        "size": 849926233,
+        "memory_gb": 8,
+        "license_url": "https://ollaya.dev/blobs/sha256-ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9",
+        "revision": "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4",
+        "files": [
+          {
+            "file": "laya-en.onnx",
+            "url": "https://ollaya.dev/blobs/sha256-c54880e1ab520b5f99ef8417ed2a1f7ef19414e90e87681d1497b39147f8f97a",
+            "size": 3722668,
+            "sha256": "c54880e1ab520b5f99ef8417ed2a1f7ef19414e90e87681d1497b39147f8f97a"
+          },
+          {
+            "file": "sha256-891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+            "url": "https://huggingface.co/convaiinnovations/laya/resolve/aa8c91ca088ec597df95a0d1c76b3063cb2ae5e8/model.safetensors",
+            "size": 842609210,
+            "sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c"
+          },
+          {
+            "file": "laya-en.tokenizer.json",
+            "url": "https://huggingface.co/convaiinnovations/laya/resolve/aa8c91ca088ec597df95a0d1c76b3063cb2ae5e8/tokenizer/tokenizer.json",
+            "size": 3583228,
+            "sha256": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30"
+          },
+          {
+            "file": "laya-en.json",
+            "url": "https://ollaya.dev/blobs/sha256-b5bc5074b1b4a1e6e79a019ebfae09c44fc7c77eee4b91638e7cd76829291b3c",
+            "size": 478,
+            "sha256": "b5bc5074b1b4a1e6e79a019ebfae09c44fc7c77eee4b91638e7cd76829291b3c"
+          },
+          {
+            "file": "laya-en.calibration.json",
+            "url": "https://ollaya.dev/blobs/sha256-a7af5a5fafb5b418420a63511194038faed0aade75af68d210144e67fd792426",
+            "size": 352,
+            "sha256": "a7af5a5fafb5b418420a63511194038faed0aade75af68d210144e67fd792426"
+          },
+          {
+            "file": "laya-en.LICENSE",
+            "url": "https://ollaya.dev/blobs/sha256-ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9",
+            "size": 10297,
+            "sha256": "ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9"
+          }
+        ]
+      },
+      {
+        "id": "kev-4b",
+        "name": "Kev 1.0 4B (Experimental)",
+        "family": "Kev",
+        "category": "decision",
+        "size": 9489172672,
+        "memory_gb": 32,
+        "license_url": "https://ollaya.dev/blobs/sha256-5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d",
+        "revision": "139fdd94f1b6a6ad80cc15e08fcb99cac885a101",
+        "engine_revision": "152ad20c88f8ea9b6d1acf3ed0e06b002d38b2b4",
+        "files": [
+          {
+            "file": "kev-4b.onnx",
+            "url": "https://ollaya.dev/blobs/sha256-137283895b845e8dac8ea2e3d70c2d9e56f4d0729e83c4cbdc1346ccbb9a1f3e",
+            "size": 14167868,
+            "sha256": "137283895b845e8dac8ea2e3d70c2d9e56f4d0729e83c4cbdc1346ccbb9a1f3e"
+          },
+          {
+            "file": "sha256-df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712",
+            "url": "https://huggingface.co/Qwen/Qwen3.5-4B-Base/resolve/1001bb4d826a52d1f399e183466143f4da7b741b/model.safetensors-00001-of-00002.safetensors",
+            "size": 5329398712,
+            "sha256": "df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712"
+          },
+          {
+            "file": "sha256-590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef",
+            "url": "https://huggingface.co/Qwen/Qwen3.5-4B-Base/resolve/1001bb4d826a52d1f399e183466143f4da7b741b/model.safetensors-00002-of-00002.safetensors",
+            "size": 3990429344,
+            "sha256": "590fbaac095dd31db886c322d9d2f7df47777966391acf306ddddc3e4e3a15ef"
+          },
+          {
+            "file": "sha256-90e817356246e7f18bfa7ca3d31794cd4fbeb3332a66a84cb51d9ceae925f2b2",
+            "url": "https://huggingface.co/jaredpalmer/kev-4b/resolve/139fdd94f1b6a6ad80cc15e08fcb99cac885a101/adapter_model.safetensors",
+            "size": 129924032,
+            "sha256": "90e817356246e7f18bfa7ca3d31794cd4fbeb3332a66a84cb51d9ceae925f2b2"
+          },
+          {
+            "file": "sha256-dd633435998ecc751ac538717a3742e32149500fabf7d7276287dbf0693f347c",
+            "url": "https://huggingface.co/jaredpalmer/kev-4b/resolve/139fdd94f1b6a6ad80cc15e08fcb99cac885a101/head.pt",
+            "size": 5249791,
+            "sha256": "dd633435998ecc751ac538717a3742e32149500fabf7d7276287dbf0693f347c"
+          },
+          {
+            "file": "kev-4b.tokenizer.json",
+            "url": "https://huggingface.co/jaredpalmer/kev-4b/resolve/139fdd94f1b6a6ad80cc15e08fcb99cac885a101/tokenizer.json",
+            "size": 19989325,
+            "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523"
+          },
+          {
+            "file": "kev-4b.json",
+            "url": "https://ollaya.dev/blobs/sha256-79b66d83478debca2c95d5193e48650f87527878232aaffffe9d01f88df593ba",
+            "size": 2895,
+            "sha256": "79b66d83478debca2c95d5193e48650f87527878232aaffffe9d01f88df593ba"
+          },
+          {
+            "file": "kev-4b.calibration.json",
+            "url": "https://ollaya.dev/blobs/sha256-a51c52e256dbf07582753cd6ecb6eff404f4080e499315c0b31e723c473e5191",
+            "size": 252,
+            "sha256": "a51c52e256dbf07582753cd6ecb6eff404f4080e499315c0b31e723c473e5191"
+          },
+          {
+            "file": "kev-4b.LICENSE",
+            "url": "https://ollaya.dev/blobs/sha256-5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d",
+            "size": 10453,
+            "sha256": "5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d"
+          }
+        ]
+      },
+      {
+        "id": "bosun-v3.1-0.6b-f16",
+        "name": "Bosun 3.1 0.6B F16 (Experimental)",
+        "family": "Bosun",
+        "category": "decision",
+        "engine": "bosun",
+        "entry_file": "bosun-v3.1-0.6b-F16.gguf",
+        "size": 1209659891,
+        "memory_gb": 16,
+        "memory_basis": "unmeasured engineering floor; 2048 token cap; 24-GB qualification pending",
+        "license_url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/blob/2afeaccc760165386c2dd52e78b851b1b53cb752/LICENSE",
+        "revision": "977dd19615ca452899988d03c1c4f7e29bdda3e5",
+        "source_revision": "2afeaccc760165386c2dd52e78b851b1b53cb752",
+        "compiler_sha256": "c04ab1c7929d41185d3c80e61ae0088a47a2c66438947f9dcc499b020f2b4cb5",
+        "typed_mapping_revision": "431b8e1ecc501cdb76c118fe58907a0a004d6fc0",
+        "engine_revision": "b019be0c86e8adaf8b46627c091c24c1597b95f9",
+        "max_prompt_tokens": 2048,
+        "qualification": "Experimental; workflow qualification requires cohort-specific native parity and quality evidence.",
+        "files": [
+          {
+            "file": "bosun-v3.1-0.6b-F16.gguf",
+            "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b-GGUF/resolve/977dd19615ca452899988d03c1c4f7e29bdda3e5/bosun-v3.1-0.6b-F16.gguf",
+            "size": 1198160608,
+            "sha256": "f65d9aaf894e5ee98cf9adece2aed99099d84d97f226abced13352f51820cd75"
+          },
+          {
+            "file": "bosun-v3.1-0.6b.tokenizer.json",
+            "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/tokenizer/tokenizer.json",
+            "size": 11472062,
+            "sha256": "7d3acd3a7d8f4f180f5331a87c004402188745c5a719aee456d9cb8cb9b34168"
+          },
+          {
+            "file": "bosun-v3.1-0.6b.serving.json",
+            "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/serving.json",
+            "size": 11546,
+            "sha256": "16688211da16636715a8ca3784652f9954b2e1fd93513a75e59914626c750e3c"
+          },
+          {
+            "file": "bosun-v3.1-0.6b.chat_template.jinja",
+            "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/tokenizer/chat_template.jinja",
+            "size": 4168,
+            "sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8"
+          },
+          {
+            "file": "bosun-v3.1-0.6b.LICENSE",
+            "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/LICENSE",
+            "size": 11358,
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+          },
+          {
+            "file": "bosun-v3.1-0.6b.NOTICE",
+            "url": "https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b/resolve/2afeaccc760165386c2dd52e78b851b1b53cb752/NOTICE",
+            "size": 149,
+            "sha256": "708eedeba4ab0765268ed7c763da0f622aafd7e66faaf5d765c8717dae917168"
+          }
+        ]
+      }
+    ]
+  },
+  "remote_decision": {
+    "openai-decisions": {
+      "id": "gpt-6-luna",
+      "name": "GPT-6 Luna",
+      "provider_name": "OpenAI Decisions"
+    },
+    "jev": {
+      "id": "jev-latest",
+      "name": "Jev",
+      "provider_name": "TypeSafe"
     }
   }
 }

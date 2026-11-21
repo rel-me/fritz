@@ -1,6 +1,6 @@
 # Apple Swift, SDKs, signing, and packaging tools come from full Xcode/macOS.
 [tools]
-rust = { version = "1.95.0", profile = "minimal", components = ["rustfmt", "clippy"] }
+rust = { version = "1.100.0", profile = "minimal", components = ["rustfmt", "clippy"] }
 python = "3.12.14"
 cmake = "4.4.2"
 node = "24.22.2"

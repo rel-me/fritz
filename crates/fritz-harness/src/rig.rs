@@ -4,7 +4,7 @@
 
 use futures_util::StreamExt;
 use rig_agent::{
-    agent::{AgentRunner, CompletionCall, MultiTurnStreamItem, PromptResponse, StreamingError},
+    agent::{AgentRunner, CompletionCall, MultiTurnStreamItem, PromptResponse},
     completion::PromptError,
 };
 use rig_core::error::ProviderError;
@@ -21,17 +21,13 @@ pub async fn run(
         match item {
             Ok(MultiTurnStreamItem::CompletionCall(call)) => completion(&call)?,
             Ok(MultiTurnStreamItem::FinalResponse(response)) => return Ok(response),
-            Err(StreamingError::Completion(error)) => {
-                return Err(Box::new(PromptError::CompletionError(error)));
-            }
-            Err(StreamingError::Prompt(error)) => return Err(Box::new(error)),
-            Err(StreamingError::Report(error)) => return Err(Box::new(PromptError::Report(error))),
+            Err(error) => return Err(Box::new(error)),
             _ => {}
         }
     }
-    Err(Box::new(PromptError::CompletionError(
-        ProviderError::Response("The model stream ended without a final response.".into()),
-    )))
+    Err(Box::new(PromptError::Provider(ProviderError::Response(
+        "The model stream ended without a final response.".into(),
+    ))))
 }
 
 /// Drive a run while forwarding host-defined progress to its transport.

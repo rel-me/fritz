@@ -26,11 +26,14 @@ disk image, then open Fritz from Applications.
 3. Use **File → New Local Model** or **File → New Remote Model**, the toolbar's
    CPU (local) and network (remote) buttons, or the **Models** menu to open the
    separate lists. Local Models contains models downloaded and run by Fritz.
+   Expand a family folder such as Qwen to see its models, or search by model or
+   family name to see matching models directly.
    API services such as Ollama belong to Remote Models, including when hosted on this Mac.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first. Use the filter menu in either window to show LLMs or
    decision models. Local Models also filters by download status, benchmark score,
-   and whether the model fits this Mac. Click the Score header to sort.
+   whether the model fits this Mac, and **Abliterated**. Click the Score header to
+   sort models within each folder and place folders by their first matching model.
    **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
 
@@ -50,6 +53,10 @@ picker shows download sizes and recommended memory. Model licenses are available
 under **Settings → General → Licenses**. While downloading, Fritz shows transfer
 speed and estimated time remaining. Restart an interrupted download in the same
 storage folder to resume it.
+
+The **Abliterated** filter shows Huihui Qwen3 4B Instruct 2507 and Nueva Tech Qwen3
+8B v2, two variants modified to reduce refusals. The same filter is available
+in the [web catalog](https://fritz.rel.me/catalog).
 
 **Settings → General → Model storage** selects the app-wide folder for future
 native model downloads (initially `~/Models`). Download setup shows the current destination and a **Change…** button that
@@ -179,6 +186,7 @@ See [runtime verification](docs/agents/runtime-verification.md),
 - [Using chat](docs/chat.md): projects, conversations, keyboard shortcuts, activity, and usage.
 - [Providers](docs/providers.md): connections, discovery, model selection, and import/export.
 - [Local models](docs/local-models.md): downloads, storage, hardware estimates, and the local API.
+- [Model catalog](https://fritz.rel.me/catalog): local downloads, remote model metadata, and pricing.
 - [Decision models](docs/decision-models.md): remote and experimental local judgment backends.
 - [App updates](docs/updates.md): update channels and release behavior.
 - [Architecture and storage](docs/architecture.md): harnesses, process ownership, and persistence.

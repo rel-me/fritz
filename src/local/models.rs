@@ -38,13 +38,18 @@ pub struct Manifest {
 
 pub fn catalog() -> &'static [Manifest] {
     #[derive(Deserialize)]
-    struct Catalog {
+    struct Inventory {
         models: Vec<Manifest>,
+    }
+    #[derive(Deserialize)]
+    struct Catalog {
+        local_chat: Inventory,
     }
     static CATALOG: std::sync::OnceLock<Vec<Manifest>> = std::sync::OnceLock::new();
     CATALOG.get_or_init(|| {
-        serde_json::from_str::<Catalog>(include_str!("../../Sources/Fritz/LocalModels.json"))
+        serde_json::from_str::<Catalog>(crate::MODEL_CATALOG_JSON)
             .expect("checked-in local model catalog")
+            .local_chat
             .models
     })
 }
@@ -293,7 +298,7 @@ pub(crate) async fn download_file(
         return Err(anyhow!("Model download was interrupted. Retry to resume."));
     }
     progress(emit, received, size, "checking");
-    if format!("{:x}", hash.finalize()) != sha256 {
+    if hex::encode(hash.finalize()) != sha256 {
         drop(file);
         fs::remove_file(&partial)?;
         return Err(anyhow!(
@@ -400,7 +405,7 @@ mod tests {
                 repository: String::new(),
                 revision: String::new(),
                 size: data.len() as u64,
-                sha256: format!("{:x}", Sha256::digest(data)),
+                sha256: hex::encode(Sha256::digest(data)),
             };
             let directory = temp.path();
             let _other_lock = if id == "second-model" {
@@ -482,7 +487,7 @@ mod tests {
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(data)),
+            sha256: hex::encode(Sha256::digest(data)),
         };
         for (body, status, size) in [
             (data.as_slice(), 404, pin.size),
@@ -518,7 +523,7 @@ mod tests {
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(data)),
+            sha256: hex::encode(Sha256::digest(data)),
         };
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -591,7 +596,7 @@ mod tests {
             repository: String::new(),
             revision: String::new(),
             size: data.len() as u64,
-            sha256: format!("{:x}", Sha256::digest(data)),
+            sha256: hex::encode(Sha256::digest(data)),
         };
         let (url, server) = fixture(data);
         let events = Mutex::new(Vec::new());

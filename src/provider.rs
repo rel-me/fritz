@@ -136,7 +136,7 @@ fn parse_openai_catalog(data: &str) -> Result<OpenAIModelCatalog> {
 fn openai_metadata(model: &str) -> Option<&'static OpenAIModelMetadata> {
     static CATALOG: OnceLock<OpenAIModelCatalog> = OnceLock::new();
     let catalog = CATALOG.get_or_init(|| {
-        parse_openai_catalog(include_str!("../Sources/Fritz/ModelCatalog.json"))
+        parse_openai_catalog(crate::MODEL_CATALOG_JSON)
             .expect("Invalid bundled OpenAI model catalog")
     });
     catalog.models.get(model)
@@ -227,22 +227,45 @@ pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Re
     discover_with_key(connection, key.as_deref()).await
 }
 
+#[derive(Deserialize)]
+pub(crate) struct RemoteDecisionModel {
+    pub id: String,
+    name: String,
+}
+
+pub(crate) fn remote_decision_model(
+    provider: ProviderKind,
+) -> Option<&'static RemoteDecisionModel> {
+    #[derive(Deserialize)]
+    struct Catalog {
+        remote_decision: HashMap<String, RemoteDecisionModel>,
+    }
+    static MODELS: OnceLock<HashMap<String, RemoteDecisionModel>> = OnceLock::new();
+    let key = match provider {
+        ProviderKind::OpenaiDecisions => "openai-decisions",
+        ProviderKind::Jev => "jev",
+        _ => return None,
+    };
+    let models = MODELS.get_or_init(|| {
+        serde_json::from_str::<Catalog>(crate::MODEL_CATALOG_JSON)
+            .expect("checked-in remote decision catalog")
+            .remote_decision
+    });
+    Some(
+        models
+            .get(key)
+            .expect("remote decision provider in catalog"),
+    )
+}
+
 /// Discovers a remote catalog using only the supplied credential, without reading Fritz's Keychain.
 /// The built-in Fritz provider uses Fritz's default model cache; use ModelStore for another host.
 pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Result<Vec<Model>> {
     connection.validate()?;
-    if connection.provider == ProviderKind::OpenaiDecisions {
+    if let Some(decision) = remote_decision_model(connection.provider) {
         return Ok(vec![Model {
-            id: "gpt-6-luna".into(),
-            display_name: "GPT-6 Luna".into(),
-            created_at: None,
-            supports_tools: None,
-        }]);
-    }
-    if connection.provider == ProviderKind::Jev {
-        return Ok(vec![Model {
-            id: "jev-latest".into(),
-            display_name: "Jev".into(),
+            id: decision.id.clone(),
+            display_name: decision.name.clone(),
             created_at: None,
             supports_tools: None,
         }]);

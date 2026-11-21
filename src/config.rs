@@ -49,6 +49,21 @@ impl ProviderKind {
             Self::OpenaiCompatible | Self::Ollama | Self::Fritz | Self::Ollaya
         )
     }
+    /// Check fixed remote decision-model IDs. Local models resolve by manifest.
+    pub fn validate_decision_model(self, model_id: &str) -> Result<()> {
+        if let Some(model) = crate::provider::remote_decision_model(self)
+            && model_id != model.id
+        {
+            let name = if self == Self::Jev {
+                "Jev"
+            } else {
+                "OpenAI Decisions"
+            };
+            bail!("{name} currently supports {}.", model.id);
+        }
+        Ok(())
+    }
+
     pub fn default_url(self) -> &'static str {
         match self {
             Self::Openai | Self::OpenaiDecisions => "https://api.openai.com/v1",
@@ -111,24 +126,19 @@ impl Connection {
             }
             return Ok(());
         }
-        if self.provider == ProviderKind::Jev {
-            if self
+        if self.provider == ProviderKind::Jev
+            && self
                 .base_url
                 .as_deref()
                 .is_some_and(|url| !url.trim().is_empty())
-            {
-                bail!("Jev uses TypeSafe's fixed HTTPS endpoint.");
-            }
-            if !self.model_id.is_empty() && self.model_id != "jev-latest" {
-                bail!("Jev currently supports the jev-latest model.");
-            }
-            return Ok(());
-        }
-        if self.provider == ProviderKind::OpenaiDecisions
-            && !self.model_id.is_empty()
-            && self.model_id != "gpt-6-luna"
         {
-            bail!("OpenAI Decisions currently supports gpt-6-luna.");
+            bail!("Jev uses TypeSafe's fixed HTTPS endpoint.");
+        }
+        if !self.model_id.is_empty() {
+            self.provider.validate_decision_model(&self.model_id)?;
+        }
+        if self.provider == ProviderKind::Jev {
+            return Ok(());
         }
         let url = reqwest::Url::parse(self.base_url()).context("Enter a valid endpoint URL.")?;
         if !matches!(url.scheme(), "https" | "http")
@@ -344,7 +354,7 @@ fn write_registry(transaction: &rusqlite::Connection, registry: &Registry) -> Re
             "INSERT INTO providers VALUES (?1, ?2, ?3)",
             params![
                 connection.id.to_string(),
-                position,
+                i64::try_from(position)?,
                 serde_json::to_string(connection)?
             ],
         )?;

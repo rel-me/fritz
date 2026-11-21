@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Fritz includes Sparkle 2.9.6. Open **Fritz → Settings… → General** to choose
+Fritz includes Sparkle 2.10.1. Open **Fritz → Settings… → General** to choose
 **Release**, **Beta**, or **Staging**. Beta accepts beta and release items; Staging also
 accepts staging items. Saved Dev selections migrate to Staging on launch. Sparkle
 checks for updates in the background on configured builds. The workspace opens

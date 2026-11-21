@@ -42,13 +42,18 @@ pub(crate) struct ModelFile {
 
 pub fn catalog() -> &'static [Manifest] {
     #[derive(Deserialize)]
-    struct Catalog {
+    struct Inventory {
         models: Vec<Manifest>,
+    }
+    #[derive(Deserialize)]
+    struct Catalog {
+        local_decision: Inventory,
     }
     static CATALOG: std::sync::OnceLock<Vec<Manifest>> = std::sync::OnceLock::new();
     CATALOG.get_or_init(|| {
-        serde_json::from_str::<Catalog>(include_str!("../../Sources/Fritz/DecisionModels.json"))
+        serde_json::from_str::<Catalog>(crate::MODEL_CATALOG_JSON)
             .expect("checked-in decision model catalog")
+            .local_decision
             .models
     })
 }
@@ -250,11 +255,12 @@ impl LoadedModel {
             .collect::<Result<Vec<_>>>()?;
         let files = ModelFiles {
             graph: directory.join(format!("{}.onnx", pin.id)),
+            vision: None,
             tokenizer: directory.join(format!("{}.tokenizer.json", pin.id)),
             decision: directory.join(format!("{}.json", pin.id)),
             calibration: Some(directory.join(format!("{}.calibration.json", pin.id))),
             arch: None,
-            weights: None,
+            weights: Vec::new(),
         };
         let calibration: ollaya_decision::CalibrationFile = serde_json::from_slice(&std::fs::read(
             files
@@ -424,7 +430,7 @@ mod tests {
                 file: name.into(),
                 url: String::new(),
                 size: 4,
-                sha256: format!("{:x}", Sha256::digest(b"good")),
+                sha256: hex::encode(Sha256::digest(b"good")),
             });
         }
         let graph = data.path().join("model.onnx");

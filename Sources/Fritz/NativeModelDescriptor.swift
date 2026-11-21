@@ -43,6 +43,7 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     public let memoryGB: Int
     public let licenseURL: URL
     public let benchmarkScore: BenchmarkScore?
+    private let abliterated: Bool?
     private let engine: String?
 
     public struct BenchmarkScore: Decodable, Equatable, Sendable {
@@ -59,7 +60,7 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     fileprivate var requiresMetal: Bool { category == .llm || engine == "bosun" }
 
     public init(id: String, name: String, size: UInt64, memoryGB: Int, licenseURL: URL,
-                family: String = "Other", category: AIModelCategory = .llm) {
+                family: String = "Other", category: AIModelCategory = .llm, isAbliterated: Bool = false) {
         self.id = id
         self.name = name
         self.family = family
@@ -67,34 +68,38 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
         self.size = size
         self.memoryGB = memoryGB
         self.licenseURL = licenseURL
+        abliterated = isAbliterated ? true : nil
         benchmarkScore = nil
         engine = nil
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, family, category, size, engine
+        case id, name, family, category, size, abliterated, engine
         case benchmarkScore = "benchmark_score"
         case memoryGB = "memory_gb", licenseURL = "license_url"
     }
 
+    public var isAbliterated: Bool { abliterated == true }
     public var model: DiscoveredAIModel { .init(id: id, displayName: name) }
     public var downloadSummary: String {
         String(format: "%.2f GB download · %d GB RAM recommended", Double(size) / 1_000_000_000, memoryGB)
     }
 
-    public static let catalog = loadCatalog("LocalModels")
-    public static let decisionCatalog = loadCatalog("DecisionModels")
+    private struct Catalog: Decodable {
+        struct Inventory: Decodable { let models: [NativeModelDescriptor] }
+        let local_chat: Inventory
+        let local_decision: Inventory
+    }
 
-    private static func loadCatalog(_ name: String) -> [Self] {
-        struct Catalog: Decodable { let models: [NativeModelDescriptor] }
-        let bundle = Bundle.module
-        guard let url = bundle.url(forResource: name, withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let catalog = try? JSONDecoder().decode(Catalog.self, from: data),
-              !catalog.models.isEmpty else {
+    private static let inventories: Catalog = {
+        guard let catalog = try? BundledModelCatalog.decode(Catalog.self),
+              !catalog.local_chat.models.isEmpty, !catalog.local_decision.models.isEmpty else {
             preconditionFailure("Missing or invalid bundled local model catalog")
         }
-        return catalog.models
-    }
+        return catalog
+    }()
+
+    public static let catalog = inventories.local_chat.models
+    public static let decisionCatalog = inventories.local_decision.models
 }
 

@@ -92,11 +92,11 @@ async fn closed_progress_channel_keeps_completion_and_accounting() {
     .unwrap()
     .unwrap()
     .unwrap();
-    assert_eq!(response.output, "Complete");
+    assert_eq!(response.output(), "Complete");
     assert_eq!(completions, 1);
 
     let error = run(agent.prompt("Answer"), |_| {
-        Err(rig_agent::completion::PromptError::CompletionError(
+        Err(rig_agent::completion::PromptError::Provider(
             ProviderError::Response("host budget exhausted".into()),
         ))
     })

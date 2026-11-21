@@ -53,7 +53,7 @@ fn failed_transaction_and_invalid_schema_do_not_reset_state() {
         anyhow::bail!("abort")
     });
     assert!(result.is_err());
-    let count: usize = database
+    let count: i64 = database
         .connection()
         .query_row("SELECT count(*) FROM records", [], |r| r.get(0))
         .unwrap();
@@ -142,7 +142,7 @@ fn concurrent_first_opens_preserve_every_update() {
             database
                 .connection()
                 .query_row("SELECT count(*) FROM records", [], |row| row
-                    .get::<_, usize>(0))
+                    .get::<_, i64>(0))
                 .unwrap(),
             8
         );
