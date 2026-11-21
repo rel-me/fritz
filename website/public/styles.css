@@ -350,6 +350,45 @@ h1 {
   letter-spacing: -0.035em;
 }
 
+.hero-lede {
+  max-width: 43ch;
+  color: var(--ink-2);
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+.downloads {
+  display: grid;
+  gap: 18px;
+  justify-items: start;
+}
+
+.download-edition {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.download-edition + .download-edition {
+  border-top: 1px solid var(--rule);
+  padding-top: 18px;
+}
+
+.download-edition h2 {
+  font: 700 1rem var(--font-brand);
+}
+
+.download-edition h2 span,
+.edition-link {
+  color: var(--ink-2);
+  font: 500 0.9rem var(--font-brand);
+}
+
+.edition-link {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

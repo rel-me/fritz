@@ -56,8 +56,10 @@ The home page is static: `website/public/` is published as the Worker's static
 assets, which answer before the Worker code. `_headers` sets its Content
 Security Policy, so keep scripts and styles in separate files. `/download`
 redirects to the newest Release DMG in the appcast, or the newest Beta before a
-Release exists; the page reads the same appcast to label the version. The raven,
-favicon, touch icon, and social card come from `design/branding/export.py`.
+Release exists. The page reads the same appcast to show the default WebKit
+build's version and DMG size. The Chromium edition links to the source build
+instructions in the README. The raven, favicon, touch icon, and social card
+come from `design/branding/export.py`.
 
 The homepage always uses the dark app screenshot, independent of the page's
 color scheme. The app images are real 2× window captures from this checkout's

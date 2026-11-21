@@ -21,8 +21,12 @@ try {
   const latest = response.ok && latestDownload(await response.text());
   if (latest) {
     const channel = latest.channel === "release" ? "" : ` ${latest.channel}`;
+    const size = latest.bytes ? ` · ${(latest.bytes / 1_000_000).toFixed(1)} MB` : "";
     for (const element of document.querySelectorAll("[data-version]")) {
-      element.textContent = `Version ${latest.version}${channel} · Requires macOS 15 or later.`;
+      element.textContent = `Version ${latest.version}${channel}${size} · Requires macOS 15 or later.`;
+    }
+    for (const link of document.querySelectorAll("[data-download]")) {
+      link.href = `/updates/${latest.filename}`;
     }
   }
 } catch {
