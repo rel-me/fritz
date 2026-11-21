@@ -93,6 +93,7 @@ struct LocalModelEvent: Decodable {
     let status: String?
     let downloaded: UInt64?
     let total: UInt64?
+    let bytesPerSecond: UInt64?
     let result: Result?
 
     func state(for modelID: String, installing: Bool) throws -> LocalModelInstallState {
@@ -106,7 +107,7 @@ struct LocalModelEvent: Decodable {
            total > 0, total <= UInt64(Int64.max), downloaded <= total {
             switch status {
             case "checking": return .checking
-            case "downloading": return .downloading(downloaded: downloaded, total: total)
+            case "downloading": return .downloading(downloaded: downloaded, total: total, bytesPerSecond: bytesPerSecond)
             case "ready" where downloaded == total: return .checking // Await the terminal result before saving.
             default: break
             }

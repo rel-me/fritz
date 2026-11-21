@@ -47,7 +47,9 @@ The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
 8B), Hermes 3 Llama 3.1 8B, and Mistral Nemo 12B Instruct alongside Qwen and
 the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
 picker shows download sizes and recommended memory. Model licenses are available
-under **Settings → General → Licenses**.
+under **Settings → General → Licenses**. While downloading, Fritz shows transfer
+speed and estimated time remaining. Restart an interrupted download in the same
+storage folder to resume it.
 
 **Settings → General → Model storage** selects the app-wide folder for future
 native model downloads (initially `~/Models`). Download setup shows the current destination and a **Change…** button that

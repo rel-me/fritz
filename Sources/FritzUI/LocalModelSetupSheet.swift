@@ -80,14 +80,8 @@ struct LocalModelSetupSheet<Feedback: View>: View {
         case .available, .installed: EmptyView()
         case .checking:
             ProgressView("Checking model…").progressViewStyle(.linear)
-        case let .downloading(downloaded, total):
-            ProgressView(value: Double(downloaded), total: Double(total)) {
-                Text("Downloading…")
-            } currentValueLabel: {
-                Text("\(ByteCountFormatter.string(fromByteCount: Int64(clamping: downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(clamping: total), countStyle: .file))")
-                    .monospacedDigit()
-            }
-            .progressViewStyle(.linear)
+        case let .downloading(downloaded, total, bytesPerSecond):
+            ModelDownloadProgress(downloaded: downloaded, total: total, bytesPerSecond: bytesPerSecond, showsTitle: true)
         case .failed(let message):
             Text(message).foregroundStyle(.red)
                 .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)

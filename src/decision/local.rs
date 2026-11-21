@@ -172,7 +172,8 @@ impl ModelStore {
             download_file(self.directory_for(id), &file.url, &file.file, file.size, &file.sha256, &|event| {
                 let status = if event["status"] == "ready" { "checking" } else { event["status"].as_str().unwrap_or("checking") };
                 emit(json!({"type":"progress", "status":status,
-                    "downloaded":completed + event["downloaded"].as_u64().unwrap_or(0), "total":pin.size}));
+                    "downloaded":completed + event["downloaded"].as_u64().unwrap_or(0), "total":pin.size,
+                    "bytesPerSecond":event["bytesPerSecond"]}));
             }).await?;
             completed += file.size;
         }

@@ -58,11 +58,13 @@ Provider migration is a one-time host import with no API keys in its payload or 
 Events are `delta` with `text`, `usage` with one merged provider usage record and a 1-based `model_call` per model turn, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
 
 Local installs also emit `progress` with `status` (`checking`, `downloading`,
-`ready`), `downloaded`, and `total` byte counts. `ready` precedes the terminal
-result; it is not itself a completed request. `cancel` aborts a download and
-removes its partial file. Retry starts a fresh download. A killed process may
-leave a bounded partial file; the next explicit install replaces it. Only files
-with the catalog's exact size and SHA-256 are atomically published and loaded.
+`ready`), `downloaded`, and `total` byte counts. Once sampled, downloading events
+include `bytesPerSecond` for bytes transferred during the current attempt.
+`ready` precedes the terminal result. Canceling or interrupting a transfer keeps
+the partial file in the download folder. The next explicit install in that folder
+requests the remaining bytes and restarts if the server responds with the full
+file. Fritz verifies the exact size and SHA-256 before atomically publishing a
+download, and discards partials that fail integrity verification.
 
 The `fritz` provider has no endpoint or API key. `models.list` returns its
 present model files. Listing, saving a connection, and chatting never

@@ -469,7 +469,9 @@ extension SharedControlSnapshots {
             let fixture = DownloadSheetFixture(model: model)
             try await DialogSnapshot.withSheet(fixture, appearance: appearance) { sheet in
                 let initial = try await DialogSnapshot.check(sheet, name: "model-download-ready", appearance: appearance)
-                fixture.progress.state = .downloading(downloaded: 529_200_000, total: model.size)
+                fixture.progress.state = .downloading(
+                    downloaded: 529_200_000, total: model.size, bytesPerSecond: 22_600_000
+                )
                 let downloading = try await DialogSnapshot.check(sheet, name: "model-download-progress", appearance: appearance)
                 XCTAssertGreaterThan(downloading.height, initial.height)
                 XCTAssertEqual(downloading.width, initial.width)
