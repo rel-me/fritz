@@ -9,6 +9,7 @@ struct ChatView: View {
     let localModels: LocalModelRuntimeStore
     let openModels: (ModelsLocation) -> Void
     let headerFrame: CGRect
+    let contentTrailingInset: CGFloat
     let isProjectFolderAvailable: Bool
     let isArchived: Bool
     @State private var setupModel: ChatModelOption?
@@ -73,6 +74,7 @@ struct ChatView: View {
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
             .padding(.horizontal, 6)
+            .padding(.trailing, contentTrailingInset)
             .padding(.top, 12)
             .padding(.bottom, 6)
         }
@@ -166,6 +168,7 @@ struct ChatView: View {
             .frame(maxWidth: ChatVisualStyle.contentMaxWidth)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, ChatVisualStyle.horizontalPadding)
+            .padding(.trailing, contentTrailingInset)
             .padding(.top, 28)
         }
         .defaultScrollAnchor(.bottom, for: .initialOffset)
@@ -228,6 +231,7 @@ struct ChatView: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(FritzButtonStyle(.floating))
+                .padding(.trailing, contentTrailingInset)
                 .padding(.bottom, composerHeight + 24)
             }
         }
