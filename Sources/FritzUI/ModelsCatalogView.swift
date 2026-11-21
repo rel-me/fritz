@@ -20,7 +20,8 @@ public struct ModelsCatalogView: View {
     @State private var downloadFilter: DownloadFilter = .all
     @State private var runnableOnly = false
     @State private var scoreFilter: LocalModelScoreFilter = .all
-    @State private var scoreOrder: [LocalModelScoreComparator<LocalModelRow>] = []
+    @State private var scoreOrder: [LocalModelScoreComparator<LocalModelTableRow>] = []
+    @State private var expandedLocalFamilies: Set<String> = []
     private let hardware = LocalModelHardware.current
     @State private var checkedInventory = false
     @State private var installedDecisionIDs: Set<String>?
@@ -62,20 +63,39 @@ public struct ModelsCatalogView: View {
         let model: ChatModelOption
         let descriptor: NativeModelDescriptor?
         var id: String { model.id }
-        var scorePoints: Int? { descriptor?.benchmarkScore?.points }
+    }
+
+    private enum LocalModelTableRow: Identifiable {
+        case model(LocalModelRow)
+        case family(String, [LocalModelRow])
+
+        var id: String {
+            switch self {
+            case .model(let row): row.id
+            case .family(let name, _): "family:\(name)"
+            }
+        }
+
+        var modelRow: LocalModelRow? {
+            if case .model(let row) = self { return row }
+            return nil
+        }
+
+        var scorePoints: Int? { modelRow?.descriptor?.benchmarkScore?.points }
     }
 
     private var localRows: [LocalModelRow] {
         let descriptors = Dictionary(uniqueKeysWithValues: store.nativeModelCatalog.map { ($0.id, $0) })
         let recents = store.recentIDs
-        let rows = store.availableModels.filter {
+        return store.availableModels.filter {
             location.contains($0) && (category == nil || $0.category == category)
                 && matchesDownloadFilter($0) && (query.isEmpty
                     || $0.displayName.localizedStandardContains(query)
-                    || $0.modelID.localizedStandardContains(query))
+                    || $0.modelID.localizedStandardContains(query)
+                    || descriptors[$0.modelID]?.family.localizedStandardContains(query) == true)
         }.map { LocalModelRow(model: $0, descriptor: descriptors[$0.modelID]) }
             .filter { row in
-                scoreFilter.includes(row.scorePoints)
+                scoreFilter.includes(row.descriptor?.benchmarkScore?.points)
                     && (!runnableOnly || row.descriptor.map(hardware.canRun) == true)
             }
             .sorted {
@@ -83,10 +103,37 @@ public struct ModelsCatalogView: View {
                 let right = recents.firstIndex(of: $1.id) ?? Int.max
                 return left < right
             }
-        return scoreOrder.isEmpty ? rows : rows.sorted(using: scoreOrder)
     }
 
-    private var selected: ChatModelOption? { localRows.first { $0.id == selection }?.model }
+    private func localTableRows(_ rows: [LocalModelRow]) -> [LocalModelTableRow] {
+        let models = rows.map(LocalModelTableRow.model)
+        let leaves = scoreOrder.isEmpty ? models : models.sorted(using: scoreOrder)
+        guard query.isEmpty else { return leaves }
+
+        let families = Dictionary(grouping: leaves.compactMap(\.modelRow)) { $0.descriptor?.family }
+        var shownFamilies = Set<String>()
+        // Keep the order of each family's first model and the order within it.
+        return leaves.compactMap { leaf in
+            guard let family = leaf.modelRow?.descriptor?.family,
+                  let siblings = families[family], siblings.count > 1 else { return leaf }
+            return shownFamilies.insert(family).inserted ? .family(family, siblings) : nil
+        }
+    }
+
+    private var selected: ChatModelOption? {
+        guard let selection else { return nil }
+        for row in localTableRows(localRows) {
+            switch row {
+            case .model(let model) where model.id == selection:
+                return model.model
+            case .family(let name, let models) where expandedLocalFamilies.contains(name):
+                if let model = models.first(where: { $0.id == selection }) { return model.model }
+            default:
+                break
+            }
+        }
+        return nil
+    }
     private var connections: [ProviderConnection] {
         store.connections.filter {
             AIProviderCategory.local.contains(AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL)) == (location == .local)
@@ -163,22 +210,54 @@ public struct ModelsCatalogView: View {
     private var localModelTable: some View {
         let sessions = runtime.sessions
         let rows = localRows
-        return Table(rows, selection: $selection, sortOrder: $scoreOrder) {
+        return Table(of: LocalModelTableRow.self, selection: $selection, sortOrder: $scoreOrder) {
             TableColumn("Name") { row in
-                Text(row.model.displayName).lineLimit(1).truncationMode(.tail).help(row.model.modelID)
+                switch row {
+                case .model(let model):
+                    Text(model.model.displayName).lineLimit(1).truncationMode(.tail).help(model.model.modelID)
+                case .family(let name, _):
+                    Label(name, systemImage: "folder").lineLimit(1)
+                }
             }.width(min: 230, ideal: 350)
-            TableColumn("Type") { row in Text(row.model.category == .llm ? "LLM" : "Decision") }
-                .width(75)
+            TableColumn("Type") { row in
+                if let model = row.modelRow?.model {
+                    Text(model.category == .llm ? "LLM" : "Decision")
+                }
+            }.width(75)
             TableColumn("Status") { row in
-                let running = sessions[row.model.modelID]?.status == .running
-                Text(running ? ModelsRuntimeSession.Status.running.title : status(row.model))
-                    .foregroundStyle(running ? .green : .secondary)
+                if let model = row.modelRow?.model {
+                    let running = sessions[model.modelID]?.status == .running
+                    Text(running ? ModelsRuntimeSession.Status.running.title : status(model))
+                        .foregroundStyle(running ? .green : .secondary)
+                }
             }
             .width(min: 120, ideal: 140)
             TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
-                LocalModelScoreCell(score: row.descriptor?.benchmarkScore)
+                if let model = row.modelRow {
+                    LocalModelScoreCell(score: model.descriptor?.benchmarkScore)
+                }
             }
             .width(66)
+        } rows: {
+            ForEach(localTableRows(rows)) { row in
+                if case .family(let name, let models) = row {
+                    DisclosureTableRow(row, isExpanded: Binding(
+                        get: { expandedLocalFamilies.contains(name) },
+                        set: { expanded in
+                            if expanded {
+                                expandedLocalFamilies.insert(name)
+                            } else {
+                                expandedLocalFamilies.remove(name)
+                                if models.contains(where: { $0.id == selection }) { selection = nil }
+                            }
+                        }
+                    )) {
+                        ForEach(models) { TableRow(LocalModelTableRow.model($0)) }
+                    }
+                } else {
+                    TableRow(row)
+                }
+            }
         }
         .accessibilityLabel("Local Models")
         .contextMenu(forSelectionType: String.self) { ids in
