@@ -24,11 +24,16 @@ class Provider(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def handle_chat(self, payload):
+        return False
+
     def do_POST(self):
         payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         type(self).requests.append(payload)
         if self.path != "/v1/chat/completions":
             self.send_error(404)
+            return
+        if self.handle_chat(payload):
             return
         if payload["model"] == "error-test":
             self.send_error(401)

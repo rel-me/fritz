@@ -7,6 +7,13 @@
 
 A native macOS personal assistant with persistent conversations and a choice of local or remote models. Fritz keeps chat at the center of the window. Fritz includes chat, model management, and a basic browser; [the personal assistant plan](docs/personal-assistant-plan.md) sets out how Fritz will add personal context, useful actions, and opt-in follow-through.
 
+
+In **Settings → Harness**, chat context uses the selected model's limits by
+default. Automatic compaction summarizes older turns as the conversation fills
+the context window and keeps the recent turns available to the model. You can
+set a context budget, reserve space for the reply, and choose how much recent
+history compaction should keep.
+
 ## Install
 
 Open the release DMG and drag Fritz onto the Applications shortcut. Eject the

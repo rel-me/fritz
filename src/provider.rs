@@ -201,7 +201,11 @@ pub(crate) async fn checked(request: RequestBuilder) -> Result<reqwest::Response
 }
 
 fn check_response(response: reqwest::Response) -> Result<reqwest::Response> {
-    let status = response.status();
+    check_response_status(response.status())?;
+    Ok(response)
+}
+
+fn check_response_status(status: reqwest::StatusCode) -> Result<()> {
     if !status.is_success() {
         let detail = match status.as_u16() {
             401 | 403 => "The provider rejected access. Check your API key and model permissions.",
@@ -214,7 +218,7 @@ fn check_response(response: reqwest::Response) -> Result<reqwest::Response> {
         };
         bail!("{detail} (HTTP {status})");
     }
-    Ok(response)
+    Ok(())
 }
 
 pub async fn discover(connection: &Connection, supplied_key: Option<&str>) -> Result<Vec<Model>> {
@@ -433,8 +437,13 @@ pub(crate) fn payload(
         bail!("This conversation is too large. Start a new chat.");
     }
     if let Some(version) = request.history_version {
-        anyhow::ensure!(version == 1, "Unsupported chat history version.");
-        let max = if connection.provider == ProviderKind::Fritz {
+        anyhow::ensure!(
+            matches!(version, 1 | 2),
+            "Unsupported chat history version."
+        );
+        let max = if version == 2 {
+            1_000_000
+        } else if connection.provider == ProviderKind::Fritz {
             4_800
         } else {
             16_000
@@ -450,7 +459,7 @@ pub(crate) fn payload(
             continue;
         }
         anyhow::ensure!(
-            request.history_version == Some(1)
+            matches!(request.history_version, Some(1 | 2))
                 && message.role == "assistant"
                 && connection.provider != ProviderKind::Gemini
                 && message.tools.len() <= 64,
@@ -554,7 +563,59 @@ impl StreamDecoder {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct ContextOverflow;
+
+impl std::fmt::Display for ContextOverflow {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("The conversation exceeds the provider’s context limit. Shorten the latest message or start a new thread.")
+    }
+}
+
+impl std::error::Error for ContextOverflow {}
+
+fn context_overflow(value: &Value) -> bool {
+    let codes = [
+        "/code",
+        "/error/code",
+        "/response/error/code",
+        "/error/type",
+    ];
+    if codes
+        .iter()
+        .filter_map(|pointer| value.pointer(pointer).and_then(Value::as_str))
+        .any(|code| {
+            matches!(
+                code,
+                "context_length_exceeded"
+                    | "context_window_exceeded"
+                    | "input_token_limit_exceeded"
+                    | "prompt_too_long"
+            )
+        })
+    {
+        return true;
+    }
+    ["/error/message", "/response/error/message"]
+        .iter()
+        .filter_map(|pointer| value.pointer(pointer).and_then(Value::as_str))
+        .any(|message| {
+            let message = message.to_ascii_lowercase();
+            [
+                "prompt is too long",
+                "input is too long",
+                "maximum context length",
+                "maximum number of tokens allowed",
+            ]
+            .iter()
+            .any(|phrase| message.contains(phrase))
+        })
+}
+
 fn decode_event(kind: ProviderKind, value: &Value, emit: &impl Fn(Value)) -> Result<bool> {
+    if context_overflow(value) {
+        return Err(ContextOverflow.into());
+    }
     if !value["error"].is_null()
         || matches!(
             value["type"].as_str(),
@@ -644,7 +705,23 @@ async fn stream_response(request: RequestBuilder) -> Result<reqwest::Response> {
         .send()
         .await
         .context("Could not connect to the provider.")?;
-    if response.status().as_u16() != 429 {
+    let status = response.status().as_u16();
+    if matches!(status, 400 | 413 | 422) {
+        let error = check_response_status(response.status()).unwrap_err();
+        let mut stream = response.bytes_stream();
+        let mut body = Vec::new();
+        while let Some(Ok(chunk)) = stream.next().await {
+            if body.len() + chunk.len() > 64 * 1024 {
+                break;
+            }
+            body.extend_from_slice(&chunk);
+        }
+        if serde_json::from_slice(&body).is_ok_and(|value| context_overflow(&value)) {
+            return Err(ContextOverflow.into());
+        }
+        return Err(error);
+    }
+    if status != 429 {
         return check_response(response);
     }
     let header_delay = response

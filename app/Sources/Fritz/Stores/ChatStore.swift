@@ -53,6 +53,7 @@ struct ContextMessage: Encodable, Sendable {
     let role: String
     let content: String
     var tools: [ContextToolExchange] = []
+    var sequence: Int64?
 
     enum CodingKeys: String, CodingKey { case role, content, tools }
     func encode(to encoder: Encoder) throws {
@@ -67,6 +68,11 @@ struct PreparedTurn: Sendable {
     let user: UUID
     let sequence: Int64
     let context: [ContextMessage]
+    let hasPreviousSummary: Bool
+}
+
+private struct CompactionReceipt: Decodable {
+    let prefixMessages: Int
 }
 
 @MainActor @Observable final class ChatStore {
@@ -108,14 +114,16 @@ struct PreparedTurn: Sendable {
     @ObservationIgnored private var loadGeneration = 0
     private var storageFailure = false
     private let modelCatalog: RemoteModelCatalog
+    private let appSettings: AppSettings?
 
     init(agent: AgentClient, repository: ProjectRepository, threadID: UUID, projectPath: String? = nil,
-         modelCatalog: RemoteModelCatalog? = nil) {
+         modelCatalog: RemoteModelCatalog? = nil, appSettings: AppSettings? = nil) {
         self.agent = agent
         self.repository = repository
         self.threadID = threadID
         self.projectPath = projectPath
         self.modelCatalog = modelCatalog ?? RemoteModelCatalog()
+        self.appSettings = appSettings
     }
 
     func restore() async {
@@ -173,6 +181,7 @@ struct PreparedTurn: Sendable {
         activeTools = []
         pendingText = ""
         stopReason = nil
+        let harness = appSettings?.harness ?? HarnessSettings()
         let originalDraft = draft
         let prompt = originalDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         var committedPreferences = preferences
@@ -188,8 +197,11 @@ struct PreparedTurn: Sendable {
             var persisted = false
             do {
                 if let preferenceTask { await preferenceTask.value }
+                let contextKey = harness.automaticCompaction
+                    ? "\(connectionID.uuidString)/\(model.modelID)/\(harness.contextTokens)/\(harness.reserveTokens)/\(harness.keepRecentTokens)"
+                    : nil
                 let prepared = try await repository.beginTurn(thread: threadID, turn: turn, prompt: prompt,
-                    preferences: committedPreferences, model: model, projectPath: projectPath)
+                    preferences: committedPreferences, model: model, projectPath: projectPath, contextKey: contextKey)
                 persisted = true
                 savedPreferences = committedPreferences
                 if draft == originalDraft { draft = "" }
@@ -210,10 +222,12 @@ struct PreparedTurn: Sendable {
                 onFirstPrompt?()
                 if !stopRequested {
                     let history = try JSONEncoder().encode(prepared.context)
+                    var contextParams = harness.requestParameters
+                    contextParams["hasPreviousSummary"] = prepared.hasPreviousSummary
                     var params: [String: Any] = [
                         "connectionId": connectionID.uuidString, "model": model.modelID,
                         "messages": try JSONSerialization.jsonObject(with: history),
-                        "historyVersion": 1,
+                        "historyVersion": 2, "context": contextParams,
                     ]
                     if let projectPath { params["projectPath"] = projectPath }
                     if model.capabilities.supportsReasoningEffort { params["effort"] = effort.rawValue }
@@ -221,7 +235,16 @@ struct PreparedTurn: Sendable {
                     for try await data in agent.stream(method: "chat", params: params, id: turn.uuidString) {
                         if stopRequested { break }
                         let event = try JSONDecoder().decode(AgentEvent.self, from: data)
-                        try await handle(event, data: data, turn: turn, model: model)
+                        if event.type == "context_compacted", let contextKey, let summary = event.summary {
+                            let receipt = try JSONDecoder().decode(CompactionReceipt.self, from: data)
+                            if receipt.prefixMessages > 0, receipt.prefixMessages < prepared.context.count,
+                               let through = prepared.context[receipt.prefixMessages].sequence {
+                                try await repository.saveContextSummary(thread: threadID, key: contextKey,
+                                                                        through: through - 1, summary: summary)
+                            }
+                        } else {
+                            try await handle(event, data: data, turn: turn, model: model)
+                        }
                     }
                     complete = !stopRequested && activeMessage?.content.isEmpty == false
                     if !stopRequested && !complete { error = "The provider returned an empty response. Try another model." }

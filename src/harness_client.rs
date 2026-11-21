@@ -84,6 +84,15 @@ pub async fn read_line(
 }
 
 pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
+    chat_with_context(request, None, emit).await
+}
+
+#[doc(hidden)]
+pub async fn chat_with_context(
+    request: ChatRequest,
+    context: Option<harness::ContextSettings>,
+    emit: impl Fn(Value),
+) -> Result<()> {
     let connection = config::find(Some(&request.connection_id))?;
     if connection.provider.category() != config::ModelCategory::Llm {
         bail!("Choose an LLM provider for chat.");
@@ -102,7 +111,7 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
         .parent()
         .context("Missing executable directory")?
         .join("fritz-harness");
-    chat_with_input(&executable, input, emit).await
+    chat_process(&executable, harness::ContextInput { input, context }, emit).await
 }
 
 /// Runs a host-selected harness with explicit input over private pipes.
@@ -110,6 +119,22 @@ pub async fn chat(request: ChatRequest, emit: impl Fn(Value)) -> Result<()> {
 pub async fn chat_with_input(
     executable: &std::path::Path,
     input: harness::Input,
+    emit: impl Fn(Value),
+) -> Result<()> {
+    chat_process(
+        executable,
+        harness::ContextInput {
+            input,
+            context: None,
+        },
+        emit,
+    )
+    .await
+}
+
+async fn chat_process(
+    executable: &std::path::Path,
+    input: harness::ContextInput,
     emit: impl Fn(Value),
 ) -> Result<()> {
     let mut child = tokio::process::Command::new(executable)
@@ -151,7 +176,9 @@ pub async fn chat_with_input(
                 terminal = Some(Err(anyhow::anyhow!("The run was cancelled.")));
                 break;
             }
-            Some("delta" | "usage" | "activity" | "tool_start" | "tool_end") => emit(event),
+            Some(
+                "delta" | "usage" | "activity" | "tool_start" | "tool_end" | "context_compacted",
+            ) => emit(event),
             _ => bail!("Unexpected harness event."),
         }
     }

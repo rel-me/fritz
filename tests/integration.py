@@ -29,6 +29,94 @@ class AuthenticatedProvider(Provider):
         super().do_GET()
 
 
+    def handle_chat(self, payload):
+        history = payload["messages"]
+        is_summary = "<conversation>" in history[-1]["content"]
+        if payload["model"] not in ("compact-test", "overflow-test") or not is_summary:
+            if payload["model"] == "partial-overflow-test":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                self.wfile.write(b'data: {"choices":[{"delta":{"content":"Already streamed."}}]}\n\ndata: {"error":{"code":"context_length_exceeded"}}\n\n')
+                return True
+            if payload["model"] == "overflow-test" and any(
+                message["content"] == "Original context rejected by the fixture" for message in history
+            ):
+                body = json.dumps({"error": {"code": "context_length_exceeded"}}).encode()
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(body)
+                return True
+            return False
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        self.wfile.write(b'data: {"choices":[{"delta":{"content":"Saved context from the mock model."},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":9}}\n\ndata: [DONE]\n\n')
+        return True
+
+
+def context_management(send, receive, connection_id):
+    def chat(model, messages, context, success=True):
+        params = dict(connectionId=connection_id, model=model, messages=messages,
+                      historyVersion=2, context=context)
+        request_id = send("chat", params)
+        events = []
+        while True:
+            event = receive()
+            assert event["id"] == request_id, event
+            events.append(event)
+            if event["type"] in ("result", "error"):
+                assert (event["type"] == "result") == success, events
+                return events
+
+    def user(content):
+        return {"role": "user", "content": content}
+
+    def assistant(content):
+        return {"role": "assistant", "content": content}
+
+    current = user("Current question " * 50)
+    messages = [user("Old itinerary " * 330), assistant("Old suggestions " * 95),
+                user("Recent itinerary " * 200), assistant("Recent suggestions " * 80), current]
+    options = dict(contextTokens=4096, reserveTokens=1024, keepRecentTokens=2048)
+    index = len(Provider.requests)
+    events = chat("compact-test", messages, options)
+    calls = Provider.requests[index:]
+    assert len(calls) == 2, calls
+    assert "tools" not in calls[0] and "<conversation>" in calls[0]["messages"][-1]["content"]
+    receipt, = (event for event in events if event["type"] == "context_compacted")
+    assert receipt["prefixMessages"] == 2, receipt
+    assert calls[1]["messages"][1]["content"] == receipt["summary"]
+    assert calls[1]["messages"][2:] == messages[receipt["prefixMessages"]:]
+    assert "Saved context from the mock model." in receipt["summary"]
+    assert all("Saved context" not in event["text"] for event in events if event["type"] == "delta")
+
+    index = len(Provider.requests)
+    resumed = [user(receipt["summary"]), current]
+    events = chat("compact-test", resumed, {**options, "hasPreviousSummary": True})
+    assert len(Provider.requests[index:]) == 1
+    assert all(event["type"] != "context_compacted" for event in events)
+
+    index = len(Provider.requests)
+    events = chat("compact-test", messages, {**options, "automaticCompaction": False}, success=False)
+    assert "configured Harness context budget" in events[-1]["message"]
+    assert len(Provider.requests) == index
+
+    index = len(Provider.requests)
+    messages = [user("Original context rejected by the fixture"), assistant("Old reply"), user("New question")]
+    events = chat("overflow-test", messages, {})
+    assert len(Provider.requests[index:]) == 3, Provider.requests[index:]
+    assert any(event["type"] == "context_compacted" for event in events)
+    assert Provider.requests[-1]["messages"][-1] == messages[-1]
+
+    index = len(Provider.requests)
+    events = chat("partial-overflow-test", messages, {}, success=False)
+    assert len(Provider.requests[index:]) == 1
+    assert any(event.get("text") == "Already streamed." for event in events)
+    assert all(event["type"] != "context_compacted" for event in events)
+
+
 def managed_local_api():
     """Test real listener ownership and private-pipe model admission, without weights."""
     with tempfile.TemporaryDirectory(prefix="fritz-api-test-") as directory:
@@ -271,6 +359,7 @@ def main():
         health = send("health")
         event = receive()
         assert event["id"] == health and event["result"]["name"] == "fritz"
+        context_management(send, receive, connection["id"])
         # Imported configurations may omit keys, but malformed batches write nothing.
         imported = dict(id=str(uuid.uuid4()), name="TypeSafe", provider="jev", modelId="jev-latest")
         invalid = dict(imported, id=str(uuid.uuid4()), baseUrl="https://example.com")

@@ -266,6 +266,38 @@ impl Session {
         self.messages = literal_message(self.messages.clone(), "user", content);
     }
 
+    pub(crate) async fn summarize(
+        &self,
+        system: &str,
+        prompt: &str,
+        limit: usize,
+        emit: &(impl Fn(Value) + Sync),
+    ) -> Result<String> {
+        let messages = literal_message(
+            literal_message(Vec::new(), "system", system),
+            "user",
+            prompt,
+        );
+        let result = self
+            .engine
+            .model()
+            .await?
+            .chat(
+                json!({"messages":messages,"tools":[],"limit":limit,"disable_thinking":true}),
+                &|_| {},
+            )
+            .await?;
+        emit(json!({"type":"usage","usage":{
+            "input_tokens":result["input_tokens"],"output_tokens":result["output_tokens"]
+        }}));
+        anyhow::ensure!(
+            result["truncated"] != true
+                && result["tool_calls"].as_array().is_none_or(Vec::is_empty),
+            "The local model did not complete a text summary."
+        );
+        Ok(result["content"].as_str().unwrap_or("").to_owned())
+    }
+
     pub(crate) async fn turn(
         &mut self,
         definitions: &[fritz_harness::ToolDefinition],
@@ -289,7 +321,16 @@ impl Session {
                 }),
                 emit,
             )
-            .await?;
+            .await
+            .map_err(|error| {
+                if error.to_string().contains(
+                    "The local conversation and requested output exceed the model context.",
+                ) {
+                    crate::provider::ContextOverflow.into()
+                } else {
+                    error
+                }
+            })?;
         emit(json!({"type":"usage","usage":{
             "input_tokens":result["input_tokens"],"output_tokens":result["output_tokens"],
             "total_tokens":result["input_tokens"].as_u64().unwrap_or(0)+result["output_tokens"].as_u64().unwrap_or(0)

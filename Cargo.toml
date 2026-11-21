@@ -26,6 +26,8 @@ ollaya-decision = { git = "https://github.com/ollaya-dev/ollaya", rev = "a8bce96
 ollaya-runner = { git = "https://github.com/ollaya-dev/ollaya", rev = "a8bce962dc8219e696604403a5c2a30e6c9523f0", features = ["coreml"] }
 fritz-state = { path = "crates/fritz-state" }
 fritz-harness = { path = "crates/fritz-harness" }
+rig-core = { version = "=0.47.0", default-features = false }
+rig-memory = { version = "=0.47.0", default-features = false }
 clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 futures-util = "0.3"
