@@ -26,11 +26,14 @@ disk image, then open Fritz from Applications.
 3. Use **File → New Local Model** or **File → New Remote Model**, the toolbar's
    CPU (local) and network (remote) buttons, or the **Models** menu to open the
    separate lists. Local Models contains models downloaded and run by Fritz.
+   Expand a family folder such as Qwen to see its models, or search by model or
+   family name to see matching models directly.
    API services such as Ollama belong to Remote Models, including when hosted on this Mac.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first. Use the filter menu in either window to show LLMs or
    decision models. Local Models also filters by download status, benchmark score,
-   and whether the model fits this Mac. Click the Score header to sort.
+   and whether the model fits this Mac. Click the Score header to sort models
+   within each folder and place folders by their first matching model.
    **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
 
