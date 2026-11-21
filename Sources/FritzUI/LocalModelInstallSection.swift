@@ -95,25 +95,32 @@ struct ModelDownloadProgress: View {
     var showsTitle = false
 
     var body: some View {
+        let byteProgress = Text("\(byteCount(downloaded)) of \(byteCount(total))")
+        let transferEstimate = transferEstimate
         ProgressView(value: Double(downloaded), total: Double(total)) {
             if showsTitle { Text("Downloading…") }
         } currentValueLabel: {
             VStack(alignment: .leading, spacing: 3) {
-                Text("\(byteCount(downloaded)) of \(byteCount(total))")
-                if let bytesPerSecond {
-                    if bytesPerSecond == 0 {
-                        Text("0 B/s")
-                    } else if total > downloaded {
-                        Text("\(byteCount(bytesPerSecond))/s · \(remainingTime(at: bytesPerSecond)) remaining")
-                    } else {
-                        Text("\(byteCount(bytesPerSecond))/s")
-                    }
-                }
+                byteProgress
+                if let transferEstimate { transferEstimate }
             }
             .monospacedDigit()
         }
         .progressViewStyle(.linear)
         .accessibilityLabel("Downloading local model")
+        .accessibilityValue(transferEstimate.map { Text("\(byteProgress), \($0)") } ?? byteProgress)
+    }
+
+    private var transferEstimate: Text? {
+        guard let bytesPerSecond else { return nil }
+        if bytesPerSecond == 0 {
+            return Text("0 B/s")
+        }
+        let speed = byteCount(bytesPerSecond)
+        if total > downloaded {
+            return Text("\(speed)/s · \(remainingTime(at: bytesPerSecond)) remaining")
+        }
+        return Text("\(speed)/s")
     }
 
     private func byteCount(_ count: UInt64) -> String {
