@@ -69,11 +69,11 @@ impl Host for FixtureHost {
         } else {
             "finish"
         };
-        Ok(vec![ToolDefinition {
-            name: fritz_harness::message::ToolName::new(name)?,
-            description: "Host-owned action".into(),
-            parameters: json!({"type":"object","properties":{}}),
-        }])
+        Ok(vec![ToolDefinition::new(
+            fritz_harness::message::ToolName::new(name)?,
+            "Host-owned action",
+            json!({"type":"object","properties":{}}),
+        )])
     }
 
     async fn execute(&self, call: &ToolCall) -> Result<ToolResult> {

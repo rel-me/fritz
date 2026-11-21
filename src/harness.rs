@@ -504,7 +504,10 @@ impl<E: Fn(Value) + Sync> Host for WorkspaceHost<'_, E> {
             .registry
             .as_ref()
             .map(|registry| registry.tool_definitions())
-            .unwrap_or_default())
+            .unwrap_or_default()
+            .into_iter()
+            .map(std::sync::Arc::unwrap_or_clone)
+            .collect())
     }
 
     fn unavailable_tool(&self, call: &Call) -> Result<ToolResult> {

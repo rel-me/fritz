@@ -20,11 +20,11 @@ async fn native_harness_uses_only_host_tools_and_refreshes_them_after_execution(
     impl Host for HostTools {
         fn tools(&self) -> anyhow::Result<Vec<ToolDefinition>> {
             Ok(if self.0.load(Ordering::SeqCst) == 0 {
-                vec![ToolDefinition {
-                    name: fritz::harness_core::message::ToolName::new("host_lookup").unwrap(),
-                    description: "Host lookup".into(),
-                    parameters: json!({"type":"object","properties":{}}),
-                }]
+                vec![ToolDefinition::new(
+                    fritz::harness_core::message::ToolName::new("host_lookup").unwrap(),
+                    "Host lookup",
+                    json!({"type":"object","properties":{}}),
+                )]
             } else {
                 vec![]
             })

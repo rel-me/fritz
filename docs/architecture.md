@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Every conversation runs through Rig 0.43's agent runtime inside the bundled
+Every conversation runs through Rig 0.47's agent runtime inside the bundled
 `fritz-harness` process. Fritz supplies the provider adapters, local inference, and
 application policy. Folder actions use Fritz's own tools registered with Rig; Rig does
 not supply the file and shell implementations. Their paths are relative to the attached

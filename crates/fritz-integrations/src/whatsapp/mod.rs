@@ -500,13 +500,8 @@ impl Service {
                 .await
                 .map_err(|_| failure("WhatsApp is still stopping. Try again."))
             });
-            let (shutdown, run) = match stopped {
-                Ok(result) => {
-                    self.handle.take();
-                    result
-                }
-                Err(error) => return Err(error),
-            };
+            let (shutdown, run) = stopped?;
+            self.handle.take();
             let shutdown_clean = shutdown.is_clean();
             let run_completed = matches!(run, BotRunOutcome::Completed(_));
             if !shutdown_clean || !run_completed {

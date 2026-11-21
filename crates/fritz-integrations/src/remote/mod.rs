@@ -269,7 +269,7 @@ fn start(config: Config, host: Arc<dyn RemoteHost>, identity: Identity) -> Resul
                 match listener.accept() {
                     Ok((socket, _)) => {
                         if active
-                            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                                 (n < 16).then_some(n + 1)
                             })
                             .is_err()

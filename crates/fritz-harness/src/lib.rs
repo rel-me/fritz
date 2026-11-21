@@ -3,9 +3,11 @@
 //! host implementations must propagate cancellation to work they spawn.
 
 use anyhow::{Context, Result, bail};
-use rig_agent::agent::{
-    InvalidToolCallAction,
-    run::{AgentRun, AgentRunStep, ModelTurn, ModelTurnOutcome},
+use rig_agent::{
+    agent::InvalidToolCallAction,
+    run::{
+        AgentRun, AgentRunStep, ModelTurn, ModelTurnOutcome, PendingToolCall, policy::TurnPolicy,
+    },
 };
 use rig_core::{
     completion::{AssistantMessage, Usage},
@@ -18,6 +20,7 @@ use serde_json::Value;
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
+    sync::Arc,
     time::Duration,
 };
 
@@ -124,9 +127,9 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
             .with_history(history)
             .max_turns(limits.model_turns);
         let mut tool_count = 0usize;
-        let mut rejected = HashMap::new();
+        let mut step = run.next_step()?;
         loop {
-            match run.next_step()? {
+            step = match step {
                 AgentRunStep::CallModel {
                     turn: index,
                     history,
@@ -139,7 +142,10 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                             .context("Compacted conversation is empty.")?;
                         (conversation, prompt)
                     } else {
-                        (history, prompt)
+                        (
+                            history.into_iter().map(Arc::unwrap_or_clone).collect(),
+                            Arc::unwrap_or_clone(prompt),
+                        )
                     };
                     model.prepare(&history, &prompt, index)?;
                     let definitions = host.tools()?;
@@ -188,14 +194,15 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                             ),
                         ));
                     }
+                    let policy = TurnPolicy::new(names, None, None)?;
                     let mut outcome = run.model_response(ModelTurn::new(
                         AssistantMessage::default(),
                         content,
                         Usage::default(),
-                        names.clone(),
-                        names,
+                        policy,
                         Value::Null,
                     ))?;
+                    let mut rejected = HashMap::new();
                     while let ModelTurnOutcome::NeedsResolution(context) = outcome {
                         let call = ToolCall {
                             id: context
@@ -213,30 +220,30 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                         outcome =
                             run.resolve_invalid_tool_call(InvalidToolCallAction::skip(feedback))?;
                     }
+                    let next = run.next_step()?;
+                    if !rejected.is_empty() {
+                        let results = skipped_results(&next, rejected)?;
+                        tool_count += results.len();
+                        model.results(results)?;
+                    }
+                    next
                 }
                 AgentRunStep::CallTools { calls } => {
+                    let calls = calls
+                        .into_iter()
+                        .map(|call| match call {
+                            PendingToolCall::Execute(call) => Ok(call),
+                            _ => {
+                                bail!("Rig returned a nonexecutable tool call; no tools executed.")
+                            }
+                        })
+                        .collect::<Result<Vec<_>>>()?;
                     tool_count += calls.len();
                     let mut results = Vec::with_capacity(calls.len());
-                    let mut receipts = Vec::with_capacity(calls.len());
+                    let mut answers = Vec::with_capacity(calls.len());
                     for pending in calls {
-                        let rig_call = pending.tool_call;
-                        let call = ToolCall {
-                            id: rig_call.id.to_string(),
-                            name: rig_call.function.name.to_string(),
-                            arguments: serde_json::to_string(&rig_call.function.arguments)?,
-                        };
-                        let result = if let Some(result) = rejected.remove(&call.id) {
-                            result
-                        } else if let Some(UserContent::ToolResult(skipped)) =
-                            pending.preresolved_result
-                        {
-                            ToolResult::json(
-                                serde_json::json!({"error":tools::ToolOutput::content(skipped.content)?.render()}),
-                                true,
-                            )
-                        } else {
-                            host.execute(&call).await?
-                        };
+                        let call = host_call(pending.tool_call());
+                        let result = host.execute(&call).await?;
                         let mut content = vec![match &result.value {
                             Value::String(text) => ToolResultContent::text(text),
                             value => ToolResultContent::json(value.clone()),
@@ -251,18 +258,24 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
                                 None,
                             ));
                         }
-                        receipts.push(UserContent::tool_result(
-                            rig_call.id,
-                            rig_call.function.name,
-                            content,
-                        ));
+                        let output = tools::ToolOutput::content(content)?;
+                        let answer = if result.failed {
+                            tools::ToolResult::failed(
+                                tools::ToolExecutionError::other("The tool reported a failure.")
+                                    .with_model_output(output),
+                            )
+                        } else {
+                            tools::ToolResult::success(output)
+                        };
+                        answers.push(pending.answer(answer));
                         results.push((call, result));
                     }
                     model.results(results)?;
-                    run.tool_results(receipts)?;
+                    run.answer_all(answers)?;
+                    run.next_step()?
                 }
                 AgentRunStep::Done(_) => return Ok(()),
-            }
+            };
         }
     };
     match tokio::time::timeout(limits.deadline, work).await {
@@ -271,4 +284,58 @@ pub async fn run(model: &mut impl Model, host: &impl Host, limits: Limits) -> Re
             "The run reached its deadline. Review the activity and send a follow-up to continue."
         ),
     }
+}
+
+fn host_call(call: &message::ToolCall) -> ToolCall {
+    ToolCall {
+        id: call.id.to_string(),
+        name: call.function.name.to_string(),
+        arguments: call.function.arguments_json(),
+    }
+}
+
+// Rig commits a skipped batch before requesting the next model turn. Deliver
+// those same receipts to the host's provider-native history before it runs.
+fn skipped_results(
+    next: &AgentRunStep,
+    mut rejected: HashMap<String, ToolResult>,
+) -> Result<Vec<(ToolCall, ToolResult)>> {
+    let AgentRunStep::CallModel {
+        history, prompt, ..
+    } = next
+    else {
+        bail!("Rig did not advance after skipping the tool batch.");
+    };
+    let (Some(Message::Assistant(turn)), Message::User { content }) =
+        (history.last().map(Arc::as_ref), prompt.as_ref())
+    else {
+        bail!("Rig did not commit the skipped tool receipts.");
+    };
+    let calls = turn
+        .content
+        .iter()
+        .filter_map(AssistantContent::as_tool_call);
+    if calls.clone().count() != content.len() {
+        bail!("Rig returned an incomplete skipped tool batch.");
+    }
+    calls
+        .zip(content)
+        .map(|(call, receipt)| {
+            let UserContent::ToolResult(receipt) = receipt else {
+                bail!("Rig returned an invalid skipped tool receipt.");
+            };
+            if receipt.call != call.id {
+                bail!("Rig mismatched a skipped tool receipt.");
+            }
+            let call = host_call(call);
+            let result = match rejected.remove(&call.id) {
+                Some(result) => result,
+                None => {
+                    let feedback = tools::ToolOutput::content(receipt.content.clone())?.render();
+                    ToolResult::json(serde_json::json!({"error": feedback}), true)
+                }
+            };
+            Ok((call, result))
+        })
+        .collect()
 }
