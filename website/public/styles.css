@@ -382,8 +382,7 @@ h1 {
   font: 700 1rem var(--font-brand);
 }
 
-.download-edition h2 span,
-.edition-link {
+.download-edition h2 span {
   color: var(--ink-2);
   font: 500 0.9rem var(--font-brand);
 }

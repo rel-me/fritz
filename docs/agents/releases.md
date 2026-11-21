@@ -87,7 +87,8 @@ Security Policy, so keep scripts and styles in separate files. `/download`
 redirects to the newest Release DMG in the appcast, or the newest Beta before a
 Release exists. The page reads the same appcast to show the default WebKit
 build's version and DMG size. The Apple silicon Chromium download has its own
-version and reads its DMG size from R2 through `/chromium-download.json`. The raven, favicon, touch icon, and social card
+version and reads its DMG size from R2 through `/chromium-download.json`. The
+homepage links to the experimental edition's download page at `/chromium/`. The raven, favicon, touch icon, and social card
 come from `design/branding/export.py`.
 
 The homepage always uses the dark app screenshot, independent of the page's

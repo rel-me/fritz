@@ -19,12 +19,14 @@ for (const element of document.querySelectorAll("[data-reveal]")) {
 const formatSize = (bytes) => `${(bytes / 1_000_000).toFixed(1)} MB`;
 
 async function showDefaultDownload() {
+  const labels = document.querySelectorAll("[data-version]");
+  if (!labels.length) return;
   const response = await fetch("/appcast.xml", { cache: "no-store" });
   const latest = response.ok && latestDownload(await response.text());
   if (latest) {
     const channel = latest.channel === "release" ? "" : ` ${latest.channel}`;
     const size = latest.bytes ? ` · ${formatSize(latest.bytes)}` : "";
-    for (const element of document.querySelectorAll("[data-version]")) {
+    for (const element of labels) {
       element.textContent = `Version ${latest.version}${channel}${size} · Requires macOS 15 or later.`;
     }
     for (const link of document.querySelectorAll("[data-download]")) {
@@ -34,16 +36,15 @@ async function showDefaultDownload() {
 }
 
 async function showChromiumDownload() {
-  const response = await fetch("/chromium-download.json", { cache: "no-store" });
-  if (!response.ok) return;
-  const { version, archive, bytes } = await response.json();
   const download = document.querySelector("[data-chromium-download]");
   const label = document.querySelector("[data-chromium-version]");
   if (!download || !label) return;
+  const response = await fetch("/chromium-download.json", { cache: "no-store" });
+  if (!response.ok) return;
+  const { version, archive, bytes } = await response.json();
   download.href = archive;
   label.textContent = `Version ${version} · ${formatSize(bytes)} · Requires macOS 15 or later.`;
   download.hidden = false;
-  label.hidden = false;
 }
 
 // Keep the default download and source build links available if metadata is offline.

@@ -19,3 +19,11 @@
 ## Delegated follow-up prompt
 
 > Monitor PR #147 again after the Chromium DMG changes are pushed. Diagnose and fix failures caused by the change, commit and push any fixes, and monitor the resulting checks. Report final check results and blockers.
+
+## Follow-up request
+
+> Make the Chromium version a link to a separate page.. It's listed as experimental, for models that need to use a real browser footprint.
+
+## Delegated follow-up prompt
+
+> Monitor PR #147 again after the experimental Chromium page changes are pushed. Diagnose and fix failures caused by the change, commit and push any fixes, and monitor the resulting checks. Report final check results and blockers.
