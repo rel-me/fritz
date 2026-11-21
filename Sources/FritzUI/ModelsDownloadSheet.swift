@@ -57,14 +57,14 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
         .onChange(of: storage.info?.directory) { _, _ in model.refresh() }
         .onDisappear { model.cancel() }
         .onChange(of: filters) { _, newFilters in
-            if !hasVisibleSelection, let first = newFilters.models(in: model.catalog).first {
+            if !hasVisibleSelection, let first = newFilters.models(in: model.catalog, hardware: hardware).first {
                 model.select(first.id)
             }
         }
     }
 
     private var hasVisibleSelection: Bool {
-        filters.models(in: model.catalog).contains { $0.id == model.selectedModelID }
+        filters.models(in: model.catalog, hardware: hardware).contains { $0.id == model.selectedModelID }
     }
 
     private var downloadTitle: String {

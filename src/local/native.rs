@@ -13,13 +13,14 @@ use std::{
 use tokio::sync::mpsc;
 
 #[cfg(test)]
-pub(crate) const REVISION: &str = "7c2653acc749258dc62067da62d07024d971ccd2";
+pub(crate) const REVISION: &str = "690b87d88151dbd775bb6eff5581663688785928";
 
 unsafe extern "C" {
     fn fl_model_load(
         path: *const c_char,
         context: i32,
         chat: bool,
+        inkling_loop: bool,
         cancel: extern "C" fn(*mut c_void) -> bool,
         data: *mut c_void,
         error: *mut *mut c_char,
@@ -112,11 +113,17 @@ extern "C" fn event(data: *mut c_void, payload: *const c_char) -> bool {
     .unwrap_or(false)
 }
 impl Model {
-    pub(crate) async fn load(path: &Path, context: usize, chat: bool) -> Result<Arc<Self>> {
+    pub(crate) async fn load(
+        path: &Path,
+        context: usize,
+        chat_architecture: Option<&str>,
+    ) -> Result<Arc<Self>> {
         let storage_use = crate::model_storage::use_file(path)?;
         let path = CString::new(path.as_os_str().as_encoded_bytes())?;
         let context = i32::try_from(context).context("Invalid local context size")?;
         anyhow::ensure!(context > 0, "Invalid local context size");
+        let chat = chat_architecture.is_some();
+        let inkling_loop = chat_architecture == Some("inkling2_loop");
         worker(move |flag| {
             let mut error = std::ptr::null_mut();
             let value = unsafe {
@@ -124,6 +131,7 @@ impl Model {
                     path.as_ptr(),
                     context,
                     chat,
+                    inkling_loop,
                     cancelled,
                     flag_pointer(flag),
                     &mut error,

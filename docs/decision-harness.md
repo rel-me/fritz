@@ -29,7 +29,7 @@ Laya and Kev raw logits pass through their pinned calibration artifacts before t
 Bosun 3.1 0.6B F16 is another experimental engine under the existing local
 `ollaya` provider and wire identifier. Fritz loads its installed GGUF through the
 bundled llama.cpp Metal runtime, pinned at
-`7c2653acc749258dc62067da62d07024d971ccd2`. The catalog pins the original compiler,
+`690b87d88151dbd775bb6eff5581663688785928`. The catalog pins the original compiler,
 serving contract, tokenizer, template, license and merged GGUF by revision and
 checksum. Inference needs no separate base or LoRA download. Its exact compiler
 assigns presented candidate slots, and its readout uses final-prompt logits for

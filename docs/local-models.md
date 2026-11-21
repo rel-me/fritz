@@ -22,6 +22,34 @@ add or edit a **Fritz** provider in **Settings → Models** and select it. Insta
 models then become available in the chat model picker. Removing a provider leaves
 downloaded weights available for reuse.
 
+Inkling 2 Mini is available for local text chat under the Inkling family. The
+IQ4_NL download is 17.63 GB. Fritz recommends 24 GB of RAM. The weights are
+licensed under Apache 2.0. When Metal has less than 20 GiB of working-set space
+available, Fritz keeps the model's first six layers' expert weights in CPU
+memory to make room for its attention and compute buffers.
+
+## Compare models
+
+Click the **Score** column in Local Models or Download Local Model to sort by the
+[Artificial Analysis Intelligence Index v5.0.1](https://artificialanalysis.ai/methodology/intelligence-benchmarking).
+This independent index combines nine evaluations across knowledge, reasoning,
+coding, and multi-step work. It uses some private test material, which limits
+direct practice on those items. Scores are published results for the evaluated
+model configurations. The downloadable GGUFs can perform differently due to
+quantization, runtime, and context limits.
+
+The catalog snapshot on November 21, 2026 includes
+[Inkling 2 Mini (20)](https://artificialanalysis.ai/models/inkling-2-mini) and
+[Qwen3.8 27B in non-reasoning mode (10)](https://artificialanalysis.ai/models/qwen3-8-27b).
+Models without comparable results show a dash and stay below scored models
+when sorting. Use the **Score** filter to show scored or unscored models, or
+set a minimum score. New scores should use the same index version and identify
+the tested configuration.
+
+**Runnable on This Mac** checks installed RAM against the catalog's recommendation
+and checks for a Metal device for models that require it. It estimates fit on
+the hardware. Memory in use and disk space can still affect loading or installation.
+
 ## Storage and runtime
 
 Downloads are pinned to repository revisions, file sizes, and SHA-256 hashes. Models run

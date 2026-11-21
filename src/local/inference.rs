@@ -56,8 +56,9 @@ impl Engine {
     }
 
     pub(crate) async fn model(&self) -> Result<&Arc<Model>> {
+        let architecture = &super::models::manifest(&self.model_id)?.architecture;
         self.model
-            .get_or_try_init(|| Model::load(&self.path, self.context_size, true))
+            .get_or_try_init(|| Model::load(&self.path, self.context_size, Some(architecture)))
             .await
             .context("Could not load the installed GGUF with llama.cpp")
     }

@@ -398,7 +398,7 @@ a retry merges and replaces matching records.
 ## Bundled llama.cpp runtime
 
 Chat and Bosun statically link llama.cpp at
-`7c2653acc749258dc62067da62d07024d971ccd2` through `native/bridge.cpp`.
+`690b87d88151dbd775bb6eff5581663688785928` through `native/bridge.cpp`.
 CMake enables CPU and Metal with embedded shaders and Jinja chat support;
 servers, tools, examples, subprocess support, OpenSSL, BLAS and OpenMP are disabled.
 The native and opt-in Chromium builds pass an explicit macOS SDK to CMake,
