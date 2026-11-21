@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
-use whatsapp_rust::prelude::{Bot, BotHandle, Event, EventKind, MessageBuilderExt};
+use whatsapp_rust::prelude::{Bot, BotHandle, BotRunOutcome, Event, EventKind, MessageBuilderExt};
 use whatsapp_rust::wacore::store::DevicePropsOverride;
 use whatsapp_rust::wacore::store::traits::DeviceStore;
 use whatsapp_rust::waproto::whatsapp::device_props::PlatformType;
@@ -178,17 +178,20 @@ fn request_result(owner: &WhatsAppService, request: &AgentHttpRequest) -> Result
                 .block_on(async {
                     tokio::time::timeout(
                         Duration::from_secs(20),
-                        client.groups().get_participating(),
+                        client.groups().list_participating(),
                     )
                     .await
                 })
                 .map_err(|_| failure("Group refresh timed out. Try again."))?
                 .map_err(|_| failure("Could not load WhatsApp groups. Try again."))?;
             service.groups = groups
-                .into_values()
-                .map(|g| Destination {
-                    id: g.id.to_string(),
-                    name: g.subject,
+                .into_iter()
+                .map(|g| {
+                    let id = g.id.to_string();
+                    Destination {
+                        name: g.subject.unwrap_or_else(|| id.clone()),
+                        id,
+                    }
                 })
                 .collect();
             service
@@ -286,7 +289,7 @@ impl Service {
             .ok_or_else(|| failure("WhatsApp is disconnected. Reconnect in Settings → WhatsApp."))?
             .client();
         self.runtime.block_on(async {
-            client.wait_for_connected(Duration::from_secs(20)).await
+            client.wait_for_session_ready(Duration::from_secs(20)).await
                 .map_err(|_| failure("WhatsApp could not connect. Check Settings → WhatsApp and your network."))?;
             let sent = tokio::time::timeout(
                 Duration::from_secs(20),
@@ -294,7 +297,7 @@ impl Service {
             ).await
                 .map_err(|_| failure("WhatsApp sending timed out. Delivery is uncertain; check the group before retrying."))?
                 .map_err(|_| failure("WhatsApp sending failed. Check the group and connection before retrying."))?;
-            Ok(json!({"message_id": sent.message_id, "destination_id": sent.to.to_string()}))
+            Ok(json!({"message_id": sent.message_id.to_string(), "destination_id": sent.to.to_string()}))
         })
     }
     fn with_config(config: Config) -> Result<Self, Error> {
@@ -367,7 +370,7 @@ impl Service {
         }
         if let Some(handle) = &self.handle
             && status.phase == "connected"
-            && !handle.client().is_connected()
+            && !handle.client().is_session_ready()
         {
             status.phase = "connecting".into();
             self.started_at
@@ -481,26 +484,41 @@ impl Service {
         self.handle
             .as_ref()
             .map(|h| h.client())
-            .filter(|c| c.is_connected() && self.status.lock().unwrap().phase == "connected")
+            .filter(|c| c.is_session_ready() && self.status.lock().unwrap().phase == "connected")
             .ok_or_else(|| failure("Connect WhatsApp before choosing a group."))
     }
     fn stop(&mut self) -> Result<(), Error> {
-        if let Some(handle) = &self.handle {
+        let mut shutdown_error = None;
+        if let Some(handle) = self.handle.as_mut() {
             let client = handle.client();
-            self.runtime
-                .block_on(async {
-                    tokio::time::timeout(Duration::from_secs(10), client.disconnect()).await
+            let stopped = self.runtime.block_on(async {
+                tokio::time::timeout(Duration::from_secs(10), async {
+                    let shutdown = client.shutdown().await;
+                    let run = (&mut *handle).await;
+                    (shutdown, run)
                 })
-                .map_err(|_| failure("WhatsApp is still stopping. Try again."))?;
+                .await
+                .map_err(|_| failure("WhatsApp is still stopping. Try again."))
+            });
+            let (shutdown, run) = match stopped {
+                Ok(result) => {
+                    self.handle.take();
+                    result
+                }
+                Err(error) => return Err(error),
+            };
+            let shutdown_clean = shutdown.is_clean();
+            let run_completed = matches!(run, BotRunOutcome::Completed(_));
+            if !shutdown_clean || !run_completed {
+                shutdown_error = Some(failure(
+                    "Could not finish saving WhatsApp connection state.",
+                ));
+            }
         }
-        if let Some(backend) = &self.backend {
+        if let Some(backend) = self.backend.take() {
             self.runtime.block_on(backend.close());
         }
-        if let Some(handle) = self.handle.take() {
-            handle.abort();
-        }
-        self.backend = None;
-        Ok(())
+        shutdown_error.map_or(Ok(()), Err)
     }
     fn forget(&mut self) -> Result<(), Error> {
         remote::invalidate(&mut self.status.lock().unwrap());

@@ -635,6 +635,31 @@ impl AppSyncStore for KeychainBackend {
         .await
     }
 
+    async fn commit_patch(
+        &self,
+        name: &str,
+        state: HashState,
+        removed_index_macs: &[Vec<u8>],
+        added: &[AppStateMutationMAC],
+    ) -> Result<()> {
+        self.transact(|candidate| {
+            candidate.versions.insert(name.to_string(), state);
+            for index_mac in removed_index_macs {
+                candidate
+                    .mutation_macs
+                    .remove(&(name.to_string(), index_mac.clone()));
+            }
+            for mutation in added {
+                candidate.mutation_macs.insert(
+                    (name.to_string(), mutation.index_mac.clone()),
+                    mutation.value_mac.clone(),
+                );
+            }
+            Ok(())
+        })
+        .await
+    }
+
     async fn get_latest_sync_key_id(&self) -> Result<Option<Vec<u8>>> {
         Ok(self.state.lock().await.latest_sync_key_id.clone())
     }
@@ -1522,6 +1547,125 @@ mod tests {
             assert_eq!(disk.load_identity("test:1").await.unwrap(), Some([7; 32]));
         });
     }
+
+    #[test]
+    fn app_state_patch_commits_version_and_macs_atomically() {
+        let fixture = Fixture(format!("dev.fritz.whatsapp.tests.{}", uuid::Uuid::new_v4()));
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let store = KeychainBackend::open(fixture.0.clone()).unwrap();
+            let initial = HashState {
+                version: 1,
+                ..HashState::default()
+            };
+            store.set_version("regular", initial).await.unwrap();
+            store
+                .put_mutation_macs(
+                    "regular",
+                    1,
+                    &[AppStateMutationMAC {
+                        index_mac: b"removed".to_vec(),
+                        value_mac: b"old-value".to_vec(),
+                    }],
+                )
+                .await
+                .unwrap();
+
+            let updated = HashState {
+                version: 2,
+                ..HashState::default()
+            };
+            store
+                .commit_patch(
+                    "regular",
+                    updated,
+                    &[b"removed".to_vec()],
+                    &[AppStateMutationMAC {
+                        index_mac: b"added".to_vec(),
+                        value_mac: b"new-value".to_vec(),
+                    }],
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                store.get_version("regular").await.unwrap().unwrap().version,
+                2
+            );
+            assert_eq!(
+                store.get_mutation_mac("regular", b"removed").await.unwrap(),
+                None
+            );
+            assert_eq!(
+                store.get_mutation_mac("regular", b"added").await.unwrap(),
+                Some(b"new-value".to_vec())
+            );
+
+            store.close().await;
+            let rejected = HashState {
+                version: 3,
+                ..HashState::default()
+            };
+            assert!(
+                store
+                    .commit_patch(
+                        "regular",
+                        rejected,
+                        &[b"added".to_vec()],
+                        &[AppStateMutationMAC {
+                            index_mac: b"rejected".to_vec(),
+                            value_mac: b"rejected-value".to_vec(),
+                        }],
+                    )
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                store.get_version("regular").await.unwrap().unwrap().version,
+                2
+            );
+            assert_eq!(
+                store.get_mutation_mac("regular", b"added").await.unwrap(),
+                Some(b"new-value".to_vec())
+            );
+            assert_eq!(
+                store
+                    .get_mutation_mac("regular", b"rejected")
+                    .await
+                    .unwrap(),
+                None
+            );
+
+            let restored = KeychainBackend::open(fixture.0.clone()).unwrap();
+            assert_eq!(
+                restored
+                    .get_version("regular")
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .version,
+                2
+            );
+            assert_eq!(
+                restored
+                    .get_mutation_mac("regular", b"added")
+                    .await
+                    .unwrap(),
+                Some(b"new-value".to_vec())
+            );
+            assert_eq!(
+                restored
+                    .get_mutation_mac("regular", b"rejected")
+                    .await
+                    .unwrap(),
+                None
+            );
+            restored.close().await;
+        });
+    }
+
     #[test]
     #[ignore = "Connects to WhatsApp to verify the native Keychain pairing path"]
     fn live_pairing_challenge_with_keychain_backend() {
@@ -1549,6 +1693,8 @@ mod tests {
                 tokio::time::timeout(std::time::Duration::from_secs(45), rx.recv()).await;
             tokio::time::timeout(std::time::Duration::from_secs(10), handle.shutdown())
                 .await
+                .unwrap()
+                .into_result()
                 .unwrap();
             backend.close().await;
             assert_eq!(challenge.unwrap(), Some(true));

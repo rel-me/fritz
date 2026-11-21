@@ -59,7 +59,7 @@ pub(super) fn receive(status: &mut Status, context: &whatsapp_rust::bot::Message
         context.info.id.as_ref(),
         &context.info.source.chat.to_string(),
         context.info.source.is_from_me,
-        context.info.timestamp.timestamp().max(0) as u64,
+        context.info.timestamp.as_secs().max(0) as u64,
         text,
         now(),
     );
