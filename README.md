@@ -177,6 +177,7 @@ See [runtime verification](docs/agents/runtime-verification.md),
 - [Using chat](docs/chat.md): projects, conversations, keyboard shortcuts, activity, and usage.
 - [Providers](docs/providers.md): connections, discovery, model selection, and import/export.
 - [Local models](docs/local-models.md): downloads, storage, hardware estimates, and the local API.
+- [Model catalog](https://fritz.rel.me/catalog): local downloads, remote model metadata, and pricing.
 - [Decision models](docs/decision-models.md): remote and experimental local judgment backends.
 - [App updates](docs/updates.md): update channels and release behavior.
 - [Architecture and storage](docs/architecture.md): harnesses, process ownership, and persistence.

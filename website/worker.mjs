@@ -1,5 +1,6 @@
 import { recordNetworkUnique, excludedRequest } from "./network-uniques.mjs";
 import { latestDownload } from "./public/appcast.mjs";
+import { serveModelCatalog, serveModelCatalogPage } from "./model-catalog.mjs";
 
 const ARCHIVE_PATH = /^\/updates\/(Fritz-\d+\.\d+\.\d+\.dmg)$/;
 
@@ -63,6 +64,8 @@ export default {
       if (request.method === "GET") return new Response('<!doctype html><title>Exclude testing</title><h1>Exclude this browser</h1><form method="post"><button>Exclude future requests</button></form>', { headers });
       return new Response("Method not allowed", { status: 405 });
     }
+    if (url.pathname === "/supported-models.json") return serveModelCatalog(request);
+    if (url.pathname === "/catalog" || url.pathname === "/catalog/") return serveModelCatalogPage(request);
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     }

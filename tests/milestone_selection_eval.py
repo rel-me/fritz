@@ -346,7 +346,7 @@ def prepare(options):
     core.require(readiness['sha256']==options.readiness_receipt_sha256,'Frozen readiness receipt SHA mismatch')
     binaries=core.inspect_binaries(options.bin_dir);catalogs=Path(options.bin_dir)/'Fritz_Fritz.bundle/Contents/Resources'
     validate_readiness(receipt,options.resident_ready,binaries['decision']['sha256'])
-    models={HOST:core.inspect_model(catalogs/'LocalModels.json',HOST,options.models_directory),DECISION:core.inspect_model(catalogs/'DecisionModels.json',DECISION,options.decision_models_directory,decision=True)}
+    models={HOST:core.inspect_model(catalogs/'ModelCatalog.json',HOST,options.models_directory),DECISION:core.inspect_model(catalogs/'ModelCatalog.json',DECISION,options.decision_models_directory,decision=True)}
     return {'schema':'fritz-milestone-selection-protocol-v1','scope':SCOPE,'created_at':core.timestamp(),
         'driver':core.pin(Path(__file__).resolve()),'corpus':core.pin(options.corpus),'preregistration':preregistration,'cases':cases,
         'core':core.pin(Path(core.__file__).resolve()),'transport':transport.provenance(),'binaries':binaries,'models':models,

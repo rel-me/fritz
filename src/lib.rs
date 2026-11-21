@@ -7,6 +7,8 @@
 //! [`harness::run`] accepts explicit connection/credential input; its folder
 //! actions execute with the current user's permissions, not an OS sandbox.
 
+pub(crate) const MODEL_CATALOG_JSON: &str = include_str!("../Sources/Fritz/ModelCatalog.json");
+
 pub mod config;
 pub mod decision;
 pub mod decision_client;

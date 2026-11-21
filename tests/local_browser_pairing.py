@@ -163,7 +163,10 @@ def inspect_model(catalog, model, directory, *, decision=False):
     catalog_pin = pin(catalog)
     require(catalog_pin['bytes'] <= MAX_CORPUS_BYTES, 'Catalog exceeds bound')
     data = strict_json(Path(catalog).read_bytes())
-    matches = [item for item in data.get('models', []) if item.get('id') == model]
+    section = 'local_decision' if decision else 'local_chat'
+    # Frozen protocols before the master catalog pin an individual inventory.
+    inventory = data[section] if 'catalog_version' in data else data
+    matches = [item for item in inventory['models'] if item.get('id') == model]
     require(len(matches) == 1, 'Model must have one catalog manifest')
     manifest = matches[0]
     require(isinstance(manifest.get('revision'), str) and manifest['revision'], 'Manifest revision missing')

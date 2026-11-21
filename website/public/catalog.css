@@ -1,0 +1,77 @@
+.catalog {
+  max-width: var(--max);
+  margin-inline: auto;
+  padding: clamp(2rem, 5vw, 4rem) var(--gutter);
+  font-family: var(--font-brand);
+}
+
+.catalog h1,
+.catalog h2,
+.catalog h3 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.catalog h1 { font-size: clamp(2.5rem, 7vw, 4.5rem); }
+.catalog h2 { margin-top: 2.5rem; font-size: 2rem; }
+.catalog h3 { margin: 1.5rem 0 0.5rem; font-size: 1.25rem; }
+
+.catalog-version {
+  margin: 0.5rem 0 1.5rem;
+  color: var(--ink-2);
+}
+
+.catalog label { font-weight: 600; }
+
+.catalog input {
+  display: block;
+  width: min(100%, 32rem);
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--ink-3);
+  border-radius: 0.4rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+
+.catalog-table {
+  overflow: auto;
+  border: 1px solid var(--rule);
+  border-radius: 0.5rem;
+}
+
+.catalog table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.catalog th,
+.catalog td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.catalog th {
+  white-space: nowrap;
+  background: var(--chip);
+}
+
+.catalog tbody tr:last-child td { border-bottom: none; }
+.catalog summary { min-width: 12rem; cursor: pointer; }
+.catalog small { display: block; color: var(--ink-2); overflow-wrap: anywhere; }
+
+.catalog pre {
+  max-width: min(28rem, 70vw);
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 0.35rem;
+  background: var(--chip);
+  font: 0.85rem/1.5 var(--font-mono);
+}
+
+.catalog [hidden] { display: none; }

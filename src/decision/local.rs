@@ -42,13 +42,18 @@ pub(crate) struct ModelFile {
 
 pub fn catalog() -> &'static [Manifest] {
     #[derive(Deserialize)]
-    struct Catalog {
+    struct Inventory {
         models: Vec<Manifest>,
+    }
+    #[derive(Deserialize)]
+    struct Catalog {
+        local_decision: Inventory,
     }
     static CATALOG: std::sync::OnceLock<Vec<Manifest>> = std::sync::OnceLock::new();
     CATALOG.get_or_init(|| {
-        serde_json::from_str::<Catalog>(include_str!("../../Sources/Fritz/DecisionModels.json"))
+        serde_json::from_str::<Catalog>(crate::MODEL_CATALOG_JSON)
             .expect("checked-in decision model catalog")
+            .local_decision
             .models
     })
 }

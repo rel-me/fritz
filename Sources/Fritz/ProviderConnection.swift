@@ -37,7 +37,12 @@ public enum AIProviderKind: String, CaseIterable, Codable, Hashable, Identifiabl
     public var requiresAPIKey: Bool { self != .openAICompatible && self != .ollama && !isNative }
     public var isNative: Bool { self == .fritz || self == .ollaya }
     public var category: AIModelCategory { self == .jev || self == .ollaya || self == .openAIDecisions ? .decision : .llm }
-    public var decisionModelID: String { self == .openAIDecisions ? "gpt-6-luna" : self == .jev ? "jev-latest" : "" }
+    public var decisionModelID: String {
+        switch self {
+        case .openAIDecisions, .jev: BundledModelCatalog.decisionModelID(for: self)
+        default: ""
+        }
+    }
     public var systemImage: String {
         switch self {
         case .openAI: "sparkles"
