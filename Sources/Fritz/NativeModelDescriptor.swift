@@ -1,11 +1,15 @@
 import Foundation
+import Metal
 
 public struct LocalModelHardware: Sendable {
     public let memoryGB: Int
     public let appleSilicon: Bool
-    public init(memoryGB: Int, appleSilicon: Bool) {
+    public let metalAvailable: Bool
+
+    public init(memoryGB: Int, appleSilicon: Bool, metalAvailable: Bool = true) {
         self.memoryGB = memoryGB
         self.appleSilicon = appleSilicon
+        self.metalAvailable = metalAvailable
     }
 
     public static var current: Self {
@@ -16,7 +20,8 @@ public struct LocalModelHardware: Sendable {
         #endif
         return Self(
             memoryGB: Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824),
-            appleSilicon: appleSilicon
+            appleSilicon: appleSilicon,
+            metalAvailable: MTLCreateSystemDefaultDevice() != nil
         )
     }
 
@@ -24,6 +29,9 @@ public struct LocalModelHardware: Sendable {
         "\(appleSilicon ? "Apple silicon" : "Intel Mac") · \(memoryGB) GB memory"
     }
 
+    public func canRun(_ model: NativeModelDescriptor) -> Bool {
+        memoryGB >= model.memoryGB && (metalAvailable || !model.requiresMetal)
+    }
 }
 
 public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendable {
@@ -34,6 +42,21 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     public let size: UInt64
     public let memoryGB: Int
     public let licenseURL: URL
+    public let benchmarkScore: BenchmarkScore?
+    private let engine: String?
+
+    public struct BenchmarkScore: Decodable, Equatable, Sendable {
+        public let points: Int
+        public let configuration: String
+        public let sourceURL: URL
+
+        private enum CodingKeys: String, CodingKey {
+            case points, configuration
+            case sourceURL = "source_url"
+        }
+    }
+
+    fileprivate var requiresMetal: Bool { category == .llm || engine == "bosun" }
 
     public init(id: String, name: String, size: UInt64, memoryGB: Int, licenseURL: URL,
                 family: String = "Other", category: AIModelCategory = .llm) {
@@ -44,10 +67,13 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
         self.size = size
         self.memoryGB = memoryGB
         self.licenseURL = licenseURL
+        benchmarkScore = nil
+        engine = nil
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, family, category, size
+        case id, name, family, category, size, engine
+        case benchmarkScore = "benchmark_score"
         case memoryGB = "memory_gb", licenseURL = "license_url"
     }
 

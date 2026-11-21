@@ -6,6 +6,11 @@
       "name": "Inkling 2 Mini",
       "family": "Inkling",
       "category": "llm",
+      "benchmark_score": {
+        "points": 20,
+        "configuration": "Inkling 2 Mini",
+        "source_url": "https://artificialanalysis.ai/models/inkling-2-mini"
+      },
       "repository": "ggml-org/Inkling-2-Mini-GGUF",
       "revision": "e8a2cecf0e78914f07cc27b9be711a9b2c7561d9",
       "file": "Inkling-2-Mini-IQ4_NL.gguf",
@@ -55,6 +60,11 @@
       "name": "Qwen3.8 27B",
       "family": "Qwen",
       "category": "llm",
+      "benchmark_score": {
+        "points": 10,
+        "configuration": "Qwen3.8 27B (non-reasoning)",
+        "source_url": "https://artificialanalysis.ai/models/qwen3-8-27b"
+      },
       "repository": "unsloth/Qwen3.8-27B-GGUF",
       "revision": "4ca720788d1e01f1bff70c033e0d0028fd02e502",
       "file": "Qwen3.8-27B-UD-Q4_K_M.gguf",

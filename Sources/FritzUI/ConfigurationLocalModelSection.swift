@@ -1,14 +1,16 @@
 import Fritz
 import SwiftUI
 
-
 struct NativeModelFilters: Equatable {
     var category: AIModelCategory?
     var family: String?
+    var runnableOnly = false
+    var score: LocalModelScoreFilter = .all
 
-    func models(in catalog: [NativeModelDescriptor]) -> [NativeModelDescriptor] {
+    func models(in catalog: [NativeModelDescriptor], hardware: LocalModelHardware) -> [NativeModelDescriptor] {
         catalog.filter {
             (category == nil || $0.category == category) && (family == nil || $0.family == family)
+                && (!runnableOnly || hardware.canRun($0)) && score.includes($0.benchmarkScore?.points)
         }
     }
 }
@@ -20,7 +22,12 @@ struct ConfigurationLocalModelSection: View {
     let hardware: LocalModelHardware
     let catalog: [NativeModelDescriptor]
 
-    private var filteredModels: [NativeModelDescriptor] { filters.models(in: catalog) }
+    @State private var scoreOrder: [LocalModelScoreComparator<NativeModelDescriptor>] = []
+
+    private var filteredModels: [NativeModelDescriptor] {
+        let models = filters.models(in: catalog, hardware: hardware)
+        return scoreOrder.isEmpty ? models : models.sorted(using: scoreOrder)
+    }
 
     private var model: NativeModelDescriptor {
         catalog.first { $0.id == modelID }!
@@ -37,7 +44,7 @@ struct ConfigurationLocalModelSection: View {
         VStack(spacing: 0) {
             nativeFilters
             Divider()
-            Table(filteredModels, selection: selection) {
+            Table(filteredModels, selection: selection, sortOrder: $scoreOrder) {
                 TableColumn("Name") { model in
                     Text(model.name).lineLimit(1).help(model.name)
                 }
@@ -61,7 +68,11 @@ struct ConfigurationLocalModelSection: View {
                     Text("\(model.memoryGB) GB RAM recommended")
                         .foregroundStyle(hardware.memoryGB < model.memoryGB ? .orange : .secondary)
                 }
-                .width(min: 210, ideal: 230)
+                .width(min: 195, ideal: 220)
+                TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.benchmarkScore?.points)) { model in
+                    LocalModelScoreCell(score: model.benchmarkScore)
+                }
+                .width(66)
             }
             .disabled(state.isBusy)
             .accessibilityLabel("Downloadable models")
@@ -79,10 +90,13 @@ struct ConfigurationLocalModelSection: View {
             }
 
             if filteredModels.contains(where: { $0.id == modelID }),
-               state != .available || hardware.memoryGB < model.memoryGB || !hardware.appleSilicon {
+               state != .available || !hardware.canRun(model) || !hardware.appleSilicon {
                 VStack(alignment: .leading, spacing: 6) {
                     if hardware.memoryGB < model.memoryGB {
                         Text("This Mac has \(hardware.memoryGB) GB memory. A smaller model is recommended.")
+                    }
+                    if !hardware.metalAvailable && hardware.memoryGB >= model.memoryGB && !hardware.canRun(model) {
+                        Text("This model requires Metal.")
                     }
                     if !hardware.appleSilicon {
                         Text("Slower on Intel Macs.")
@@ -127,6 +141,9 @@ struct ConfigurationLocalModelSection: View {
                     Text(family).tag(Optional(family))
                 }
             }
+            LocalModelScorePicker(selection: $filters.score, catalog: catalog)
+            Toggle("Runnable on This Mac", isOn: $filters.runnableOnly)
+                .help("Matches recommended RAM and Metal requirements")
         }
         .pickerStyle(.menu)
         .padding()

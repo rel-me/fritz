@@ -18,6 +18,10 @@ public struct ModelsCatalogView: View {
     @State private var query = ""
     @State private var category: AIModelCategory?
     @State private var downloadFilter: DownloadFilter = .all
+    @State private var runnableOnly = false
+    @State private var scoreFilter: LocalModelScoreFilter = .all
+    @State private var scoreOrder: [LocalModelScoreComparator<LocalModelRow>] = []
+    private let hardware = LocalModelHardware.current
     @State private var checkedInventory = false
     @State private var installedDecisionIDs: Set<String>?
     @State private var decisionInventoryError: String?
@@ -54,20 +58,35 @@ public struct ModelsCatalogView: View {
         }
     }
 
-    private var models: [ChatModelOption] {
-        store.availableModels.filter {
+    private struct LocalModelRow: Identifiable {
+        let model: ChatModelOption
+        let descriptor: NativeModelDescriptor?
+        var id: String { model.id }
+        var scorePoints: Int? { descriptor?.benchmarkScore?.points }
+    }
+
+    private var localRows: [LocalModelRow] {
+        let descriptors = Dictionary(uniqueKeysWithValues: store.nativeModelCatalog.map { ($0.id, $0) })
+        let recents = store.recentIDs
+        let rows = store.availableModels.filter {
             location.contains($0) && (category == nil || $0.category == category)
                 && matchesDownloadFilter($0) && (query.isEmpty
                     || $0.displayName.localizedStandardContains(query)
                     || $0.modelID.localizedStandardContains(query))
-        }
-            .enumerated().sorted { lhs, rhs in
-                let left = store.recentIDs.firstIndex(of: lhs.element.id) ?? Int.max
-                let right = store.recentIDs.firstIndex(of: rhs.element.id) ?? Int.max
-                return left == right ? lhs.offset < rhs.offset : left < right
-            }.map(\.element)
+        }.map { LocalModelRow(model: $0, descriptor: descriptors[$0.modelID]) }
+            .filter { row in
+                scoreFilter.includes(row.scorePoints)
+                    && (!runnableOnly || row.descriptor.map(hardware.canRun) == true)
+            }
+            .sorted {
+                let left = recents.firstIndex(of: $0.id) ?? Int.max
+                let right = recents.firstIndex(of: $1.id) ?? Int.max
+                return left < right
+            }
+        return scoreOrder.isEmpty ? rows : rows.sorted(using: scoreOrder)
     }
-    private var selected: ChatModelOption? { models.first { $0.id == selection } }
+
+    private var selected: ChatModelOption? { localRows.first { $0.id == selection }?.model }
     private var connections: [ProviderConnection] {
         store.connections.filter {
             AIProviderCategory.local.contains(AIProviderPreset.matching(provider: $0.provider, baseURL: $0.baseURL)) == (location == .local)
@@ -143,30 +162,38 @@ public struct ModelsCatalogView: View {
 
     private var localModelTable: some View {
         let sessions = runtime.sessions
-        return Table(models, selection: $selection) {
-            TableColumn("Name") { model in
-                Text(model.displayName).lineLimit(1).truncationMode(.tail).help(model.modelID)
+        let rows = localRows
+        return Table(rows, selection: $selection, sortOrder: $scoreOrder) {
+            TableColumn("Name") { row in
+                Text(row.model.displayName).lineLimit(1).truncationMode(.tail).help(row.model.modelID)
             }.width(min: 230, ideal: 350)
-            TableColumn("Type") { model in Text(model.category == .llm ? "LLM" : "Decision") }
+            TableColumn("Type") { row in Text(row.model.category == .llm ? "LLM" : "Decision") }
                 .width(75)
-            TableColumn("Status") { model in
-                let running = sessions[model.modelID]?.status == .running
-                Text(running ? ModelsRuntimeSession.Status.running.title : status(model))
+            TableColumn("Status") { row in
+                let running = sessions[row.model.modelID]?.status == .running
+                Text(running ? ModelsRuntimeSession.Status.running.title : status(row.model))
                     .foregroundStyle(running ? .green : .secondary)
             }
             .width(min: 120, ideal: 140)
+            TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
+                LocalModelScoreCell(score: row.descriptor?.benchmarkScore)
+            }
+            .width(66)
         }
         .accessibilityLabel("Local Models")
         .contextMenu(forSelectionType: String.self) { ids in
-            if let id = ids.first, let model = models.first(where: { $0.id == id }) {
-                Button("Set Up Model…") { setup = model }
-                if let connectionID = model.connectionID,
+            if let id = ids.first, let row = rows.first(where: { $0.id == id }) {
+                Button("Set Up Model…") { setup = row.model }
+                if let score = row.descriptor?.benchmarkScore {
+                    Link("View Benchmark Result", destination: score.sourceURL)
+                }
+                if let connectionID = row.model.connectionID,
                    let connection = store.connections.first(where: { $0.id == connectionID }) {
                     Button("Remove Connection…", role: .destructive) { removing = connection }
                 }
             }
         } primaryAction: { ids in
-            if let id = ids.first { setup = models.first { $0.id == id } }
+            if let id = ids.first { setup = rows.first { $0.id == id }?.model }
         }
     }
 
@@ -244,7 +271,7 @@ public struct ModelsCatalogView: View {
     }
 
     private var filterMenu: some View {
-        let isActive = category != nil || downloadFilter != .all
+        let isActive = category != nil || downloadFilter != .all || runnableOnly || scoreFilter != .all
         return Menu {
             Picker("Model Type", selection: $category) {
                 Text("All Model Types").tag(nil as AIModelCategory?)
@@ -259,6 +286,11 @@ public struct ModelsCatalogView: View {
                         Text(filter.rawValue).tag(filter)
                     }
                 }
+                Toggle("Runnable on This Mac", isOn: $runnableOnly)
+                    .help("Matches recommended RAM and Metal requirements")
+                LocalModelScorePicker(selection: $scoreFilter, catalog: store.nativeModelCatalog)
+                Divider()
+                Link("Score Methodology", destination: LocalModelScoreCell.methodology)
             }
         } label: {
             Label("Filter Models", systemImage: isActive
