@@ -18,6 +18,8 @@ import subprocess
 import sys
 import time
 
+import evaluation_model_catalog as catalog_inspection
+
 
 def load_module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -346,10 +348,15 @@ def prepare(options):
     core.require(readiness['sha256']==options.readiness_receipt_sha256,'Frozen readiness receipt SHA mismatch')
     binaries=core.inspect_binaries(options.bin_dir);catalogs=Path(options.bin_dir)/'Fritz_Fritz.bundle/Contents/Resources'
     validate_readiness(receipt,options.resident_ready,binaries['decision']['sha256'])
-    models={HOST:core.inspect_model(catalogs/'LocalModels.json',HOST,options.models_directory),DECISION:core.inspect_model(catalogs/'DecisionModels.json',DECISION,options.decision_models_directory,decision=True)}
+    catalog = catalogs / 'ModelCatalog.json'
+    models = {
+        HOST: catalog_inspection.inspect_model(catalog, HOST, options.models_directory),
+        DECISION: catalog_inspection.inspect_model(catalog, DECISION, options.decision_models_directory, decision=True),
+    }
     return {'schema':'fritz-milestone-selection-protocol-v1','scope':SCOPE,'created_at':core.timestamp(),
         'driver':core.pin(Path(__file__).resolve()),'corpus':core.pin(options.corpus),'preregistration':preregistration,'cases':cases,
         'core':core.pin(Path(core.__file__).resolve()),'transport':transport.provenance(),'binaries':binaries,'models':models,
+        'catalog_inspector':core.pin(Path(catalog_inspection.__file__).resolve()),
         'models_directory':str(options.models_directory.resolve()),'decision_models_directory':str(options.decision_models_directory.resolve()),
         'model_store':{'directory':str(options.models_directory.resolve()),'modelDirectories':{DECISION:str(options.decision_models_directory.resolve())}},
         'readiness':{'ready':options.resident_ready,'receipt':readiness,'cutoff':READINESS.isoformat()},
@@ -360,11 +367,12 @@ def prepare(options):
 
 def revalidate(protocol):
     core.require(protocol['schema']=='fritz-milestone-selection-protocol-v1' and protocol['transport']==transport.provenance(),'Protocol/transport changed')
+    core.require(protocol['catalog_inspector']==core.pin(Path(catalog_inspection.__file__).resolve()),'Catalog inspector changed')
     for pin in (protocol['driver'],protocol['core'],protocol['corpus'],protocol['preregistration'],protocol['time_binary'],protocol['readiness']['receipt'],*protocol['runtime_sources'].values(),protocol['binaries']['chat'],protocol['binaries']['decision'],protocol['binaries']['bundle']['info_plist']):
         core.require(core.pin(Path(pin['path']))==pin,'Frozen source/stage/evidence changed')
     document=core.strict_json(Path(protocol['corpus']['path']).read_bytes());core.require(freeze_cases(document)==protocol['cases'],'Frozen cases changed')
     for model in (HOST,DECISION):
-        old=protocol['models'][model];checked=core.inspect_model(old['catalog']['path'],model,Path(old['directory']),decision=model==DECISION)
+        old=protocol['models'][model];checked=catalog_inspection.inspect_model(old['catalog']['path'],model,Path(old['directory']),decision=model==DECISION)
         core.require(checked==old,'Frozen model artifact/catalog changed')
 
 

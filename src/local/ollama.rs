@@ -722,11 +722,9 @@ mod tests {
         ).unwrap();
         let selected = root.path().join("chosen");
         std::fs::create_dir(&selected).unwrap();
-        let catalog: Value =
-            serde_json::from_str(include_str!("../../Sources/Fritz/LocalModels.json")).unwrap();
-        let pin = &catalog["models"][0];
-        let id = pin["id"].as_str().unwrap();
-        let file = selected.join(pin["file"].as_str().unwrap());
+        let pin = &crate::local::models::catalog()[0];
+        let id = pin.id.as_str();
+        let file = selected.join(&pin.file);
         std::fs::write(&file, b"inventory only; never load these synthetic bytes").unwrap();
         let locations =
             crate::config::ModelLocationStore::with_storage(Arc::new(HostStorage(database)));

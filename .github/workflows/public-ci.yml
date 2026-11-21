@@ -15,6 +15,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  catalog:
+    name: Model catalog and website
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.2'
+      - name: Require a catalog version increase
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/update-model-catalog.py --check-version "$BASE"
+      - run: npm --prefix website test
+
   macos:
     name: Mac mini tests and Rust checks
     # Check the PR author, not the actor who happens to rerun the workflow.
@@ -117,11 +135,12 @@ jobs:
   complete:
     name: Libraries, app, and runtime
     if: always() && (github.event_name != 'pull_request' || github.event.pull_request.user.login == 'gabriel')
-    needs: macos
+    needs: [macos, catalog]
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
       - name: Require every check to pass
         env:
-          RESULT: ${{ needs.macos.result }}
-        run: test "$RESULT" = success
+          MACOS_RESULT: ${{ needs.macos.result }}
+          CATALOG_RESULT: ${{ needs.catalog.result }}
+        run: test "$MACOS_RESULT" = success && test "$CATALOG_RESULT" = success

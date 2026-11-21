@@ -31,13 +31,18 @@ pub struct Manifest {
 
 pub fn catalog() -> &'static [Manifest] {
     #[derive(Deserialize)]
-    struct Catalog {
+    struct Inventory {
         models: Vec<Manifest>,
+    }
+    #[derive(Deserialize)]
+    struct Catalog {
+        local_chat: Inventory,
     }
     static CATALOG: std::sync::OnceLock<Vec<Manifest>> = std::sync::OnceLock::new();
     CATALOG.get_or_init(|| {
-        serde_json::from_str::<Catalog>(include_str!("../../Sources/Fritz/LocalModels.json"))
+        serde_json::from_str::<Catalog>(crate::MODEL_CATALOG_JSON)
             .expect("checked-in local model catalog")
+            .local_chat
             .models
     })
 }

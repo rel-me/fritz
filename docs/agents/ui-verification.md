@@ -72,6 +72,8 @@ the following surfaces, include these behaviors:
   Reduced Transparency fades the overlapping content without the blurred copy.
   With a long Markdown transcript, resize between minimum and wide window sizes
   and open/close the inspector, both at the bottom and while reading history.
+  With the inspector closed, check that the native scrollbar sits at the right
+  window edge while the messages and composer retain their insets.
   Verify messages remain visible, the latest message stays above the composer
   when following, and scrolling reaches both ends without blank overscroll.
 - **Model storage:** native pop-up path control exclusively in General Settings; download setup
@@ -97,8 +99,12 @@ the following surfaces, include these behaviors:
   record card, redundant Not installed status, fixed-height empty area, or separate
   destination footer. Check long names, wrapped errors, linear progress, memory
   warnings, Settings navigation, Escape, and Command-Q after presentation updates.
-  Local Models shows individual models with recent selections first and no Provider
-  column or provider picker in local setup/edit. Remote Models shows providers with recent models first in comma-separated,
+  Local Models uses native disclosure rows for families with multiple visible
+  models and places recent selections first by default. Check expanding and
+  collapsing a family, searching by family and model name, filtering and sorting
+  by score, and opening setup from a child row. Folder rows have no model actions.
+  Local Models has no Provider column or provider picker in local setup/edit.
+  Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.
   The composer always offers Choose Model; Local and Remote filters precede
   providers and filter without opening setup. Verify ready selections, remote
