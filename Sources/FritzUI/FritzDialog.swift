@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Layout for a custom sheet attached to a Fritz window.
@@ -38,5 +39,43 @@ public struct FritzDialog<Content: View, Actions: View>: View {
         }
         .padding(.vertical, 4)
         .buttonStyle(.automatic)
+    }
+}
+
+public extension View {
+    /// Keep content-sized sheets fitted when progress, results, or errors change their height.
+    func fritzFittedSheet() -> some View {
+        fixedSize(horizontal: false, vertical: true)
+            .background { FritzSheetSizing() }
+            .presentationSizing(.fitted)
+    }
+}
+
+/// SwiftUI fits the attached window at presentation. Track changes after that initial fit.
+private struct FritzSheetSizing: NSViewRepresentable {
+    func makeNSView(context: Context) -> SizingView { SizingView() }
+
+    func updateNSView(_ view: SizingView, context: Context) {}
+
+    final class SizingView: NSView {
+        override func setFrameSize(_ newSize: NSSize) {
+            super.setFrameSize(newSize)
+            resizeSheet()
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            resizeSheet()
+        }
+
+        private func resizeSheet() {
+            // Resize after SwiftUI finishes laying out the sheet content.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window, window.sheetParent != nil,
+                      let content = window.contentView,
+                      frame.height > 0, abs(content.frame.height - frame.height) >= 1 else { return }
+                window.setContentSize(NSSize(width: content.frame.width, height: frame.height))
+            }
+        }
     }
 }
