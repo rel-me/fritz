@@ -43,6 +43,7 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     public let memoryGB: Int
     public let licenseURL: URL
     public let benchmarkScore: BenchmarkScore?
+    private let abliterated: Bool?
     private let engine: String?
 
     public struct BenchmarkScore: Decodable, Equatable, Sendable {
@@ -59,7 +60,7 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     fileprivate var requiresMetal: Bool { category == .llm || engine == "bosun" }
 
     public init(id: String, name: String, size: UInt64, memoryGB: Int, licenseURL: URL,
-                family: String = "Other", category: AIModelCategory = .llm) {
+                family: String = "Other", category: AIModelCategory = .llm, isAbliterated: Bool = false) {
         self.id = id
         self.name = name
         self.family = family
@@ -67,16 +68,18 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
         self.size = size
         self.memoryGB = memoryGB
         self.licenseURL = licenseURL
+        abliterated = isAbliterated ? true : nil
         benchmarkScore = nil
         engine = nil
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, family, category, size, engine
+        case id, name, family, category, size, abliterated, engine
         case benchmarkScore = "benchmark_score"
         case memoryGB = "memory_gb", licenseURL = "license_url"
     }
 
+    public var isAbliterated: Bool { abliterated == true }
     public var model: DiscoveredAIModel { .init(id: id, displayName: name) }
     public var downloadSummary: String {
         String(format: "%.2f GB download · %d GB RAM recommended", Double(size) / 1_000_000_000, memoryGB)

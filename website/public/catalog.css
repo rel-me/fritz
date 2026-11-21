@@ -23,7 +23,7 @@
 
 .catalog label { font-weight: 600; }
 
-.catalog input {
+.catalog input[type="search"] {
   display: block;
   width: min(100%, 32rem);
   margin-top: 0.35rem;
@@ -33,6 +33,13 @@
   background: var(--paper);
   color: var(--ink);
   font: inherit;
+}
+
+.catalog-filter {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.75rem;
 }
 
 .catalog-table {

@@ -53,7 +53,7 @@ function table(title, headings, rows) {
 
 function localTable(title, models) {
   return table(title, ['Model', 'Family', 'Download', 'Recommended memory'], models.map((model) =>
-    `<tr><td>${modelDetails(model.id, model.name, model)}</td><td>${escape(model.family)}</td><td>${gigabytes(model.size)}</td><td>${escape(model.memory_gb)} GB</td></tr>`));
+    `<tr${model.abliterated === true ? ' data-abliterated' : ''}><td>${modelDetails(model.id, model.name, model)}</td><td>${escape(model.family)}</td><td>${gigabytes(model.size)}</td><td>${escape(model.memory_gb)} GB</td></tr>`));
 }
 
 function remoteTable(provider, models) {
@@ -88,7 +88,8 @@ function renderPage() {
   <h1>Model catalog</h1><p class="catalog-version">Version ${escape(catalog.catalog_version)}</p>
   <label for="search" hidden>Filter models</label>
   <input id="search" type="search" placeholder="Model name, ID, or capability" hidden>
-  <p id="catalog-empty" role="status" hidden>No models match your search.</p>
+  <label class="catalog-filter" hidden><input id="abliterated" type="checkbox"> Abliterated</label>
+  <p id="catalog-empty" role="status" hidden>No models match your filters.</p>
   <section data-catalog-location>
     <h2>Local models</h2>
     ${localTable('Chat models', catalog.local_chat.models)}
