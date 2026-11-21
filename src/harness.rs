@@ -636,8 +636,10 @@ impl<E: Fn(Value) + Sync> NativeModel<'_, E> {
             &spec,
             None,
         )?;
-        let contents = request.chat_history[0]
-            .rag_text()
+        let contents = request
+            .chat_history
+            .last()
+            .and_then(|message| message.rag_text())
             .context("Missing compaction prompt.")?;
         let system = request
             .system_instructions()
@@ -645,7 +647,7 @@ impl<E: Fn(Value) + Sync> NativeModel<'_, E> {
         let limit = budget.output.min(1024);
         let usage = Mutex::new(serde_json::Map::new());
         let summary_input =
-            rig_memory::request_tokens((Some(system), None), request.chat_history.as_slice(), None);
+            rig_memory::request_tokens((None, None), request.chat_history.as_slice(), None);
         let generated = if summary_input.saturating_add(256) <= budget.input {
             let result = tokio::time::timeout(
                 Duration::from_secs(45),
