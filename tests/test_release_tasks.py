@@ -78,6 +78,7 @@ class PrereleaseVersionTests(unittest.TestCase):
         for name in ("prerelease.sh", "release-config.sh", "build-cache.py", "next-release.py",
                      "publish-github-release.py"):
             shutil.copy2(SCRIPT.parent / name, scripts / name)
+        shutil.copy2(SCRIPT.parent.parent / "Makefile", self.root / "Makefile")
         (self.root / "Cargo.toml").write_text('version = "0.1.1"\n')
         (self.root / "app").mkdir()
         (self.root / "app/project.yml").write_text('CURRENT_PROJECT_VERSION: 2\n')
@@ -97,6 +98,24 @@ class PrereleaseVersionTests(unittest.TestCase):
         self.key_tool = key_tool
         key_tool.parent.mkdir(parents=True)
         self.executable(key_tool, "import os\nprint(os.environ['FRITZ_SPARKLE_PUBLIC_ED_KEY'])\n")
+        for name in ("generate_appcast", "sign_update"):
+            self.executable(key_tool.with_name(name), "")
+        llama_sources = self.root / "vendor/llama.cpp"
+        llama_sources.mkdir(parents=True)
+        (llama_sources / "CMakeLists.txt").touch()
+        self.executable(self.bin / "mise", """import os, sys
+from pathlib import Path
+tools_missing = Path('tools-missing').exists()
+if sys.argv[1] == 'ls':
+    if tools_missing:
+        print('python 3.12.14 (missing)')
+else:
+    assert sys.argv[1:3] == ['exec', '--']
+    if tools_missing:
+        sys.exit('mise: pinned tools are missing')
+    os.execvp(sys.argv[3], sys.argv[3:])
+""")
+        self.executable(self.bin / "cargo", "")
         website = self.root / "website"
         (website / "node_modules").mkdir(parents=True)
         (website / "package-lock.json").write_text('{}')
@@ -158,8 +177,30 @@ Path('prepared.json').write_text(json.dumps([sys.argv[1], Path('dist/updates/app
         return f'<rss xmlns:sparkle="{release.SPARKLE}"><channel>{records}</channel></rss>'
 
     def run_release(self, channel, **overrides):
-        return subprocess.run(["/bin/bash", str(self.root / "scripts/prerelease.sh"), channel],
-                              env=dict(self.environment, **overrides), capture_output=True, text=True)
+        return subprocess.run(["make", "--no-print-directory", channel], cwd=self.root,
+                              env=dict(self.environment, **overrides), capture_output=True, text=True,
+                              timeout=30)
+
+    def test_beta_runs_setup_only_when_required(self):
+        setup_receipts = self.root / "setup-receipts"
+        self.executable(self.root / "scripts/setup-worktree.sh", f"""from pathlib import Path
+key_tool = Path({str(self.key_tool)!r})
+key_tool.write_text({self.key_tool.read_text()!r})
+key_tool.chmod(0o755)
+Path('tools-missing').unlink(missing_ok=True)
+with Path('setup-receipts').open('a') as receipts:
+    receipts.write('setup\\n')
+""")
+        for missing, expected_setups in (("mise tools", 1), ("Sparkle", 2), (None, 2)):
+            with self.subTest(missing=missing):
+                if missing == "mise tools":
+                    (self.root / "tools-missing").touch()
+                if missing == "Sparkle":
+                    self.key_tool.unlink()
+                result = self.run_release("beta")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual((self.root / "published").read_text(), "beta")
+                self.assertEqual(setup_receipts.read_text().splitlines(), ["setup"] * expected_setups)
 
     def test_missing_sparkle_key_reports_recovery_before_building(self):
         self.executable(self.key_tool,
