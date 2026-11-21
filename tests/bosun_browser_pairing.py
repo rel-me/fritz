@@ -14,6 +14,8 @@ import math
 from pathlib import Path
 import sys
 
+import evaluation_model_catalog as catalog
+
 
 def module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -332,7 +334,7 @@ def prepare_protocol(options):
             'Extension preregistration mismatch')
     binaries = pair.inspect_binaries(options.bin_dir)
     require(options.decision_catalog.resolve().is_relative_to(Path(binaries['bundle']['path'])), 'Use new staged decision catalog')
-    model = pair.inspect_model(options.decision_catalog, MODEL, options.models_directory, decision=True)
+    model = catalog.inspect_model(options.decision_catalog, MODEL, options.models_directory, decision=True)
     require(model['manifest'].get('engine') == 'bosun' and model['manifest'].get('max_prompt_tokens') == 2048,
             'Pinned Bosun native manifest required')
     cpu, cpu_pin = read_document(options.cpu_reference)
@@ -361,6 +363,7 @@ def prepare_protocol(options):
     compiled = compile_extension(plan, options.compiler_cache)
     return {'version': 1, 'scope': SCOPE, 'created_at': pair.timestamp(),
             'driver': pair.pin(Path(__file__).resolve()), 'core': original['driver'], 'preregistration': preregistration,
+            'catalog_inspector': pair.pin(Path(catalog.__file__).resolve()),
             'baseline': {'protocol': original_pin, 'report': report_pin, 'relocation': relocation_pin},
             'baseline_records': records, 'cases': cases, 'plan': plan, 'compiler': compiled,
             'transport_protocol': owned.provenance(),
@@ -381,6 +384,7 @@ def revalidate(protocol):
             and protocol['bounds']['max_attempts'] == MAX_ATTEMPTS and protocol['bounds']['deadline_seconds'] == 125,
             'Saved extension schema or bounds mismatch')
     require(protocol.get('transport_protocol') == owned.provenance(), 'Saved extension transport changed')
+    require(protocol['catalog_inspector'] == pair.pin(Path(catalog.__file__).resolve()), 'Catalog inspector changed')
     for artifact in [protocol['driver'], protocol['core'], protocol['preregistration'], protocol['time_binary'],
                      *protocol['baseline'].values(), *[protocol['parity'][key] for key in ('cpu','native','compiler')],
                      *protocol['parity']['sources'].values(),
@@ -395,7 +399,7 @@ def revalidate(protocol):
     relocation = pair.strict_json(Path(protocol['baseline']['relocation']['path']).read_bytes())
     cases, records = validate_baseline(original, report, protocol['baseline']['protocol'], report_path, relocation)
     require(cases == protocol['cases'] and records == protocol['baseline_records'], 'Original baseline changed')
-    checked = pair.inspect_model(protocol['model']['catalog']['path'], MODEL, Path(protocol['models_directory']), decision=True)
+    checked = catalog.inspect_model(protocol['model']['catalog']['path'], MODEL, Path(protocol['models_directory']), decision=True)
     require(checked == protocol['model'], 'Bosun artifact manifest changed')
     expected_plan = []
     for item in original['plan']:

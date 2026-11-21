@@ -290,15 +290,13 @@ class ProtocolAndReports(unittest.TestCase):
             (self.chat_directory / filename).write_bytes(body)
             chat_models.append({'id': model, 'revision': 'revision', 'file': filename, 'size': len(body),
                                 'sha256': pair.digest(body), 'disable_thinking': True})
-        self.catalog = resources / 'ModelCatalog.json'
+        self.chat_catalog = resources / 'LocalModels.json'
+        self.chat_catalog.write_bytes(pair.encoded({'models': chat_models}))
         body = b'synthetic decision weights'
         (self.decision_directory / 'weights.bin').write_bytes(body)
-        self.catalog.write_bytes(pair.encoded({
-            'catalog_version': 1,
-            'local_chat': {'models': chat_models},
-            'local_decision': {'models': [{'id': 'kev-4b', 'revision': 'revision',
-                'files': [{'file': 'weights.bin', 'size': len(body), 'sha256': pair.digest(body)}]}]},
-        }))
+        self.decision_catalog = resources / 'DecisionModels.json'
+        self.decision_catalog.write_bytes(pair.encoded({'models': [{'id': 'kev-4b', 'revision': 'revision',
+            'files': [{'file': 'weights.bin', 'size': len(body), 'sha256': pair.digest(body)}]}]}))
         self.corpora = []
         for corpus in range(2):
             path = self.directory / f'corpus{corpus}.json'
@@ -314,7 +312,7 @@ class ProtocolAndReports(unittest.TestCase):
         self.arguments = ['--validate', '--output', str(self.validation_output), '--bin-dir', str(resources),
                           '--models-directory', str(self.chat_directory),
                           '--decision-models-directory', str(self.decision_directory),
-                          '--chat-catalog', str(self.catalog), '--decision-catalog', str(self.catalog),
+                          '--chat-catalog', str(self.chat_catalog), '--decision-catalog', str(self.decision_catalog),
                           '--preregistration', str(self.preregistration),
                           '--preregistration-sha256', pair.file_hash(self.preregistration)]
         for path in self.corpora:

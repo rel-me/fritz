@@ -18,6 +18,7 @@ from pathlib import Path
 
 import local_browser_pairing as transport
 import bosun_transport as owned_transport
+from evaluation_model_catalog import inspect_model
 
 ROOT = Path(__file__).resolve().parents[1]
 TEST = "decision::local::bosun::tests::native_f16_matches_official_cpu_reference_without_generating_tokens"
@@ -72,7 +73,7 @@ def main() -> None:
     if not args.output.parent.exists():args.output.parent.mkdir(mode=0o700)
     transport.require(args.output.parent.stat().st_uid==os.getuid() and not args.output.parent.stat().st_mode & 0o077,"Use an owned 0700 output directory")
     source_hashes={name:transport.file_hash(ROOT / relative) for name,relative in SOURCE_FILES.items()}
-    model=transport.inspect_model(ROOT / "Sources/Fritz/ModelCatalog.json","bosun-v3.1-0.6b-f16",args.models_dir,decision=True)
+    model=inspect_model(ROOT / SOURCE_FILES["catalog"],"bosun-v3.1-0.6b-f16",args.models_dir,decision=True)
     artifacts=[{"file":artifact["file"],"size":artifact["bytes"],"sha256":artifact["actual_sha256"]} for artifact in model["artifacts"]]
     native_path=args.output.parent / "native-readout.json"
     transport.require(not native_path.exists(),"Native readout must be new")
