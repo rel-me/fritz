@@ -46,7 +46,9 @@ test('browser catalog exposes prices, capabilities, metadata and conditional HTM
   assert.match(html, /jev-latest/);
   assert.match(html, /USD per million tokens/);
   assert.match(html, /reviewed_request_capabilities/);
-  assert.match(html, /Filter models/);
+  assert.ok(html.includes('href="#local"') && html.includes('href="#remote"'));
+  assert.ok(html.includes('type="search"'));
+  assert.ok(html.includes('data-creator="Qwen"'));
   assert.match(html, /&quot;cache_read&quot;/);
   const etag = response.headers.get('etag');
   const unchanged = await request('/catalog', { headers: { 'If-None-Match': etag } });

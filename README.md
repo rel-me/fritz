@@ -32,8 +32,8 @@ disk image, then open Fritz from Applications.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first. Use the filter menu in either window to show LLMs or
    decision models. Local Models also filters by download status, benchmark score,
-   and whether the model fits this Mac. Click the Score header to sort models
-   within each folder and place folders by their first matching model.
+   whether the model fits this Mac, and **Abliterated**. Click the Score header to
+   sort models within each folder and place folders by their first matching model.
    **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
 
@@ -51,6 +51,10 @@ The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
 the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
 picker shows download sizes and recommended memory. Model licenses are available
 under **Settings → General → Licenses**.
+
+The **Abliterated** filter shows Huihui Qwen3 4B Instruct 2507 and Nueva Tech Qwen3
+8B v2, two variants modified to reduce refusals. The same filter is available
+in the [web catalog](https://fritz.rel.me/catalog).
 
 **Settings → General → Model storage** selects the app-wide folder for future
 native model downloads (initially `~/Models`). Download setup shows the current destination and a **Change…** button that

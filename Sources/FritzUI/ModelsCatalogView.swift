@@ -19,6 +19,7 @@ public struct ModelsCatalogView: View {
     @State private var category: AIModelCategory?
     @State private var downloadFilter: DownloadFilter = .all
     @State private var runnableOnly = false
+    @State private var abliteratedOnly = false
     @State private var scoreFilter: LocalModelScoreFilter = .all
     @State private var scoreOrder: [LocalModelScoreComparator<LocalModelTableRow>] = []
     @State private var expandedLocalFamilies: Set<String> = []
@@ -97,6 +98,7 @@ public struct ModelsCatalogView: View {
             .filter { row in
                 scoreFilter.includes(row.descriptor?.benchmarkScore?.points)
                     && (!runnableOnly || row.descriptor.map(hardware.canRun) == true)
+                    && (!abliteratedOnly || row.descriptor?.isAbliterated == true)
             }
             .sorted {
                 let left = recents.firstIndex(of: $0.id) ?? Int.max
@@ -350,7 +352,7 @@ public struct ModelsCatalogView: View {
     }
 
     private var filterMenu: some View {
-        let isActive = category != nil || downloadFilter != .all || runnableOnly || scoreFilter != .all
+        let isActive = category != nil || downloadFilter != .all || runnableOnly || abliteratedOnly || scoreFilter != .all
         return Menu {
             Picker("Model Type", selection: $category) {
                 Text("All Model Types").tag(nil as AIModelCategory?)
@@ -367,6 +369,7 @@ public struct ModelsCatalogView: View {
                 }
                 Toggle("Runnable on This Mac", isOn: $runnableOnly)
                     .help("Matches recommended RAM and Metal requirements")
+                Toggle("Abliterated", isOn: $abliteratedOnly)
                 LocalModelScorePicker(selection: $scoreFilter, catalog: store.nativeModelCatalog)
                 Divider()
                 Link("Score Methodology", destination: LocalModelScoreCell.methodology)

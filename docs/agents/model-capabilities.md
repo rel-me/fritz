@@ -70,8 +70,11 @@ pinned to the bundled copy so they match the runtime in that build.
 
 `website/model-catalog.mjs` serves the canonical catalog with a content-derived
 ETag and conditional GET/HEAD. The HTML view at
-[Catalog](https://fritz.rel.me/catalog) includes filtering and expandable
-metadata. Clients fetch Fritz's catalog only. See [the website deployment
+[Catalog](https://fritz.rel.me/catalog) has separate Local and Remote views,
+each with creator groups, sortable columns, and expandable model metadata.
+Local hardware filters use the visitor's RAM and Metal selections. Remote
+filters use the published provider and capability metadata. Clients fetch
+Fritz's catalog only. See [the website deployment
 procedure](releases.md#home-page) to publish catalog changes.
 
 Use official docs as evidence, not model-name guesses or automatic paid probes.
