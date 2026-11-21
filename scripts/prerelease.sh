@@ -64,8 +64,17 @@ if [[ "$channel" == beta ]]; then
   python3 scripts/publish-github-release.py "$channel" --check
 fi
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
-key_tool="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys"
-test -x "$key_tool" || { echo "error: run make setup to resolve Sparkle tools" >&2; exit 1; }
+sparkle_bin="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin"
+release_dependencies_ready() {
+  [[ -f vendor/llama.cpp/CMakeLists.txt && -x "$sparkle_bin/generate_keys" &&
+     -x "$sparkle_bin/generate_appcast" && -x "$sparkle_bin/sign_update" ]]
+}
+if ! release_dependencies_ready; then
+  # The Make target already holds the checkout lock. Setup reuses its paths.
+  ./scripts/setup-worktree.sh
+  release_dependencies_ready || { echo "error: setup did not resolve the llama.cpp sources and Sparkle tools" >&2; exit 1; }
+fi
+key_tool="$sparkle_bin/generate_keys"
 if ! public_key="$("$key_tool" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p)"; then
   # Sparkle reports missing keys on stdout, which command substitution captures.
   if [[ -n "$public_key" ]]; then printf '%s\n' "$public_key" >&2; fi
