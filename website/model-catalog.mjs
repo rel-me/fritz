@@ -39,67 +39,160 @@ export async function serveModelCatalogPage(request) {
 }
 
 const providerNames = { openai: 'OpenAI', anthropic: 'Anthropic', gemini: 'Google Gemini', openrouter: 'OpenRouter' };
+const creatorNames = {
+  ...providerNames,
+  gemini: 'Google', google: 'Google', qwen: 'Qwen', meta: 'Meta', 'meta-llama': 'Meta',
+  mistralai: 'Mistral AI', deepseek: 'DeepSeek', 'x-ai': 'xAI', 'z-ai': 'Z.ai',
+  moonshotai: 'Moonshot AI', nvidia: 'NVIDIA', nousresearch: 'Nous Research',
+};
 const gigabytes = (bytes) => `${(bytes / 1e9).toLocaleString('en-US', { maximumFractionDigits: 2 })} GB`;
 
 function modelDetails(id, name, metadata) {
   return `<details><summary>${escape(name || id)}<small>${escape(id)}</small></summary><pre>${escape(JSON.stringify(metadata, null, 2))}</pre></details>`;
 }
 
-function table(title, headings, rows) {
-  const columns = headings.map((heading) => `<th scope="col">${escape(heading)}</th>`).join('');
-  return `<section data-catalog-group><h3>${escape(title)}</h3><div class="catalog-table" tabindex="0" role="region" aria-label="${escape(title)}">
-    <table><thead><tr>${columns}</tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`;
+function cell(value, format = escape) {
+  return `<td data-value="${escape(value)}">${value == null ? '—' : format(value)}</td>`;
 }
 
-function localTable(title, models) {
-  return table(title, ['Model', 'Family', 'Download', 'Recommended memory'], models.map((model) =>
-    `<tr${model.abliterated === true ? ' data-abliterated' : ''}><td>${modelDetails(model.id, model.name, model)}</td><td>${escape(model.family)}</td><td>${gigabytes(model.size)}</td><td>${escape(model.memory_gb)} GB</td></tr>`));
+function modelCell(id, name, metadata) {
+  return `<td data-value="${escape(name || id)}">${modelDetails(id, name, metadata)}</td>`;
 }
 
-function remoteTable(provider, models) {
-  const rows = Object.entries(models).sort(([a], [b]) => a.localeCompare(b)).map(([id, model]) => {
-    const capabilities = [
-      model.reasoning && 'Reasoning', model.tool_call && 'Tools', model.attachment && 'Attachments',
-      ...(model.modalities?.input ?? []).map((value) => `${value} input`),
-      ...(model.modalities?.output ?? []).map((value) => `${value} output`),
-    ].filter(Boolean).join(', ');
-    const reviewed = provider === 'openai' ? catalog.reviewed_openai.models[id] : undefined;
-    const metadata = reviewed ? { ...model, reviewed_request_capabilities: reviewed } : model;
-    return `<tr><td>${modelDetails(id, model.name, metadata)}</td><td>${price(model.cost?.input)}</td>
-      <td>${price(model.cost?.output)}</td><td>${price(model.cost?.cache_read)}</td>
-      <td>${number(model.limit?.context)}</td><td>${escape(capabilities || 'Unavailable')}</td></tr>`;
+function modelRow({ id, creator, type, abliterated, metal, capabilities = [], cells }) {
+  return {
+    creator, capabilities,
+    html: `<tr data-type="${type}" data-model-id="${escape(id)}"${abliterated ? ' data-abliterated' : ''}${metal ? ' data-metal' : ''}${capabilities.length ? ` data-capabilities="${escape(capabilities.join(', '))}"` : ''}>${cells}</tr>`,
+  };
+}
+
+function table(title, headings, models) {
+  const columns = headings.map(([heading, mode]) =>
+    `<th scope="col" data-sort-type="${mode}"><button type="button" disabled>${escape(heading)}</button></th>`).join('');
+  const groups = new Map();
+  for (const { creator, html } of models) {
+    if (!groups.has(creator)) groups.set(creator, []);
+    groups.get(creator).push(html);
+  }
+  const bodies = [...groups].map(([creator, rows]) => `<tbody data-creator="${escape(creator)}">
+    <tr class="creator-row"><th scope="rowgroup" colspan="${headings.length}">
+      <span data-creator-label>${escape(creator)}</span>
+      <button type="button" data-creator-toggle aria-expanded="true" hidden>${escape(creator)} <span data-creator-count></span></button>
+    </th></tr>${rows.join('')}
+  </tbody>`).join('');
+  return `<div class="catalog-table" tabindex="0" role="region" aria-label="${escape(title)}">
+    <table><thead><tr>${columns}</tr></thead>${bodies}</table></div>`;
+}
+
+function localRow(model) {
+  const type = model.category === 'decision' ? 'Decision' : 'LLM';
+  const score = model.benchmark_score;
+  return modelRow({
+    id: model.id, creator: model.family, type,
+    abliterated: model.abliterated === true, metal: type === 'LLM' || model.engine === 'bosun',
+    cells: [
+      modelCell(model.id, model.name, model), cell(type), cell(model.size, gigabytes),
+      cell(model.memory_gb, (memory) => `${number(memory)} GB`),
+      cell(score?.points, (points) => `<a href="${escape(score.source_url)}" title="${escape(score.configuration)}">${points}</a>`),
+    ].join(''),
   });
-  return table(providerNames[provider] ?? provider, ['Model', 'Input', 'Output', 'Cache read', 'Context tokens', 'Capabilities'], rows);
+}
+
+function remoteCreator(provider, id) {
+  const namespace = provider === 'openrouter' && id.includes('/') ? id.split('/')[0].replace(/^~/, '') : provider;
+  if (Object.hasOwn(creatorNames, namespace)) return creatorNames[namespace];
+  return namespace.replace(/(^|-)([a-z])/g, (_, boundary, letter) =>
+    `${boundary ? ' ' : ''}${letter.toUpperCase()}`);
+}
+
+function remoteRow(provider, id, model, { creator = remoteCreator(provider, id), type = 'LLM' } = {}) {
+  const capabilities = [
+    model.reasoning && 'Reasoning', model.tool_call && 'Tools', model.attachment && 'Attachments',
+    ...(model.modalities?.input ?? []).map((value) => `${value} input`),
+    ...(model.modalities?.output ?? []).map((value) => `${value} output`),
+  ].filter(Boolean);
+  const reviewed = provider === 'openai' ? catalog.reviewed_openai.models[id] : undefined;
+  const metadata = reviewed ? { ...model, reviewed_request_capabilities: reviewed } : model;
+  return modelRow({
+    id, creator, type, capabilities,
+    cells: [
+      modelCell(id, model.name, metadata), cell(providerNames[provider] ?? provider), cell(type),
+      cell(model.cost?.input, price), cell(model.cost?.output, price), cell(model.cost?.cache_read, price),
+      cell(model.limit?.context, number), cell(capabilities.join(', ') || null),
+    ].join(''),
+  });
+}
+
+function select(label, name, entries) {
+  return `<label>${escape(label)} <select name="${name}">${entries.map(([value, text]) =>
+    `<option value="${escape(value)}">${escape(text)}</option>`).join('')}</select></label>`;
+}
+
+function filters({ local = false, models }) {
+  const creators = [...new Set(models.map(({ creator }) => creator))].sort((a, b) => a.localeCompare(b));
+  const creatorFilter = select('Creator', 'creator', [['', 'All creators'], ...creators.map((name) => [name, name])]);
+  const scores = [...new Set(catalog.local_chat.models.concat(catalog.local_decision.models)
+    .map((model) => model.benchmark_score?.points).filter(Number.isFinite))].sort((a, b) => a - b);
+  const localFilters = [
+    select('Score', 'score', [['', 'All scores'], ['scored', 'Scored only'], ['unscored', 'Unscored only'],
+      ...scores.slice(1).map((points) => [points, `At least ${points}`])]),
+    '<label>RAM available (GB) <input name="memory" type="number" min="1" step="1" inputmode="numeric"></label>',
+    select('Hardware', 'hardware', [['', 'Any hardware'], ['cpu', 'CPU only']]),
+    '<label class="check"><input name="abliterated" type="checkbox"> Abliterated</label>',
+  ];
+  const remoteFilters = [
+    select('Provider', 'provider', [['', 'All providers'], ...Object.values(providerNames).concat(
+      Object.values(catalog.remote_decision).map((model) => model.provider_name)).map((name) => [name, name])]),
+    select('Capability', 'capability', [['', 'All capabilities'],
+      ...[...new Set(models.flatMap((model) => model.capabilities))].sort((a, b) => a.localeCompare(b))
+        .map((value) => [value, value[0].toUpperCase() + value.slice(1)])]),
+  ];
+  return `<form class="catalog-filters" hidden>
+    <label class="catalog-search">Search models <input name="query" type="search" placeholder="Name, ID, creator, or capability"></label>
+    ${creatorFilter}
+    ${select('Model type', 'type', [['', 'All model types'], ['LLM', 'LLMs'], ['Decision', 'Decision models']])}
+    ${(local ? localFilters : remoteFilters).join('')}
+    <button type="reset">Clear filters</button>
+  </form>
+  <p class="catalog-status" role="status" hidden></p>`;
 }
 
 function renderPage() {
-  const remote = Object.entries(catalog.model_info.providers).map(([provider, { models }]) => remoteTable(provider, models)).join('');
-  const decisions = table('Decision models', ['Model', 'Provider'], Object.values(catalog.remote_decision).map((model) =>
-    `<tr><td>${modelDetails(model.id, model.name, model)}</td><td>${escape(model.provider_name)}</td></tr>`));
+  const local = catalog.local_chat.models.concat(catalog.local_decision.models).map(localRow);
+  const remote = Object.entries(catalog.model_info.providers).flatMap(([provider, { models }]) =>
+    Object.entries(models).map(([id, model]) => remoteRow(provider, id, model)));
+  remote.sort((a, b) => a.creator.localeCompare(b.creator));
+  remote.push(...Object.entries(catalog.remote_decision).map(([provider, model]) =>
+    remoteRow(model.provider_name, model.id, model, {
+      creator: provider === 'openai-decisions' ? 'OpenAI' : model.provider_name, type: 'Decision',
+    })));
+  const localColumns = [['Model', 'text'], ['Type', 'text'], ['Download', 'number'], ['Recommended RAM', 'number'], ['Score', 'number']];
+  const remoteColumns = [['Model', 'text'], ['Provider', 'text'], ['Type', 'text'], ['Input', 'number'],
+    ['Output', 'number'], ['Cache read', 'number'], ['Context tokens', 'number'], ['Capabilities', 'text']];
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fritz model catalog</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css">
-<link rel="stylesheet" href="/catalog.css"><script src="/catalog.mjs" type="module"></script></head>
+<link rel="stylesheet" href="/catalog.css?v=2"><script src="/catalog.mjs?v=2" type="module"></script></head>
 <body><header class="nav"><div class="nav-inner">
   <a class="wordmark" href="/" aria-label="Fritz home"><span class="raven raven--mark" aria-hidden="true"></span><span>fritz</span></a>
   <a href="/supported-models.json">View JSON</a>
 </div></header>
 <main class="catalog">
   <h1>Model catalog</h1><p class="catalog-version">Version ${escape(catalog.catalog_version)}</p>
-  <label for="search" hidden>Filter models</label>
-  <input id="search" type="search" placeholder="Model name, ID, or capability" hidden>
-  <label class="catalog-filter" hidden><input id="abliterated" type="checkbox"> Abliterated</label>
-  <p id="catalog-empty" role="status" hidden>No models match your filters.</p>
-  <section data-catalog-location>
+  <nav class="catalog-nav" aria-label="Model locations">
+    <a href="#local">Local models</a><a href="#remote">Remote models</a>
+  </nav>
+  <section id="local" data-catalog-location>
     <h2>Local models</h2>
-    ${localTable('Chat models', catalog.local_chat.models)}
-    ${localTable('Decision models', catalog.local_decision.models)}
+    ${filters({ local: true, models: local })}
+    ${table('Local models by creator', localColumns, local)}
+    <p class="catalog-note"><a href="https://artificialanalysis.ai/methodology/intelligence-benchmarking">Score methodology</a></p>
   </section>
-  <section data-catalog-location>
+  <section id="remote" data-catalog-location>
     <h2>Remote models</h2>
-    <p>Provider APIs determine which models your account can access. Pricing from <a href="https://models.dev">Models.dev</a> is shown in USD per million tokens.</p>
-    ${remote}
-    ${decisions}
+    <p class="catalog-note">Pricing from <a href="https://models.dev">Models.dev</a> is shown in USD per million tokens. Provider APIs determine which models your account can access.</p>
+    ${filters({ models: remote })}
+    ${table('Remote models by creator', remoteColumns, remote)}
   </section>
 </main></body></html>`;
 }

@@ -6,28 +6,48 @@
 }
 
 .catalog h1,
-.catalog h2,
-.catalog h3 {
-  margin: 0;
-  line-height: 1.2;
-}
-
+.catalog h2 { margin: 0; line-height: 1.2; }
 .catalog h1 { font-size: clamp(2.5rem, 7vw, 4.5rem); }
-.catalog h2 { margin-top: 2.5rem; font-size: 2rem; }
-.catalog h3 { margin: 1.5rem 0 0.5rem; font-size: 1.25rem; }
+.catalog h2 { margin-top: 1.5rem; font-size: 1.5rem; }
 
-.catalog-version {
-  margin: 0.5rem 0 1.5rem;
-  color: var(--ink-2);
+.catalog-version,
+.catalog-note,
+.catalog-status { color: var(--ink-2); }
+.catalog-version { margin: 0.5rem 0 1.5rem; }
+.catalog-note { margin: 0.75rem 0; }
+
+.catalog-nav {
+  display: flex;
+  gap: 0.45rem;
+  border-bottom: 1px solid var(--rule);
 }
 
-.catalog label { font-weight: 600; }
+.catalog-nav a {
+  padding: 0.65rem 0.9rem;
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+}
 
-.catalog input[type="search"] {
-  display: block;
-  width: min(100%, 32rem);
-  margin-top: 0.35rem;
-  padding: 0.55rem 0.75rem;
+.catalog-nav a[aria-current="page"] { border-color: currentColor; background: var(--chip); }
+
+.catalog-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+
+.catalog-filters label { display: grid; gap: 0.3rem; font-size: 0.875rem; font-weight: 600; }
+.catalog-search { flex: 1 0 100%; }
+.catalog .check { display: flex; align-items: center; min-height: 2.5rem; }
+
+.catalog-filters :is(input:not([type="checkbox"]), select, button) {
+  min-height: 2.5rem;
+  max-width: 100%;
+  padding: 0.45rem 0.65rem;
   border: 1px solid var(--ink-3);
   border-radius: 0.4rem;
   background: var(--paper);
@@ -35,17 +55,16 @@
   font: inherit;
 }
 
-.catalog-filter {
-  display: inline-flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin-top: 0.75rem;
-}
+.catalog-search input { width: min(100%, 28rem); }
+.catalog input[type="number"] { width: 9rem; }
+.catalog-filters button { font-size: 0.875rem; cursor: pointer; }
+.catalog-status { margin: 0.75rem 0; font-size: 0.9rem; }
 
 .catalog-table {
   overflow: auto;
   border: 1px solid var(--rule);
   border-radius: 0.5rem;
+  margin: 0.75rem 0;
 }
 
 .catalog table {
@@ -57,19 +76,35 @@
 
 .catalog th,
 .catalog td {
-  padding: 0.75rem;
+  padding: 0.7rem 0.8rem;
   border-bottom: 1px solid var(--rule);
   vertical-align: top;
 }
 
-.catalog th {
-  white-space: nowrap;
-  background: var(--chip);
+.catalog th { white-space: nowrap; background: var(--chip); }
+.catalog thead button,
+.creator-row button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
-.catalog tbody tr:last-child td { border-bottom: none; }
+.catalog thead button:disabled { cursor: default; }
+.catalog th:not([aria-sort]) button:not(:disabled)::after { content: " ↕"; color: var(--ink-2); }
+.catalog th[aria-sort="ascending"] button::after { content: " ↑"; }
+.catalog th[aria-sort="descending"] button::after { content: " ↓"; }
+.catalog .creator-row th { padding-block: 0.55rem; }
+.creator-row button::before { content: "▸"; display: inline-block; margin-inline-end: 0.6rem; }
+.creator-row button[aria-expanded="true"]::before { transform: rotate(90deg); }
+.creator-row button span { margin-inline-start: 0.4rem; color: var(--ink-2); font-weight: normal; }
+.catalog tbody:last-of-type tr:last-child td { border-bottom: none; }
 .catalog summary { min-width: 12rem; cursor: pointer; }
 .catalog small { display: block; color: var(--ink-2); overflow-wrap: anywhere; }
+.catalog td[data-value] { font-variant-numeric: tabular-nums; }
 
 .catalog pre {
   max-width: min(28rem, 70vw);
