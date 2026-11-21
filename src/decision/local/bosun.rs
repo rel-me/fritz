@@ -2,7 +2,7 @@
 //!
 //! Compiler: Hanno-Labs/bosun-v3.1-0.6b@2afeaccc760165386c2dd52e78b851b1b53cb752.
 //! Typed mapping: Hanno-Labs/jev-compatible-server@431b8e1ecc501cdb76c118fe58907a0a004d6fc0.
-//! Native final-position logits: llama.cpp@7c2653acc749258dc62067da62d07024d971ccd2.
+//! Native final-position logits: llama.cpp@690b87d88151dbd775bb6eff5581663688785928.
 //! Bosun uses temperature 1 and maximum-option confidence for both Choice and Score.
 //! Those values have not been qualified as calibrated probabilities for Fritz workflows.
 use super::Manifest;
@@ -457,7 +457,7 @@ async fn load(
                 .context("Bosun is missing its GGUF entry file.")?,
         ),
         MAX_PROMPT_TOKENS,
-        false,
+        None,
     )
     .await
     .context("Could not load the installed Bosun GGUF with llama.cpp.")?;

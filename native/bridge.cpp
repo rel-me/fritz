@@ -57,7 +57,7 @@ struct CallbackScope {
 
 extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
-extern "C" Model * fl_model_load(const char * path, int context, bool chat,
+extern "C" Model * fl_model_load(const char * path, int context, bool chat, bool inkling_loop,
                                  Cancel cancel, void * data, char ** error) {
     try {
         static std::once_flag initialized;
@@ -74,6 +74,19 @@ extern "C" Model * fl_model_load(const char * path, int context, bool chat,
         auto params = llama_model_default_params();
         params.devices = devices;
         params.n_gpu_layers = 999;
+        // Keep the six non-repeating prelude layers' experts in CPU memory on
+        // smaller Metal devices, leaving room for the loop's KV and compute buffers.
+        const llama_model_tensor_buft_override inkling_overrides[] = {
+            {R"(^blk\.[0-5]\.ffn_(gate_up|down)_exps\.weight$)", ggml_backend_cpu_buffer_type()},
+            {nullptr, nullptr},
+        };
+        if (inkling_loop) {
+            size_t metal_free, metal_total;
+            ggml_backend_dev_memory(gpu, &metal_free, &metal_total);
+            if (metal_free < 20ULL * 1024 * 1024 * 1024) {
+                params.tensor_buft_overrides = inkling_overrides;
+            }
+        }
         params.progress_callback = progress;
         params.progress_callback_user_data = &control;
         auto result = std::make_unique<Model>();

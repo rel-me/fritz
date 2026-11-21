@@ -24,7 +24,9 @@ downloaded weights available for reuse.
 
 Inkling 2 Mini is available for local text chat under the Inkling family. The
 IQ4_NL download is 17.63 GB. Fritz recommends 24 GB of RAM. The weights are
-licensed under Apache 2.0.
+licensed under Apache 2.0. When Metal has less than 20 GiB of working-set space
+available, Fritz keeps the model's first six layers' expert weights in CPU
+memory to make room for its attention and compute buffers.
 
 ## Storage and runtime
 
