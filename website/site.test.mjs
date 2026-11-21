@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-const WORKER_ROUTES = new Set(["/download", "/appcast.xml"]);
+const WORKER_ROUTES = new Set(["/download", "/appcast.xml", "/catalog"]);
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 test("Wrangler serves the home page from public/", () => {

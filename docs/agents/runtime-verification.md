@@ -360,7 +360,7 @@ directories or Xcode DerivedData between worktrees.
 The root `Package.swift` publishes `Fritz`, `FritzState` and `FritzUpdates`; the app package
 and Xcode target consume them. Run `make test-swift` for public-library and application tests using the
 configured build storage. The model catalog lives
-in `Sources/Fritz/LocalModels.json` and is consumed by both Swift and Rust.
+in `Sources/Fritz/ModelCatalog.json` and is consumed by both Swift and Rust.
 The staged Xcode app must include the Fritz resource bundle as well as Sparkle
 and Textual resources. See [the library guide](../libraries.md).
 

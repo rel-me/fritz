@@ -45,6 +45,13 @@ DMGs with immutable caching and byte-range support.
 
 ## Home page
 
+Publish website or catalog changes with `cd website && npm ci && npm test &&
+npm run deploy` after authenticating Wrangler. The Worker serves the tracked
+catalog at `/supported-models.json` and renders the same data at `/catalog`.
+Check the live version against `Sources/Fritz/ModelCatalog.json` after deployment.
+This website command leaves release archives and the appcast in R2.
+
+
 The home page is static: `website/public/` is published as the Worker's static
 assets, which answer before the Worker code. `_headers` sets its Content
 Security Policy, so keep scripts and styles in separate files. `/download`

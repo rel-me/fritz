@@ -321,8 +321,9 @@ def main():
         assert receive()["type"] == "error"
         # Model-specific folders travel through the real pipe and survive a fresh
         # process. Existing file-presence installations avoid network/weight downloads.
-        llm_pin = next(pin for pin in json.loads((ROOT / "Sources/Fritz/LocalModels.json").read_text())["models"] if pin["id"] == native_id)
-        decision_pin = json.loads((ROOT / "Sources/Fritz/DecisionModels.json").read_text())["models"][0]
+        catalog = json.loads((ROOT / "Sources/Fritz/ModelCatalog.json").read_text())
+        llm_pin = next(pin for pin in catalog["local_chat"]["models"] if pin["id"] == native_id)
+        decision_pin = catalog["local_decision"]["models"][0]
         for prefix, command, kind, pin, filenames in [
             ("localModels", "local-models", "fritz", llm_pin, [llm_pin["file"]]),
             ("decisionModels", "decision-models", "ollaya", decision_pin, [item["file"] for item in decision_pin["files"]]),

@@ -1,8 +1,19 @@
-# OpenAI model capabilities
+# Fritz model catalog
 
-`Sources/Fritz/ModelCatalog.json` is the bundled source for OpenAI chat model
-names, reasoning efforts, and selectable speeds. Swift loads it as a package
-resource; Rust embeds that same file in its request builder. Discovery controls
+`Sources/Fritz/ModelCatalog.json` is the source for Fritz's local download
+manifests (`local_chat` and `local_decision`), fixed remote decision model IDs
+(`remote_decision`), reviewed OpenAI chat capabilities, and supplemental remote
+metadata and pricing. Swift loads it as a package resource, Rust embeds it, and
+the Fritz website Worker serves and renders it directly.
+
+Increase the top-level integer `catalog_version` on every content change.
+CI compares catalog content and version with the PR base. The import script
+bumps the version when it changes provider metadata.
+
+## OpenAI capabilities
+
+The `reviewed_openai` section defines OpenAI chat model names, reasoning
+efforts, and selectable speeds. Discovery controls
 which models the account can use. Catalog entries do not add connections or
 grant model access, and do not apply to OpenAI-compatible endpoints or Decisions.
 
@@ -47,20 +58,21 @@ request parameters or mark a model verified. The Rust request builder and Swift
 controls continue using the same bundled reviewed capabilities.
 
 `RemoteModelCatalog` seeds from this bundled file and revalidates supplemental
-metadata at `https://rel.me/supported-models.json` on each Models load. Provider
+metadata at `https://fritz.rel.me/supported-models.json` on each Models load. Provider
 APIs still determine availability; metadata lookup never adds an account's models.
 Concurrent loads share one bounded-time request. ETag / If-None-Match avoids
 redownloading unchanged data, with Last-Modified used when ETag is absent. Valid
-responses atomically replace a host-supplied cache, preserving the complete JSON;
-errors retain validated data and remain available through the catalog's `error`.
-Hosts supply isolated cache paths. Without a path, the cache lives in memory.
+responses at least as recent as the catalog already in use atomically replace
+a host-supplied cache. Errors retain validated data and remain available through
+the catalog's `error`. Hosts supply isolated cache paths. Without a path, the
+cache lives in memory. Local manifests and reviewed request capabilities stay
+pinned to the bundled copy so they match the runtime in that build.
 
-`web/model-catalog.mjs` serves the canonical file with a content-derived ETag and
-conditional GET/HEAD support. It also exports `serveModelCatalogPage` for a minimal
-HTML view at `/catalog`, including filtering and expandable full model metadata.
-The rel.me host mounts these exported handlers; deployment belongs to that host. Clients never query
-Models.dev. Before that host adopts the new representation, remote refresh reports
-a schema error and the explicitly bundled metadata remains available.
+`website/model-catalog.mjs` serves the canonical catalog with a content-derived
+ETag and conditional GET/HEAD. The HTML view at
+[Catalog](https://fritz.rel.me/catalog) includes filtering and expandable
+metadata. Clients fetch Fritz's catalog only. See [the website deployment
+procedure](releases.md#home-page) to publish catalog changes.
 
 Use official docs as evidence, not model-name guesses or automatic paid probes.
 Run `make test`, `make check`, UI snapshot comparisons, and the staged native

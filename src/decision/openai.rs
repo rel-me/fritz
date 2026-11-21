@@ -56,10 +56,7 @@ fn text(value: &Value) -> String {
 
 fn payload(request: &DecisionRequest) -> Result<Value> {
     request.validate()?;
-    ensure!(
-        request.model == "gpt-6-luna",
-        "OpenAI Decisions currently supports gpt-6-luna."
-    );
+    crate::config::ProviderKind::OpenaiDecisions.validate_decision_model(&request.model)?;
     let questions: Vec<Value> = request.questions.iter().map(|(name, question)| match question {
         Question::Noul { instructions, criteria } => {
             let instructions = match criteria {

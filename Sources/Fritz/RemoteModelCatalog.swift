@@ -6,6 +6,7 @@ import Observation
 public final class RemoteModelCatalog {
     public private(set) var error: String?
     private var cache: Cache?
+    private var catalogVersion = 0
     private var providers: [String: Provider] = [:]
     private let cacheURL: URL?
     private let session: URLSession
@@ -70,6 +71,7 @@ public final class RemoteModelCatalog {
     struct Provider: Decodable, Sendable { let models: [String: Model] }
     private struct Catalog: Decodable {
         let schema_version: Int
+        let catalog_version: Int
         let model_info: ModelInfo
         struct ModelInfo: Decodable { let currency: String; let unit: String; let providers: [String: Provider] }
     }
@@ -79,14 +81,22 @@ public final class RemoteModelCatalog {
         self.cacheURL = cacheURL
         self.session = session
         do {
-            guard let url = Bundle.module.url(forResource: "ModelCatalog", withExtension: "json") else { throw URLError(.fileDoesNotExist) }
-            providers = try Self.decode(Data(contentsOf: url))
+            use(try Self.validate(BundledModelCatalog.decode(Catalog.self)))
         } catch { self.error = "Could not read bundled model catalog: \(error.localizedDescription)" }
         if let cacheURL, FileManager.default.fileExists(atPath: cacheURL.path) {
             do {
                 let saved = try JSONDecoder().decode(Cache.self, from: Data(contentsOf: cacheURL))
-                providers = try Self.decode(saved.catalog)
-                cache = saved
+                let catalog: Catalog
+                do {
+                    catalog = try Self.decode(saved.catalog)
+                } catch DecodingError.typeMismatch(_, let context)
+                    where context.codingPath.last?.stringValue == "catalog_version" {
+                    return
+                }
+                if catalog.catalog_version >= catalogVersion {
+                    use(catalog)
+                    cache = saved
+                }
             }
             catch { self.error = "Could not read pricing catalog: \(error.localizedDescription)" }
         }
@@ -103,21 +113,22 @@ public final class RemoteModelCatalog {
 
     private func revalidate() async {
         do {
-            var request = URLRequest(url: URL(string: "https://rel.me/supported-models.json")!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+            var request = URLRequest(url: URL(string: "https://fritz.rel.me/supported-models.json")!, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
             if let etag = cache?.etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
             else if let modified = cache?.lastModified { request.setValue(modified, forHTTPHeaderField: "If-Modified-Since") }
             let (data, response) = try await session.data(for: request)
             guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
             if response.statusCode == 304, cache != nil { error = nil; return }
             guard response.statusCode == 200 else { throw URLError(.badServerResponse) }
-            let providers = try Self.decode(data)
+            let catalog = try Self.decode(data)
+            guard catalog.catalog_version >= catalogVersion else { return }
             let next = Cache(catalog: data, etag: response.value(forHTTPHeaderField: "ETag"), lastModified: response.value(forHTTPHeaderField: "Last-Modified"))
             if let cacheURL {
                 try FileManager.default.createDirectory(at: cacheURL.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try JSONEncoder().encode(next).write(to: cacheURL, options: .atomic)
             }
             cache = next
-            self.providers = providers
+            use(catalog)
             error = nil
         } catch { self.error = "Could not refresh pricing catalog: \(error.localizedDescription)" }
     }
@@ -138,12 +149,21 @@ public final class RemoteModelCatalog {
         return ChatResponseUsageSummary(usage: usage, modelName: modelName, costUSD: cost, costSource: source)
     }
 
-    private static func decode(_ data: Data) throws -> [String: Provider] {
-        let catalog = try JSONDecoder().decode(Catalog.self, from: data)
-        guard catalog.schema_version == 1, catalog.model_info.currency == "USD", catalog.model_info.unit == "per_million_tokens",
+    private func use(_ catalog: Catalog) {
+        catalogVersion = catalog.catalog_version
+        providers = catalog.model_info.providers
+    }
+
+    private static func decode(_ data: Data) throws -> Catalog {
+        try validate(JSONDecoder().decode(Catalog.self, from: data))
+    }
+
+    private static func validate(_ catalog: Catalog) throws -> Catalog {
+        guard catalog.schema_version == 1, catalog.catalog_version > 0,
+              catalog.model_info.currency == "USD", catalog.model_info.unit == "per_million_tokens",
               !catalog.model_info.providers.isEmpty,
               catalog.model_info.providers.values.contains(where: { !$0.models.isEmpty }) else { throw URLError(.cannotParseResponse) }
-        return catalog.model_info.providers
+        return catalog
     }
 
     public func pricing(provider kind: AIProviderKind, modelID: String) -> Cost? {

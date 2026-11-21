@@ -785,7 +785,7 @@ mod tests {
                 "bosun":format!("{:x}",Sha256::digest(include_bytes!("bosun.rs"))),
                 "local":format!("{:x}",Sha256::digest(include_bytes!("../local.rs"))),
                 "harness":format!("{:x}",Sha256::digest(include_bytes!("../harness.rs"))),
-                "catalog":format!("{:x}",Sha256::digest(include_bytes!("../../../Sources/Fritz/DecisionModels.json")))
+                "catalog":format!("{:x}",Sha256::digest(crate::MODEL_CATALOG_JSON.as_bytes()))
             },
             "model":pin.id,"revision":pin.revision,"engine_revision":crate::local::native::REVISION,
             "artifacts":artifacts,"rows":[],"cleanup":null
@@ -910,7 +910,7 @@ mod tests {
                 "bosun":format!("{:x}",Sha256::digest(include_bytes!("bosun.rs"))),
                 "local":format!("{:x}",Sha256::digest(include_bytes!("../local.rs"))),
                 "harness":format!("{:x}",Sha256::digest(include_bytes!("../harness.rs"))),
-                "catalog":format!("{:x}",Sha256::digest(include_bytes!("../../../Sources/Fritz/DecisionModels.json")))
+                "catalog":format!("{:x}",Sha256::digest(crate::MODEL_CATALOG_JSON.as_bytes()))
             },
             "cpu_reference_path":cpu_path,"cpu_reference_sha256":null,
             "compiler_reference_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../tests/fixtures/bosun-compiler-reference.json"))),

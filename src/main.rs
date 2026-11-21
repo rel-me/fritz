@@ -180,28 +180,20 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
                 let connection = config::find(Some(id))?;
                 let request: decision::DecisionRequest =
                     serde_json::from_value(params["request"].clone())?;
+                connection
+                    .provider
+                    .validate_decision_model(&request.model)?;
                 let (backend, api_key) = match connection.provider {
-                    ProviderKind::Jev => {
-                        if request.model != "jev-latest" {
-                            bail!("Jev currently supports the jev-latest model.");
-                        }
-                        (
-                            decision::HarnessBackend::Jev { endpoint: None },
-                            config::key(connection.id)?,
-                        )
-                    }
-                    ProviderKind::OpenaiDecisions => {
-                        anyhow::ensure!(
-                            request.model == "gpt-6-luna",
-                            "OpenAI Decisions currently supports gpt-6-luna."
-                        );
-                        (
-                            decision::HarnessBackend::Openai {
-                                endpoint: Some(format!("{}/decisions", connection.base_url())),
-                            },
-                            config::key(connection.id)?,
-                        )
-                    }
+                    ProviderKind::Jev => (
+                        decision::HarnessBackend::Jev { endpoint: None },
+                        config::key(connection.id)?,
+                    ),
+                    ProviderKind::OpenaiDecisions => (
+                        decision::HarnessBackend::Openai {
+                            endpoint: Some(format!("{}/decisions", connection.base_url())),
+                        },
+                        config::key(connection.id)?,
+                    ),
                     ProviderKind::Ollaya => {
                         decision::local::manifest(&request.model)?;
                         (decision::HarnessBackend::Ollaya, None)

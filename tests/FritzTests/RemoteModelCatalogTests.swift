@@ -8,7 +8,7 @@ final class RemoteModelCatalogTests: XCTestCase {
     func testBrowsableCatalogIncludesTextChatWithoutClaimingAConfiguredConnection() async throws {
         let session = makeSession()
         defer { session.invalidateAndCancel(); PricingURLProtocol.handler = nil }
-        let payload = Data(#"{"schema_version":1,"model_info":{"currency":"USD","unit":"per_million_tokens","providers":{"anthropic":{"models":{"chat-fixture":{"name":"Catalog Chat","modalities":{"input":["text"],"output":["text"]},"limit":{"context":64}},"embedding-fixture":{"modalities":{"input":["text"],"output":["embedding"]},"limit":{"context":64}},"image-fixture":{"modalities":{"input":["text"],"output":["text","image"]},"limit":{"context":0}}}}}}}"#.utf8)
+        let payload = Data(#"{"schema_version":1,"catalog_version":1000000,"model_info":{"currency":"USD","unit":"per_million_tokens","providers":{"anthropic":{"models":{"chat-fixture":{"name":"Catalog Chat","modalities":{"input":["text"],"output":["text"]},"limit":{"context":64}},"embedding-fixture":{"modalities":{"input":["text"],"output":["embedding"]},"limit":{"context":64}},"image-fixture":{"modalities":{"input":["text"],"output":["text","image"]},"limit":{"context":0}}}}}}}"#.utf8)
         PricingURLProtocol.handler = { _ in (200, [:], payload) }
         let catalog = RemoteModelCatalog(session: session)
         await catalog.refresh()
@@ -39,7 +39,7 @@ final class RemoteModelCatalogTests: XCTestCase {
         XCTAssertEqual(catalog.metadata(provider: .openAI, modelID: "gpt-6-luna")?["reasoning"], .bool(true))
     }
 
-    private let payload = Data(#"{"schema_version":1,"model_info":{"currency":"USD","unit":"per_million_tokens","providers":{"openai":{"models":{"fixture":{"cost":{"input":2,"output":10,"cache_read":0.2,"cache_write":2.5,"tiers":[{"input":4,"output":15,"cache_read":0.4,"cache_write":5,"tier":{"type":"context","size":272000}}]}}}}}}}"#.utf8)
+    private let payload = Data(#"{"schema_version":1,"catalog_version":1000000,"model_info":{"currency":"USD","unit":"per_million_tokens","providers":{"openai":{"models":{"fixture":{"cost":{"input":2,"output":10,"cache_read":0.2,"cache_write":2.5,"tiers":[{"input":4,"output":15,"cache_read":0.4,"cache_write":5,"tier":{"type":"context","size":272000}}]}}}}}}}"#.utf8)
 
     func testRevalidationPersistsPricesAndRetainsThemOnErrors() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -49,7 +49,7 @@ final class RemoteModelCatalogTests: XCTestCase {
         defer { session.invalidateAndCancel() }
         let body = payload
         PricingURLProtocol.handler = { request in
-            XCTAssertEqual(request.url?.absoluteString, "https://rel.me/supported-models.json")
+            XCTAssertEqual(request.url?.absoluteString, "https://fritz.rel.me/supported-models.json")
             XCTAssertNil(request.value(forHTTPHeaderField: "If-None-Match"))
             return (200, ["ETag": "\"one\""], body)
         }
@@ -66,6 +66,12 @@ final class RemoteModelCatalogTests: XCTestCase {
         }
         await restored.refresh()
         XCTAssertNil(restored.error)
+        XCTAssertEqual(summary(restored, calls: [short]).costUSD, summary(catalog, calls: [short]).costUSD)
+        let older = Data(String(decoding: body, as: UTF8.self)
+            .replacingOccurrences(of: "1000000", with: "999999")
+            .replacingOccurrences(of: "\"input\":2", with: "\"input\":1").utf8)
+        PricingURLProtocol.handler = { _ in (200, ["ETag": "\"older\""], older) }
+        await restored.refresh()
         XCTAssertEqual(summary(restored, calls: [short]).costUSD, summary(catalog, calls: [short]).costUSD)
         PricingURLProtocol.handler = { _ in (200, ["ETag": "\"bad\""], Data("{}".utf8)) }
         await restored.refresh()
