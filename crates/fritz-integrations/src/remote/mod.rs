@@ -119,8 +119,7 @@ struct Job {
 }
 fn secret() -> Result<String, Error> {
     let mut bytes = [0u8; 32];
-    getrandom::getrandom(&mut bytes)
-        .map_err(|_| Error::capture("Secure random generation failed"))?;
+    getrandom::fill(&mut bytes).map_err(|_| Error::capture("Secure random generation failed"))?;
     Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes))
 }
 fn hash(value: &str) -> [u8; 32] {
@@ -270,7 +269,7 @@ fn start(config: Config, host: Arc<dyn RemoteHost>, identity: Identity) -> Resul
                 match listener.accept() {
                     Ok((socket, _)) => {
                         if active
-                            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                                 (n < 16).then_some(n + 1)
                             })
                             .is_err()

@@ -40,8 +40,8 @@ impl Compaction {
                 content.iter().filter_map(|item| {
                     let UserContent::ToolResult(result) = item else { return None; };
                     history[..cut].iter().position(|message| {
-                        let Message::Assistant { content, .. } = message else { return false; };
-                        content.iter().any(|item| matches!(item, AssistantContent::ToolCall(call) if call.id == result.call))
+                        let Message::Assistant(assistant) = message else { return false; };
+                        assistant.content.iter().any(|item| matches!(item, AssistantContent::ToolCall(call) if call.id == result.call))
                     })
                 }).min()
             }).min().unwrap_or(cut);
@@ -69,9 +69,10 @@ impl Compaction {
                         })
                         .collect(),
                 ),
-                Message::Assistant { content, .. } => (
+                Message::Assistant(assistant) => (
                     "Assistant",
-                    content
+                    assistant
+                        .content
                         .iter()
                         .filter_map(|item| match item {
                             AssistantContent::Text(text) => Some(text.text.as_str()),
@@ -143,11 +144,14 @@ fn readable_bytes(history: &[Message]) -> usize {
                     _ => 0,
                 })
                 .sum(),
-            Message::Assistant { content, .. } => content
+            Message::Assistant(assistant) => assistant
+                .content
                 .iter()
                 .map(|item| match item {
                     AssistantContent::Text(text) => text.text.len(),
-                    AssistantContent::ToolCall(call) => call.function.arguments.to_string().len(),
+                    AssistantContent::ToolCall(call) => {
+                        call.function.arguments_value().to_string().len()
+                    }
                     _ => 0,
                 })
                 .sum(),
@@ -158,7 +162,7 @@ fn readable_bytes(history: &[Message]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fritz_harness::message::{ToolName, UserContent};
+    use fritz_harness::message::{AssistantMessage, ToolName, UserContent};
     #[test]
     fn bounded_summary_keeps_complete_recent_tool_pairs_and_excludes_tool_data() {
         let config = Compaction {
@@ -169,14 +173,11 @@ mod tests {
         let history = vec![
             Message::user("Earlier request ".repeat(200)),
             Message::assistant("Earlier answer"),
-            Message::Assistant {
-                id: None,
-                content: vec![AssistantContent::tool_call(
-                    "pair",
-                    ToolName::new("inspect").unwrap(),
-                    serde_json::json!({"opaque":"TOOL_ARGUMENT_SECRET"}),
-                )],
-            },
+            Message::Assistant(AssistantMessage::new(vec![AssistantContent::tool_call(
+                "pair",
+                ToolName::new("inspect").unwrap(),
+                serde_json::json!({"opaque":"TOOL_ARGUMENT_SECRET"}),
+            )])),
             Message::User {
                 content: vec![UserContent::tool_result(
                     fritz_harness::message::CallId::from_wire("pair"),

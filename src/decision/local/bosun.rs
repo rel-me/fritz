@@ -2,7 +2,7 @@
 //!
 //! Compiler: Hanno-Labs/bosun-v3.1-0.6b@2afeaccc760165386c2dd52e78b851b1b53cb752.
 //! Typed mapping: Hanno-Labs/jev-compatible-server@431b8e1ecc501cdb76c118fe58907a0a004d6fc0.
-//! Native final-position logits: llama.cpp@690b87d88151dbd775bb6eff5581663688785928.
+//! Native final-position logits: llama.cpp@b019be0c86e8adaf8b46627c091c24c1597b95f9.
 //! Bosun uses temperature 1 and maximum-option confidence for both Choice and Score.
 //! Those values have not been qualified as calibrated probabilities for Fritz workflows.
 use super::Manifest;
@@ -181,7 +181,7 @@ fn compile(request: &DecisionRequest) -> Result<Vec<Row>> {
     request.questions.iter().map(|(id, question)| {
         let (kind, instructions, candidates) = candidates(question)?;
         ensure!((2..=255).contains(&candidates.len()), "Bosun supports 2 to 255 candidates.");
-        let row_id = format!("{:x}", Sha256::digest(dumps_canonical(&json!({"question_name":id,"request":wire})).as_bytes()));
+        let row_id = hex::encode(Sha256::digest(dumps_canonical(&json!({"question_name":id,"request":wire})).as_bytes()));
         let digest = Sha256::digest(format!("0:{row_id}:candidate-order").as_bytes());
         let seed = u64::from_be_bytes(digest[..8].try_into()?);
         let mut presentation_order: Vec<usize> = (0..candidates.len()).collect();
@@ -411,7 +411,7 @@ fn verify_contract(pin: &Manifest, directory: &std::path::Path) -> Result<()> {
         );
         if !file.file.ends_with(".gguf") {
             ensure!(
-                format!("{:x}", Sha256::digest(std::fs::read(&path)?)) == file.sha256,
+                hex::encode(Sha256::digest(std::fs::read(&path)?)) == file.sha256,
                 "Bosun artifact failed its pinned checksum: {}",
                 file.file
             );
@@ -714,7 +714,7 @@ mod tests {
             }
             hash.update(&buffer[..count]);
         }
-        format!("{:x}", hash.finalize())
+        hex::encode(hash.finalize())
     }
 
     #[cfg(target_os = "macos")]
@@ -750,12 +750,9 @@ mod tests {
         assert_eq!(reference["status"], "complete");
         assert_eq!(
             reference["compiler_reference_sha256"],
-            format!(
-                "{:x}",
-                Sha256::digest(include_bytes!(
-                    "../../../tests/fixtures/bosun-compiler-reference.json"
-                ))
-            )
+            hex::encode(Sha256::digest(include_bytes!(
+                "../../../tests/fixtures/bosun-compiler-reference.json"
+            )))
         );
         let pin = super::super::manifest("bosun-v3.1-0.6b-f16").unwrap();
         let receipt_path = PathBuf::from(
@@ -782,10 +779,10 @@ mod tests {
             "binary_sha256":std::env::var("FRITZ_BOSUN_STAGED_HARNESS_SHA256").unwrap(),
             "test_executable_path":executable,"test_executable_sha256":file_hash(&executable),
             "source_sha256":{
-                "bosun":format!("{:x}",Sha256::digest(include_bytes!("bosun.rs"))),
-                "local":format!("{:x}",Sha256::digest(include_bytes!("../local.rs"))),
-                "harness":format!("{:x}",Sha256::digest(include_bytes!("../harness.rs"))),
-                "catalog":format!("{:x}",Sha256::digest(crate::MODEL_CATALOG_JSON.as_bytes()))
+                "bosun":hex::encode(Sha256::digest(include_bytes!("bosun.rs"))),
+                "local":hex::encode(Sha256::digest(include_bytes!("../local.rs"))),
+                "harness":hex::encode(Sha256::digest(include_bytes!("../harness.rs"))),
+                "catalog":hex::encode(Sha256::digest(crate::MODEL_CATALOG_JSON.as_bytes()))
             },
             "model":pin.id,"revision":pin.revision,"engine_revision":crate::local::native::REVISION,
             "artifacts":artifacts,"rows":[],"cleanup":null
@@ -907,13 +904,13 @@ mod tests {
             "binary_sha256":std::env::var("FRITZ_BOSUN_STAGED_HARNESS_SHA256").unwrap(),
             "test_executable_path":executable,"test_executable_sha256":file_hash(&executable),
             "source_sha256":{
-                "bosun":format!("{:x}",Sha256::digest(include_bytes!("bosun.rs"))),
-                "local":format!("{:x}",Sha256::digest(include_bytes!("../local.rs"))),
-                "harness":format!("{:x}",Sha256::digest(include_bytes!("../harness.rs"))),
-                "catalog":format!("{:x}",Sha256::digest(crate::MODEL_CATALOG_JSON.as_bytes()))
+                "bosun":hex::encode(Sha256::digest(include_bytes!("bosun.rs"))),
+                "local":hex::encode(Sha256::digest(include_bytes!("../local.rs"))),
+                "harness":hex::encode(Sha256::digest(include_bytes!("../harness.rs"))),
+                "catalog":hex::encode(Sha256::digest(crate::MODEL_CATALOG_JSON.as_bytes()))
             },
             "cpu_reference_path":cpu_path,"cpu_reference_sha256":null,
-            "compiler_reference_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../tests/fixtures/bosun-compiler-reference.json"))),
+            "compiler_reference_sha256":hex::encode(Sha256::digest(include_bytes!("../../../tests/fixtures/bosun-compiler-reference.json"))),
             "model":"bosun-v3.1-0.6b-f16", "engine_revision":crate::local::native::REVISION,
             "artifacts":[],"planned_attempts":2,"attempts":[],"cleanup":null,
             "phase_scope":"raw_await includes pinned engine inference, final-position readout and eligible-slot extraction; timing has no pass threshold"

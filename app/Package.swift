@@ -7,7 +7,7 @@ let package = Package(
     products: [.executable(name: "FritzApp", targets: ["FritzApp"])],
     dependencies: [
         .package(name: "Fritz", path: ".."),
-        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", exact: "1.19.6"),
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", exact: "1.19.7"),
         .package(url: "https://github.com/gonzalezreal/textual", exact: "0.5.0"),
         .package(url: "https://github.com/twostraws/Inferno", revision: "a40c7a0bdec03aae1bd0b96c41d6a75451bafd2c"),
     ],
