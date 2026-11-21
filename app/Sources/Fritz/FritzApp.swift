@@ -85,22 +85,36 @@ import SwiftUI
         }
     }
 
-    private var isTerminating = false
+    private enum Termination {
+        case idle, shuttingDown, ready
+    }
+
+    private var termination = Termination.idle
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard !isTerminating else { return .terminateLater }
-        isTerminating = true
+        switch termination {
+        case .ready: return .terminateNow
+        case .shuttingDown: return .terminateCancel
+        case .idle: termination = .shuttingDown
+        }
         NotificationCenter.default.post(name: .closeFritzBrowser, object: nil)
         Task {
             await FritzState.shared.workspace.shutdown()
             #if FRITZ_CHROMIUM
             if !FritzChromiumApplication.finishBrowserShutdown({
-                NSApp.reply(toApplicationShouldTerminate: true)
+                self.terminateAfterShutdown(sender)
             }) { return }
             #endif
-            sender.reply(toApplicationShouldTerminate: true)
+            terminateAfterShutdown(sender)
         }
-        return .terminateLater
+        // A nested AppKit termination loop can suspend Chromium's message pump
+        // while browser close callbacks are still pending.
+        return .terminateCancel
+    }
+
+    private func terminateAfterShutdown(_ sender: NSApplication) {
+        termination = .ready
+        sender.terminate(nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
