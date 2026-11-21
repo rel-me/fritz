@@ -568,7 +568,7 @@ async fn handle(
                     let pin = super::models::catalog().iter().find(|pin| pin.id == id)?;
                     Some(json!({"name":id,"model":id,"modified_at":timestamp(),"size":pin.size,
                         "digest":format!("sha256:{}",pin.sha256),"details":{"format":"gguf","family":pin.architecture,
-                        "families":[pin.architecture],"parameter_size":pin.name,"quantization_level":"Q4_K_M"}}))
+                        "families":[pin.architecture],"parameter_size":pin.name,"quantization_level":pin.quantization.as_deref().unwrap_or("Q4_K_M")}}))
                 }).collect::<Vec<_>>();
             reply(&mut stream, 200, &json!({"models":models})).await?;
         }

@@ -22,6 +22,10 @@ add or edit a **Fritz** provider in **Settings → Models** and select it. Insta
 models then become available in the chat model picker. Removing a provider leaves
 downloaded weights available for reuse.
 
+Inkling 2 Mini is available for local text chat under the Inkling family. The
+IQ4_NL download is 17.63 GB. Fritz recommends 24 GB of RAM. The weights are
+licensed under Apache 2.0.
+
 ## Storage and runtime
 
 Downloads are pinned to repository revisions, file sizes, and SHA-256 hashes. Models run

@@ -2,6 +2,23 @@
   "verified_on": "2026-09-21",
   "models": [
     {
+      "id": "inkling-2-mini-iq4_nl",
+      "name": "Inkling 2 Mini",
+      "family": "Inkling",
+      "category": "llm",
+      "repository": "ggml-org/Inkling-2-Mini-GGUF",
+      "revision": "e8a2cecf0e78914f07cc27b9be711a9b2c7561d9",
+      "file": "Inkling-2-Mini-IQ4_NL.gguf",
+      "size": 17627940768,
+      "sha256": "cbdf3fa9dc50a4124977980f37da4f1fa764b0cfe800d275cd43d26ce2a81af4",
+      "architecture": "inkling2_loop",
+      "quantization": "IQ4_NL",
+      "disable_thinking": false,
+      "memory_gb": 24,
+      "license_url": "https://thinkingmachines.ai/model-card/inkling-2-mini/",
+      "repository_created": "2026-11-20"
+    },
+    {
       "id": "apodex-1.1-mini-q4_k_m",
       "name": "Apodex 1.1 Mini 35B",
       "family": "Apodex",

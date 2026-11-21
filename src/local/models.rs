@@ -21,6 +21,7 @@ pub struct Manifest {
     pub name: String,
     pub disable_thinking: bool,
     pub architecture: String,
+    pub(crate) quantization: Option<String>,
     pub(crate) file: String,
     repository: String,
     revision: String,
@@ -181,11 +182,13 @@ pub(crate) async fn download_file(
     }
     let partial = Partial(directory.join(format!(".{filename}.partial")));
     let mut file = File::create(&partial.0)?;
+    // Keep the existing deadline for small files and budget larger transfers at 2 MiB/s.
+    let download_timeout = Duration::from_secs(size.div_ceil(2 * 1024 * 1024).max(1800));
     let client = reqwest::Client::builder()
         .user_agent(concat!("Fritz/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(30))
         .read_timeout(Duration::from_secs(60))
-        .timeout(Duration::from_secs(1800))
+        .timeout(download_timeout)
         .https_only(!cfg!(test))
         .build()
         .map_err(|_| anyhow!("Cannot initialize model download."))?;
@@ -311,6 +314,7 @@ mod tests {
                 name: id.into(),
                 disable_thinking: false,
                 architecture: String::new(),
+                quantization: None,
                 file: format!("{id}.gguf"),
                 repository: String::new(),
                 revision: String::new(),
@@ -370,6 +374,7 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
+            quantization: None,
             file: "model.gguf".into(),
             repository: String::new(),
             revision: String::new(),
@@ -398,6 +403,7 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
+            quantization: None,
             file: "model.gguf".into(),
             repository: String::new(),
             revision: String::new(),
@@ -442,6 +448,7 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
+            quantization: None,
             file: "fixture.gguf".into(),
             repository: String::new(),
             revision: String::new(),
