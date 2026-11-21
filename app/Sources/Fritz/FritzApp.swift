@@ -222,6 +222,7 @@ private struct FritzWorkspaceView: View {
                 .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
+            let trailingInset: CGFloat = 8
             VStack(spacing: 0) {
                 if let error = state.workspace.error {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -233,6 +234,7 @@ private struct FritzWorkspaceView: View {
                                             localModels: state.localModels,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
                                             headerFrame: chatHeaderFrame,
+                                            contentTrailingInset: state.isBrowserPresented ? 0 : trailingInset,
                                             isProjectFolderAvailable: state.workspace.isAvailable(project),
                                             isArchived: thread.isArchived)
                         .id(thread.id)
@@ -270,7 +272,9 @@ private struct FritzWorkspaceView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.leading, 4).padding(.trailing, 8).padding(.bottom, 8)
+            .padding(.leading, 4)
+            .padding(.trailing, state.isBrowserPresented ? trailingInset : 0)
+            .padding(.bottom, 8)
             .background { FritzWorkspaceBackground().ignoresSafeArea() }
         }
         .onDisappear { browserTabs.closeAllTabs() }

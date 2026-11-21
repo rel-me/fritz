@@ -72,6 +72,8 @@ the following surfaces, include these behaviors:
   Reduced Transparency fades the overlapping content without the blurred copy.
   With a long Markdown transcript, resize between minimum and wide window sizes
   and open/close the inspector, both at the bottom and while reading history.
+  With the inspector closed, check that the native scrollbar sits at the right
+  window edge while the messages and composer retain their insets.
   Verify messages remain visible, the latest message stays above the composer
   when following, and scrolling reaches both ends without blank overscroll.
 - **Model storage:** native pop-up path control exclusively in General Settings; download setup
