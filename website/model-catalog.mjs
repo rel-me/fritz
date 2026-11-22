@@ -94,6 +94,8 @@ function localRow(model) {
       modelCell(model.id, model.name, model), cell(type), cell(model.size, gigabytes),
       cell(model.memory_gb, (memory) => `${number(memory)} GB`),
       cell(score?.points, (points) => `<a href="${escape(score.source_url)}" title="${escape(score.configuration)}">${points}</a>`),
+      cell(model.limit?.context ?? model.limit?.input, number),
+      cell(model.limit?.automatic_target, number),
     ].join(''),
   });
 }
@@ -118,7 +120,7 @@ function remoteRow(provider, id, model, { creator = remoteCreator(provider, id),
     cells: [
       modelCell(id, model.name, metadata), cell(providerNames[provider] ?? provider), cell(type),
       cell(model.cost?.input, price), cell(model.cost?.output, price), cell(model.cost?.cache_read, price),
-      cell(model.limit?.context, number), cell(capabilities.join(', ') || null),
+      cell((model.limit?.context || model.limit?.input) || null, number), cell(capabilities.join(', ') || null),
     ].join(''),
   });
 }
@@ -161,12 +163,17 @@ function renderPage() {
   const local = catalog.local_chat.models.concat(catalog.local_decision.models).map(localRow);
   const remote = Object.entries(catalog.model_info.providers).flatMap(([provider, { models }]) =>
     Object.entries(models).map(([id, model]) => remoteRow(provider, id, model)));
+  for (const [id, reviewed] of Object.entries(catalog.reviewed_openai.models)) {
+    if (reviewed.limit && !catalog.model_info.providers.openai.models[id]) {
+      remote.push(remoteRow('openai', id, { name: reviewed.displayName, limit: reviewed.limit }));
+    }
+  }
   remote.sort((a, b) => a.creator.localeCompare(b.creator));
   remote.push(...Object.entries(catalog.remote_decision).map(([provider, model]) =>
     remoteRow(model.provider_name, model.id, model, {
       creator: provider === 'openai-decisions' ? 'OpenAI' : model.provider_name, type: 'Decision',
     })));
-  const localColumns = [['Model', 'text'], ['Type', 'text'], ['Download', 'number'], ['Recommended RAM', 'number'], ['Score', 'number']];
+  const localColumns = [['Model', 'text'], ['Type', 'text'], ['Download', 'number'], ['Recommended RAM', 'number'], ['Score', 'number'], ['Model context (tokens)', 'number'], ['Fritz automatic target (tokens)', 'number']];
   const remoteColumns = [['Model', 'text'], ['Provider', 'text'], ['Type', 'text'], ['Input', 'number'],
     ['Output', 'number'], ['Cache read', 'number'], ['Context tokens', 'number'], ['Capabilities', 'text']];
   return `<!doctype html>
@@ -190,7 +197,7 @@ function renderPage() {
   </section>
   <section id="remote" data-catalog-location>
     <h2>Remote models</h2>
-    <p class="catalog-note">Pricing from <a href="https://models.dev">Models.dev</a> is shown in USD per million tokens. Provider APIs determine which models your account can access.</p>
+    <p class="catalog-note">Pricing from <a href="https://models.dev">Models.dev</a> is shown in USD per million tokens. Context limits are published snapshots. Providers can apply different limits to your account or route.</p>
     ${filters({ models: remote })}
     ${table('Remote models by creator', remoteColumns, remote)}
   </section>

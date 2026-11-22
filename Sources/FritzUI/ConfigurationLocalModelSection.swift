@@ -108,11 +108,8 @@ struct ConfigurationLocalModelSection: View {
                         ProgressView("Checking model…").controlSize(.small)
                     case .installed:
                         Label("Installed", systemImage: "checkmark.circle")
-                    case let .downloading(downloaded, total):
-                        ProgressView(value: Double(downloaded), total: Double(total))
-                            .accessibilityLabel("Downloading local model")
-                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file))")
-                            .monospacedDigit()
+                    case let .downloading(downloaded, total, bytesPerSecond):
+                        ModelDownloadProgress(downloaded: downloaded, total: total, bytesPerSecond: bytesPerSecond)
                     case let .failed(message):
                         Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
                             .textSelection(.enabled)

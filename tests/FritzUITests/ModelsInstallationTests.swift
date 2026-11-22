@@ -26,6 +26,7 @@ final class ModelsInstallationTests: XCTestCase {
             try JSONDecoder().decode(LocalModelEvent.self, from: Data(json.utf8)).state(for: "test", installing: installing)
         }
         XCTAssertEqual(try state(#"{"type":"progress","status":"downloading","downloaded":4,"total":10}"#), .downloading(downloaded: 4, total: 10))
+        XCTAssertEqual(try state(#"{"type":"progress","status":"downloading","downloaded":4,"total":10,"bytesPerSecond":2}"#), .downloading(downloaded: 4, total: 10, bytesPerSecond: 2))
         XCTAssertEqual(try state(#"{"type":"progress","status":"ready","downloaded":10,"total":10}"#), .checking)
         XCTAssertEqual(try state(#"{"type":"result","result":{"modelId":"test","installed":true}}"#), .installed)
         XCTAssertEqual(try state(#"{"type":"result","result":{"models":[{"id":"test","installed":false,"directory":"/Models"}]}}"#, installing: false), .available)

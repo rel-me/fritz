@@ -34,13 +34,13 @@ async fn run() -> Result<()> {
     let line = harness_client::read_line(&mut input, 3_000_000)
         .await?
         .context("Missing harness request.")?;
-    let request: harness::Input =
+    let request: harness::ContextInput =
         serde_json::from_str(&line).context("Invalid harness request.")?;
     let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
     let mut byte = [0u8; 1];
     let terminal = tokio::select! {
-        result=harness::run(request,emit)=>harness_client::terminal(result),
+        result=harness::run_with_context(request,emit)=>harness_client::terminal(result),
         _=input.read(&mut byte)=>json!({"type":"cancelled"}),
         _=interrupt.recv()=>json!({"type":"cancelled"}),
         _=sigint.recv()=>json!({"type":"cancelled"}),

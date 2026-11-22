@@ -134,7 +134,9 @@ def openai_transport(endpoint):
         connection = registry["connections"][0]["id"]
         try:
             assert registry["defaultConnectionId"] is None
-            assert json.loads(cli("models", "--connection", connection).stdout) == [{"id": "gpt-6-luna", "displayName": "GPT-6 Luna"}]
+            assert json.loads(cli("models", "--connection", connection).stdout) == [{
+                "id": "gpt-6-luna", "displayName": "GPT-6 Luna", "context": {"source": "unknown"},
+            }]
             request = decision_input(endpoint)["request"]
             request["model"] = "gpt-6-luna"
             saved_result = json.loads(cli("decide", "--connection", connection, input=json.dumps(request)).stdout)

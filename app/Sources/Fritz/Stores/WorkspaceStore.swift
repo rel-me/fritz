@@ -20,6 +20,7 @@ import Observation
     var error: String?
 
     let database: AppDatabase
+    let appSettings: AppSettings
     let repository: ProjectRepository
     let modelCatalog: RemoteModelCatalog
     @ObservationIgnored private let agent: AgentClient
@@ -34,7 +35,9 @@ import Observation
 
     init(agent: AgentClient, dataDirectory: URL = FritzPaths.data) {
         self.agent = agent
-        database = AppDatabase(directory: dataDirectory)
+        let database = AppDatabase(directory: dataDirectory)
+        self.database = database
+        appSettings = AppSettings(database: database)
         repository = ProjectRepository(directory: dataDirectory)
         modelCatalog = RemoteModelCatalog(cacheURL: dataDirectory.appendingPathComponent("model-catalog-cache.json"))
     }
@@ -288,7 +291,8 @@ import Observation
                 chat = existing
             } else {
                 let created = ChatStore(agent: agent, repository: repository, threadID: id,
-                                        projectPath: selection.project.directory, modelCatalog: modelCatalog)
+                                        projectPath: selection.project.directory, modelCatalog: modelCatalog,
+                                        appSettings: appSettings)
                 created.onFirstPrompt = { [weak self] in
                     Task {
                         do { try await self?.refreshThread(id) }

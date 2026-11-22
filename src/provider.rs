@@ -1,3 +1,6 @@
+pub(crate) mod model_context;
+pub use fritz_provider::{ContextOverflow, ContextSource, ModelContext};
+
 use crate::config::{self, Connection, ProviderKind};
 use anyhow::{Context, Result, bail};
 pub use fritz_provider::Model;
@@ -99,6 +102,7 @@ impl From<ProviderKind> for ProviderApi {
             ProviderKind::Openai => Self::Openai,
             ProviderKind::Anthropic => Self::Anthropic,
             ProviderKind::Gemini => Self::Gemini,
+            ProviderKind::Openrouter => Self::Openrouter,
             ProviderKind::Ollama => Self::Ollama,
             _ => Self::Compatible,
         }
@@ -164,6 +168,7 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             display_name: decision.name.clone(),
             created_at: None,
             supports_tools: None,
+            context: model_context::bundled(connection, &decision.id),
         }]);
     }
     if connection.provider.is_native() {
@@ -184,6 +189,7 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
                 display_name: model["name"].as_str().unwrap().into(),
                 created_at: None,
                 supports_tools: None,
+                context: model_context::bundled(connection, model["id"].as_str().unwrap()),
             })
             .collect());
     }
@@ -191,7 +197,14 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
     if connection.provider.requires_key() && key.is_none() {
         bail!("Supply an API key for {}.", connection.name);
     }
-    fritz_provider::discover(connection.provider.into(), connection.base_url(), key).await
+    let mut models =
+        fritz_provider::discover(connection.provider.into(), connection.base_url(), key).await?;
+    for model in &mut models {
+        if matches!(model.context.source, ContextSource::Unknown) {
+            model.context = model_context::bundled(connection, &model.id);
+        }
+    }
+    Ok(models)
 }
 
 /// Retrieve the selected Messages model's advertised output ceiling. Never
@@ -250,8 +263,13 @@ pub(crate) fn payload(
         bail!("This conversation is too large. Start a new chat.");
     }
     if let Some(version) = request.history_version {
-        anyhow::ensure!(version == 1, "Unsupported chat history version.");
-        let max = if connection.provider == ProviderKind::Fritz {
+        anyhow::ensure!(
+            matches!(version, 1 | 2),
+            "Unsupported chat history version."
+        );
+        let max = if version == 2 {
+            1_000_000
+        } else if connection.provider == ProviderKind::Fritz {
             4_800
         } else {
             16_000
@@ -267,7 +285,7 @@ pub(crate) fn payload(
             continue;
         }
         anyhow::ensure!(
-            request.history_version == Some(1)
+            matches!(request.history_version, Some(1 | 2))
                 && message.role == "assistant"
                 && connection.provider != ProviderKind::Gemini
                 && message.tools.len() <= 64,

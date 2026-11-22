@@ -402,15 +402,60 @@ import FritzUpdates
         let prepared = try await workspace.repository.beginTurn(thread: thread, turn: UUID(), prompt: "Continue",
                                                                  preferences: .init(), model: model, projectPath: nil)
         XCTAssertEqual(prepared.sequence, 100001)
-        XCTAssertLessThan(try JSONEncoder().encode(prepared.context).count, 16_000)
+        XCTAssertLessThan(try JSONEncoder().encode(prepared.context).count, 1_000_000)
+        XCTAssertEqual(prepared.context.last?.content, "Continue")
     }
+    func testCompactedContextIsRestoredForTheSameHarnessSettings() async throws {
+        let root = try directory()
+        let repository = ProjectRepository(directory: root)
+        let project = try await repository.createProject(name: "Test", directory: nil, defaultDirectory: root)
+        let thread = project.thread.id
+        let model = ChatModelOption(connection: ProviderConnection(name: "Fixture", provider: .openAICompatible, modelID: "fixture"))
+        let first = UUID()
+        let history = String(repeating: "An earlier itinerary. ", count: 1_000)
+        _ = try await repository.beginTurn(thread: thread, turn: first, prompt: history, preferences: .init(),
+                                           model: model, projectPath: project.project.directory, contextKey: "settings-a")
+        let terminal = TurnMetadata(complete: true, provider: model.provider, modelID: model.modelID)
+        try await repository.checkpoint(turn: first, text: "Earlier response", terminal: terminal)
+        let second = UUID()
+        let full = try await repository.beginTurn(thread: thread, turn: second, prompt: "Second question",
+                                                   preferences: .init(), model: model,
+                                                   projectPath: project.project.directory, contextKey: "settings-a")
+        XCTAssertEqual(full.context.first?.content, history)
+        try await repository.saveContextSummary(thread: thread, key: "settings-a",
+                                                through: full.sequence - 1, summary: "Saved context")
+        try await repository.checkpoint(turn: second, text: "Second response", terminal: terminal)
+
+        let restored = ProjectRepository(directory: root)
+        let third = UUID()
+        let compacted = try await restored.beginTurn(thread: thread, turn: third, prompt: "Third question",
+                                                      preferences: .init(), model: model,
+                                                      projectPath: project.project.directory, contextKey: "settings-a")
+        XCTAssertTrue(compacted.hasPreviousSummary)
+        XCTAssertEqual(compacted.context.map(\.content), ["Saved context", "Second question", "Second response", "Third question"])
+        try await restored.checkpoint(turn: third, text: "Third response", terminal: terminal)
+        let changed = try await restored.beginTurn(thread: thread, turn: UUID(), prompt: "Fourth question",
+                                                    preferences: .init(), model: model,
+                                                    projectPath: project.project.directory, contextKey: "settings-b")
+        XCTAssertFalse(changed.hasPreviousSummary)
+        XCTAssertEqual(changed.context.first?.content, history)
+    }
+
     func testSettingsAndRecentsAreIsolatedAndSurviveRestart() throws {
         let root = try directory()
         let database = AppDatabase(directory: root)
         let settings = AppSettings(database: database)
         settings.appearance = "dark"
         settings.updateChannel = "beta"
-        settings.selectedTab = "providers"
+        settings.selectedTab = "harness"
+        settings.harness.automaticCompaction = false
+        settings.harness.contextTokens = 32_768
+        settings.harness.reserveTokens = 4_096
+        settings.harness.keepRecentTokens = 8_192
+        let previous = AppSettings(database: AppDatabase(directory: root))
+        XCTAssertNil(previous.harness.requestParameters["quantizeLocalKVCache"])
+        XCTAssertEqual(previous.harness.contextTokens, 32_768)
+        settings.harness.quantizeLocalKVCache = true
         let providers = ProviderStore(agent: AgentClient(), database: database)
         let localModels = LocalModelRuntimeStore(agent: AgentClient(), database: database)
         XCTAssertEqual(localModels.policy(for: "model-a"), .firstUse)
@@ -420,7 +465,9 @@ import FritzUpdates
         let restored = AppSettings(database: restoredDatabase)
         XCTAssertEqual(restored.appearance, "dark")
         XCTAssertEqual(restored.updateChannel, "beta")
-        XCTAssertEqual(restored.selectedTab, "providers")
+        XCTAssertEqual(restored.selectedTab, "harness")
+        XCTAssertEqual(restored.harness, settings.harness)
+        XCTAssertEqual(restored.harness.requestParameters["quantizeLocalKVCache"] as? Bool, true)
         XCTAssertEqual(ProviderStore(agent: AgentClient(), database: restoredDatabase).recentIDs, ["chosen"])
         XCTAssertEqual(LocalModelRuntimeStore(agent: AgentClient(), database: restoredDatabase).policy(for: "model-a"), .appStart)
         let separate = AppSettings(database: AppDatabase(directory: try directory()))

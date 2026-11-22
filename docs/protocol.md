@@ -17,15 +17,17 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `modelStorage.change` | `directory`, `previousDirectory`, `moveModels` boolean | Updated storage info; progress events carry `completed`, `total`, `file` |
 | `localModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned catalog entries with `id`, `name`, `size`, download `directory`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId`, optional absolute `directory` | Download progress, then `modelId` and `installed: true`; saves the selected folder after success |
-| `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
+| `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed`, `context` | Stream, then empty result |
 | `decisionModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned local decision catalog, download `directory`, file-presence installation status, and `path` (installed ONNX graph path or null) |
 | `decisionModels.install` | `modelId`, optional absolute `directory` | Explicit verified download, progress events, and installed result; saves the selected folder after success |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`. The
-workspace app sets `historyVersion: 1` for bounded history (16,000 encoded
-message bytes for remote models and 4,800 for local Fritz). Prior assistant
+workspace app sets `historyVersion: 2` for up to 1,000,000 encoded message
+bytes. Version 1 clients
+retain their transport bounds of 16,000 bytes for remote models and 4,800
+for bundled models. Prior assistant
 messages may include `tools` records with `id`, `name`, JSON strings
 `arguments` and `result`, and `failed`. The harness validates the records
 and reconstructs paired provider messages without dispatching those calls.
@@ -33,6 +35,44 @@ The app sends readable activity when a provider/model changes, when an exact
 record is unavailable, or when the adapter requires opaque signatures (Gemini).
 Workspace tool events may include `historyDetails`, the full event payload
 as a string up to 128 KiB. `details` remains the bounded display field.
+
+Model discovery returns a `context` object for each model. `windowTokens`
+is the advertised model window, `inputTokens` and `outputTokens` are separate
+caps where published, and `effectiveWindowTokens` is a reported route or
+runtime capacity. Built-in chat models publish `automaticWindowTokens`, the
+target before measuring Metal memory. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
+Missing limits are omitted. Discovery takes live values from the connected
+endpoint. Ollama provides architecture limits via `/api/show` and reports
+active capacity via `/api/ps`. Public catalog values are used for known
+models on official endpoints when live metadata is absent.
+
+The optional `context` object accepts `automaticCompaction` (defaults to true),
+`contextTokens`, `reserveTokens`, and `keepRecentTokens`. Omitted token settings
+adapt to the model. Local budgeting uses the window actually allocated by
+llama.cpp. Automatic targets 32,768 tokens or the model’s published limit,
+whichever is lower, and can use a smaller window when memory is tight.
+For a fixed budget Fritz caps the request at the model’s limit and reports
+an allocation error if the window cannot fit. A local `activity` event reports
+the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true
+to use an 8-bit key and value cache for native local chat. The memory estimate
+and the allocated context use the same cache format. Remote budgeting uses the selected
+connection’s reported limits or catalog metadata.
+The fallback is 32,768 tokens for unknown remote models and an automatic
+4,096-token budget for Ollama until it reports a runtime window. The app
+passes the selected model’s live limits in `context.reportedContext`. Rig estimates tokens for messages, instructions, and tool
+definitions. Reported model usage refines the estimate between tool rounds.
+Compaction summarizes older complete turns with the selected model in a bounded,
+tool-free request. When that request cannot complete, Fritz emits an activity
+event and uses bounded transcript excerpts. A recognized context rejection
+before any text is streamed can trigger one compaction retry.
+
+Clients sending `context` receive `context_compacted` events containing `summary`
+and `prefixMessages`, the count of initial wire messages covered by the
+summary. The app saves this derived context with the thread, model, connection,
+and budget settings. To resume it, place the summary first and set
+`context.hasPreviousSummary` to true. Compaction preserves the latest user
+prompt and the provider-native suffix. The full transcript remains in the
+workspace database.
 
 OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of
@@ -58,18 +98,22 @@ Provider migration is a one-time host import with no API keys in its payload or 
 Events are `delta` with `text`, `usage` with one merged provider usage record and a 1-based `model_call` per model turn, `result` with `result`, `error` with `message`, or `cancelled`. `result`, `error`, and `cancelled` terminate the corresponding request. Registry writes run in arrival order; discovery and chat run asynchronously. The protocol never returns a saved API key. Credentials are passed only over the private input pipe.
 
 Local installs also emit `progress` with `status` (`checking`, `downloading`,
-`ready`), `downloaded`, and `total` byte counts. `ready` precedes the terminal
-result; it is not itself a completed request. `cancel` aborts a download and
-removes its partial file. Retry starts a fresh download. A killed process may
-leave a bounded partial file; the next explicit install replaces it. Only files
-with the catalog's exact size and SHA-256 are atomically published and loaded.
+`ready`), `downloaded`, and `total` byte counts. Once sampled, downloading events
+include `bytesPerSecond` for bytes transferred during the current attempt.
+`ready` precedes the terminal result. Canceling or interrupting a transfer keeps
+the partial file in the download folder. The next explicit install in that folder
+requests the remaining bytes and restarts if the server responds with the full
+file. Fritz verifies the exact size and SHA-256 before atomically publishing a
+download, and discards partials that fail integrity verification.
 
 The `fritz` provider has no endpoint or API key. `models.list` returns its
 present model files. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
 through the same pipes as remote providers. Each request loads weights in its
-own harness process; closing its pipe cancels the run. The local model is
-limited to 8,192 context tokens and 2,048 output tokens per turn.
+own harness process; closing its pipe cancels the run. The native chat
+harness uses the context allocation policy above. The local reply ceiling
+is 2,048 tokens per turn. The separate Ollama-compatible local service
+retains its existing 8,192-token ceiling.
 
 Fritz local models use the shared harness tool loop when a project folder is
 attached. The pinned GGUF runs in process through llama.cpp. Catalog models

@@ -19,13 +19,16 @@ unsafe extern "C" {
     fn fl_model_load(
         path: *const c_char,
         context: i32,
+        minimum_context: i32,
         chat: bool,
         inkling_loop: bool,
+        quantize_kv_cache: bool,
         cancel: extern "C" fn(*mut c_void) -> bool,
         data: *mut c_void,
         error: *mut *mut c_char,
     ) -> *mut c_void;
     fn fl_model_free(model: *mut c_void);
+    fn fl_model_context_size(model: *const c_void) -> i32;
     fn fl_string_free(value: *mut c_char);
     fn fl_tokenize(model: *mut c_void, text: *const c_char, special: bool) -> *mut c_char;
     fn fl_logits(
@@ -57,6 +60,7 @@ impl Drop for Handle {
 }
 pub(crate) struct Model {
     inner: Mutex<Handle>,
+    pub(crate) context_size: usize,
     _storage_use: std::fs::File,
 }
 
@@ -118,10 +122,26 @@ impl Model {
         context: usize,
         chat_architecture: Option<&str>,
     ) -> Result<Arc<Self>> {
+        Self::load_with_context_fit(path, context, 0, chat_architecture, false).await
+    }
+
+    pub(crate) async fn load_with_context_fit(
+        path: &Path,
+        context: usize,
+        minimum_context: usize,
+        chat_architecture: Option<&str>,
+        quantize_kv_cache: bool,
+    ) -> Result<Arc<Self>> {
         let storage_use = crate::model_storage::use_file(path)?;
         let path = CString::new(path.as_os_str().as_encoded_bytes())?;
         let context = i32::try_from(context).context("Invalid local context size")?;
         anyhow::ensure!(context > 0, "Invalid local context size");
+        let minimum_context =
+            i32::try_from(minimum_context).context("Invalid minimum local context size")?;
+        anyhow::ensure!(
+            minimum_context <= context,
+            "Invalid minimum local context size"
+        );
         let chat = chat_architecture.is_some();
         let inkling_loop = chat_architecture == Some("inkling2_loop");
         worker(move |flag| {
@@ -130,8 +150,10 @@ impl Model {
                 fl_model_load(
                     path.as_ptr(),
                     context,
+                    minimum_context,
                     chat,
                     inkling_loop,
+                    quantize_kv_cache,
                     cancelled,
                     flag_pointer(flag),
                     &mut error,
@@ -144,6 +166,7 @@ impl Model {
                 );
             };
             Ok(Arc::new(Self {
+                context_size: unsafe { fl_model_context_size(value.as_ptr()) } as usize,
                 inner: Mutex::new(Handle(value)),
                 _storage_use: storage_use,
             }))

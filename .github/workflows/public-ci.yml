@@ -79,6 +79,18 @@ jobs:
           def run(args, env):
               return subprocess.run(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
+          candidates = []
+          for xcode in glob.glob('/Applications/Xcode*.app'):
+              developer = xcode + '/Contents/Developer'
+              swift = run(['xcrun', 'swift', '--version'], dict(os.environ, DEVELOPER_DIR=developer))
+              match = re.search(r'Swift version (\d+)\.(\d+)(?:\.(\d+))?', swift.stdout)
+              if swift.returncode == 0 and match:
+                  version = tuple(int(part or 0) for part in match.groups())
+                  if version >= (6, 3, 0):
+                      candidates.append((version, developer, swift.stdout.strip()))
+          # Swift 6.3 uses the dependency graph recorded in the committed locks.
+          candidates.sort(key=lambda candidate: (candidate[0][:2] != (6, 3), tuple(-part for part in candidate[0])))
+
           # SwiftPM needs to build a package that processes Metal resources (Inferno).
           # Resolving metal through xcrun also activates Xcode's optional Metal Toolchain.
           with tempfile.TemporaryDirectory(prefix='fritz-xcode-probe-') as probe:
@@ -98,31 +110,32 @@ jobs:
                   'using namespace metal;\n'
                   'kernel void probe(device uint *value [[buffer(0)]]) { *value += 1; }\n'
               )
-              for index, xcode in enumerate(sorted(glob.glob('/Applications/Xcode*.app'), reverse=True)):
-                  developer = xcode + '/Contents/Developer'
+              for index, (_, developer, swift) in enumerate(candidates):
                   env = dict(os.environ, DEVELOPER_DIR=developer)
-                  swift = run(['xcrun', 'swift', '--version'], env)
-                  version = re.search(r'Swift version (\d+)\.(\d+)', swift.stdout)
-                  if swift.returncode or not version or tuple(map(int, version.groups())) < (6, 3):
-                      continue
                   sdk = run(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], env)
                   if sdk.returncode:
-                      print(f'Skipping {xcode}: {sdk.stdout.strip()}')
+                      print(f'Skipping {developer}: {sdk.stdout.strip()}')
                       continue
+                  metal_version = run(['xcrun', 'metal', '--version'], env)
+                  if metal_version.returncode:
+                      component = run(['xcodebuild', '-downloadComponent', 'MetalToolchain'], env)
+                      if component.returncode:
+                          print(f'Skipping {developer}: {component.stdout.strip()}')
+                          continue
                   env['SDKROOT'] = sdk.stdout.strip()
                   metal = run(['xcrun', '--sdk', 'macosx', 'metal', '-c', str(shader), '-o', str(package / 'Probe.air')], env)
                   if metal.returncode:
-                      print(f'Skipping {xcode}: {metal.stdout.strip()}')
+                      print(f'Skipping {developer}: {metal.stdout.strip()}')
                       continue
                   build = run(['swift', 'build', '--build-tests', '--package-path', probe,
                                '--scratch-path', str(package / f'build-{index}')], env)
                   if build.returncode:
-                      print(f'Skipping {xcode}: the SwiftPM Metal probe failed.\n'
+                      print(f'Skipping {developer}: the SwiftPM Metal probe failed.\n'
                             + '\n'.join(build.stdout.splitlines()[-12:]))
                       continue
                   with open(os.environ['GITHUB_ENV'], 'a') as output:
                       output.write(f'DEVELOPER_DIR={developer}\nSDKROOT={env["SDKROOT"]}\n')
-                  print(f'{xcode} with {env["SDKROOT"]}\n{swift.stdout.strip()}')
+                  print(f'{developer} with {env["SDKROOT"]}\n{swift}')
                   break
               else:
                   raise SystemExit('Install Xcode with Swift 6.3 or newer and its Metal Toolchain.')

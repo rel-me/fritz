@@ -20,13 +20,155 @@ EXECUTABLE = Path(os.environ.get("FRITZ_TEST_BIN_DIR", ROOT / "target/debug")) /
 class AuthenticatedProvider(Provider):
     """Require the imported fixture key on a separate discovery endpoint."""
 
+    def send_metadata(self, value):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(value).encode())
+
     def do_GET(self):
+        fixtures = {
+            "/metadata/anthropic/models": {"data": [{"id": "fixture", "max_input_tokens": 200000, "max_tokens": 64000}]},
+            "/metadata/gemini/models": {"models": [{"name": "models/fixture", "supportedGenerationMethods": ["generateContent"], "inputTokenLimit": 1048576, "outputTokenLimit": 65536}]},
+            "/metadata/openrouter/models": {"data": [{"id": "fixture", "context_length": 131072, "top_provider": {"context_length": 32768, "max_completion_tokens": 8192}}]},
+            "/metadata/compatible/models": {"data": [{"id": "fixture", "max_model_len": 16384}, {"id": "unreported", "context_length": 0}]},
+            "/metadata/ollama/api/tags": {"models": [{"name": "fixture"}, {"name": "unreported"}]},
+            "/metadata/ollama/api/ps": {"models": [{"name": "fixture", "context_length": 12288}]},
+        }
+        if self.path in fixtures:
+            self.send_metadata(fixtures[self.path])
+            return
         if self.path == "/authenticated/v1/models":
             if self.headers.get("Authorization") != "Bearer synthetic-import-key":
                 self.send_error(401)
                 return
             self.path = "/v1/models"
         super().do_GET()
+
+
+    def do_POST(self):
+        if self.path == "/metadata/ollama/api/show":
+            request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if request["model"] == "fixture":
+                self.send_metadata({"model_info": {"general.architecture": "fixture", "fixture.context_length": 32768},
+                                    "parameters": "temperature 0.1\nnum_ctx 8192"})
+            else:
+                self.send_error(404)
+            return
+        super().do_POST()
+
+    def handle_chat(self, payload):
+        history = payload["messages"]
+        is_summary = "<conversation>" in history[-1]["content"]
+        if payload["model"] not in ("compact-test", "overflow-test") or not is_summary:
+            if payload["model"] == "partial-overflow-test":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                self.wfile.write(b'data: {"choices":[{"delta":{"content":"Already streamed."}}]}\n\ndata: {"error":{"code":"context_length_exceeded"}}\n\n')
+                return True
+            if payload["model"] == "overflow-test" and any(
+                message["content"] == "Original context rejected by the fixture" for message in history
+            ):
+                body = json.dumps({"error": {"code": "context_length_exceeded"}}).encode()
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(body)
+                return True
+            return False
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        self.wfile.write(b'data: {"choices":[{"delta":{"content":"Saved context from the mock model."},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":9}}\n\ndata: [DONE]\n\n')
+        return True
+
+
+def context_discovery(send, receive, endpoint):
+    fixtures = {
+        "anthropic": {"inputTokens": 200000, "outputTokens": 64000},
+        "gemini": {"inputTokens": 1048576, "outputTokens": 65536},
+        "openrouter": {"windowTokens": 131072, "effectiveWindowTokens": 32768, "outputTokens": 8192},
+        "compatible": {"windowTokens": 16384},
+        "ollama": {"windowTokens": 32768, "effectiveWindowTokens": 12288},
+    }
+    for family, limits in fixtures.items():
+        connection = dict(id=str(uuid.uuid4()), name="Metadata fixture", modelId="fixture",
+                          provider="openai-compatible" if family == "compatible" else family,
+                          baseUrl=endpoint.replace("/v1", "/metadata/" + family))
+        request = send("models.list", {"connection": connection, "apiKey": "synthetic-metadata-key"})
+        event = receive()
+        assert event["id"] == request and event["type"] == "result", event
+        models = {model["id"]: model["context"] for model in event["result"]["models"]}
+        assert models["fixture"] == {"source": "provider", **limits}, models
+        if family in ("ollama", "compatible"):
+            assert models["unreported"] == {"source": "unknown"}, models
+
+
+def context_management(send, receive, connection_id):
+    def chat(model, messages, context, success=True):
+        params = dict(connectionId=connection_id, model=model, messages=messages,
+                      historyVersion=2, context=context)
+        request_id = send("chat", params)
+        events = []
+        while True:
+            event = receive()
+            assert event["id"] == request_id, event
+            events.append(event)
+            if event["type"] in ("result", "error"):
+                assert (event["type"] == "result") == success, events
+                return events
+
+    def user(content):
+        return {"role": "user", "content": content}
+
+    def assistant(content):
+        return {"role": "assistant", "content": content}
+
+    current = user("Current question " * 50)
+    messages = [user("Old itinerary " * 330), assistant("Old suggestions " * 95),
+                user("Recent itinerary " * 200), assistant("Recent suggestions " * 80), current]
+    options = dict(contextTokens=4096, reserveTokens=1024, keepRecentTokens=2048)
+    chat("compact-test", [current], {"reportedContext": {
+        "source": "provider", "inputTokens": 8192, "outputTokens": 768,
+    }})
+    assert Provider.requests[-1]["max_tokens"] == 768
+
+    index = len(Provider.requests)
+    events = chat("compact-test", messages, options)
+    calls = Provider.requests[index:]
+    assert len(calls) == 2, calls
+    assert "tools" not in calls[0] and "<conversation>" in calls[0]["messages"][-1]["content"]
+    receipt, = (event for event in events if event["type"] == "context_compacted")
+    assert receipt["prefixMessages"] == 2, receipt
+    assert calls[1]["messages"][1]["content"] == receipt["summary"]
+    assert calls[1]["messages"][2:] == messages[receipt["prefixMessages"]:]
+    assert "Saved context from the mock model." in receipt["summary"]
+    assert all("Saved context" not in event["text"] for event in events if event["type"] == "delta")
+
+    index = len(Provider.requests)
+    resumed = [user(receipt["summary"]), current]
+    events = chat("compact-test", resumed, {**options, "hasPreviousSummary": True})
+    assert len(Provider.requests[index:]) == 1
+    assert all(event["type"] != "context_compacted" for event in events)
+
+    index = len(Provider.requests)
+    events = chat("compact-test", messages, {**options, "automaticCompaction": False}, success=False)
+    assert "configured Harness context budget" in events[-1]["message"]
+    assert len(Provider.requests) == index
+
+    index = len(Provider.requests)
+    messages = [user("Original context rejected by the fixture"), assistant("Old reply"), user("New question")]
+    events = chat("overflow-test", messages, {})
+    assert len(Provider.requests[index:]) == 3, Provider.requests[index:]
+    assert any(event["type"] == "context_compacted" for event in events)
+    assert Provider.requests[-1]["messages"][-1] == messages[-1]
+
+    index = len(Provider.requests)
+    events = chat("partial-overflow-test", messages, {}, success=False)
+    assert len(Provider.requests[index:]) == 1
+    assert any(event.get("text") == "Already streamed." for event in events)
+    assert all(event["type"] != "context_compacted" for event in events)
 
 
 def managed_local_api():
@@ -271,6 +413,8 @@ def main():
         health = send("health")
         event = receive()
         assert event["id"] == health and event["result"]["name"] == "fritz"
+        context_discovery(send, receive, endpoint)
+        context_management(send, receive, connection["id"])
         # Imported configurations may omit keys, but malformed batches write nothing.
         imported = dict(id=str(uuid.uuid4()), name="TypeSafe", provider="jev", modelId="jev-latest")
         invalid = dict(imported, id=str(uuid.uuid4()), baseUrl="https://example.com")

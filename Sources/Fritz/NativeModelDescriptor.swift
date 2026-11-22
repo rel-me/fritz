@@ -45,6 +45,24 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     public let benchmarkScore: BenchmarkScore?
     private let abliterated: Bool?
     private let engine: String?
+    private let limit: CatalogLimit?
+
+    private struct CatalogLimit: Decodable, Equatable, Sendable {
+        let context: UInt32?
+        let input: UInt32?
+        let automaticTarget: UInt32?
+        private enum CodingKeys: String, CodingKey {
+            case context, input
+            case automaticTarget = "automatic_target"
+        }
+    }
+
+    public var context: ModelContext? {
+        limit.map {
+            ModelContext(windowTokens: $0.context, inputTokens: $0.input, automaticWindowTokens: $0.automaticTarget,
+                         source: $0.automaticTarget != nil || category == .decision ? .fritz : .catalog)
+        }
+    }
 
     public struct BenchmarkScore: Decodable, Equatable, Sendable {
         public let points: Int
@@ -71,16 +89,17 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
         abliterated = isAbliterated ? true : nil
         benchmarkScore = nil
         engine = nil
+        limit = nil
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, family, category, size, abliterated, engine
+        case id, name, family, category, size, abliterated, engine, limit
         case benchmarkScore = "benchmark_score"
         case memoryGB = "memory_gb", licenseURL = "license_url"
     }
 
     public var isAbliterated: Bool { abliterated == true }
-    public var model: DiscoveredAIModel { .init(id: id, displayName: name) }
+    public var model: DiscoveredAIModel { .init(id: id, displayName: name, context: context) }
     public var downloadSummary: String {
         String(format: "%.2f GB download · %d GB RAM recommended", Double(size) / 1_000_000_000, memoryGB)
     }

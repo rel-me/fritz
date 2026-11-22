@@ -7,6 +7,15 @@
 
 A native macOS personal assistant with persistent conversations and a choice of local or remote models. Fritz keeps chat at the center of the window. Fritz includes chat, model management, and a basic browser; [the personal assistant plan](docs/personal-assistant-plan.md) sets out how Fritz will add personal context, useful actions, and opt-in follow-through.
 
+
+In **Settings → Harness**, chat context uses the selected model's limits by
+default. Local chat targets 32,768 tokens and reduces the allocation when
+Metal memory is tight. **Quantize Local KV Cache** can fit a larger window by
+using an 8-bit attention cache. Automatic compaction summarizes older turns as the conversation fills
+the context window and keeps the recent turns available to the model. You can
+set a context budget, reserve space for the reply, and choose how much recent
+history compaction should keep.
+
 ## Install
 
 Open the release DMG and drag Fritz onto the Applications shortcut. Eject the
@@ -66,7 +75,9 @@ The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
 8B), Hermes 3 Llama 3.1 8B, and Mistral Nemo 12B Instruct alongside Qwen and
 the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
 picker shows download sizes and recommended memory. Model licenses are available
-under **Settings → General → Licenses**.
+under **Settings → General → Licenses**. While downloading, Fritz shows transfer
+speed and estimated time remaining. Restart an interrupted download in the same
+storage folder to resume it.
 
 The **Abliterated** filter shows Huihui Qwen3 4B Instruct 2507 and Nueva Tech Qwen3
 8B v2, two variants modified to reduce refusals. The same filter is available
