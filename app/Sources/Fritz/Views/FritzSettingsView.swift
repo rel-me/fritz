@@ -252,17 +252,6 @@ private struct FritzServiceSettingsView: View {
                 }
             }
             Section {
-                LabeledContent("Status", value: localModels.service.status.title)
-                if let pid = localModels.service.processID { LabeledContent("Process ID", value: String(pid)) }
-                if let address = localModels.service.address {
-                    LabeledContent("Address") { Text(address).textSelection(.enabled) }
-                }
-            } header: {
-                Text("Local API")
-            } footer: {
-                if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
-            }
-            Section {
                 let remote = localModels.remoteService
                 LabeledContent("Status", value: remote.status.title)
                 if let address = remote.address {
@@ -282,6 +271,17 @@ private struct FritzServiceSettingsView: View {
                     Text(error).foregroundStyle(.orange).textSelection(.enabled)
                 }
                 Text("Use a private HTTPS tunnel to connect Fritz on iPhone. Stopping sharing or quitting Fritz revokes the access key.")
+            }
+            Section {
+                LabeledContent("Status", value: localModels.service.status.title)
+                if let pid = localModels.service.processID { LabeledContent("Process ID", value: String(pid)) }
+                if let address = localModels.service.address {
+                    LabeledContent("Address") { Text(address).textSelection(.enabled) }
+                }
+            } header: {
+                Text("Local API")
+            } footer: {
+                if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
             }
         }
         .fritzSettingsFormStyle(background: .clear)
