@@ -6,10 +6,10 @@
 
 Requires macOS 15+, full Xcode with Swift 6.3+, and mise. `mise.toml` is the
 source of truth for Rust (including rustfmt and Clippy), Python, CMake, Node/npm,
-XcodeGen, GitHub CLI, and sccache. `make setup` trusts the configuration and
-installs these versions before resolving dependencies; no preinstalled Cargo,
-Python, CMake, or Node is required. Xcode supplies Swift, Apple SDKs, signing,
-and packaging tools; macOS supplies Make, Git, and system utilities.
+XcodeGen, GitHub CLI, sccache, and the checksum-verified llama.cpp source archive.
+`make setup` trusts the configuration and installs these versions before resolving
+dependencies. Xcode supplies Swift, Apple SDKs, signing, and packaging tools.
+macOS supplies Make, Git, and system utilities.
 
 Make targets use `mise exec`, so shell activation is optional. For direct commands,
 use `mise exec -- COMMAND` (for example, `mise exec -- cargo --version`), or

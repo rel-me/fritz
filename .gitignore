@@ -9,3 +9,5 @@ xcuserdata/
 __pycache__/
 /.build/
 /.swiftpm/
+# Leftover checkout from before mise managed the llama.cpp sources.
+/vendor/llama.cpp/

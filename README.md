@@ -165,6 +165,7 @@ for provider setup, local models, stdin input, and folder actions.
 Requires macOS 15+, full Xcode with Swift 6.3+, and [mise](https://mise.jdx.dev/getting-started.html).
 `make setup` installs the development tools pinned in `mise.toml`: Rust with
 rustfmt and Clippy, Python, CMake, Node/npm, XcodeGen, GitHub CLI, and sccache.
+It also installs the pinned llama.cpp source archive used by the macOS build.
 Swift, SDKs, signing, and system utilities come from Xcode and macOS.
 
 ```sh

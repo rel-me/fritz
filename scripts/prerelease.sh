@@ -66,13 +66,13 @@ fi
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
 sparkle_bin="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin"
 release_dependencies_ready() {
-  [[ -f vendor/llama.cpp/CMakeLists.txt && -x "$sparkle_bin/generate_keys" &&
+  [[ -x "$sparkle_bin/generate_keys" &&
      -x "$sparkle_bin/generate_appcast" && -x "$sparkle_bin/sign_update" ]]
 }
 if ! release_dependencies_ready; then
   # The Make target already holds the checkout lock. Setup reuses its paths.
   ./scripts/setup-worktree.sh
-  release_dependencies_ready || { echo "error: setup did not resolve the llama.cpp sources and Sparkle tools" >&2; exit 1; }
+  release_dependencies_ready || { echo "error: setup did not resolve the Sparkle tools" >&2; exit 1; }
 fi
 key_tool="$sparkle_bin/generate_keys"
 if ! public_key="$("$key_tool" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" -p)"; then

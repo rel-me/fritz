@@ -176,8 +176,8 @@ Each target verifies notarization
 credentials before building, refuses to replace an existing local versioned
 DMG, then builds, notarizes, staples, signs the appcast, deploys the Worker,
 uploads the DMG and appcast to the separate bucket, and checks the live URLs.
-Both targets run setup when mise needs to prepare the pinned toolchain or when
-the checkout lacks the llama.cpp sources or Sparkle release tools.
+Both targets run setup when mise needs to install the pinned tools or llama.cpp
+source archive, or when the checkout lacks the Sparkle release tools.
 An interrupted upload can be retried with `make publish-staging` for Staging or `make publish-beta` for Beta
 after the local archive and appcast have been prepared. Test the Beta update channel before
 running `make promote`. Promotion changes the appcast channel and uploads it;

@@ -7,3 +7,13 @@ node = "24.22.2"
 xcodegen = "2.46.0"
 gh = "2.103.3"
 sccache = "0.18.0"
+
+[tools."http:llama-cpp"]
+version = "b019be0c86e8adaf8b46627c091c24c1597b95f9"
+url = "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/{{ version }}"
+checksum = "sha256:016460f1e86f07a7a156948fe0ddbdfcfd24f28e91ea62062fa34b7ada7a6dae"
+format = "tar.gz"
+strip_components = 1
+
+[env]
+FRITZ_LLAMA_SOURCE = { value = "{{ tools['llama-cpp'].path }}", tools = true }
