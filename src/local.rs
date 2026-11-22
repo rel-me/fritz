@@ -1,5 +1,4 @@
 //! Fritz's built-in provider. Pinned weights are installed explicitly and used offline.
-pub(crate) const DEFAULT_CHAT_CONTEXT_TOKENS: u32 = 32_768;
 const LEGACY_CHAT_CONTEXT_TOKENS: u32 = 8192;
 
 pub mod inference;

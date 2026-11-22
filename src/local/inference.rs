@@ -56,13 +56,7 @@ impl Engine {
         let pin = super::models::manifest(model_id)?;
         let mut engine = Self::installed_in(store, model_id).await?;
         let maximum = u64::from(pin.limit.context);
-        let target = requested
-            .unwrap_or(u64::from(
-                pin.limit
-                    .automatic_target
-                    .min(super::DEFAULT_CHAT_CONTEXT_TOKENS),
-            ))
-            .min(maximum);
+        let target = requested.unwrap_or(maximum).min(maximum);
         engine.context_size = usize::try_from(target)?;
         engine.quantize_kv_cache = quantize_kv_cache;
         engine.minimum_context = if requested.is_some() {
