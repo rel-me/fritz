@@ -73,7 +73,7 @@ extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
 extern "C" int fl_model_context_size(const Model * model) { return model->capacity; }
 extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool chat, bool inkling_loop,
-                                 Cancel cancel, void * data, char ** error) {
+                                 bool quantize_kv_cache, Cancel cancel, void * data, char ** error) {
     try {
         static std::once_flag initialized;
         std::call_once(initialized, [] {
@@ -109,6 +109,11 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
         config.n_batch = 512;
         config.n_ubatch = 512;
         config.n_seq_max = 1;
+        if (quantize_kv_cache) {
+            config.type_k = GGML_TYPE_Q8_0;
+            config.type_v = GGML_TYPE_Q8_0;
+            config.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
+        }
         config.abort_callback = abort_decode;
         config.abort_callback_data = &control;
         if (minimum_context > 0) {
@@ -123,6 +128,9 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
                 } catch (const std::runtime_error & error) {
                     control.check();
                     if (std::strcmp(error.what(), "failed to create llama_context from model") != 0) throw;
+                    if (quantize_kv_cache && config.n_ctx == uint32_t(minimum_context)) {
+                        throw std::runtime_error("llama.cpp could not initialize the 8-bit KV cache. Turn off Quantize Local KV Cache or choose a smaller Context Budget.");
+                    }
                 }
                 if (fits) break;
                 require(config.n_ctx > uint32_t(minimum_context),

@@ -452,6 +452,10 @@ import FritzUpdates
         settings.harness.contextTokens = 32_768
         settings.harness.reserveTokens = 4_096
         settings.harness.keepRecentTokens = 8_192
+        let previous = AppSettings(database: AppDatabase(directory: root))
+        XCTAssertNil(previous.harness.requestParameters["quantizeLocalKVCache"])
+        XCTAssertEqual(previous.harness.contextTokens, 32_768)
+        settings.harness.quantizeLocalKVCache = true
         let providers = ProviderStore(agent: AgentClient(), database: database)
         let localModels = LocalModelRuntimeStore(agent: AgentClient(), database: database)
         XCTAssertEqual(localModels.policy(for: "model-a"), .firstUse)
@@ -463,6 +467,7 @@ import FritzUpdates
         XCTAssertEqual(restored.updateChannel, "beta")
         XCTAssertEqual(restored.selectedTab, "harness")
         XCTAssertEqual(restored.harness, settings.harness)
+        XCTAssertEqual(restored.harness.requestParameters["quantizeLocalKVCache"] as? Bool, true)
         XCTAssertEqual(ProviderStore(agent: AgentClient(), database: restoredDatabase).recentIDs, ["chosen"])
         XCTAssertEqual(LocalModelRuntimeStore(agent: AgentClient(), database: restoredDatabase).policy(for: "model-a"), .appStart)
         let separate = AppSettings(database: AppDatabase(directory: try directory()))

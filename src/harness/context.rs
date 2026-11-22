@@ -14,6 +14,8 @@ pub struct ContextSettings {
     pub reserve_tokens: Option<u64>,
     pub keep_recent_tokens: Option<u64>,
     pub has_previous_summary: bool,
+    #[serde(rename = "quantizeLocalKVCache")]
+    pub quantize_local_kv_cache: bool,
     pub reported_context: Option<ModelContext>,
 }
 

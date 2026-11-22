@@ -53,7 +53,9 @@ llama.cpp. Automatic targets 32,768 tokens or the model’s published limit,
 whichever is lower, and can use a smaller window when memory is tight.
 For a fixed budget Fritz caps the request at the model’s limit and reports
 an allocation error if the window cannot fit. A local `activity` event reports
-the selected window in `contextTokens`. Remote budgeting uses the selected
+the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true
+to use an 8-bit key and value cache for native local chat. The memory estimate
+and the allocated context use the same cache format. Remote budgeting uses the selected
 connection’s reported limits or catalog metadata.
 The fallback is 32,768 tokens for unknown remote models and an automatic
 4,096-token budget for Ollama until it reports a runtime window. The app

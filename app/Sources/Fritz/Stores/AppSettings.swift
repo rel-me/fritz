@@ -8,9 +8,11 @@ struct HarnessSettings: Codable, Equatable, Sendable {
     var contextTokens = 0
     var reserveTokens = 0
     var keepRecentTokens = 0
+    var quantizeLocalKVCache: Bool?
 
     var requestParameters: [String: Any] {
         var parameters: [String: Any] = ["automaticCompaction": automaticCompaction]
+        if quantizeLocalKVCache == true { parameters["quantizeLocalKVCache"] = true }
         if contextTokens > 0 { parameters["contextTokens"] = contextTokens }
         if reserveTokens > 0 { parameters["reserveTokens"] = reserveTokens }
         if keepRecentTokens > 0 { parameters["keepRecentTokens"] = keepRecentTokens }

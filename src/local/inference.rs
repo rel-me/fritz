@@ -10,6 +10,7 @@ pub struct Engine {
     path: PathBuf,
     context_size: usize,
     minimum_context: usize,
+    quantize_kv_cache: bool,
     model: OnceCell<Arc<Model>>,
 }
 
@@ -50,6 +51,7 @@ impl Engine {
         store: &super::models::ModelStore,
         model_id: &str,
         requested: Option<u64>,
+        quantize_kv_cache: bool,
     ) -> Result<Self> {
         let pin = super::models::manifest(model_id)?;
         let mut engine = Self::installed_in(store, model_id).await?;
@@ -62,6 +64,7 @@ impl Engine {
             ))
             .min(maximum);
         engine.context_size = usize::try_from(target)?;
+        engine.quantize_kv_cache = quantize_kv_cache;
         engine.minimum_context = if requested.is_some() {
             engine.context_size
         } else {
@@ -79,6 +82,7 @@ impl Engine {
             path: store.installed_path(model_id).await?,
             context_size: super::LEGACY_CHAT_CONTEXT_TOKENS as usize,
             minimum_context: 0,
+            quantize_kv_cache: false,
             model: OnceCell::new(),
         })
     }
@@ -93,6 +97,7 @@ impl Engine {
                     self.context_size,
                     self.minimum_context,
                     Some(architecture),
+                    self.quantize_kv_cache,
                 )
             })
             .await;

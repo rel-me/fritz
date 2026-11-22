@@ -22,6 +22,7 @@ unsafe extern "C" {
         minimum_context: i32,
         chat: bool,
         inkling_loop: bool,
+        quantize_kv_cache: bool,
         cancel: extern "C" fn(*mut c_void) -> bool,
         data: *mut c_void,
         error: *mut *mut c_char,
@@ -121,7 +122,7 @@ impl Model {
         context: usize,
         chat_architecture: Option<&str>,
     ) -> Result<Arc<Self>> {
-        Self::load_with_context_fit(path, context, 0, chat_architecture).await
+        Self::load_with_context_fit(path, context, 0, chat_architecture, false).await
     }
 
     pub(crate) async fn load_with_context_fit(
@@ -129,6 +130,7 @@ impl Model {
         context: usize,
         minimum_context: usize,
         chat_architecture: Option<&str>,
+        quantize_kv_cache: bool,
     ) -> Result<Arc<Self>> {
         let storage_use = crate::model_storage::use_file(path)?;
         let path = CString::new(path.as_os_str().as_encoded_bytes())?;
@@ -151,6 +153,7 @@ impl Model {
                     minimum_context,
                     chat,
                     inkling_loop,
+                    quantize_kv_cache,
                     cancelled,
                     flag_pointer(flag),
                     &mut error,

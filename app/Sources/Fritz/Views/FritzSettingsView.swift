@@ -114,6 +114,14 @@ private struct FritzHarnessSettingsView: View {
                 Text("For local chat, Automatic targets 32,768 tokens up to the model’s limit and reduces the window when Metal memory is tight. A fixed budget uses more memory at larger sizes. For remote chat, Automatic uses the reported limit or the catalog. The reply reserve leaves room for generated text.")
             }
             Section {
+                Toggle("Quantize Local KV Cache", isOn: Binding(
+                    get: { settings.harness.quantizeLocalKVCache ?? false },
+                    set: { settings.harness.quantizeLocalKVCache = $0 }
+                ))
+            } footer: {
+                Text("An 8-bit attention cache uses less Metal memory and can fit a longer local context. Quantization can affect the model’s output.")
+            }
+            Section {
                 Toggle("Automatically Compact History", isOn: $settings.harness.automaticCompaction)
                 tokenPicker("Recent History to Keep", selection: $settings.harness.keepRecentTokens,
                             options: [512, 1_024, 2_048, 4_096, 8_192, 12_000, 20_000, 32_000, 64_000])

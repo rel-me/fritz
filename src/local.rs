@@ -164,7 +164,13 @@ impl Session {
     ) -> Result<Self> {
         let engine = match context {
             Some(context) => {
-                inference::Engine::for_chat(store, &request.model, context.context_tokens).await?
+                inference::Engine::for_chat(
+                    store,
+                    &request.model,
+                    context.context_tokens,
+                    context.quantize_local_kv_cache,
+                )
+                .await?
             }
             None => inference::Engine::installed_in(store, &request.model).await?,
         };
