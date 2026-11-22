@@ -17,7 +17,7 @@ final class ChatFlowTests: XCTestCase {
 
         let endpoint = app.textFields["provider-endpoint"]
         endpoint.tap()
-        endpoint.typeText("http://127.0.0.1:18743/v1")
+        endpoint.typeText("http://127.0.0.1:18743/v1" + XCUIKeyboardKey.return.rawValue)
         app.buttons["Load Models"].tap()
         let discovered = app.buttons["Choose from 4 models"]
         XCTAssertTrue(discovered.waitForExistence(timeout: 12))
@@ -26,9 +26,13 @@ final class ChatFlowTests: XCTestCase {
 
         let consent = app.switches["Allow Chat Sharing"]
         if !consent.isHittable { app.swipeUp() }
-        consent.tap()
+        // SwiftUI exposes the full form row as the accessibility switch.
+        consent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(consent.value as? String, "1")
         app.buttons["Save Provider"].tap()
-        app.buttons["Done"].tap()
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
 
         app.buttons["choose-model"].tap()
         XCTAssertEqual(app.textFields["model-id"].value as? String, "fritz-test")
