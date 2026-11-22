@@ -77,6 +77,8 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         "\(provider.rawValue):\(modelID.lowercased())"
     }
 
+    public let context: ModelContext?
+
     public init(
         id: String,
         displayName: String,
@@ -88,9 +90,11 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
         createdAt: UInt64? = nil,
         verification: AIModelVerification = .unverified,
         capabilities: Capabilities? = nil,
-        baseURL: String? = nil
+        baseURL: String? = nil,
+        context: ModelContext? = nil
     ) {
         self.id = id
+        self.context = context
         self.displayName = provider == .openAI
             ? OpenAIModelCatalog.displayName(modelID: modelID, fallback: displayName) : displayName
         self.provider = provider
@@ -128,7 +132,8 @@ public struct ChatModelOption: Codable, Equatable, Identifiable, Sendable {
             source: .configured,
             createdAt: model.createdAt,
             verification: model.verification,
-            baseURL: connection.baseURL
+            baseURL: connection.baseURL,
+            context: model.context
         )
     }
 

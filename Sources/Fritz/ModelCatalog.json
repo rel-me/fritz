@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": 2,
+  "catalog_version": 3,
   "generated_at": "2026-08-25T22:17:10Z",
   "minimum_rel_version": "0.1.11",
   "verification_contract": "A verified model completed REL's bounded text generation and synthetic tool-call round trip through the named provider adapter.",
@@ -22214,7 +22214,12 @@
         ],
         "status": "active",
         "defaultReasoning": "medium",
-        "defaultSpeed": "standard"
+        "defaultSpeed": "standard",
+        "limit": {
+          "context": 128000,
+          "output": 65536,
+          "source_url": "https://developers.openai.com/api/docs/models/o1-mini"
+        }
       },
       "o3": {
         "displayName": "o3",
@@ -22365,7 +22370,12 @@
         ],
         "status": "active",
         "defaultReasoning": null,
-        "defaultSpeed": "standard"
+        "defaultSpeed": "standard",
+        "limit": {
+          "context": 128000,
+          "output": 16384,
+          "source_url": "https://developers.openai.com/api/docs/models/gpt-5-chat-latest"
+        }
       }
     }
   },
@@ -22392,7 +22402,12 @@
         "disable_thinking": false,
         "memory_gb": 24,
         "license_url": "https://thinkingmachines.ai/model-card/inkling-2-mini/",
-        "repository_created": "2026-11-20"
+        "repository_created": "2026-11-20",
+        "limit": {
+          "context": 1048576,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/ggml-org/Inkling-2-Mini-GGUF/revision/e8a2cecf0e78914f07cc27b9be711a9b2c7561d9"
+        }
       },
       {
         "id": "apodex-1.1-mini-q4_k_m",
@@ -22408,7 +22423,12 @@
         "disable_thinking": true,
         "memory_gb": 48,
         "license_url": "https://huggingface.co/apodex/Apodex-1.1-mini-GGUF/blob/4ec155733ded2fa90b615bf50d20c59796cc5107/LICENSE",
-        "repository_created": "2026-09-10"
+        "repository_created": "2026-09-10",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/apodex/Apodex-1.1-mini-GGUF/revision/4ec155733ded2fa90b615bf50d20c59796cc5107"
+        }
       },
       {
         "id": "qwopus3.8-27b-flash-q4_k_m",
@@ -22424,7 +22444,12 @@
         "disable_thinking": true,
         "memory_gb": 32,
         "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE",
-        "repository_created": "2026-09-04"
+        "repository_created": "2026-09-04",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash/blob/main/config.json"
+        }
       },
       {
         "id": "qwen3.8-27b-ud-q4_k_m",
@@ -22445,7 +22470,12 @@
         "disable_thinking": true,
         "memory_gb": 32,
         "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE",
-        "repository_created": "2026-08-13"
+        "repository_created": "2026-08-13",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.8-27B-GGUF/revision/4ca720788d1e01f1bff70c033e0d0028fd02e502"
+        }
       },
       {
         "id": "qwen3.8-9b-distill-q4_k_m",
@@ -22461,7 +22491,12 @@
         "disable_thinking": true,
         "memory_gb": 16,
         "license_url": "https://huggingface.co/Qwen/Qwen3.8-27B/blob/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE",
-        "repository_created": "2026-08-15"
+        "repository_created": "2026-08-15",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/empero-ai/Qwen3.8-9B-Distill-GGUF/revision/760121cd70bb4c36b2b5ec58eb765e0df5987efe"
+        }
       },
       {
         "id": "qwen3.6-27b-q4_k_m",
@@ -22477,7 +22512,12 @@
         "disable_thinking": true,
         "memory_gb": 32,
         "license_url": "https://huggingface.co/Qwen/Qwen3.6-27B/blob/6a9e13bd6fc8f0983b9b99948120bc37f49c13e9/LICENSE",
-        "repository_created": "2026-04-22"
+        "repository_created": "2026-04-22",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.6-27B-GGUF/revision/82d411acf4a06cfb8d9b073a5211bf410bfc29bf"
+        }
       },
       {
         "id": "qwen3.5-0.8b-q4_k_m",
@@ -22493,7 +22533,12 @@
         "disable_thinking": true,
         "memory_gb": 8,
         "license_url": "https://huggingface.co/Qwen/Qwen3.5-0.8B/blob/2fc06364715b967f1860aea9cf38778875588b17/LICENSE",
-        "repository_created": "2026-03-01"
+        "repository_created": "2026-03-01",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-0.8B-GGUF/revision/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0"
+        }
       },
       {
         "id": "qwen3.5-2b-q4_k_m",
@@ -22509,7 +22554,12 @@
         "disable_thinking": true,
         "memory_gb": 8,
         "license_url": "https://huggingface.co/Qwen/Qwen3.5-2B/blob/15852e8c16360a2fea060d615a32b45270f8a8fc/LICENSE",
-        "repository_created": "2026-02-28"
+        "repository_created": "2026-02-28",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-2B-GGUF/revision/f6d5376be1edb4d416d56da11e5397a961aca8ae"
+        }
       },
       {
         "id": "qwen3.5-4b-q4_k_m",
@@ -22525,7 +22575,12 @@
         "disable_thinking": true,
         "memory_gb": 12,
         "license_url": "https://huggingface.co/Qwen/Qwen3.5-4B/blob/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/LICENSE",
-        "repository_created": "2026-03-02"
+        "repository_created": "2026-03-02",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/revision/e87f176479d0855a907a41277aca2f8ee7a09523"
+        }
       },
       {
         "id": "qwen3.5-9b-q4_k_m",
@@ -22541,7 +22596,12 @@
         "disable_thinking": true,
         "memory_gb": 16,
         "license_url": "https://huggingface.co/Qwen/Qwen3.5-9B/blob/c202236235762e1c871ad0ccb60c8ee5ba337b9a/LICENSE",
-        "repository_created": "2026-02-28"
+        "repository_created": "2026-02-28",
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-9B-GGUF/revision/3885219b6810b007914f3a7950a8d1b469d598a5"
+        }
       },
       {
         "id": "qwen3-0.6b-q4_k_m",
@@ -22557,7 +22617,12 @@
         "disable_thinking": true,
         "memory_gb": 4,
         "license_url": "https://huggingface.co/Qwen/Qwen3-0.6B/blob/c1899de289a04d12100db370d81485cdf75e47ca/LICENSE",
-        "repository_created": "2025-04-28"
+        "repository_created": "2025-04-28",
+        "limit": {
+          "context": 40960,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3-0.6B-GGUF/revision/50968a4468ef4233ed78cd7c3de230dd1d61a56b"
+        }
       },
       {
         "id": "qwen3-1.7b-q4_k_m",
@@ -22573,7 +22638,12 @@
         "disable_thinking": true,
         "memory_gb": 8,
         "license_url": "https://huggingface.co/Qwen/Qwen3-1.7B/blob/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/LICENSE",
-        "repository_created": "2025-04-28"
+        "repository_created": "2025-04-28",
+        "limit": {
+          "context": 40960,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/unsloth/Qwen3-1.7B-GGUF/revision/d7f544eead698dbd1f15126ef60b45a1e1933222"
+        }
       },
       {
         "id": "qwen3-4b-q4_k_m",
@@ -22589,7 +22659,12 @@
         "disable_thinking": true,
         "memory_gb": 12,
         "license_url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/blob/bc640142c66e1fdd12af0bd68f40445458f3869b/LICENSE",
-        "repository_created": "2025-05-05"
+        "repository_created": "2025-05-05",
+        "limit": {
+          "context": 40960,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/Qwen/Qwen3-4B-GGUF/revision/bc640142c66e1fdd12af0bd68f40445458f3869b"
+        }
       },
       {
         "id": "qwen3-4b-instruct-2507-abliterated-q4_k_m",
@@ -22606,7 +22681,12 @@
         "memory_gb": 12,
         "license_url": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/blob/cdbee75f17c01a7cc42f958dc650907174af0554/LICENSE",
         "repository_created": "2025-08-08",
-        "abliterated": true
+        "abliterated": true,
+        "limit": {
+          "context": 262144,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF/revision/c9e90669eeb205d5af35c28a3e9983fc9293c2ec"
+        }
       },
       {
         "id": "qwen3-8b-q4_k_m",
@@ -22622,7 +22702,12 @@
         "disable_thinking": true,
         "memory_gb": 16,
         "license_url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/7c41481f57cb95916b40956ab2f0b139b296d974/LICENSE",
-        "repository_created": "2025-05-03"
+        "repository_created": "2025-05-03",
+        "limit": {
+          "context": 40960,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/Qwen/Qwen3-8B-GGUF/revision/7c41481f57cb95916b40956ab2f0b139b296d974"
+        }
       },
       {
         "id": "qwen3-8b-abliterated-v2-q4_k_m",
@@ -22639,7 +22724,12 @@
         "memory_gb": 16,
         "license_url": "https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/7c41481f57cb95916b40956ab2f0b139b296d974/LICENSE",
         "repository_created": "2026-11-15",
-        "abliterated": true
+        "abliterated": true,
+        "limit": {
+          "context": 40960,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/NuevaTechLLC/Qwen3-8B-abliterated-v2-GGUF/revision/78874b4790201bd3df3053f0f21b4b3cc93f662a"
+        }
       },
       {
         "id": "qwen3-14b-q4_k_m",
@@ -22655,7 +22745,12 @@
         "disable_thinking": true,
         "memory_gb": 24,
         "license_url": "https://huggingface.co/Qwen/Qwen3-14B-GGUF/blob/530227a7d994db8eca5ab5ced2fb692b614357fd/LICENSE",
-        "repository_created": "2025-05-01"
+        "repository_created": "2025-05-01",
+        "limit": {
+          "context": 40960,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/Qwen/Qwen3-14B-GGUF/revision/530227a7d994db8eca5ab5ced2fb692b614357fd"
+        }
       },
       {
         "id": "qwen2.5-1.5b-instruct-q4_k_m",
@@ -22671,7 +22766,12 @@
         "disable_thinking": false,
         "memory_gb": 4,
         "license_url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/989aa7980e4cf806f80c7fef2b1adb7bc71aa306/LICENSE",
-        "repository_created": "2024-09-19"
+        "repository_created": "2024-09-19",
+        "limit": {
+          "context": 8192,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/Qwen/Qwen2.5-1.5B-Instruct-GGUF/revision/91cad51170dc346986eccefdc2dd33a9da36ead9"
+        }
       },
       {
         "id": "dolphin3.0-llama3.2-3b-q4_k_m",
@@ -22687,7 +22787,12 @@
         "disable_thinking": false,
         "memory_gb": 8,
         "license_url": "https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/blob/0cb88a4f764b7a12671c53f0838cd831a0843b95/LICENSE.txt",
-        "repository_created": "2025-01-05"
+        "repository_created": "2025-01-05",
+        "limit": {
+          "context": 131072,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/bartowski/Dolphin3.0-Llama3.2-3B-GGUF/revision/ac6b1ee98e3864ebd5998216f800a07d74b166b5"
+        }
       },
       {
         "id": "dolphin3.0-llama3.1-8b-q4_k_m",
@@ -22703,7 +22808,12 @@
         "disable_thinking": false,
         "memory_gb": 16,
         "license_url": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/0e9e39f249a16976918f6564b8830bc894c89659/LICENSE",
-        "repository_created": "2025-01-05"
+        "repository_created": "2025-01-05",
+        "limit": {
+          "context": 131072,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/bartowski/Dolphin3.0-Llama3.1-8B-GGUF/revision/a6274707ba8c5f12d4521eabbce1b318bb2f27f5"
+        }
       },
       {
         "id": "hermes3-llama3.1-8b-q4_k_m",
@@ -22719,7 +22829,12 @@
         "disable_thinking": false,
         "memory_gb": 16,
         "license_url": "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B/tree/896ea440e5a9e6070e3d8a2774daf2b481ab425b",
-        "repository_created": "2024-08-15"
+        "repository_created": "2024-08-15",
+        "limit": {
+          "context": 131072,
+          "runtime": 8192,
+          "source_url": "https://huggingface.co/api/models/bartowski/Hermes-3-Llama-3.1-8B-GGUF/revision/223c8e24dec0f863b6abe4c89bf20f6941b805e2"
+        }
       },
       {
         "id": "mistral-nemo-12b-instruct-q4_k_m",
@@ -22735,7 +22850,12 @@
         "disable_thinking": false,
         "memory_gb": 24,
         "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
-        "repository_created": "2024-07-18"
+        "repository_created": "2024-07-18",
+        "limit": {
+          "context": 128000,
+          "runtime": 8192,
+          "source_url": "https://mistral.ai/news/mistral-nemo/"
+        }
       }
     ]
   },
@@ -22787,7 +22907,11 @@
             "size": 10297,
             "sha256": "ec56c3e69fab09b41de6f1c80fdcc13b83ec1eef1f72d3022baaafde3d9307e9"
           }
-        ]
+        ],
+        "limit": {
+          "input": 512,
+          "source_url": "https://ollaya.dev/blobs/sha256-b5bc5074b1b4a1e6e79a019ebfae09c44fc7c77eee4b91638e7cd76829291b3c"
+        }
       },
       {
         "id": "kev-4b",
@@ -22854,7 +22978,11 @@
             "size": 10453,
             "sha256": "5ddbf0af0c82586188774262c786086f9ca82ef24a5909f83a3f6a02d0961b0d"
           }
-        ]
+        ],
+        "limit": {
+          "input": 8192,
+          "source_url": "https://ollaya.dev/blobs/sha256-79b66d83478debca2c95d5193e48650f87527878232aaffffe9d01f88df593ba"
+        }
       },
       {
         "id": "bosun-v3.1-0.6b-f16",
@@ -22911,7 +23039,11 @@
             "size": 149,
             "sha256": "708eedeba4ab0765268ed7c763da0f622aafd7e66faaf5d765c8717dae917168"
           }
-        ]
+        ],
+        "limit": {
+          "input": 2048,
+          "source_url": "https://github.com/rel-me/fritz/blob/main/src/decision/local/bosun.rs"
+        }
       }
     ]
   },
@@ -22919,12 +23051,18 @@
     "openai-decisions": {
       "id": "gpt-6-luna",
       "name": "GPT-6 Luna",
-      "provider_name": "OpenAI Decisions"
+      "provider_name": "OpenAI Decisions",
+      "limit": {
+        "input": null
+      }
     },
     "jev": {
       "id": "jev-latest",
       "name": "Jev",
-      "provider_name": "TypeSafe"
+      "provider_name": "TypeSafe",
+      "limit": {
+        "input": null
+      }
     }
   }
 }

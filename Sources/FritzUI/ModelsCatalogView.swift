@@ -188,7 +188,7 @@ public struct ModelsCatalogView: View {
                 Text(row.name).lineLimit(1).truncationMode(.tail)
             }.width(240)
             TableColumn("Models") { row in
-                Text(row.modelNames).lineLimit(1).truncationMode(.tail).help(row.modelNames)
+                Text(row.modelNames).lineLimit(1).truncationMode(.tail).help(row.models.map { "\($0.displayName) · \($0.context?.summary ?? "Context limit unknown")" }.joined(separator: "\n"))
             }.width(min: 240, max: .infinity)
             TableColumn("Status") { row in
                 Text(row.connection.map { store.discoveryErrors[$0.id] == nil ? "Ready" : "Needs Setup" } ?? "Setup Required")
@@ -234,6 +234,13 @@ public struct ModelsCatalogView: View {
                 }
             }
             .width(min: 120, ideal: 140)
+            TableColumn("Context") { row in
+                if let model = row.modelRow {
+                    Text(model.descriptor?.context?.summary ?? "Unknown")
+                        .lineLimit(1)
+                        .help(model.descriptor?.context?.summary ?? "Context limit unknown")
+                }
+            }.width(min: 125, ideal: 205)
             TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
                 if let model = row.modelRow {
                     LocalModelScoreCell(score: model.descriptor?.benchmarkScore)

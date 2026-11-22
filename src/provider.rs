@@ -1,3 +1,6 @@
+pub(crate) mod model_context;
+pub use model_context::{ContextSource, ModelContext};
+
 use crate::config::{self, Connection, ProviderKind};
 use anyhow::{Context, Result, bail};
 use futures_util::StreamExt;
@@ -76,6 +79,7 @@ pub struct Model {
     pub created_at: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub supports_tools: Option<bool>,
+    pub context: ModelContext,
 }
 
 #[derive(Deserialize)]
@@ -272,6 +276,7 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             display_name: decision.name.clone(),
             created_at: None,
             supports_tools: None,
+            context: model_context::bundled(connection, &decision.id),
         }]);
     }
     if connection.provider.is_native() {
@@ -292,6 +297,7 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
                 display_name: model["name"].as_str().unwrap().into(),
                 created_at: None,
                 supports_tools: None,
+                context: model_context::bundled(connection, model["id"].as_str().unwrap()),
             })
             .collect());
     }
@@ -358,6 +364,8 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             models.insert(
                 id.clone(),
                 Model {
+                    context: model_context::from_listing(connection.provider, entry)
+                        .unwrap_or_else(|| model_context::bundled(connection, &id)),
                     id,
                     display_name,
                     created_at: entry["created"].as_u64(),
@@ -375,10 +383,61 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
             _ => None,
         };
         if next_page.is_none() {
-            return Ok(models.into_values().collect());
+            let models: Vec<_> = models.into_values().collect();
+            if connection.provider == ProviderKind::Ollama {
+                return Ok(ollama_contexts(connection, key, models).await);
+            }
+            return Ok(models);
         }
     }
     bail!("The model catalog exceeded the pagination limit.")
+}
+
+async fn ollama_contexts(
+    connection: &Connection,
+    key: Option<&str>,
+    mut models: Vec<Model>,
+) -> Vec<Model> {
+    let endpoint = format!("{}/api/show", connection.base_url());
+    let active_endpoint = format!("{}/api/ps", connection.base_url());
+    let read = |request: RequestBuilder| async move {
+        let response = checked(authenticate(
+            request.timeout(Duration::from_secs(3)),
+            connection.provider,
+            key,
+        ))
+        .await?;
+        Ok::<Value, anyhow::Error>(response.json().await?)
+    };
+
+    let active = async {
+        let data = read(client()?.get(active_endpoint)).await?;
+        Ok::<_, anyhow::Error>(model_context::ollama_active_windows(&data))
+    };
+    let show = futures_util::stream::iter(&mut models).for_each_concurrent(8, |model| {
+        let endpoint = &endpoint;
+        async move {
+            let Ok(client) = client() else {
+                return;
+            };
+            if let Ok(metadata) = read(client.post(endpoint).json(&json!({"model":model.id}))).await
+                && let Some(context) = model_context::from_ollama_show(&metadata)
+            {
+                model.context = context;
+            }
+        }
+    });
+    // Keep list discovery usable when optional metadata endpoints are slow or unsupported.
+    let (active, _) = tokio::join!(active, tokio::time::timeout(Duration::from_secs(6), show));
+    if let Ok(active) = active {
+        for model in &mut models {
+            if let Some(window) = active.get(model.id.as_str()) {
+                model.context.effective_window_tokens = Some(*window);
+                model.context.source = ContextSource::Provider;
+            }
+        }
+    }
+    models
 }
 
 /// Retrieve the selected Messages model's advertised output ceiling. Never

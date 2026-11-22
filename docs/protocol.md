@@ -36,11 +36,22 @@ record is unavailable, or when the adapter requires opaque signatures (Gemini).
 Workspace tool events may include `historyDetails`, the full event payload
 as a string up to 128 KiB. `details` remains the bounded display field.
 
+Model discovery returns a `context` object for each model. `windowTokens`
+is the advertised model window, `inputTokens` and `outputTokens` are separate
+caps where published, and `effectiveWindowTokens` is a reported route or
+runtime capacity. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
+Missing limits are omitted. Discovery takes live values from the connected
+endpoint. Ollama provides architecture limits via `/api/show` and reports
+active capacity via `/api/ps`. Public catalog values are used for known
+models on official endpoints when live metadata is absent.
+
 The optional `context` object accepts `automaticCompaction` (defaults to true),
 `contextTokens`, `reserveTokens`, and `keepRecentTokens`. Omitted token settings
 adapt to the model. Automatic budgeting uses the bundled model's 8,192-token
-window or Rig's provider catalog, with a 32,768-token default for unknown
-remote models. Rig estimates tokens for messages, instructions, and tool
+window, the selected connection’s reported limits, or catalog metadata.
+The fallback is 32,768 tokens for unknown remote models and an automatic
+4,096-token budget for Ollama until it reports a runtime window. The app
+passes the selected model’s live limits in `context.reportedContext`. Rig estimates tokens for messages, instructions, and tool
 definitions. Reported model usage refines the estimate between tool rounds.
 Compaction summarizes older complete turns with the selected model in a bounded,
 tool-free request. When that request cannot complete, Fritz emits an activity

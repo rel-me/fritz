@@ -1,7 +1,7 @@
 //! Rig context budgeting for Fritz's native provider sessions.
 use crate::config::{Connection, ProviderKind};
+use crate::provider::{ModelContext, model_context};
 use fritz_harness::message::{Message, UserContent};
-use rig_core::{catalog::Catalog, providers::registry::ProviderId};
 use rig_memory::{CompactionSettings, find_cut_point, request_tokens};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -14,6 +14,7 @@ pub struct ContextSettings {
     pub reserve_tokens: Option<u64>,
     pub keep_recent_tokens: Option<u64>,
     pub has_previous_summary: bool,
+    pub reported_context: Option<ModelContext>,
 }
 
 pub(super) struct Budget {
@@ -37,22 +38,27 @@ impl ContextSettings {
         }
 
         let local = connection.provider == ProviderKind::Fritz;
-        let vendor = match connection.provider {
-            ProviderKind::Openai => "openai",
-            ProviderKind::Anthropic => "anthropic",
-            ProviderKind::Gemini => "google",
-            ProviderKind::Openrouter => "openrouter",
-            _ => "",
-        };
-        let spec = (connection.base_url() == connection.provider.default_url())
-            .then(|| ProviderId::catalog(vendor))
-            .flatten()
-            .and_then(|provider| Catalog::builtin().get(provider, model))
-            .map(|resolved| resolved.spec);
+        let positive = |value: Option<u32>| value.filter(|&value| value > 0).map(u64::from);
+        let bundled = model_context::bundled(connection, model);
+        let limits = self.reported_context.unwrap_or(bundled);
+        let route = positive(limits.effective_window_tokens);
+        let advertised = positive(limits.window_tokens);
+        // An unloaded Ollama model may use a server-wide context setting.
+        // Keep the published architecture cap in the catalog and use a
+        // conservative budget until the selected server reports a runtime cap.
+        let route = route.or_else(|| {
+            (connection.provider == ProviderKind::Ollama && self.context_tokens.is_none())
+                .then_some(4096)
+        });
+        let shared_window = route.into_iter().chain(advertised).min();
+        let max_input = positive(limits.input_tokens);
+        let max_output = positive(limits.output_tokens);
+        let automatic = shared_window
+            .or_else(|| max_input.map(|input| input.saturating_add(max_output.unwrap_or(8192))));
         let known_window = if local {
-            Some(8192)
+            positive(bundled.effective_window_tokens)
         } else {
-            spec.and_then(|spec| spec.context_window).map(u64::from)
+            automatic
         };
         let window = self
             .context_tokens
@@ -69,10 +75,7 @@ impl ContextSettings {
                     .min(if local { 2048 } else { window / 4 }),
             )
             .min(window / 2);
-        let input = (window - compaction.reserve_tokens).min(
-            spec.and_then(|spec| spec.input_limit())
-                .map_or(u64::MAX, u64::from),
-        );
+        let input = (window - compaction.reserve_tokens).min(max_input.unwrap_or(u64::MAX));
         compaction.keep_recent_tokens = self
             .keep_recent_tokens
             .unwrap_or(compaction.keep_recent_tokens.min(input / 2))
@@ -80,10 +83,8 @@ impl ContextSettings {
         let output = compaction
             .reserve_tokens
             .min(if local { 2048 } else { 8192 })
-            .min(
-                spec.and_then(|spec| spec.output_limit())
-                    .map_or(u64::MAX, u64::from),
-            );
+            .min(max_output.unwrap_or(u64::MAX))
+            .max(1);
         Ok(Budget {
             input,
             output: output as usize,

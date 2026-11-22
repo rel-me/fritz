@@ -706,6 +706,8 @@ struct ProviderModelsSheet: View {
             VStack(alignment: .leading) {
                 Text(model.displayName)
                 if model.id != model.displayName { Text(model.id).font(.caption).foregroundStyle(.secondary) }
+                Text(model.context?.summary ?? "Context limit unknown")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             .textSelection(.enabled)
         }

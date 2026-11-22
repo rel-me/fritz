@@ -22,7 +22,7 @@ impl Engine {
     }
 
     pub async fn installed(model_id: &str) -> Result<Self> {
-        Self::installed_with_context(model_id, 8192).await
+        Self::installed_with_context(model_id, super::CHAT_CONTEXT_TOKENS as usize).await
     }
 
     pub(crate) async fn installed_with_context(
@@ -50,7 +50,7 @@ impl Engine {
         Ok(Self {
             model_id: model_id.to_owned(),
             path: store.installed_path(model_id).await?,
-            context_size: 8192,
+            context_size: super::CHAT_CONTEXT_TOKENS as usize,
             model: OnceCell::new(),
         })
     }

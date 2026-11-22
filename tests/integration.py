@@ -20,7 +20,24 @@ EXECUTABLE = Path(os.environ.get("FRITZ_TEST_BIN_DIR", ROOT / "target/debug")) /
 class AuthenticatedProvider(Provider):
     """Require the imported fixture key on a separate discovery endpoint."""
 
+    def send_metadata(self, value):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(value).encode())
+
     def do_GET(self):
+        fixtures = {
+            "/metadata/anthropic/models": {"data": [{"id": "fixture", "max_input_tokens": 200000, "max_tokens": 64000}]},
+            "/metadata/gemini/models": {"models": [{"name": "models/fixture", "supportedGenerationMethods": ["generateContent"], "inputTokenLimit": 1048576, "outputTokenLimit": 65536}]},
+            "/metadata/openrouter/models": {"data": [{"id": "fixture", "context_length": 131072, "top_provider": {"context_length": 32768, "max_completion_tokens": 8192}}]},
+            "/metadata/compatible/models": {"data": [{"id": "fixture", "max_model_len": 16384}, {"id": "unreported", "context_length": 0}]},
+            "/metadata/ollama/api/tags": {"models": [{"name": "fixture"}, {"name": "unreported"}]},
+            "/metadata/ollama/api/ps": {"models": [{"name": "fixture", "context_length": 12288}]},
+        }
+        if self.path in fixtures:
+            self.send_metadata(fixtures[self.path])
+            return
         if self.path == "/authenticated/v1/models":
             if self.headers.get("Authorization") != "Bearer synthetic-import-key":
                 self.send_error(401)
@@ -28,6 +45,17 @@ class AuthenticatedProvider(Provider):
             self.path = "/v1/models"
         super().do_GET()
 
+
+    def do_POST(self):
+        if self.path == "/metadata/ollama/api/show":
+            request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if request["model"] == "fixture":
+                self.send_metadata({"model_info": {"general.architecture": "fixture", "fixture.context_length": 32768},
+                                    "parameters": "temperature 0.1\nnum_ctx 8192"})
+            else:
+                self.send_error(404)
+            return
+        super().do_POST()
 
     def handle_chat(self, payload):
         history = payload["messages"]
@@ -56,6 +84,27 @@ class AuthenticatedProvider(Provider):
         return True
 
 
+def context_discovery(send, receive, endpoint):
+    fixtures = {
+        "anthropic": {"inputTokens": 200000, "outputTokens": 64000},
+        "gemini": {"inputTokens": 1048576, "outputTokens": 65536},
+        "openrouter": {"windowTokens": 131072, "effectiveWindowTokens": 32768, "outputTokens": 8192},
+        "compatible": {"windowTokens": 16384},
+        "ollama": {"windowTokens": 32768, "effectiveWindowTokens": 12288},
+    }
+    for family, limits in fixtures.items():
+        connection = dict(id=str(uuid.uuid4()), name="Metadata fixture", modelId="fixture",
+                          provider="openai-compatible" if family == "compatible" else family,
+                          baseUrl=endpoint.replace("/v1", "/metadata/" + family))
+        request = send("models.list", {"connection": connection, "apiKey": "synthetic-metadata-key"})
+        event = receive()
+        assert event["id"] == request and event["type"] == "result", event
+        models = {model["id"]: model["context"] for model in event["result"]["models"]}
+        assert models["fixture"] == {"source": "provider", **limits}, models
+        if family in ("ollama", "compatible"):
+            assert models["unreported"] == {"source": "unknown"}, models
+
+
 def context_management(send, receive, connection_id):
     def chat(model, messages, context, success=True):
         params = dict(connectionId=connection_id, model=model, messages=messages,
@@ -80,6 +129,11 @@ def context_management(send, receive, connection_id):
     messages = [user("Old itinerary " * 330), assistant("Old suggestions " * 95),
                 user("Recent itinerary " * 200), assistant("Recent suggestions " * 80), current]
     options = dict(contextTokens=4096, reserveTokens=1024, keepRecentTokens=2048)
+    chat("compact-test", [current], {"reportedContext": {
+        "source": "provider", "inputTokens": 8192, "outputTokens": 768,
+    }})
+    assert Provider.requests[-1]["max_tokens"] == 768
+
     index = len(Provider.requests)
     events = chat("compact-test", messages, options)
     calls = Provider.requests[index:]
@@ -359,6 +413,7 @@ def main():
         health = send("health")
         event = receive()
         assert event["id"] == health and event["result"]["name"] == "fritz"
+        context_discovery(send, receive, endpoint)
         context_management(send, receive, connection["id"])
         # Imported configurations may omit keys, but malformed batches write nothing.
         imported = dict(id=str(uuid.uuid4()), name="TypeSafe", provider="jev", modelId="jev-latest")

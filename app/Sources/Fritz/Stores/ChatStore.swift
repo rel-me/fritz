@@ -224,6 +224,9 @@ private struct CompactionReceipt: Decodable {
                     let history = try JSONEncoder().encode(prepared.context)
                     var contextParams = harness.requestParameters
                     contextParams["hasPreviousSummary"] = prepared.hasPreviousSummary
+                    if let context = model.context, context.source == .provider {
+                        contextParams["reportedContext"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(context))
+                    }
                     var params: [String: Any] = [
                         "connectionId": connectionID.uuidString, "model": model.modelID,
                         "messages": try JSONSerialization.jsonObject(with: history),

@@ -274,7 +274,7 @@ extension ModelsStore {
         guard provider == .openAI else { return models }
         return models.filter { ChatModelOption(id: $0.id, displayName: $0.displayName,
             provider: provider, modelID: $0.id).status != .retired }.map { DiscoveredAIModel(id: $0.id,
-            displayName: OpenAIModelCatalog.displayName(modelID: $0.id, fallback: $0.displayName)) }
+            displayName: OpenAIModelCatalog.displayName(modelID: $0.id, fallback: $0.displayName), context: $0.context) }
     }
     public func modelEvents(category: AIModelCategory, modelID: String, install: Bool, directory: URL?,
                      requestID: String) -> AsyncThrowingStream<Data, Error> {

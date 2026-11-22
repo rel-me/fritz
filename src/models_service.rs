@@ -218,6 +218,10 @@ impl ModelsService {
                     display_name: model["name"].as_str().unwrap_or_default().into(),
                     created_at: None,
                     supports_tools: None,
+                    context: provider::model_context::bundled(
+                        connection,
+                        model["id"].as_str().unwrap_or_default(),
+                    ),
                 })
                 .collect());
         }

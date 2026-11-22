@@ -111,7 +111,7 @@ private struct FritzHarnessSettingsView: View {
             } header: {
                 settingsTitle("Harness")
             } footer: {
-                Text("Automatic uses the model’s known context window, or 32,768 tokens when it’s unknown. The reply reserve sets aside part of that window for generated text.")
+                Text("Automatic uses the connected model’s reported limit or the catalog. Fritz budgets 32,768 tokens when a remote limit is unknown, or 4,096 for Ollama. The reply reserve leaves room for generated text.")
             }
             Section {
                 Toggle("Automatically Compact History", isOn: $settings.harness.automaticCompaction)
