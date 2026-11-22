@@ -262,6 +262,27 @@ private struct FritzServiceSettingsView: View {
             } footer: {
                 if let error = localModels.service.error { Text(error).foregroundStyle(.orange).textSelection(.enabled) }
             }
+            Section {
+                let remote = localModels.remoteService
+                LabeledContent("Status", value: remote.status.title)
+                if let address = remote.address {
+                    LabeledContent("Tunnel Target") { Text(address).textSelection(.enabled) }
+                }
+                if remote.status == .running {
+                    Button("Copy Access Key") { localModels.copyRemoteModelKey() }
+                    Button("Stop Sharing") { localModels.disableRemoteModels() }
+                } else {
+                    Button("Share Local Models") { localModels.enableRemoteModels() }
+                        .disabled(remote.status == .starting || remote.status == .stopping)
+                }
+            } header: {
+                Text("Remote Model Access")
+            } footer: {
+                if let error = localModels.remoteService.error {
+                    Text(error).foregroundStyle(.orange).textSelection(.enabled)
+                }
+                Text("Use a private HTTPS tunnel to connect Fritz on iPhone. Stopping sharing or quitting Fritz revokes the access key.")
+            }
         }
         .fritzSettingsFormStyle(background: .clear)
     }

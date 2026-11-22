@@ -4,6 +4,8 @@ import XCTest
 final class ChatFlowTests: XCTestCase {
     func testRemoteChatDiscoveryStreamingCancellationAndRelaunch() throws {
         continueAfterFailure = false
+        let url = try XCTUnwrap(ProcessInfo.processInfo.environment["FRITZ_MOCK_URL"],
+                                "Run make ios-test to start the mock provider.")
         let app = XCUIApplication()
         app.launch()
 
@@ -21,7 +23,7 @@ final class ChatFlowTests: XCTestCase {
 
         let endpoint = app.textFields["provider-endpoint"]
         endpoint.tap()
-        endpoint.typeText("http://127.0.0.1:18743/v1" + XCUIKeyboardKey.return.rawValue)
+        endpoint.typeText(url + XCUIKeyboardKey.return.rawValue)
         let disclosure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "conversation history to 127.0.0.1")).firstMatch
         XCTAssertTrue(disclosure.exists)
         save.tap()

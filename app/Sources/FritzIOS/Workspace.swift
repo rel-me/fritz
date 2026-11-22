@@ -7,7 +7,7 @@ struct ChatFailure: LocalizedError {
 }
 
 enum ProviderKind: String, CaseIterable, Codable, Identifiable {
-    case openAI, openRouter, compatible
+    case openAI, openRouter, compatible, fritzRemote
 
     var id: Self { self }
     var title: String {
@@ -15,13 +15,14 @@ enum ProviderKind: String, CaseIterable, Codable, Identifiable {
         case .openAI: "OpenAI"
         case .openRouter: "OpenRouter"
         case .compatible: "OpenAI-compatible"
+        case .fritzRemote: "Fritz on a Mac"
         }
     }
     var endpoint: String {
         switch self {
         case .openAI: "https://api.openai.com/v1"
         case .openRouter: "https://openrouter.ai/api/v1"
-        case .compatible: ""
+        case .compatible, .fritzRemote: ""
         }
     }
 }
@@ -33,7 +34,12 @@ struct ProviderConnection: Identifiable, Codable, Sendable {
     var customEndpoint = ""
     var defaultModel = ""
     var credentialID: UUID?
-    var endpoint: String { kind == .compatible ? customEndpoint : kind.endpoint }
+    var endpoint: String { kind == .compatible || kind == .fritzRemote ? customEndpoint : kind.endpoint }
+
+    var apiEndpoint: String {
+        guard kind == .fritzRemote else { return endpoint }
+        return endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/fritz/v1"
+    }
 
     func validate(key: Data?) throws {
         let parts = URLComponents(string: endpoint)
@@ -45,7 +51,16 @@ struct ProviderConnection: Identifiable, Codable, Sendable {
               parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil else {
             throw ChatFailure("Enter an HTTPS endpoint without credentials, a query, or a fragment.")
         }
-        if kind != .compatible, key == nil {
+        if kind == .fritzRemote {
+            guard parts.scheme?.lowercased() == "https", parts.path.isEmpty || parts.path == "/" else {
+                throw ChatFailure("Enter the tunnel’s HTTPS address without a path.")
+            }
+            guard let key, key.count == 64, key.allSatisfy({
+                (48...57).contains($0) || (97...102).contains($0)
+            }) else {
+                throw ChatFailure("Copy the access key from Fritz on your Mac.")
+            }
+        } else if kind != .compatible, key == nil {
             throw ChatFailure("Enter an API key for \(kind.title).")
         }
     }

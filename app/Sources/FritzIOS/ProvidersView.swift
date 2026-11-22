@@ -79,19 +79,24 @@ private struct ProviderEditor: View {
                     }
                 }
                 .accessibilityIdentifier("provider-kind")
-                if connection.kind == .compatible {
-                    TextField("Endpoint URL", text: $connection.customEndpoint, prompt: Text("https://example.com/v1"))
+                if connection.kind == .compatible || connection.kind == .fritzRemote {
+                    TextField(connection.kind == .fritzRemote ? "Tunnel URL" : "Endpoint URL",
+                              text: $connection.customEndpoint,
+                              prompt: Text(connection.kind == .fritzRemote ? "https://mac.example.com" : "https://example.com/v1"))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
                         .accessibilityIdentifier("provider-endpoint")
                 }
-                SecureField(connection.credentialID == nil || destinationChanged ? "API Key" : "Replace API Key", text: $replacement)
+                SecureField(credentialTitle, text: $replacement)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } footer: {
                 if let issue {
                     Text(issue).foregroundStyle(.red)
+                }
+                if connection.kind == .fritzRemote {
+                    Text("Get the access key from Settings → Service → Remote Model Access on your Mac.")
                 }
                 if destinationChanged {
                     let destination = URLComponents(string: endpoint)?.host ?? connection.kind.title
@@ -115,6 +120,14 @@ private struct ProviderEditor: View {
             issue = nil
         }
         .onChange(of: replacement) { _, _ in issue = nil }
+    }
+
+    private var credentialTitle: String {
+        let replacingKey = connection.credentialID != nil && !destinationChanged
+        if connection.kind == .fritzRemote {
+            return replacingKey ? "Replace Access Key" : "Access Key"
+        }
+        return replacingKey ? "Replace API Key" : "API Key"
     }
 
     private func save() {
@@ -162,7 +175,9 @@ struct ChatModelView: View {
                 }
             }
             if let provider {
-                ModelField(model: $model) {
+                ModelField(model: $model, emptyMessage: provider.kind == .fritzRemote
+                           ? "No installed chat models on the Mac."
+                           : "The provider returned an empty catalog. Enter a model ID if you know it.") {
                     let key = try ProviderKeychain.read(provider.credentialID)
                     return try await ProviderRuntime.models(for: provider, key: key)
                 }
@@ -201,6 +216,7 @@ struct ChatModelView: View {
 
 private struct ModelField: View {
     @Binding var model: String
+    let emptyMessage: String
     let load: @MainActor () async throws -> [ProviderRuntime.Model]
     @State private var results: [ProviderRuntime.Model]?
     @State private var issue: String?
@@ -235,7 +251,7 @@ private struct ModelField: View {
             } else if let issue {
                 Text(issue).foregroundStyle(.red)
             } else if results?.isEmpty == true {
-                Text("The provider returned an empty catalog. Enter a model ID if you know it.")
+                Text(emptyMessage)
             }
         }
         .task(id: query) {

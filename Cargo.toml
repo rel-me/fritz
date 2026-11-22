@@ -50,6 +50,7 @@ tempfile = "3"
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "=3.7.0"
 sha2 = "0.11"
+subtle = "2"
 hex = "0.4"
 
 # Large model checksums must stay fast in development builds too.

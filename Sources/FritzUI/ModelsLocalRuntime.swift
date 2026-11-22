@@ -3,6 +3,7 @@ import Darwin
 import Fritz
 import Foundation
 import Observation
+import Security
 
 /// Owns one loopback API and its resident models. Chat harnesses remain thread-owned.
 @MainActor @Observable public final class ModelsLocalRuntime: ModelsRuntimeStore {
@@ -12,6 +13,7 @@ import Observation
     public private(set) var installedIDs: Set<String> = []
     public private(set) var sessions: [String: Session] = [:]
     public private(set) var service = Session()
+    public private(set) var remoteService = Session()
     public private(set) var isLoading = false
     public var error: String?
     public private(set) var policyError: String?
@@ -26,6 +28,7 @@ import Observation
     private let executableURL: URL?
     private let environment: [String: String]
     private let arguments: [String]
+    @ObservationIgnored private var remoteKey: String?
     @ObservationIgnored private var process: Process?
     @ObservationIgnored private var input: Pipe?
     @ObservationIgnored private var output: Pipe?
@@ -221,9 +224,13 @@ import Observation
     }
 
     @discardableResult private func command(_ action: String, _ modelID: String) -> Bool {
+        sendControl(["action": action, "modelId": modelID])
+    }
+
+    private func sendControl(_ fields: [String: String]) -> Bool {
         guard let input, process?.isRunning == true else { return false }
         do {
-            var data = try JSONSerialization.data(withJSONObject: ["action": action, "modelId": modelID])
+            var data = try JSONSerialization.data(withJSONObject: fields)
             data.append(10)
             try input.fileHandleForWriting.write(contentsOf: data)
             return true
@@ -231,6 +238,44 @@ import Observation
             service.error = "Could not control the local API: \(error.localizedDescription)"
             return false
         }
+    }
+
+    public func enableRemoteModels() {
+        guard !isShuttingDown, remoteService.status == .stopped || remoteService.status == .failed else { return }
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = bytes.withUnsafeMutableBytes {
+            SecRandomCopyBytes(kSecRandomDefault, $0.count, $0.baseAddress!)
+        }
+        guard status == errSecSuccess else {
+            remoteService = Session(status: .failed, error: "Could not create an access key.")
+            return
+        }
+        let key = bytes.map { String(format: "%02x", $0) }.joined()
+        startService()
+        guard sendControl(["action": "enableRemote", "token": key]) else {
+            remoteService = Session(status: .failed, error: service.error ?? "The local API is unavailable.")
+            return
+        }
+        remoteKey = key
+        remoteService = Session(status: .starting)
+    }
+
+    public func disableRemoteModels() {
+        guard remoteService.status == .running else { return }
+        guard sendControl(["action": "disableRemote"]) else {
+            // Closing the private pipe also closes the remote listener.
+            failService(service.error ?? "Could not stop the remote listener.")
+            return
+        }
+        remoteKey = nil
+        remoteService = Session(status: .stopping)
+    }
+
+    public func copyRemoteModelKey() {
+        guard remoteService.status == .running, let remoteKey else { return }
+        let clipboard = NSPasteboard.general
+        clipboard.clearContents()
+        clipboard.setString(remoteKey, forType: .string)
     }
 
     public func stop(_ modelID: String) {
@@ -255,6 +300,8 @@ import Observation
     }
 
     private func disposeService() {
+        remoteKey = nil
+        remoteService = Session()
         generation = nil
         output?.fileHandleForReading.readabilityHandler = nil
         stderr?.fileHandleForReading.readabilityHandler = nil
@@ -275,6 +322,17 @@ import Observation
             switch event.type {
             case "service":
                 service = Session(status: .running, processID: process?.processIdentifier, address: event.address)
+            case "remoteModels":
+                switch event.status {
+                case "running":
+                    remoteService = Session(status: .running, address: event.address)
+                case "stopped":
+                    remoteKey = nil
+                    remoteService = Session()
+                default:
+                    remoteKey = nil
+                    remoteService = Session(status: .failed, error: event.error)
+                }
             case "model":
                 guard let id = event.modelId, let status = event.status else { continue }
                 let state: Session.Status
@@ -299,8 +357,13 @@ import Observation
 
     private func terminated(generation: UUID, status: Int32) {
         guard self.generation == generation else { return }
-        let failure = service.error ?? "Local API exited with status \(status)."
+        failService(service.error ?? "Local API exited with status \(status).")
+    }
+
+    private func failService(_ failure: String) {
+        let wasSharing = remoteService.status != .stopped
         disposeService()
+        if wasSharing { remoteService = Session(status: .failed, error: failure) }
         service = Session(status: .failed, error: failure)
         pendingStarts = []
         if let window = warningAlert?.window, let parent = window.sheetParent {
