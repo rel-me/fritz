@@ -22,10 +22,9 @@ final class ChatFlowTests: XCTestCase {
         let endpoint = app.textFields["provider-endpoint"]
         endpoint.tap()
         endpoint.typeText("http://127.0.0.1:18743/v1" + XCUIKeyboardKey.return.rawValue)
+        let disclosure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "conversation history to 127.0.0.1")).firstMatch
+        XCTAssertTrue(disclosure.exists)
         save.tap()
-        let consent = app.alerts["Allow Chat Sharing?"]
-        XCTAssertTrue(consent.waitForExistence(timeout: 5))
-        consent.buttons["Allow and Save"].tap()
         let done = app.buttons["Done"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         done.tap()

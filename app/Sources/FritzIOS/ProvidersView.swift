@@ -56,16 +56,18 @@ private struct ProviderEditor: View {
     @State var connection: ProviderConnection
     @State private var replacement = ""
     @State private var issue: String?
-    @State private var showSharingConsent = false
     @Environment(\.dismiss) private var dismiss
 
     private var savedConnection: ProviderConnection? {
         store.workspace.providers.first { $0.id == connection.id }
     }
 
-    private var needsConsent: Bool {
-        savedConnection?.kind != connection.kind
-            || savedConnection?.endpoint != connection.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var destinationChanged: Bool {
+        savedConnection?.kind != connection.kind || savedConnection?.endpoint != endpoint
+    }
+
+    private var endpoint: String {
+        connection.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
@@ -84,12 +86,16 @@ private struct ProviderEditor: View {
                         .keyboardType(.URL)
                         .accessibilityIdentifier("provider-endpoint")
                 }
-                SecureField(connection.credentialID == nil || needsConsent ? "API Key" : "Replace API Key", text: $replacement)
+                SecureField(connection.credentialID == nil || destinationChanged ? "API Key" : "Replace API Key", text: $replacement)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } footer: {
                 if let issue {
                     Text(issue).foregroundStyle(.red)
+                }
+                if destinationChanged {
+                    let destination = URLComponents(string: endpoint)?.host ?? connection.kind.title
+                    Text("By tapping Save, you allow Fritz to send your conversation history to \(destination) when you send a message or retry a reply.")
                 }
             }
         }
@@ -97,15 +103,8 @@ private struct ProviderEditor: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save", action: prepareSave)
+                Button("Save", action: save)
             }
-        }
-        .alert("Allow Chat Sharing?", isPresented: $showSharingConsent) {
-            Button("Cancel", role: .cancel) {}
-            Button("Allow and Save", action: save)
-        } message: {
-            let host = URLComponents(string: connection.endpoint.trimmingCharacters(in: .whitespacesAndNewlines))?.host
-            Text("When you send a message or retry a reply, Fritz shares that conversation’s history with \(host ?? "this provider").")
         }
         .onChange(of: connection.kind) { _, _ in
             replacement = ""
@@ -118,25 +117,9 @@ private struct ProviderEditor: View {
         .onChange(of: replacement) { _, _ in issue = nil }
     }
 
-    private func prepareSave() {
-        var normalized = connection
-        normalized.customEndpoint = connection.customEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        do {
-            if needsConsent {
-                let key = try store.key(for: normalized, replacement: replacement)
-                try normalized.validate(key: key)
-                showSharingConsent = true
-            } else {
-                save()
-            }
-        } catch {
-            issue = error.localizedDescription
-        }
-    }
-
     private func save() {
         var updated = connection
-        if needsConsent { updated.defaultModel = "" }
+        if destinationChanged { updated.defaultModel = "" }
         if savedConnection?.kind != connection.kind { updated.name = connection.kind.title }
         do {
             try store.saveProvider(updated, replacement: replacement)
