@@ -123,14 +123,14 @@ public struct ModelContext: Codable, Equatable, Sendable {
 
     public var summary: String {
         var details: [String] = []
-        if let windowTokens { details.append("\(windowTokens.formatted()) context") }
+        if let windowTokens { details.append("\(windowTokens.formatted()) context tokens") }
         if let effectiveWindowTokens, effectiveWindowTokens != windowTokens {
-            let label = source == .fritz ? "in Fritz" : "reported effective"
+            let label = source == .fritz ? "tokens in Fritz" : "effective context tokens"
             details.append("\(effectiveWindowTokens.formatted()) \(label)")
         }
-        if let inputTokens { details.append("\(inputTokens.formatted()) input") }
-        if let outputTokens { details.append("\(outputTokens.formatted()) output") }
-        return details.isEmpty ? "Context limit unknown" : details.joined(separator: " · ") + " tokens"
+        if let inputTokens { details.append("\(inputTokens.formatted()) input tokens") }
+        if let outputTokens { details.append("\(outputTokens.formatted()) output tokens") }
+        return details.isEmpty ? "Context limit unknown" : details.joined(separator: " · ")
     }
 }
 
