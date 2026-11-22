@@ -393,43 +393,59 @@ pub async fn discover_with_key(connection: &Connection, key: Option<&str>) -> Re
     bail!("The model catalog exceeded the pagination limit.")
 }
 
+async fn ollama_metadata(request: RequestBuilder, key: Option<&str>) -> Result<Value> {
+    let response = checked(authenticate(
+        request.timeout(Duration::from_secs(3)),
+        ProviderKind::Ollama,
+        key,
+    ))
+    .await?;
+    Ok(response.json().await?)
+}
+
 async fn ollama_contexts(
     connection: &Connection,
     key: Option<&str>,
     mut models: Vec<Model>,
 ) -> Vec<Model> {
+    let Ok(client) = client() else {
+        return models;
+    };
     let endpoint = format!("{}/api/show", connection.base_url());
     let active_endpoint = format!("{}/api/ps", connection.base_url());
-    let read = |request: RequestBuilder| async move {
-        let response = checked(authenticate(
-            request.timeout(Duration::from_secs(3)),
-            connection.provider,
-            key,
-        ))
-        .await?;
-        Ok::<Value, anyhow::Error>(response.json().await?)
-    };
-
-    let active = async {
-        let data = read(client()?.get(active_endpoint)).await?;
-        Ok::<_, anyhow::Error>(model_context::ollama_active_windows(&data))
-    };
-    let show = futures_util::stream::iter(&mut models).for_each_concurrent(8, |model| {
-        let endpoint = &endpoint;
-        async move {
-            let Ok(client) = client() else {
-                return;
-            };
-            if let Ok(metadata) = read(client.post(endpoint).json(&json!({"model":model.id}))).await
-                && let Some(context) = model_context::from_ollama_show(&metadata)
-            {
-                model.context = context;
+    let requests: Vec<_> = models
+        .iter()
+        .enumerate()
+        .map(|(index, model)| {
+            (
+                index,
+                client.post(&endpoint).json(&json!({"model":model.id})),
+            )
+        })
+        .collect();
+    let mut requests = futures_util::stream::iter(requests)
+        .map(|(index, request)| async move {
+            let context = ollama_metadata(request, key)
+                .await
+                .ok()
+                .and_then(|data| model_context::from_ollama_show(&data));
+            (index, context)
+        })
+        .buffer_unordered(8);
+    let collect = async {
+        while let Some((index, context)) = requests.next().await {
+            if let Some(context) = context {
+                models[index].context = context;
             }
         }
-    });
+    };
     // Keep list discovery usable when optional metadata endpoints are slow or unsupported.
-    let (active, _) = tokio::join!(active, tokio::time::timeout(Duration::from_secs(6), show));
+    let (active, _) = tokio::join!(
+        ollama_metadata(client.get(active_endpoint), key),
+        tokio::time::timeout(Duration::from_secs(6), collect),
+    );
     if let Ok(active) = active {
+        let active = model_context::ollama_active_windows(&active);
         for model in &mut models {
             if let Some(window) = active.get(model.id.as_str()) {
                 model.context.effective_window_tokens = Some(*window);
