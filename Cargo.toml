@@ -1,5 +1,11 @@
 [workspace]
-members = ["crates/fritz-integrations", "crates/fritz-state", "crates/fritz-harness"]
+members = [
+    "crates/fritz-integrations",
+    "crates/fritz-state",
+    "crates/fritz-harness",
+    "crates/fritz-provider",
+    "crates/fritz-ios",
+]
 resolver = "3"
 
 [package]
@@ -26,6 +32,7 @@ ollaya-decision = { git = "https://github.com/ollaya-dev/ollaya", rev = "a8bce96
 ollaya-runner = { git = "https://github.com/ollaya-dev/ollaya", rev = "a8bce962dc8219e696604403a5c2a30e6c9523f0", features = ["coreml"] }
 fritz-state = { path = "crates/fritz-state" }
 fritz-harness = { path = "crates/fritz-harness" }
+fritz-provider = { path = "crates/fritz-provider" }
 rig-core = { version = "=0.47.0", default-features = false }
 rig-memory = { version = "=0.47.0", default-features = false }
 clap = { version = "4", features = ["derive"] }

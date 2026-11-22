@@ -70,38 +70,76 @@ jobs:
         uses: jdx/mise-action@v5.2.7
         with:
           version: 2026.8.8
-      - name: Select installed Swift 6.3 or newer
+      - name: Select an installed Xcode with Swift and Metal
         run: |
           python3 - <<'PY'
-          import glob, os, re, subprocess
+          import glob, os, re, subprocess, tempfile
+          from pathlib import Path
+
+          def run(args, env):
+              return subprocess.run(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
           candidates = []
-          for xcode in sorted(glob.glob('/Applications/Xcode*.app')):
+          for xcode in glob.glob('/Applications/Xcode*.app'):
               developer = xcode + '/Contents/Developer'
-              env = dict(os.environ, DEVELOPER_DIR=developer)
-              result = subprocess.run(['xcrun', 'swift', '--version'], env=env, capture_output=True, text=True)
-              version = re.search(r'Swift version (\d+)\.(\d+)(?:\.(\d+))?', result.stdout)
-              print(f'{xcode}: {result.stdout.splitlines()[0] if result.stdout else "Swift unavailable"}')
-              if result.returncode == 0 and version:
-                  parsed = tuple(int(part or 0) for part in version.groups())
-                  if parsed >= (6, 3, 0):
-                      candidates.append((parsed, developer, result.stdout))
-          if not candidates:
-              raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
-          # Prefer the Swift 6.3 package graph used to create committed locks.
-          # Use newer toolchains only when no compatible 6.3 installation exists.
-          candidates.sort(key=lambda candidate: (candidate[0][:2] != (6, 3), candidate[0]))
-          _, developer, version = candidates[0]
-          with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write('DEVELOPER_DIR=' + developer + '\n')
-          print(f'Selected Xcode: {developer}')
-          print(version)
+              swift = run(['xcrun', 'swift', '--version'], dict(os.environ, DEVELOPER_DIR=developer))
+              match = re.search(r'Swift version (\d+)\.(\d+)(?:\.(\d+))?', swift.stdout)
+              if swift.returncode == 0 and match:
+                  version = tuple(int(part or 0) for part in match.groups())
+                  if version >= (6, 3, 0):
+                      candidates.append((version, developer, swift.stdout.strip()))
+          # Swift 6.3 uses the dependency graph recorded in the committed locks.
+          candidates.sort(key=lambda candidate: (candidate[0][:2] != (6, 3), tuple(-part for part in candidate[0])))
+
+          # SwiftPM needs to build a package that processes Metal resources (Inferno).
+          # Resolving metal through xcrun also activates Xcode's optional Metal Toolchain.
+          with tempfile.TemporaryDirectory(prefix='fritz-xcode-probe-') as probe:
+              package = Path(probe)
+              target = package / 'Sources' / 'MetalProbe'
+              target.mkdir(parents=True)
+              (package / 'Package.swift').write_text(
+                  '// swift-tools-version: 6.3\n'
+                  'import PackageDescription\n'
+                  'let package = Package(name: "MetalProbe", targets: ['
+                  '.target(name: "MetalProbe", resources: [.process("Probe.metal")])])\n'
+              )
+              (target / 'Probe.swift').write_text('enum Probe {}\n')
+              shader = target / 'Probe.metal'
+              shader.write_text(
+                  '#include <metal_stdlib>\n'
+                  'using namespace metal;\n'
+                  'kernel void probe(device uint *value [[buffer(0)]]) { *value += 1; }\n'
+              )
+              for index, (_, developer, swift) in enumerate(candidates):
+                  env = dict(os.environ, DEVELOPER_DIR=developer)
+                  sdk = run(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], env)
+                  if sdk.returncode:
+                      print(f'Skipping {developer}: {sdk.stdout.strip()}')
+                      continue
+                  metal_version = run(['xcrun', 'metal', '--version'], env)
+                  if metal_version.returncode:
+                      component = run(['xcodebuild', '-downloadComponent', 'MetalToolchain'], env)
+                      if component.returncode:
+                          print(f'Skipping {developer}: {component.stdout.strip()}')
+                          continue
+                  env['SDKROOT'] = sdk.stdout.strip()
+                  metal = run(['xcrun', '--sdk', 'macosx', 'metal', '-c', str(shader), '-o', str(package / 'Probe.air')], env)
+                  if metal.returncode:
+                      print(f'Skipping {developer}: {metal.stdout.strip()}')
+                      continue
+                  build = run(['swift', 'build', '--build-tests', '--package-path', probe,
+                               '--scratch-path', str(package / f'build-{index}')], env)
+                  if build.returncode:
+                      print(f'Skipping {developer}: the SwiftPM Metal probe failed.\n'
+                            + '\n'.join(build.stdout.splitlines()[-12:]))
+                      continue
+                  with open(os.environ['GITHUB_ENV'], 'a') as output:
+                      output.write(f'DEVELOPER_DIR={developer}\nSDKROOT={env["SDKROOT"]}\n')
+                  print(f'{developer} with {env["SDKROOT"]}\n{swift}')
+                  break
+              else:
+                  raise SystemExit('Install Xcode with Swift 6.3 or newer and its Metal Toolchain.')
           PY
-      - name: Ensure Metal compiler is available
-        run: |
-          if ! xcrun metal --version; then
-            xcodebuild -downloadComponent MetalToolchain
-          fi
-          xcrun metal --version
       - name: Select runner outputs and shared caches for this toolchain
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)

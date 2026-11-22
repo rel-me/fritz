@@ -1,4 +1,4 @@
-.PHONY: setup build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast beta staging publish-beta publish-staging promote
+.PHONY: setup ios-build ios-test ios-archive ios-upload build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast beta staging publish-beta publish-staging promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -6,7 +6,7 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast publish-beta publish-staging promote:
+ios-build ios-test ios-archive ios-upload build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast publish-beta publish-staging promote:
 	+@mise exec -- python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 
 # Setup can install the tools needed to enter the build cache wrapper.
@@ -16,6 +16,18 @@ beta staging:
 	fi
 	+@mise exec -- python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 else
+
+ios-build:
+	./scripts/build-ios.sh build
+
+ios-test:
+	./scripts/test-ios.sh
+
+ios-archive:
+	./scripts/build-ios.sh archive
+
+ios-upload:
+	./scripts/build-ios.sh upload
 
 build:
 	./scripts/build-app.sh

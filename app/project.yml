@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: dev.fritz
   deploymentTarget:
     macOS: "15.0"
+    iOS: "18.0"
 packages:
   Fritz:
     path: ..
@@ -64,7 +65,70 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSHighResolutionCapable: true
         NSPrincipalClass: NSApplication
+  FritzIOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/FritzIOS
+      - path: Resources/iOS/Assets.xcassets
+      - path: Resources/iOS/PrivacyInfo.xcprivacy
+      - path: ../docs/ios-privacy.md
+        buildPhase: resources
+    preBuildScripts:
+      - name: Build Fritz iOS runtime
+        path: ../scripts/build-ios-runtime.sh
+        basedOnDependencyAnalysis: false
+    dependencies:
+      - sdk: Security.framework
+      - sdk: SystemConfiguration.framework
+      - package: Textual
+    settings:
+      base:
+        PRODUCT_MODULE_NAME: FritzIOS
+        PRODUCT_BUNDLE_IDENTIFIER: dev.fritz.app
+        CODE_SIGN_STYLE: Automatic
+        "ARCHS[sdk=iphonesimulator*]": arm64
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/FritzIOS/FritzIOSBridge.h
+        OTHER_LDFLAGS: $(inherited) "$(DERIVED_FILE_DIR)/libfritz_ios.a"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Fritz
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        MARKETING_VERSION: 0.1.1
+        CURRENT_PROJECT_VERSION: 1
+  FritzIOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests/FritzIOSUITests]
+    dependencies:
+      - target: FritzIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.fritz.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        "ARCHS[sdk=iphonesimulator*]": arm64
 schemes:
+  Fritz-iOS:
+    build:
+      targets:
+        FritzIOS: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - FritzIOSUITests
+    archive:
+      config: Release
   Fritz:
     build:
       targets:

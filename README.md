@@ -21,7 +21,23 @@ history compaction should keep.
 Open the release DMG and drag Fritz onto the Applications shortcut. Eject the
 disk image, then open Fritz from Applications.
 
-## Get started
+## Fritz for iPhone
+
+The iPhone beta runs on iOS 18 or later. It supports OpenAI, OpenRouter, and
+OpenAI-compatible HTTPS providers, with streamed chat, saved conversations and
+drafts, and per-chat model selection. Chats and provider settings are stored
+separately on each device. The Mac edition also includes local model downloads,
+folder actions, decision models, and a browser.
+
+In **Providers**, add your endpoint and API key if needed. Load the model catalog
+or enter the model ID yourself. Open **New Chat** and choose the connection and
+model from the toolbar. Fritz stores keys in the iPhone Keychain and sends the
+conversation to the chosen provider when you send a message.
+
+See the [iPhone privacy policy](docs/ios-privacy.md) and
+[iPhone build and TestFlight guide](docs/agents/ios-release.md).
+
+## Get started on Mac
 
 1. Create a conversation with **New Chat** or ⌘N. In the composer, click
    **Choose Model…** to browse all known chat models. **Local** and **Remote**
