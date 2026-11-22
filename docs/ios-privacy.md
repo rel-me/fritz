@@ -5,9 +5,10 @@ in the app's storage on your device. Fritz excludes this workspace from device
 backups. Provider API keys are stored separately in the iPhone Keychain and
 are available to Fritz on that device when it is unlocked.
 
-Fritz asks for permission when you set up a provider. When you send a message
-or retry a reply, Fritz sends the conversation history, the model ID, and any
-API key required by the selected provider directly to that provider over HTTPS.
+Saving a provider authorizes Fritz to send conversation history to that
+provider. When you send a message or retry a reply, Fritz sends the conversation
+history, the model ID, and any API key required by the selected provider directly
+to that provider over HTTPS.
 Loading the model catalog sends the provider your API key if one is configured.
 For OpenRouter and other gateways, the gateway may route your request to one of
 its upstream model providers. Each provider's own policies govern how it

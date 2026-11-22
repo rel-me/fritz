@@ -12,29 +12,29 @@ final class ChatFlowTests: XCTestCase {
         newChat.tap()
         app.buttons["Add a Provider"].tap()
         app.buttons["Add Provider"].tap()
+        let save = app.navigationBars["Provider"].buttons["Save"]
+        XCTAssertTrue(save.exists)
+        XCTAssertTrue(app.secureTextFields["API Key"].exists)
+        XCTAssertFalse(app.textFields["model-id"].exists)
         app.buttons["provider-kind"].tap()
         app.buttons["OpenAI-compatible"].tap()
 
         let endpoint = app.textFields["provider-endpoint"]
         endpoint.tap()
         endpoint.typeText("http://127.0.0.1:18743/v1" + XCUIKeyboardKey.return.rawValue)
-        app.buttons["Load Models"].tap()
-        let discovered = app.buttons["Choose from 4 models"]
-        XCTAssertTrue(discovered.waitForExistence(timeout: 12))
-        discovered.tap()
-        app.buttons["Fritz Test Model, fritz-test"].tap()
-
-        let consent = app.switches["Allow Chat Sharing"]
-        if !consent.isHittable { app.swipeUp() }
-        // SwiftUI exposes the full form row as the accessibility switch.
-        consent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-        XCTAssertEqual(consent.value as? String, "1")
-        app.buttons["Save Provider"].tap()
+        let disclosure = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "conversation history to 127.0.0.1")).firstMatch
+        XCTAssertTrue(disclosure.exists)
+        save.tap()
         let done = app.buttons["Done"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
         done.tap()
 
         app.buttons["choose-model"].tap()
+        app.buttons["Load Models"].tap()
+        let discovered = app.buttons["Choose from 4 models"]
+        XCTAssertTrue(discovered.waitForExistence(timeout: 12))
+        discovered.tap()
+        app.buttons["Fritz Test Model, fritz-test"].tap()
         XCTAssertEqual(app.textFields["model-id"].value as? String, "fritz-test")
         app.buttons["Use Model"].tap()
         let composer = app.descendants(matching: .any)["chat-composer"].firstMatch

@@ -31,10 +31,11 @@ drafts, and per-chat model selection. Chats and provider settings are stored
 separately on each device. The Mac edition also includes local model downloads,
 folder actions, decision models, and a browser.
 
-In **Providers**, add your endpoint and API key if needed. Load the model catalog
-or enter the model ID yourself. Open **New Chat** and choose the connection and
-model from the toolbar. Fritz stores keys in the iPhone Keychain and sends the
-conversation to the chosen provider when you send a message.
+In **Providers**, select a provider, enter its API key, and tap **Save**.
+OpenAI-compatible connections also need an endpoint URL. From a chat, open the
+model picker to load the provider’s catalog or enter a model ID. Fritz stores keys
+in the iPhone Keychain and sends the conversation to the chosen provider when
+you send a message.
 
 See the [iPhone privacy policy](docs/ios-privacy.md) and
 [iPhone build and TestFlight guide](docs/agents/ios-release.md).
