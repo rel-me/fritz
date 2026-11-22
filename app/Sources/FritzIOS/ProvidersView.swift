@@ -55,14 +55,17 @@ private struct ProviderEditor: View {
     let store: ChatStore
     @State var connection: ProviderConnection
     @State private var replacement = ""
-    @State private var credentialRevision = UUID()
     @State private var issue: String?
-    @State private var allowSharing = false
+    @State private var showSharingConsent = false
     @Environment(\.dismiss) private var dismiss
 
+    private var savedConnection: ProviderConnection? {
+        store.workspace.providers.first { $0.id == connection.id }
+    }
+
     private var needsConsent: Bool {
-        let saved = store.workspace.providers.first { $0.id == connection.id }
-        return saved?.kind != connection.kind || saved?.endpoint != connection.endpoint
+        savedConnection?.kind != connection.kind
+            || savedConnection?.endpoint != connection.endpoint.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
@@ -74,7 +77,6 @@ private struct ProviderEditor: View {
                     }
                 }
                 .accessibilityIdentifier("provider-kind")
-                TextField("Connection Name", text: $connection.name, prompt: Text(connection.kind.title))
                 if connection.kind == .compatible {
                     TextField("Endpoint URL", text: $connection.customEndpoint, prompt: Text("https://example.com/v1"))
                         .textInputAutocapitalization(.never)
@@ -82,65 +84,66 @@ private struct ProviderEditor: View {
                         .keyboardType(.URL)
                         .accessibilityIdentifier("provider-endpoint")
                 }
-                SecureField(connection.credentialID == nil ? "API Key" : "Replace API Key", text: $replacement)
+                SecureField(connection.credentialID == nil || needsConsent ? "API Key" : "Replace API Key", text: $replacement)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } footer: {
-                if connection.kind == .compatible {
-                    Text("Use the base URL for the provider’s OpenAI-compatible API. Enter a key if the provider requires one.")
-                }
-            }
-            ModelField(model: $connection.defaultModel, load: loadModels)
-                .id(DiscoveryInput(endpoint: connection.endpoint, kind: connection.kind, credential: credentialRevision))
-            if needsConsent {
-                Section {
-                    Toggle("Allow Chat Sharing", isOn: $allowSharing)
-                } footer: {
-                    let host = URLComponents(string: connection.endpoint)?.host
-                    Text("When you send a message or retry a reply, Fritz shares that conversation’s history with \(host ?? "this provider").")
-                }
-            }
-            Section {
                 if let issue {
                     Text(issue).foregroundStyle(.red)
                 }
-                Button("Save Provider") {
-                    do {
-                        try store.saveProvider(connection, replacement: replacement)
-                        dismiss()
-                    } catch {
-                        issue = error.localizedDescription
-                    }
-                }
-                .disabled(needsConsent && !allowSharing)
             }
         }
         .navigationTitle("Provider")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save", action: prepareSave)
+            }
+        }
+        .alert("Allow Chat Sharing?", isPresented: $showSharingConsent) {
+            Button("Cancel", role: .cancel) {}
+            Button("Allow and Save", action: save)
+        } message: {
+            let host = URLComponents(string: connection.endpoint.trimmingCharacters(in: .whitespacesAndNewlines))?.host
+            Text("When you send a message or retry a reply, Fritz shares that conversation’s history with \(host ?? "this provider").")
+        }
         .onChange(of: connection.kind) { _, _ in
-            connection.defaultModel = ""
             replacement = ""
-            allowSharing = false
+            issue = nil
         }
         .onChange(of: connection.customEndpoint) { _, _ in
-            connection.defaultModel = ""
-            allowSharing = false
+            replacement = ""
+            issue = nil
         }
-        .onChange(of: replacement) { _, _ in credentialRevision = UUID() }
+        .onChange(of: replacement) { _, _ in issue = nil }
     }
 
-    private struct DiscoveryInput: Hashable {
-        let endpoint: String
-        let kind: ProviderKind
-        let credential: UUID
+    private func prepareSave() {
+        var normalized = connection
+        normalized.customEndpoint = connection.customEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            if needsConsent {
+                let key = try store.key(for: normalized, replacement: replacement)
+                try normalized.validate(key: key)
+                showSharingConsent = true
+            } else {
+                save()
+            }
+        } catch {
+            issue = error.localizedDescription
+        }
     }
 
-    private func loadModels() async throws -> [ProviderRuntime.Model] {
-        var connection = connection
-        connection.customEndpoint = connection.customEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        let key = try store.key(for: connection, replacement: replacement)
-        try connection.validate(key: key)
-        return try await ProviderRuntime.models(for: connection, key: key)
+    private func save() {
+        var updated = connection
+        if needsConsent { updated.defaultModel = "" }
+        if savedConnection?.kind != connection.kind { updated.name = connection.kind.title }
+        do {
+            try store.saveProvider(updated, replacement: replacement)
+            dismiss()
+        } catch {
+            issue = error.localizedDescription
+        }
     }
 }
 
