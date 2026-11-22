@@ -1106,6 +1106,8 @@ dependencies = [
  "ollaya-decision",
  "ollaya-runner",
  "reqwest",
+ "rig-core",
+ "rig-memory",
  "security-framework",
  "serde",
  "serde_json",

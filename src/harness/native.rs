@@ -311,7 +311,7 @@ impl Session {
         let mut body = self.base.clone();
         body[field] = json!(self.history);
         if serde_json::to_vec(&body)?.len() > self.request_byte_limit {
-            bail!("The conversation context reached its size limit. Start a new thread.");
+            return Err(provider::ContextOverflow.into());
         }
         let round = Mutex::new(Round::default());
         let previews = Mutex::new(BTreeMap::<usize, Preview>::new());

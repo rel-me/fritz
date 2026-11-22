@@ -21,7 +21,7 @@ import SwiftUI
         self.agent = agent
         workspace = WorkspaceStore(agent: agent)
         providers = ProviderStore(agent: agent, database: workspace.database, modelCatalog: workspace.modelCatalog)
-        settings = AppSettings(database: workspace.database)
+        settings = workspace.appSettings
         localModels = LocalModelRuntimeStore(agent: agent, database: workspace.database)
     }
     func newThread() {

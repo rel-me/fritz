@@ -17,15 +17,17 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `modelStorage.change` | `directory`, `previousDirectory`, `moveModels` boolean | Updated storage info; progress events carry `completed`, `total`, `file` |
 | `localModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned catalog entries with `id`, `name`, `size`, download `directory`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId`, optional absolute `directory` | Download progress, then `modelId` and `installed: true`; saves the selected folder after success |
-| `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed` | Stream, then empty result |
+| `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed`, `context` | Stream, then empty result |
 | `decisionModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned local decision catalog, download `directory`, file-presence installation status, and `path` (installed ONNX graph path or null) |
 | `decisionModels.install` | `modelId`, optional absolute `directory` | Explicit verified download, progress events, and installed result; saves the selected folder after success |
 | `decisions.evaluate` | `connectionId` and `request` (`state`, `model`, `questions`); or explicit `backend`, `apiKey`, and `request` for host integrations | One typed decision result from the separate harness |
 | `cancel` | `requestId` | Cancels request and returns empty result |
 
 A connection contains `id` (UUID), `name`, `provider`, `baseUrl` (optional), and `modelId`. A chat message contains `role` (`user` or `assistant`) and `content`. The
-workspace app sets `historyVersion: 1` for bounded history (16,000 encoded
-message bytes for remote models and 4,800 for local Fritz). Prior assistant
+workspace app sets `historyVersion: 2` for up to 1,000,000 encoded message
+bytes. Version 1 clients
+retain their transport bounds of 16,000 bytes for remote models and 4,800
+for bundled models. Prior assistant
 messages may include `tools` records with `id`, `name`, JSON strings
 `arguments` and `result`, and `failed`. The harness validates the records
 and reconstructs paired provider messages without dispatching those calls.
@@ -33,6 +35,25 @@ The app sends readable activity when a provider/model changes, when an exact
 record is unavailable, or when the adapter requires opaque signatures (Gemini).
 Workspace tool events may include `historyDetails`, the full event payload
 as a string up to 128 KiB. `details` remains the bounded display field.
+
+The optional `context` object accepts `automaticCompaction` (defaults to true),
+`contextTokens`, `reserveTokens`, and `keepRecentTokens`. Omitted token settings
+adapt to the model. Automatic budgeting uses the bundled model's 8,192-token
+window or Rig's provider catalog, with a 32,768-token default for unknown
+remote models. Rig estimates tokens for messages, instructions, and tool
+definitions. Reported model usage refines the estimate between tool rounds.
+Compaction summarizes older complete turns with the selected model in a bounded,
+tool-free request. When that request cannot complete, Fritz emits an activity
+event and uses bounded transcript excerpts. A recognized context rejection
+before any text is streamed can trigger one compaction retry.
+
+Clients sending `context` receive `context_compacted` events containing `summary`
+and `prefixMessages`, the count of initial wire messages covered by the
+summary. The app saves this derived context with the thread, model, connection,
+and budget settings. To resume it, place the summary first and set
+`context.hasPreviousSummary` to true. Compaction preserves the latest user
+prompt and the provider-native suffix. The full transcript remains in the
+workspace database.
 
 OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of

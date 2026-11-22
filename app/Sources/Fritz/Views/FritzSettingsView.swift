@@ -5,6 +5,7 @@ import SwiftUI
 
 enum FritzSettingsTab: String, CaseIterable, Identifiable {
     case general
+    case harness
     case service
     case archivedChats
 
@@ -13,6 +14,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: "General"
+        case .harness: "Harness"
         case .service: "Service"
         case .archivedChats: "Archived Chats"
         }
@@ -21,6 +23,7 @@ enum FritzSettingsTab: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: "gearshape"
+        case .harness: "slider.horizontal.3"
         case .service: "gearshape.2"
         case .archivedChats: "archivebox"
         }
@@ -50,6 +53,8 @@ struct FritzSettingsView: View {
                     switch state.settingsTab {
                     case .general:
                         FritzGeneralSettingsView(updater: updater, settings: state.settings, modelStorage: state.providers.modelStorage)
+                    case .harness:
+                        FritzHarnessSettingsView(settings: state.settings)
                     case .service:
                         FritzServiceSettingsView(agent: state.agent, localModels: state.localModels)
                     case .archivedChats:
@@ -90,6 +95,48 @@ struct FritzSettingsView: View {
             get: { state.settingsTab },
             set: { if let tab = $0 { state.selectSettings(tab) } }
         )
+    }
+}
+
+private struct FritzHarnessSettingsView: View {
+    @Bindable var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                tokenPicker("Context Budget", selection: $settings.harness.contextTokens,
+                            options: [4_096, 8_192, 16_384, 32_768, 65_536, 131_072, 262_144, 524_288, 1_048_576])
+                tokenPicker("Reply Reserve", selection: $settings.harness.reserveTokens,
+                            options: [512, 1_024, 2_048, 4_096, 8_192, 16_384, 32_768])
+            } header: {
+                settingsTitle("Harness")
+            } footer: {
+                Text("Automatic uses the model’s known context window, or 32,768 tokens when it’s unknown. The reply reserve sets aside part of that window for generated text.")
+            }
+            Section {
+                Toggle("Automatically Compact History", isOn: $settings.harness.automaticCompaction)
+                tokenPicker("Recent History to Keep", selection: $settings.harness.keepRecentTokens,
+                            options: [512, 1_024, 2_048, 4_096, 8_192, 12_000, 20_000, 32_000, 64_000])
+                    .disabled(!settings.harness.automaticCompaction)
+            } footer: {
+                Text("Compaction uses the selected model to summarize older messages. Remote models can incur an additional request charge. Your full transcript stays in Fritz.")
+            }
+        }
+        .fritzSettingsFormStyle(background: .clear)
+        .safeAreaInset(edge: .bottom) {
+            if let error = settings.error {
+                Text(error).foregroundStyle(.orange).textSelection(.enabled).padding()
+            }
+        }
+    }
+
+    private func tokenPicker(_ title: String, selection: Binding<Int>, options: [Int]) -> some View {
+        Picker(title, selection: selection) {
+            Text("Automatic").tag(0)
+            ForEach(options, id: \.self) { value in
+                Text(value, format: .number).tag(value)
+            }
+        }
     }
 }
 

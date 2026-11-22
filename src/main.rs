@@ -168,7 +168,17 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
             json!({"name":"fritz","version":env!("CARGO_PKG_VERSION"),"protocolVersion":2,"harness":"fritz-harness"}),
         ),
         "chat" => {
-            harness_client::chat(serde_json::from_value(params.clone())?, emit).await?;
+            let context = params
+                .get("context")
+                .cloned()
+                .map(serde_json::from_value)
+                .transpose()?;
+            harness_client::chat_with_context(
+                serde_json::from_value(params.clone())?,
+                context,
+                emit,
+            )
+            .await?;
             Ok(json!({}))
         }
         "decisions.evaluate" => {
