@@ -1,5 +1,7 @@
 //! The app service owns credentials; each chat owns one isolated harness process.
 //! Closing its private stdin cancels the run and tears down command process groups.
+mod memory;
+
 use crate::{
     config, harness,
     provider::{self, ChatRequest},
@@ -137,6 +139,22 @@ async fn chat_process(
     input: harness::ContextInput,
     emit: impl Fn(Value),
 ) -> Result<()> {
+    let initial = if input.input.connection.provider == config::ProviderKind::Fritz {
+        let sample = memory::Sample::read()?;
+        sample.ensure_start()?;
+        Some(sample)
+    } else {
+        None
+    };
+    supervise_harness(executable, input, emit, memory::Sample::watch(initial)).await
+}
+
+async fn supervise_harness(
+    executable: &std::path::Path,
+    input: harness::ContextInput,
+    emit: impl Fn(Value),
+    memory_alarm: impl Future<Output = anyhow::Error>,
+) -> Result<()> {
     let mut child = tokio::process::Command::new(executable)
         .arg("chat")
         .stdin(Stdio::piped())
@@ -148,13 +166,57 @@ async fn chat_process(
     // command groups. A reaper task owns the child through cancellation.
     let mut stdin = child.stdin.take().unwrap();
     let stdout = child.stdout.take().unwrap();
-    let reaper = tokio::spawn(async move { child.wait().await });
-    let mut bytes = serde_json::to_vec(&input)?;
-    bytes.push(b'\n');
-    stdin.write_all(&bytes).await?;
-    stdin.flush().await?;
+    let (memory_stop, stop_requested) = tokio::sync::oneshot::channel();
+    let reaper = tokio::spawn(async move {
+        tokio::select! {
+            status = child.wait() => status,
+            Ok(()) = stop_requested => {
+                // EOF lets the harness cancel inference and tear down any tools.
+                // Force release if the native worker is still holding model memory.
+                match tokio::time::timeout(std::time::Duration::from_secs(3), child.wait()).await {
+                    Ok(status) => status,
+                    Err(_) => {
+                        child.kill().await?;
+                        child.wait().await
+                    }
+                }
+            }
+        }
+    });
     // Retain stdin for the entire run. Its drop signals Stop, service exit, or error.
-    let mut reader = BufReader::new(stdout);
+    let exchange = async {
+        let mut bytes = serde_json::to_vec(&input)?;
+        bytes.push(b'\n');
+        stdin.write_all(&bytes).await?;
+        stdin.flush().await?;
+        read_events(BufReader::new(stdout), emit).await
+    };
+    let (terminal, memory_error) = tokio::select! {
+        biased;
+        error = memory_alarm => (None, Some(error)),
+        terminal = exchange => (terminal?, None),
+    };
+    drop(stdin);
+    if let Some(error) = memory_error {
+        let _ = memory_stop.send(());
+        reaper.await??;
+        return Err(error);
+    }
+    let status = reaper.await??;
+    if !status.success() && terminal.as_ref().is_none_or(|result| result.is_ok()) {
+        bail!("fritz-harness exited unexpectedly.");
+    }
+    terminal.unwrap_or_else(|| {
+        Err(anyhow::anyhow!(
+            "The harness disconnected before completing the response."
+        ))
+    })
+}
+
+async fn read_events(
+    mut reader: impl AsyncBufRead + Unpin,
+    emit: impl Fn(Value),
+) -> Result<Option<Result<()>>> {
     let mut terminal = None;
     while let Some(line) = read_line(&mut reader, 1_000_000).await? {
         let event: Value = serde_json::from_str(&line).context("Invalid harness event.")?;
@@ -182,21 +244,60 @@ async fn chat_process(
             _ => bail!("Unexpected harness event."),
         }
     }
-    drop(stdin);
-    let status = reaper.await??;
-    if !status.success() && terminal.as_ref().is_none_or(|result| result.is_ok()) {
-        bail!("fritz-harness exited unexpectedly.");
-    }
-    terminal.unwrap_or_else(|| {
-        Err(anyhow::anyhow!(
-            "The harness disconnected before completing the response."
-        ))
-    })
+    Ok(terminal)
 }
 
 pub fn terminal(result: Result<()>) -> Value {
     match result {
         Ok(()) => json!({"type":"result","result":{}}),
         Err(error) => json!({"type":"error","message":error.to_string()}),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{os::unix::fs::PermissionsExt, time::Duration};
+
+    #[tokio::test]
+    async fn memory_alarm_closes_active_harness_and_surfaces_the_reason() -> Result<()> {
+        let fixture = tempfile::tempdir()?;
+        let executable = fixture.path().join("harness");
+        std::fs::write(
+            &executable,
+            r#"#!/bin/sh
+read -r request || exit 1
+printf '%s\n' '{"type":"delta","text":"Partial answer"}'
+if read -r extra; then exit 2; fi
+touch "$0.closed"
+"#,
+        )?;
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700))?;
+        let id = "575ee27d-72b4-4a1f-8eb7-e215b7af6736";
+        let input = serde_json::from_value(json!({
+            "request": {"connectionId":id,"model":"fixture","messages":[]},
+            "connection": {"id":id,"name":"Fixture","provider":"fritz","modelId":"fixture"}
+        }))?;
+        let (alarm, observed_delta) = tokio::sync::oneshot::channel();
+        let alarm = std::cell::Cell::new(Some(alarm));
+        let result = tokio::time::timeout(
+            Duration::from_secs(8),
+            supervise_harness(
+                &executable,
+                input,
+                |event| {
+                    assert_eq!(event["text"], "Partial answer");
+                    alarm.take().unwrap().send(()).unwrap();
+                },
+                async {
+                    observed_delta.await.unwrap();
+                    anyhow::anyhow!("Synthetic memory pressure")
+                },
+            ),
+        )
+        .await?;
+        assert_eq!(result.unwrap_err().to_string(), "Synthetic memory pressure");
+        assert!(executable.with_extension("closed").exists());
+        Ok(())
     }
 }
