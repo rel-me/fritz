@@ -7,7 +7,7 @@ foreach(option LLAMA_BUILD_TESTS LLAMA_BUILD_TOOLS LLAMA_BUILD_EXAMPLES LLAMA_BU
 endforeach()
 set(GGML_METAL ON CACHE BOOL "" FORCE)
 set(GGML_METAL_EMBED_LIBRARY ON CACHE BOOL "" FORCE)
-add_subdirectory(../vendor/llama.cpp llama)
+add_subdirectory("${FRITZ_LLAMA_SOURCE}" llama)
 add_library(fritz_llama STATIC bridge.cpp)
 target_compile_features(fritz_llama PRIVATE cxx_std_17)
 target_link_libraries(fritz_llama PRIVATE llama-common)

@@ -63,9 +63,6 @@ def source_inputs(root):
                              digest(target) if target.is_file() else inventory(target)]
         elif path.is_file():
             sources[name] = [stat.S_IMODE(path.stat().st_mode), digest(path)]
-        elif path.is_dir():
-            sources[name] = [command('git', '-C', str(path), 'rev-parse', 'HEAD'),
-                             source_inputs(path)]
         elif not path.exists():
             sources[name] = ['missing']
         else:
@@ -75,6 +72,9 @@ def source_inputs(root):
 
 def fingerprint(root, settings):
     sources = source_inputs(root)
+    llama_source = Path(os.environ.get('FRITZ_LLAMA_SOURCE', ''))
+    if not llama_source.is_absolute() or not (llama_source / 'CMakeLists.txt').is_file():
+        raise ValueError('llama.cpp sources are missing. Run make setup and build through mise.')
     cargo_home = Path(os.environ.get('CARGO_HOME', str(Path.home() / '.cargo')))
     configs = [cargo_home / name for name in ('config', 'config.toml')]
     for parent in (root, *root.parents):
@@ -96,6 +96,7 @@ def fingerprint(root, settings):
                     'CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS', 'LDFLAGS', 'CPATH',
                     'C_INCLUDE_PATH', 'CPLUS_INCLUDE_PATH', 'SOURCE_DATE_EPOCH')}
     inputs = {'format': 1, 'root': str(root), 'sources': sources, 'settings': settings,
+              'llama_source': inventory(llama_source),
               'tools': tools, 'os': list(os.uname()), 'environment': environment,
               'codesign': digest(Path('/usr/bin/codesign')),
               'cargo_configuration': {str(p): digest(p) if p.exists() else None for p in configs},

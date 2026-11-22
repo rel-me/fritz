@@ -19,18 +19,20 @@ fn main() {
     if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }
-    assert!(
-        std::path::Path::new("vendor/llama.cpp/CMakeLists.txt").is_file(),
-        "llama.cpp sources are missing. Run make setup to initialize the pinned submodule."
-    );
+    println!("cargo:rerun-if-env-changed=FRITZ_LLAMA_SOURCE");
+    let source = env::var_os("FRITZ_LLAMA_SOURCE")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute() && path.join("CMakeLists.txt").is_file())
+        .expect("llama.cpp sources are missing. Run make setup and build through mise.");
     println!("cargo:rerun-if-changed=native");
-    println!("cargo:rerun-if-changed=vendor/llama.cpp");
+    println!("cargo:rerun-if-changed={}", source.display());
     // Cargo can reuse OUT_DIR across worktrees. CMake caches absolute source
     // and compiler paths, so its writable tree must belong to one checkout.
     let mut native_key = DefaultHasher::new();
     env::var_os("CARGO_MANIFEST_DIR")
         .unwrap()
         .hash(&mut native_key);
+    source.hash(&mut native_key);
     for name in [
         "CC",
         "CXX",
@@ -82,6 +84,7 @@ fn main() {
     run(Command::new("cmake")
         .args(["-S", "native", "-B"])
         .arg(&out)
+        .arg(format!("-DFRITZ_LLAMA_SOURCE={}", source.display()))
         .arg(format!("-DCMAKE_BUILD_TYPE={profile}"))
         .arg(format!("-DCMAKE_OSX_ARCHITECTURES={arch}"))
         .arg(format!("-DCMAKE_OSX_SYSROOT={}", sdk.display()))

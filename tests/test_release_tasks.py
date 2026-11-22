@@ -100,15 +100,12 @@ class PrereleaseVersionTests(unittest.TestCase):
         self.executable(key_tool, "import os\nprint(os.environ['FRITZ_SPARKLE_PUBLIC_ED_KEY'])\n")
         for name in ("generate_appcast", "sign_update"):
             self.executable(key_tool.with_name(name), "")
-        llama_sources = self.root / "vendor/llama.cpp"
-        llama_sources.mkdir(parents=True)
-        (llama_sources / "CMakeLists.txt").touch()
         self.executable(self.bin / "mise", """import os, sys
 from pathlib import Path
 tools_missing = Path('tools-missing').exists()
 if sys.argv[1] == 'ls':
     if tools_missing:
-        print('python 3.12.14 (missing)')
+        print('llama-cpp (missing)')
 else:
     assert sys.argv[1:3] == ['exec', '--']
     if tools_missing:

@@ -1,7 +1,7 @@
 # Runtime verification
 
 `make setup` prepares dependencies using the committed Cargo and Swift package
-locks and initializes the pinned `vendor/llama.cpp` Git submodule. It needs full
+locks and the pinned llama.cpp source archive. It needs full
 Xcode with Swift 6.3+ and mise. Setup trusts `mise.toml` and installs its pinned
 Rust (with rustfmt and Clippy), Python, CMake, Node/npm, XcodeGen, GitHub CLI,
 and sccache before resolving dependencies. Swift, SDKs, and Apple platform tools
@@ -406,9 +406,11 @@ honoring `SDKROOT` or resolving it with `xcrun` from the selected Xcode. This ke
 updated Command Line Tools SDK from being mixed with an older Xcode linker.
 The CMake build tree is keyed by checkout path and compiler environment inside
 Cargo output storage, because CMake caches absolute source paths.
-The app needs no additional runtime dylibs or inference service. `make setup`
-initializes the submodule; CI checks it out recursively. Update the gitlink,
-Bosun catalog engine revision and runtime qualification together when upgrading.
+The app needs no additional runtime dylibs or inference service. Both `make setup`
+and CI install the checksum-verified archive declared in `mise.toml`. The mise
+environment points Cargo and CMake at that version's source directory outside
+the checkout. Update the archive's revision and SHA-256, Bosun catalog engine
+revision, and runtime qualification together when upgrading.
 
 Each model handle serializes access to its context. Rust task cancellation sets
 an atomic flag observed during model loading, prompt batches and token decoding;

@@ -44,8 +44,11 @@ class AppReuseTests(unittest.TestCase):
             'CFBundlePackageType': 'APPL'}))
         subprocess.run(['codesign', '--force', '--sign', '-', str(self.app)],
                        check=True, capture_output=True)
+        self.llama_source = self.root / 'dist' / 'mise' / 'llama-cpp'
+        self.llama_source.mkdir(parents=True)
+        (self.llama_source / 'CMakeLists.txt').touch()
         self.environment = dict(os.environ, FRITZ_BUILD_CACHE_ACTIVE=str(self.root),
-                                FRITZ_DISTRIBUTION='0')
+                                FRITZ_DISTRIBUTION='0', FRITZ_LLAMA_SOURCE=str(self.llama_source))
         self.args = ['configuration=release', 'name=Fritz', 'bundle=dev.fritz.fixture',
                      'version=0.1.1', 'build_number=2', 'identity=-', 'feed=', 'public_key=']
 
@@ -72,18 +75,9 @@ class AppReuseTests(unittest.TestCase):
         self.invoke('check')
         self.invoke('check', 10, RUSTFLAGS='-C opt-level=1')
 
-    def test_submodule_source_bytes_invalidate_reuse(self):
-        native = self.root / 'vendor/runtime'
-        native.mkdir(parents=True)
-        subprocess.run(['git', 'init', '-q', str(native)], check=True)
-        kernel = native / 'kernel.cpp'
+    def test_mise_managed_source_bytes_invalidate_reuse(self):
+        kernel = self.llama_source / 'kernel.cpp'
         kernel.write_text('before')
-        subprocess.run(['git', '-C', str(native), 'add', 'kernel.cpp'], check=True)
-        subprocess.run(['git', '-C', str(native), '-c', 'user.name=Fixture',
-                        '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], check=True)
-        revision = subprocess.check_output(['git', '-C', str(native), 'rev-parse', 'HEAD'], text=True).strip()
-        subprocess.run(['git', '-C', str(self.root), 'update-index', '--add', '--cacheinfo',
-                        f'160000,{revision},vendor/runtime'], check=True)
         self.invoke('check', 10)
         self.invoke('record')
         self.invoke('check')
