@@ -92,15 +92,17 @@ private struct ProviderEditor: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } footer: {
-                if let issue {
-                    Text(issue).foregroundStyle(.red)
-                }
-                if connection.kind == .fritzRemote {
-                    Text("Get the access key from Settings → Service → Remote Model Access on your Mac.")
-                }
-                if destinationChanged {
-                    let destination = URLComponents(string: endpoint)?.host ?? connection.kind.title
-                    Text("By tapping Save, you allow Fritz to send your conversation history to \(destination) when you send a message or retry a reply.")
+                VStack(alignment: .leading, spacing: 6) {
+                    if let issue {
+                        Text(issue).foregroundStyle(.red)
+                    }
+                    if connection.kind == .fritzRemote {
+                        Text("Get the access key from Settings → Service → Remote Model Access on your Mac.")
+                    }
+                    if destinationChanged {
+                        let destination = URLComponents(string: endpoint)?.host ?? connection.kind.title
+                        Text("By tapping Save, you allow Fritz to send your conversation history to \(destination) when you send a message or retry a reply.")
+                    }
                 }
             }
         }
