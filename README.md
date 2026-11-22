@@ -50,7 +50,9 @@ The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
 8B), Hermes 3 Llama 3.1 8B, and Mistral Nemo 12B Instruct alongside Qwen and
 the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
 picker shows download sizes and recommended memory. Model licenses are available
-under **Settings → General → Licenses**.
+under **Settings → General → Licenses**. While downloading, Fritz shows transfer
+speed and estimated time remaining. Restart an interrupted download in the same
+storage folder to resume it.
 
 The **Abliterated** filter shows Huihui Qwen3 4B Instruct 2507 and Nueva Tech Qwen3
 8B v2, two variants modified to reduce refusals. The same filter is available

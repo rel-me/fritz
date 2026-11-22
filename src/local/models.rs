@@ -2,18 +2,25 @@
 //! after an explicit install request in provider setup. Debug apps share model storage across checkouts.
 use anyhow::{Context, Result, anyhow};
 use fs2::FileExt;
+use futures_util::StreamExt;
+use reqwest::{
+    StatusCode,
+    header::{ACCEPT_ENCODING, CONTENT_RANGE, RANGE},
+};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
-    time::Instant,
+    os::unix::fs::OpenOptionsExt,
 };
 use std::{
-    io::Write,
+    io::{Seek, SeekFrom, Write},
     path::{Path, PathBuf},
-    time::Duration,
+    time::{Duration, Instant},
 };
+
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Deserialize)]
 pub struct Manifest {
@@ -113,15 +120,6 @@ fn progress(emit: &(impl Fn(Value) + Sync), downloaded: u64, total: u64, status:
     emit(json!({"type":"progress","downloaded":downloaded,"total":total,"status":status}));
 }
 
-// A killed agent can leave at most this one bounded partial file. The kernel
-// releases its lock; the next explicit attempt truncates it. It is never loaded.
-struct Partial(PathBuf);
-impl Drop for Partial {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
-    }
-}
-
 pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
     ModelStore::configured()?.download(model_id, emit).await
 }
@@ -185,65 +183,148 @@ pub(crate) async fn download_file(
         progress(emit, size, size, "ready");
         return Ok(());
     }
-    let partial = Partial(directory.join(format!(".{filename}.partial")));
-    let mut file = File::create(&partial.0)?;
-    // Keep the existing deadline for small files and budget larger transfers at 2 MiB/s.
-    let download_timeout = Duration::from_secs(size.div_ceil(2 * 1024 * 1024).max(1800));
-    let client = reqwest::Client::builder()
-        .user_agent(concat!("Fritz/", env!("CARGO_PKG_VERSION")))
-        .connect_timeout(Duration::from_secs(30))
-        .read_timeout(Duration::from_secs(60))
-        .timeout(download_timeout)
-        .https_only(!cfg!(test))
-        .build()
-        .map_err(|_| anyhow!("Cannot initialize model download."))?;
-    progress(emit, 0, size, "downloading");
-    let mut response = client.get(url).send().await.map_err(|_| {
-        anyhow!("Model download could not connect. Check your connection and retry.",)
-    })?;
-    if !response.status().is_success() {
-        return Err(anyhow!(format!(
-            "Model download returned HTTP {}. Retry later.",
-            response.status().as_u16()
-        )));
+    let partial = directory.join(format!(".{filename}.partial"));
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&partial)
+        .context("Could not open the partial model download.")?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
+        return Err(anyhow!("The partial model download is not a regular file."));
     }
-    if response
-        .content_length()
-        .is_some_and(|length| length != size)
-    {
-        return Err(anyhow!(
-            "Model download has an unexpected size. No model was installed.",
-        ));
+    let mut received = metadata.len();
+    if received > size {
+        file.set_len(0)?;
+        received = 0;
     }
-    let mut received = 0u64;
+
     let mut hash = Sha256::new();
-    let mut last = Instant::now();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| anyhow!("Model download was interrupted. Check your connection and retry.",))?
-    {
-        received = received.saturating_add(chunk.len() as u64);
-        if received > size {
-            return Err(anyhow!("Model download exceeded its expected size.",));
+    if received > 0 {
+        hash_prefix(&file, received, &mut hash).await?;
+    }
+    if received < size {
+        let client = reqwest::Client::builder()
+            .user_agent(concat!("Fritz/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(Duration::from_secs(30))
+            .read_timeout(Duration::from_secs(60))
+            .https_only(!cfg!(test))
+            .build()
+            .map_err(|_| anyhow!("Cannot initialize model download."))?;
+        let mut request = client.get(url).header(ACCEPT_ENCODING, "identity");
+        if received > 0 {
+            request = request.header(RANGE, format!("bytes={received}-"));
         }
-        file.write_all(&chunk)?;
-        hash.update(&chunk);
-        if last.elapsed() >= Duration::from_millis(150) {
-            progress(emit, received, size, "downloading");
-            last = Instant::now();
+        let response = request.send().await.map_err(|_| {
+            anyhow!("Model download could not connect. Check your connection and retry.")
+        })?;
+        match response.status() {
+            StatusCode::OK => received = 0,
+            StatusCode::PARTIAL_CONTENT if received > 0 => {
+                let expected = format!("bytes {received}-{}/{size}", size - 1);
+                if response
+                    .headers()
+                    .get(CONTENT_RANGE)
+                    .and_then(|range| range.to_str().ok())
+                    != Some(expected.as_str())
+                {
+                    return Err(anyhow!(
+                        "Model server sent an unexpected byte range. Retry later."
+                    ));
+                }
+            }
+            status => {
+                return Err(anyhow!(
+                    "Model download returned HTTP {}. Retry later.",
+                    status.as_u16()
+                ));
+            }
         }
+        if response
+            .content_length()
+            .is_some_and(|length| length != size - received)
+        {
+            return Err(anyhow!(
+                "Model download has an unexpected size. No model was installed."
+            ));
+        }
+
+        if received == 0 {
+            // A server may ignore Range. Validate its full response before replacing the prefix.
+            file.set_len(0)?;
+            hash = Sha256::new();
+        }
+        file.seek(SeekFrom::Start(received))?;
+        progress(emit, received, size, "downloading");
+        let mut body = response.bytes_stream();
+        let sample_period = Duration::from_secs(1);
+        let mut sampled_at = Instant::now();
+        let mut sampled_bytes = received;
+        let mut rate = 0.0;
+        let mut samples =
+            tokio::time::interval_at(tokio::time::Instant::now() + sample_period, sample_period);
+        samples.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                chunk = body.next() => {
+                    let Some(chunk) = chunk else { break };
+                    let chunk = chunk.map_err(|_| anyhow!("Model download was interrupted. Retry to resume."))?;
+                    received = received.saturating_add(chunk.len() as u64);
+                    if received > size {
+                        drop(file);
+                        fs::remove_file(&partial)?;
+                        return Err(anyhow!("Model download exceeded its expected size. Retry to download a fresh copy."));
+                    }
+                    file.write_all(&chunk)?;
+                    hash.update(&chunk);
+                }
+                _ = samples.tick() => {
+                    let now = Instant::now();
+                    let measured = (received - sampled_bytes) as f64 / now.duration_since(sampled_at).as_secs_f64();
+                    rate = if measured == 0.0 || rate == 0.0 { measured } else { 0.7 * rate + 0.3 * measured };
+                    let bytes_per_second = (rate.round() as u64).max(u64::from(rate > 0.0));
+                    emit(json!({"type":"progress","downloaded":received,"total":size,"status":"downloading",
+                        "bytesPerSecond":bytes_per_second}));
+                    sampled_at = now;
+                    sampled_bytes = received;
+                }
+            }
+        }
+    }
+    if received != size {
+        return Err(anyhow!("Model download was interrupted. Retry to resume."));
     }
     progress(emit, received, size, "checking");
-    if received != size || hex::encode(hash.finalize()) != sha256 {
+    if hex::encode(hash.finalize()) != sha256 {
+        drop(file);
+        fs::remove_file(&partial)?;
         return Err(anyhow!(
-            "Model download failed size or SHA-256 verification. Retry to download a fresh copy.",
+            "Model download failed SHA-256 verification. Retry to download a fresh copy."
         ));
     }
     file.sync_all()?;
     drop(file);
-    fs::rename(&partial.0, destination)?;
+    fs::rename(&partial, destination)?;
     progress(emit, size, size, "ready");
+    Ok(())
+}
+
+// Hash persisted bytes as well as new bytes before publishing any model.
+async fn hash_prefix(file: &File, size: u64, hash: &mut Sha256) -> Result<()> {
+    let mut reader = tokio::fs::File::from_std(file.try_clone()?).take(size);
+    let mut buffer = vec![0; 1024 * 1024];
+    while reader.limit() > 0 {
+        let count = reader.read(&mut buffer).await?;
+        if count == 0 {
+            return Err(anyhow!(
+                "The partial download changed while being read. Retry the download."
+            ));
+        }
+        hash.update(&buffer[..count]);
+    }
     Ok(())
 }
 
@@ -348,23 +429,45 @@ mod tests {
         assert!(temp.path().join("second-model.gguf").exists());
     }
     fn fixture(data: &'static [u8]) -> (String, std::thread::JoinHandle<()>) {
-        fixture_response(data, 200, data.len() as u64)
+        fixture_response(data, 200, data.len() as u64, None, None)
     }
     fn fixture_response(
         data: &'static [u8],
         status: u16,
         size: u64,
+        requested_range: Option<&'static str>,
+        content_range: Option<&'static str>,
     ) -> (String, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let thread = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
-            let _ = stream.read(&mut [0; 8192]);
+            let mut request = String::new();
+            let mut reader = std::io::BufReader::new(&stream);
+            use std::io::BufRead;
+            loop {
+                let mut line = String::new();
+                assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                request.push_str(&line);
+            }
+            assert_eq!(
+                request
+                    .lines()
+                    .find_map(|line| line.strip_prefix("range: ")),
+                requested_range
+            );
             write!(
                 stream,
-                "HTTP/1.1 {status} Status\r\nContent-Length: {size}\r\nConnection: close\r\n\r\n"
+                "HTTP/1.1 {status} Status\r\nContent-Length: {size}\r\nConnection: close\r\n"
             )
             .unwrap();
+            if let Some(range) = content_range {
+                write!(stream, "Content-Range: {range}\r\n").unwrap();
+            }
+            write!(stream, "\r\n").unwrap();
             stream.write_all(data).unwrap();
         });
         (url, thread)
@@ -391,16 +494,23 @@ mod tests {
             (data.as_slice(), 200, pin.size + 1),
             (b"short".as_slice(), 200, pin.size),
         ] {
-            let (url, server) = fixture_response(body, status, size);
+            let (url, server) = fixture_response(body, status, size, None, None);
             assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
             server.join().unwrap();
             assert!(!temp.path().join(&pin.file).exists());
-            assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
         }
+        let partial = temp.path().join(format!(".{}.partial", pin.file));
+        assert_eq!(fs::read(&partial).unwrap(), b"short");
+        // A full response to a resume request replaces the prefix instead of appending.
+        let (url, server) = fixture_response(data, 200, pin.size, Some("bytes=5-"), None);
+        download_to(temp.path(), &url, &pin, &|_| {}).await.unwrap();
+        server.join().unwrap();
+        assert_eq!(fs::read(temp.path().join(&pin.file)).unwrap(), data);
+        assert!(!partial.exists());
     }
 
     #[tokio::test]
-    async fn cancellation_cleans_partial_and_releases_install_lock() {
+    async fn cancellation_retains_download_and_retry_resumes_from_saved_bytes() {
         let temp = tempfile::tempdir().unwrap();
         let data = b"fixture model";
         let pin = Manifest {
@@ -417,29 +527,57 @@ mod tests {
         };
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
-        let (ready, received) = tokio::sync::oneshot::channel();
+        let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel();
         let (release, hold) = std::sync::mpsc::channel::<()>();
         let server = std::thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
             let _ = stream.read(&mut [0; 8192]);
             write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\nf").unwrap();
-            ready.send(()).unwrap();
-            let _ = hold.recv_timeout(Duration::from_secs(5));
+            let _ = hold.recv_timeout(Duration::from_secs(10));
         });
-        let mut download = Box::pin(download_to(temp.path(), &url, &pin, &|_| {}));
+        let emit = |event: Value| {
+            if event["bytesPerSecond"]
+                .as_u64()
+                .is_some_and(|rate| rate > 0)
+            {
+                progress_tx.send(event).unwrap();
+            }
+        };
+        let mut download = Box::pin(download_to(temp.path(), &url, &pin, &emit));
         tokio::select! {
             result = &mut download => panic!("download finished early: {result:?}"),
-            _ = received => {},
+            event = progress_rx.recv() => assert_eq!(event.unwrap()["downloaded"], 1),
         }
-        assert!(temp.path().join(format!(".{}.partial", pin.file)).exists());
         drop(download);
         release.send(()).unwrap();
         server.join().unwrap();
-        assert!(!temp.path().join(format!(".{}.partial", pin.file)).exists());
+        let partial = temp.path().join(format!(".{}.partial", pin.file));
+        assert_eq!(fs::read(&partial).unwrap(), b"f");
         assert!(!temp.path().join(&pin.file).exists());
-        let (url, server) = fixture(data);
-        download_to(temp.path(), &url, &pin, &|_| {}).await.unwrap();
+
+        let (url, server) =
+            fixture_response(&data[1..], 206, 12, Some("bytes=1-"), Some("bytes 0-11/13"));
+        assert!(download_to(temp.path(), &url, &pin, &|_| {}).await.is_err());
         server.join().unwrap();
+        assert_eq!(fs::read(&partial).unwrap(), b"f");
+
+        let (url, server) =
+            fixture_response(&data[1..], 206, 12, Some("bytes=1-"), Some("bytes 1-12/13"));
+        let events = Mutex::new(Vec::new());
+        download_to(temp.path(), &url, &pin, &|event| {
+            events.lock().unwrap().push(event)
+        })
+        .await
+        .unwrap();
+        server.join().unwrap();
+        let events = events.into_inner().unwrap();
+        let first_transfer = events
+            .iter()
+            .find(|event| event["status"] == "downloading")
+            .unwrap();
+        assert_eq!(first_transfer["downloaded"], 1);
+        assert!(first_transfer["bytesPerSecond"].is_null());
+        assert!(!partial.exists());
         assert_eq!(fs::read(temp.path().join(&pin.file)).unwrap(), data);
     }
     #[tokio::test]

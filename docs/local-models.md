@@ -17,7 +17,9 @@ selects a different folder for that model. Fritz remembers the folder after inst
 and uses it for discovery and loading across launches. Other models keep their own
 locations; choosing a folder does not move previously downloaded files. The download
 catalog shows the selected model’s license, download progress, and installation status.
-Cancel stops the download; Retry starts a fresh attempt. Once the model is installed,
+While a model downloads, Fritz shows the transfer speed and estimated time
+remaining. Cancel stops the transfer and keeps the partial download. Start the
+same download again in the same folder to resume. Once the model is installed,
 add or edit a **Fritz** provider in **Settings → Models** and select it. Installed
 models then become available in the chat model picker. Removing a provider leaves
 downloaded weights available for reuse.

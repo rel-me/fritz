@@ -321,11 +321,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     case .checking: Text("Checking…")
                     case .failed(let message): Text(message).foregroundStyle(.red)
                     case .available: Text("Not installed")
-                    case let .downloading(downloaded, total):
-                        ProgressView(value: Double(downloaded), total: Double(total))
-                            .accessibilityLabel("Downloading local model")
-                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(downloaded), countStyle: .file)) of \(ByteCountFormatter.string(fromByteCount: Int64(total), countStyle: .file))")
-                            .monospacedDigit()
+                    case let .downloading(downloaded, total, bytesPerSecond):
+                        ModelDownloadProgress(downloaded: downloaded, total: total, bytesPerSecond: bytesPerSecond)
                     }
                     if let duplicateConnection {
                         duplicateWarning(duplicateConnection)
