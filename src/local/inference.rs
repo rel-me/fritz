@@ -85,7 +85,8 @@ impl Engine {
 
     pub(crate) async fn model(&self) -> Result<&Arc<Model>> {
         let architecture = &super::models::manifest(&self.model_id)?.architecture;
-        self.model
+        let loaded = self
+            .model
             .get_or_try_init(|| {
                 Model::load_with_context_fit(
                     &self.path,
@@ -94,8 +95,12 @@ impl Engine {
                     Some(architecture),
                 )
             })
-            .await
-            .context("Could not load the installed GGUF with llama.cpp")
+            .await;
+        if self.minimum_context == 0 {
+            loaded.context("Could not load the installed GGUF with llama.cpp")
+        } else {
+            loaded
+        }
     }
 
     pub async fn unload(self) {
