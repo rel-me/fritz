@@ -220,22 +220,6 @@ actor BrowserImportReader {
 
     func read(_ source: BrowserImportSource, cookies: Bool, passwords: Bool) throws -> BrowserImportBatch {
         var cipher: ChromiumImportCipher?
-        func decrypt(_ value: Data, domain: String? = nil) throws -> String {
-            if cipher == nil {
-                let authentication = LAContext()
-                authentication.localizedReason = "Import browser data into Fritz"
-                let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword,
-                    kSecAttrService: source.service, kSecAttrAccount: source.keychainAccount, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne,
-                    kSecUseAuthenticationContext: authentication]
-                var item: CFTypeRef?
-                let status = SecItemCopyMatching(query as CFDictionary, &item)
-                guard status == errSecSuccess, let data = item as? Data else {
-                    throw BrowserImportError(message: "Source browser Keychain access was unavailable (\(status)). Allow access when importing, then try again.")
-                }
-                cipher = try ChromiumImportCipher(password: data)
-            }
-            return try cipher!.decrypt(value, domain: domain)
-        }
         var batch = BrowserImportBatch()
         if cookies {
             let database = try ImportDatabase(source.cookiesURL)
@@ -257,7 +241,7 @@ actor BrowserImportReader {
                       !persistent || expiration > Date() else { batch.skippedCookies += 1; return }
                 let domain = ImportDatabase.text(row, 0)
                 let encrypted = ImportDatabase.blob(row, 3)
-                let value = encrypted.isEmpty ? ImportDatabase.text(row, 2) : try decrypt(encrypted, domain: version >= 24 ? domain : nil)
+                let value = encrypted.isEmpty ? ImportDatabase.text(row, 2) : try Self.decrypt(encrypted, domain: version >= 24 ? domain : nil, source: source, cipher: &cipher)
                 let cookie = ImportedCookie(domain: domain, name: ImportDatabase.text(row, 1), value: value,
                     path: ImportDatabase.text(row, 4), secure: sqlite3_column_int(row, 5) != 0,
                     httpOnly: sqlite3_column_int(row, 6) != 0, expires: persistent ? expiration : nil,
@@ -273,13 +257,32 @@ actor BrowserImportReader {
                       let url = URL(string: ImportDatabase.text(row, 0)), let origin = websiteOrigin(url),
                       let realm = URL(string: ImportDatabase.text(row, 1)), websiteOrigin(realm) == origin,
                       !ImportDatabase.blob(row, 3).isEmpty else { batch.skippedPasswords += 1; return }
-                let password = try decrypt(ImportDatabase.blob(row, 3))
+                let password = try Self.decrypt(ImportDatabase.blob(row, 3), source: source, cipher: &cipher)
                 guard !password.isEmpty else { batch.skippedPasswords += 1; return }
                 batch.logins.append(WebsiteLogin(origin: origin, username: ImportDatabase.text(row, 2), password: password))
             }
         }
         return batch
     }
+
+    private static func decrypt(_ value: Data, domain: String? = nil, source: BrowserImportSource,
+                                cipher: inout ChromiumImportCipher?) throws -> String {
+        if let cipher { return try cipher.decrypt(value, domain: domain) }
+        let authentication = LAContext()
+        authentication.localizedReason = "Import browser data into Fritz"
+        let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword,
+            kSecAttrService: source.service, kSecAttrAccount: source.keychainAccount, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne,
+            kSecUseAuthenticationContext: authentication]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else {
+            throw BrowserImportError(message: "Source browser Keychain access was unavailable (\(status)). Allow access when importing, then try again.")
+        }
+        let initialized = try ChromiumImportCipher(password: data)
+        cipher = initialized
+        return try initialized.decrypt(value, domain: domain)
+    }
+
 }
 
 actor WebsitePasswordStore {
