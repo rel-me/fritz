@@ -95,7 +95,6 @@ function localRow(model) {
       cell(model.memory_gb, (memory) => `${number(memory)} GB`),
       cell(score?.points, (points) => `<a href="${escape(score.source_url)}" title="${escape(score.configuration)}">${points}</a>`),
       cell(model.limit?.context ?? model.limit?.input, number),
-      cell(model.limit?.automatic_target, number),
     ].join(''),
   });
 }
@@ -173,7 +172,7 @@ function renderPage() {
     remoteRow(model.provider_name, model.id, model, {
       creator: provider === 'openai-decisions' ? 'OpenAI' : model.provider_name, type: 'Decision',
     })));
-  const localColumns = [['Model', 'text'], ['Type', 'text'], ['Download', 'number'], ['Recommended RAM', 'number'], ['Score', 'number'], ['Model context (tokens)', 'number'], ['Fritz automatic target (tokens)', 'number']];
+  const localColumns = [['Model', 'text'], ['Type', 'text'], ['Download', 'number'], ['Recommended RAM', 'number'], ['Score', 'number'], ['Model context (tokens)', 'number']];
   const remoteColumns = [['Model', 'text'], ['Provider', 'text'], ['Type', 'text'], ['Input', 'number'],
     ['Output', 'number'], ['Cache read', 'number'], ['Context tokens', 'number'], ['Capabilities', 'text']];
   return `<!doctype html>

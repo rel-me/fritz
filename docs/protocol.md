@@ -39,8 +39,8 @@ as a string up to 128 KiB. `details` remains the bounded display field.
 Model discovery returns a `context` object for each model. `windowTokens`
 is the advertised model window, `inputTokens` and `outputTokens` are separate
 caps where published, and `effectiveWindowTokens` is a reported route or
-runtime capacity. Built-in chat models publish `automaticWindowTokens`, the
-target before measuring Metal memory. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
+runtime capacity. The automatic local window is determined when the model
+loads. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
 Missing limits are omitted. Discovery takes live values from the connected
 endpoint. Ollama provides architecture limits via `/api/show` and reports
 active capacity via `/api/ps`. Public catalog values are used for known
@@ -49,8 +49,10 @@ models on official endpoints when live metadata is absent.
 The optional `context` object accepts `automaticCompaction` (defaults to true),
 `contextTokens`, `reserveTokens`, and `keepRecentTokens`. Omitted token settings
 adapt to the model. Local budgeting uses the window actually allocated by
-llama.cpp. Automatic targets 32,768 tokens or the model’s published limit,
-whichever is lower, and can use a smaller window when memory is tight.
+llama.cpp. Automatic measures candidate windows up to the model’s published
+limit and accounts for the model weights, KV cache, compute buffers, and
+runtime headroom. Inkling can use smaller prompt-processing batches to fit
+a larger window.
 For a fixed budget Fritz caps the request at the model’s limit and reports
 an allocation error if the window cannot fit. A local `activity` event reports
 the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true

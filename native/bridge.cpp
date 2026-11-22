@@ -120,23 +120,47 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
             // llama.cpp's measurement temporarily installs a process-wide logger.
             static std::mutex measure_lock;
             const std::lock_guard<std::mutex> lock(measure_lock);
-            while (true) {
+            const auto minimum = static_cast<uint32_t>(minimum_context);
+            const uint32_t default_ubatch = config.n_ubatch;
+            // Inkling's full-attention layers need more compute memory at long
+            // windows. A smaller physical batch leaves room for the KV cache.
+            if (inkling_loop) config.n_ubatch = 128;
+            auto fits = [&](uint32_t candidate) {
+                config.n_ctx = candidate;
                 control.check();
-                bool fits = false;
                 try {
-                    fits = fits_context(path, params, config, gpu);
+                    return fits_context(path, params, config, gpu);
                 } catch (const std::runtime_error & error) {
                     control.check();
                     if (std::strcmp(error.what(), "failed to create llama_context from model") != 0) throw;
-                    if (quantize_kv_cache && config.n_ctx == uint32_t(minimum_context)) {
+                    if (quantize_kv_cache && candidate == minimum) {
                         throw std::runtime_error("llama.cpp could not initialize the 8-bit KV cache. Turn off Quantize Local KV Cache or choose a smaller Context Budget.");
                     }
+                    return false;
                 }
-                if (fits) break;
-                require(config.n_ctx > uint32_t(minimum_context),
+            };
+            uint32_t fitting = config.n_ctx;
+            uint32_t too_large = fitting;
+            while (!fits(fitting)) {
+                require(fitting > minimum,
                         "The local context does not fit available Metal memory. Choose a smaller Context Budget, a smaller model, or close other models.");
-                config.n_ctx = std::max(config.n_ctx / 2, uint32_t(minimum_context));
+                too_large = fitting;
+                fitting = std::max(fitting / 2, minimum);
             }
+            // Refine the bracket in useful increments without probing every token count.
+            constexpr uint32_t step = 4096;
+            while (too_large - fitting > step) {
+                const uint32_t mid = fitting + (too_large - fitting) / 2;
+                const uint32_t candidate = std::max(mid / step * step, fitting + step);
+                if (fits(candidate)) fitting = candidate;
+                else too_large = candidate;
+            }
+            if (inkling_loop) {
+                const uint32_t smaller_ubatch = config.n_ubatch;
+                config.n_ubatch = default_ubatch;
+                if (!fits(fitting)) config.n_ubatch = smaller_ubatch;
+            }
+            config.n_ctx = fitting;
         }
         auto result = std::make_unique<Model>();
         result->weights.reset(llama_model_load_from_file(path, params));

@@ -84,8 +84,9 @@ picker workflow when changing capabilities or presentation.
 
 ## Context limits
 
-Keep the published model limit and Fritz’s automatic target separate. The target is capped at 32,768 tokens. The actual window depends on the selected settings and the measured Metal allocation. For pinned
-GGUFs, use the publisher’s context limit or the pinned repository’s GGUF
+The catalog records the published model limit. Fritz measures how much
+context fits when a local chat starts, using the selected cache format and
+available Metal memory. For pinned GGUFs, use the publisher’s context limit or the pinned repository’s GGUF
 metadata and record the source in `limit.source_url`. Local decision models
 record the usable input cap from their pinned configuration or Fritz runtime.
 The website displays the published snapshot. Fritz refreshes provider-reported

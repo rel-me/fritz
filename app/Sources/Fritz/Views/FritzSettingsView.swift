@@ -111,7 +111,7 @@ private struct FritzHarnessSettingsView: View {
             } header: {
                 settingsTitle("Harness")
             } footer: {
-                Text("For local chat, Automatic targets 32,768 tokens up to the model’s limit and reduces the window when Metal memory is tight. A fixed budget uses more memory at larger sizes. For remote chat, Automatic uses the reported limit or the catalog. The reply reserve leaves room for generated text.")
+                Text("For local chat, Automatic sizes the window to fit available Metal memory, up to the model’s limit. A fixed budget requests a specific window. For remote chat, Automatic uses the reported limit or the catalog. The reply reserve leaves room for generated text.")
             }
             Section {
                 Toggle("Quantize Local KV Cache", isOn: Binding(
