@@ -43,6 +43,35 @@ building; an empty bucket returns HTTP 404. They redeploy the Worker during
 publication. The Worker serves the appcast from R2 with `no-store` and versioned
 DMGs with immutable caching and byte-range support.
 
+## Chromium installer
+
+The Chromium edition has its own app identity, versioned archive, and GitHub
+prerelease tag. It uses manual installs for updates. Build on Apple silicon from
+a clean, committed checkout with the release credentials configured:
+
+```sh
+FRITZ_DISTRIBUTION=1
+source scripts/release-config.sh
+xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE"
+FRITZ_VERSION=0.1.20 FRITZ_BUILD_NUMBER=21 make chromium-archive
+```
+
+Submit the resulting `dist/updates/Fritz-Chromium-0.1.20-arm64.dmg` to
+`xcrun notarytool submit --keychain-profile "$FRITZ_NOTARY_PROFILE" --wait`,
+then run `xcrun stapler staple` and `xcrun stapler validate` on the DMG. Generate
+a SHA-256 checksum after stapling. Publish the DMG, checksum, and adjacent
+`.source.json` to a GitHub prerelease named for the Chromium version. Use a
+`chromium-v0.1.20` tag pointing to the commit recorded in the source JSON.
+
+Upload the notarized DMG as `updates/Fritz-Chromium-0.1.20-arm64.dmg` in the
+`fritz-updates` R2 bucket with the same immutable caching as Fritz DMGs. Use a
+new version for each archive. After the object is available, upload a
+`chromium-version.txt` file to the bucket root containing only the version
+(`0.1.20` in this example). The homepage reads the pointer and uses the actual
+object size. Verify the version, size, and download URL at
+`https://fritz.rel.me/chromium-download.json`. The default Sparkle feed serves
+the WebKit edition.
+
 ## Home page
 
 Publish website or catalog changes with `cd website && npm ci && npm test &&
@@ -56,8 +85,11 @@ The home page is static: `website/public/` is published as the Worker's static
 assets, which answer before the Worker code. `_headers` sets its Content
 Security Policy, so keep scripts and styles in separate files. `/download`
 redirects to the newest Release DMG in the appcast, or the newest Beta before a
-Release exists; the page reads the same appcast to label the version. The raven,
-favicon, touch icon, and social card come from `design/branding/export.py`.
+Release exists. The page reads the same appcast to show the default WebKit
+build's version and DMG size. The Apple silicon Chromium download has its own
+version and reads its DMG size from R2 through `/chromium-download.json`. The
+homepage links to the experimental edition's download page at `/chromium/`. The raven, favicon, touch icon, and social card
+come from `design/branding/export.py`.
 
 The homepage always uses the dark app screenshot, independent of the page's
 color scheme. The app images are real 2× window captures from this checkout's

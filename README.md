@@ -165,8 +165,7 @@ website data. Debug app names use `FritzWebViewDebug{PR number}` and
 `FritzChromiumDebug{PR number}`, with a checkout hash when a linked branch has
 no PR. Each Chromium Debug or ad-hoc rebuild receives its own encrypted browser
 profile and Keychain namespace. A certificate-signed Release build uses a
-stable Fritz Chromium namespace across updates. Existing release and automatic update targets serve the WebKit
-edition. Rebuild the Chromium edition to pick up engine updates.
+stable Fritz Chromium namespace across updates. The [Fritz download page](https://fritz.rel.me/) offers a separate Apple silicon installer. Use that installer or rebuild from source to update Chromium. In-app automatic updates are available for the default WebKit edition.
 
 Run the local checks with:
 

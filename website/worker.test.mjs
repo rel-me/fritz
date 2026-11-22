@@ -61,6 +61,26 @@ test("serves Fritz's appcast and versioned archive", async () => {
   assert.equal(await archive.text(), "0123456789");
 });
 
+test("offers the Chromium DMG with its own version and actual archive size", async () => {
+  const path = "/updates/Fritz-Chromium-0.1.20-arm64.dmg";
+  const encode = (value) => new TextEncoder().encode(value);
+  const objects = { "chromium-version.txt": encode("0.1.20\n") };
+  const request = new Request("https://fritz.rel.me/chromium-download.json");
+  const chromiumEnv = { UPDATES: bucket(objects) };
+  const missing = await worker.fetch(request, chromiumEnv);
+  assert.equal(missing.status, 404);
+
+  objects[path.slice(1)] = encode("chromium installer");
+  const response = await worker.fetch(request, chromiumEnv);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const download = await response.json();
+  assert.deepEqual(download, { version: "0.1.20", archive: path, bytes: 18 });
+  const archive = await worker.fetch(new Request(new URL(download.archive, request.url)), chromiumEnv);
+  assert.equal(archive.headers.get("content-length"), String(download.bytes));
+  assert.equal(await archive.text(), "chromium installer");
+});
+
 test("supports HEAD and byte ranges for archive downloads", async () => {
   const url = "https://fritz.rel.me/updates/Fritz-0.1.1.dmg";
   const head = await worker.fetch(new Request(url, { method: "HEAD" }), env);

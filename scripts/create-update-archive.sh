@@ -1,11 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-app=dist/Fritz.app
+case "${1:-webkit}" in
+  webkit)
+    name=Fritz
+    filename=Fritz
+    suffix=
+    source_record=dist/release-source.json
+    ;;
+  chromium)
+    name="Fritz Chromium"
+    filename=Fritz-Chromium
+    suffix="-$(uname -m)"
+    source_record=dist/chromium-release-source.json
+    ;;
+  *) echo "error: expected webkit or chromium" >&2; exit 64 ;;
+esac
+app="dist/$name.app"
 test -d "$app" || { echo "error: build the Release app first" >&2; exit 1; }
 identity="$(codesign -dvvv "$app" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
 if [[ "$identity" != "Developer ID Application:"* ]]; then
-  echo "error: Sparkle distribution needs a Developer ID signed Release app" >&2
+  echo "error: Distribution needs a Developer ID signed Release app" >&2
   exit 1
 fi
 version="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
@@ -15,17 +30,17 @@ if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$build" =~ ^[1-9][0-9]*$ ]]
   exit 1
 fi
 mkdir -p dist/updates
-archive="dist/updates/Fritz-$version.dmg"
+archive="dist/updates/$filename-$version$suffix.dmg"
 if [[ -e "$archive" ]]; then
   echo "error: update archive already exists at $archive" >&2
   exit 1
 fi
-python3 - "$version" "$build" <<'PYSOURCE'
+python3 - "$source_record" "$version" "$build" <<'PYSOURCE'
 import json
 import sys
 from pathlib import Path
-source = json.loads(Path('dist/release-source.json').read_text())
-if (source['version'], source['build']) != tuple(sys.argv[1:]):
+source = json.loads(Path(sys.argv[1]).read_text())
+if (source['version'], source['build']) != tuple(sys.argv[2:]):
     raise SystemExit('Release source metadata differs from the staged app; rebuild for distribution.')
 PYSOURCE
 # Keep release-only Python tools in the build cache, with locked wheel hashes.
@@ -44,18 +59,18 @@ work="$(mktemp -d "$PWD/dist/updates/.dmg.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-"$tools/bin/python3" - "$work/installer.dmg" <<'PYBUILD'
+"$tools/bin/python3" - "$work/installer.dmg" "$name" "$app" <<'PYBUILD'
 import signal
 import sys
 import dmgbuild
 
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
-dmgbuild.build_dmg(sys.argv[1], 'Fritz', settings_file='scripts/dmg-settings.py',
-                   detach_retries=3)
+dmgbuild.build_dmg(sys.argv[1], sys.argv[2], settings_file='scripts/dmg-settings.py',
+                   defines={'app': sys.argv[3]}, detach_retries=3)
 PYBUILD
 hdiutil verify "$work/installer.dmg" >/dev/null
 codesign --force --sign "$identity" --timestamp "$work/installer.dmg"
 codesign --verify --strict "$work/installer.dmg"
-cp dist/release-source.json "dist/updates/Fritz-$version.source.json"
+cp "$source_record" "${archive%.dmg}.source.json"
 mv "$work/installer.dmg" "$archive"
 echo "Created $archive"
