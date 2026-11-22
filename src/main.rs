@@ -473,7 +473,9 @@ async fn run() -> Result<()> {
                         .context("Could not open the project folder.")
                 })
                 .transpose()?;
-            harness_client::chat(
+            let context = (connection.provider == config::ProviderKind::Fritz)
+                .then(fritz::harness::ContextSettings::default);
+            harness_client::chat_with_context(
                 provider::ChatRequest {
                     history_version: None,
                     connection_id: connection.id.to_string(),
@@ -488,6 +490,7 @@ async fn run() -> Result<()> {
                     project_path: project,
                     max_turns: max_turns as usize,
                 },
+                context,
                 |event| {
                     if event["type"] == "tool_start" {
                         eprintln!(

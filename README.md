@@ -9,7 +9,8 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 
 In **Settings → Harness**, chat context uses the selected model's limits by
-default. Automatic compaction summarizes older turns as the conversation fills
+default. Local chat targets 32,768 tokens and reduces the allocation when
+Metal memory is tight. Automatic compaction summarizes older turns as the conversation fills
 the context window and keeps the recent turns available to the model. You can
 set a context budget, reserve space for the reply, and choose how much recent
 history compaction should keep.

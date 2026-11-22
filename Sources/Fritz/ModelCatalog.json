@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": 3,
+  "catalog_version": 4,
   "generated_at": "2026-08-25T22:17:10Z",
   "minimum_rel_version": "0.1.11",
   "verification_contract": "A verified model completed REL's bounded text generation and synthetic tool-call round trip through the named provider adapter.",
@@ -22405,7 +22405,7 @@
         "repository_created": "2026-11-20",
         "limit": {
           "context": 1048576,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/ggml-org/Inkling-2-Mini-GGUF/revision/e8a2cecf0e78914f07cc27b9be711a9b2c7561d9"
         }
       },
@@ -22426,7 +22426,7 @@
         "repository_created": "2026-09-10",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/apodex/Apodex-1.1-mini-GGUF/revision/4ec155733ded2fa90b615bf50d20c59796cc5107"
         }
       },
@@ -22447,7 +22447,7 @@
         "repository_created": "2026-09-04",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash/blob/main/config.json"
         }
       },
@@ -22473,7 +22473,7 @@
         "repository_created": "2026-08-13",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.8-27B-GGUF/revision/4ca720788d1e01f1bff70c033e0d0028fd02e502"
         }
       },
@@ -22494,7 +22494,7 @@
         "repository_created": "2026-08-15",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/empero-ai/Qwen3.8-9B-Distill-GGUF/revision/760121cd70bb4c36b2b5ec58eb765e0df5987efe"
         }
       },
@@ -22515,7 +22515,7 @@
         "repository_created": "2026-04-22",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.6-27B-GGUF/revision/82d411acf4a06cfb8d9b073a5211bf410bfc29bf"
         }
       },
@@ -22536,7 +22536,7 @@
         "repository_created": "2026-03-01",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-0.8B-GGUF/revision/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0"
         }
       },
@@ -22557,7 +22557,7 @@
         "repository_created": "2026-02-28",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-2B-GGUF/revision/f6d5376be1edb4d416d56da11e5397a961aca8ae"
         }
       },
@@ -22578,7 +22578,7 @@
         "repository_created": "2026-03-02",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-4B-GGUF/revision/e87f176479d0855a907a41277aca2f8ee7a09523"
         }
       },
@@ -22599,7 +22599,7 @@
         "repository_created": "2026-02-28",
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3.5-9B-GGUF/revision/3885219b6810b007914f3a7950a8d1b469d598a5"
         }
       },
@@ -22620,7 +22620,7 @@
         "repository_created": "2025-04-28",
         "limit": {
           "context": 40960,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3-0.6B-GGUF/revision/50968a4468ef4233ed78cd7c3de230dd1d61a56b"
         }
       },
@@ -22641,7 +22641,7 @@
         "repository_created": "2025-04-28",
         "limit": {
           "context": 40960,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/unsloth/Qwen3-1.7B-GGUF/revision/d7f544eead698dbd1f15126ef60b45a1e1933222"
         }
       },
@@ -22662,7 +22662,7 @@
         "repository_created": "2025-05-05",
         "limit": {
           "context": 40960,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/Qwen/Qwen3-4B-GGUF/revision/bc640142c66e1fdd12af0bd68f40445458f3869b"
         }
       },
@@ -22684,7 +22684,7 @@
         "abliterated": true,
         "limit": {
           "context": 262144,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF/revision/c9e90669eeb205d5af35c28a3e9983fc9293c2ec"
         }
       },
@@ -22705,7 +22705,7 @@
         "repository_created": "2025-05-03",
         "limit": {
           "context": 40960,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/Qwen/Qwen3-8B-GGUF/revision/7c41481f57cb95916b40956ab2f0b139b296d974"
         }
       },
@@ -22727,7 +22727,7 @@
         "abliterated": true,
         "limit": {
           "context": 40960,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/NuevaTechLLC/Qwen3-8B-abliterated-v2-GGUF/revision/78874b4790201bd3df3053f0f21b4b3cc93f662a"
         }
       },
@@ -22748,7 +22748,7 @@
         "repository_created": "2025-05-01",
         "limit": {
           "context": 40960,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/Qwen/Qwen3-14B-GGUF/revision/530227a7d994db8eca5ab5ced2fb692b614357fd"
         }
       },
@@ -22769,7 +22769,7 @@
         "repository_created": "2024-09-19",
         "limit": {
           "context": 8192,
-          "runtime": 8192,
+          "automatic_target": 8192,
           "source_url": "https://huggingface.co/api/models/Qwen/Qwen2.5-1.5B-Instruct-GGUF/revision/91cad51170dc346986eccefdc2dd33a9da36ead9"
         }
       },
@@ -22790,7 +22790,7 @@
         "repository_created": "2025-01-05",
         "limit": {
           "context": 131072,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/bartowski/Dolphin3.0-Llama3.2-3B-GGUF/revision/ac6b1ee98e3864ebd5998216f800a07d74b166b5"
         }
       },
@@ -22811,7 +22811,7 @@
         "repository_created": "2025-01-05",
         "limit": {
           "context": 131072,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/bartowski/Dolphin3.0-Llama3.1-8B-GGUF/revision/a6274707ba8c5f12d4521eabbce1b318bb2f27f5"
         }
       },
@@ -22832,7 +22832,7 @@
         "repository_created": "2024-08-15",
         "limit": {
           "context": 131072,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://huggingface.co/api/models/bartowski/Hermes-3-Llama-3.1-8B-GGUF/revision/223c8e24dec0f863b6abe4c89bf20f6941b805e2"
         }
       },
@@ -22853,7 +22853,7 @@
         "repository_created": "2024-07-18",
         "limit": {
           "context": 128000,
-          "runtime": 8192,
+          "automatic_target": 32768,
           "source_url": "https://mistral.ai/news/mistral-nemo/"
         }
       }

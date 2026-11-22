@@ -110,14 +110,16 @@ public struct ModelContext: Codable, Equatable, Sendable {
     public let inputTokens: UInt32?
     public let outputTokens: UInt32?
     public let effectiveWindowTokens: UInt32?
+    public let automaticWindowTokens: UInt32?
     public let source: Source
 
     public init(windowTokens: UInt32? = nil, inputTokens: UInt32? = nil, outputTokens: UInt32? = nil,
-                effectiveWindowTokens: UInt32? = nil, source: Source) {
+                effectiveWindowTokens: UInt32? = nil, automaticWindowTokens: UInt32? = nil, source: Source) {
         self.windowTokens = windowTokens
         self.inputTokens = inputTokens
         self.outputTokens = outputTokens
         self.effectiveWindowTokens = effectiveWindowTokens
+        self.automaticWindowTokens = automaticWindowTokens
         self.source = source
     }
 
@@ -127,6 +129,9 @@ public struct ModelContext: Codable, Equatable, Sendable {
         if let effectiveWindowTokens, effectiveWindowTokens != windowTokens {
             let label = source == .fritz ? "tokens in Fritz" : "effective context tokens"
             details.append("\(effectiveWindowTokens.formatted()) \(label)")
+        }
+        if let automaticWindowTokens, automaticWindowTokens != windowTokens {
+            details.append("\(automaticWindowTokens.formatted()) Fritz automatic target")
         }
         if let inputTokens { details.append("\(inputTokens.formatted()) input tokens") }
         if let outputTokens { details.append("\(outputTokens.formatted()) output tokens") }

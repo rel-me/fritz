@@ -28,12 +28,19 @@ pub struct Manifest {
     pub name: String,
     pub disable_thinking: bool,
     pub architecture: String,
+    pub(crate) limit: ContextLimit,
     pub(crate) quantization: Option<String>,
     pub(crate) file: String,
     repository: String,
     revision: String,
     pub size: u64,
     pub sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ContextLimit {
+    pub context: u32,
+    pub automatic_target: u32,
 }
 
 pub fn catalog() -> &'static [Manifest] {
@@ -385,6 +392,13 @@ mod tests {
             assert_eq!(Path::new(&pin.file).components().count(), 1);
             assert!(pin.size > 0);
             assert!(paths.insert(&pin.file));
+            assert!(pin.limit.context > 0);
+            assert_eq!(
+                pin.limit.automatic_target,
+                pin.limit
+                    .context
+                    .min(crate::local::DEFAULT_CHAT_CONTEXT_TOKENS)
+            );
         }
         assert!(manifest("../../outside").is_err());
         assert!(manifest("unknown").is_err());
@@ -400,6 +414,10 @@ mod tests {
                 name: id.into(),
                 disable_thinking: false,
                 architecture: String::new(),
+                limit: ContextLimit {
+                    context: 8192,
+                    automatic_target: 8192,
+                },
                 quantization: None,
                 file: format!("{id}.gguf"),
                 repository: String::new(),
@@ -482,6 +500,10 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
+            limit: ContextLimit {
+                context: 8192,
+                automatic_target: 8192,
+            },
             quantization: None,
             file: "model.gguf".into(),
             repository: String::new(),
@@ -518,6 +540,10 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
+            limit: ContextLimit {
+                context: 8192,
+                automatic_target: 8192,
+            },
             quantization: None,
             file: "model.gguf".into(),
             repository: String::new(),
@@ -591,6 +617,10 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
+            limit: ContextLimit {
+                context: 8192,
+                automatic_target: 8192,
+            },
             quantization: None,
             file: "fixture.gguf".into(),
             repository: String::new(),

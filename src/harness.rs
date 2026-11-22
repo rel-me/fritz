@@ -110,9 +110,9 @@ async fn run_with_policy(
     if input.connection.provider == ProviderKind::Fritz {
         provider::payload(&input.connection, &input.request)?;
     }
-    let budget = context
-        .map(|context| context.budget(&input.connection, &input.request.model))
-        .transpose()?;
+    if let Some(context) = context {
+        context.validate()?;
+    }
     let summary = if context.is_some_and(|context| context.has_previous_summary) {
         let first = input
             .request
@@ -130,18 +130,38 @@ async fn run_with_policy(
     };
     // Include model loading in the same deadline as completion and tool IO.
     let work = async {
-        let session = Session::new(
+        let mut session = Session::new_with_context(
             input,
             system,
             Options {
-                history_compaction: budget.is_none().then(Compaction::default),
-                output_limit: budget.as_ref().map_or(OutputLimit::Native, |budget| {
-                    OutputLimit::Tokens(budget.output)
-                }),
+                history_compaction: context.is_none().then(Compaction::default),
                 ..Options::default()
             },
+            context,
         )
         .await?;
+        let budget = if let Some(context) = context {
+            let local_window = if let Some(local) = &session.local {
+                emit(json!({"type":"activity","message":"Sizing local context…"}));
+                let size = local.context_size().await?;
+                emit(
+                    json!({"type":"activity","message":format!("Local context · {size} tokens"),"contextTokens":size}),
+                );
+                Some(size)
+            } else {
+                None
+            };
+            let budget = context.budget(
+                &session.input.connection,
+                &session.input.request.model,
+                local_window,
+            );
+            session.output_limit = OutputLimit::Tokens(budget.output);
+            session.configure(system);
+            Some(budget)
+        } else {
+            None
+        };
         let limits = Limits {
             model_turns: session.input.request.max_turns,
             tool_calls: 64,
@@ -204,6 +224,15 @@ pub struct Session {
 }
 impl Session {
     pub async fn new(input: Input, system: &str, options: Options) -> Result<Self> {
+        Self::new_with_context(input, system, options, None).await
+    }
+
+    async fn new_with_context(
+        input: Input,
+        system: &str,
+        options: Options,
+        context: Option<ContextSettings>,
+    ) -> Result<Self> {
         input.connection.validate()?;
         if input.connection.provider.category() != crate::config::ModelCategory::Llm {
             bail!("Choose an LLM provider for chat.");
@@ -216,7 +245,7 @@ impl Session {
                 Some(store) => store,
                 None => crate::local::models::ModelStore::configured()?,
             };
-            Some(crate::local::Session::new_in(&input.request, system, &store).await?)
+            Some(crate::local::Session::new_in(&input.request, system, &store, context).await?)
         } else {
             None
         };

@@ -9,6 +9,7 @@ pub struct Engine {
     pub(crate) model_id: String,
     path: PathBuf,
     context_size: usize,
+    minimum_context: usize,
     model: OnceCell<Arc<Model>>,
 }
 
@@ -22,7 +23,7 @@ impl Engine {
     }
 
     pub async fn installed(model_id: &str) -> Result<Self> {
-        Self::installed_with_context(model_id, super::CHAT_CONTEXT_TOKENS as usize).await
+        Self::installed_with_context(model_id, super::LEGACY_CHAT_CONTEXT_TOKENS as usize).await
     }
 
     pub(crate) async fn installed_with_context(
@@ -45,12 +46,39 @@ impl Engine {
         Ok(engine)
     }
 
+    pub(crate) async fn for_chat(
+        store: &super::models::ModelStore,
+        model_id: &str,
+        requested: Option<u64>,
+    ) -> Result<Self> {
+        let pin = super::models::manifest(model_id)?;
+        let mut engine = Self::installed_in(store, model_id).await?;
+        let maximum = u64::from(pin.limit.context);
+        let target = requested
+            .unwrap_or(u64::from(
+                pin.limit
+                    .automatic_target
+                    .min(super::DEFAULT_CHAT_CONTEXT_TOKENS),
+            ))
+            .min(maximum);
+        engine.context_size = usize::try_from(target)?;
+        engine.minimum_context = if requested.is_some() {
+            engine.context_size
+        } else {
+            engine
+                .context_size
+                .min(super::LEGACY_CHAT_CONTEXT_TOKENS as usize)
+        };
+        Ok(engine)
+    }
+
     /// Resolve present model files without loading them or accessing the network.
     pub async fn installed_in(store: &super::models::ModelStore, model_id: &str) -> Result<Self> {
         Ok(Self {
             model_id: model_id.to_owned(),
             path: store.installed_path(model_id).await?,
-            context_size: super::CHAT_CONTEXT_TOKENS as usize,
+            context_size: super::LEGACY_CHAT_CONTEXT_TOKENS as usize,
+            minimum_context: 0,
             model: OnceCell::new(),
         })
     }
@@ -58,7 +86,14 @@ impl Engine {
     pub(crate) async fn model(&self) -> Result<&Arc<Model>> {
         let architecture = &super::models::manifest(&self.model_id)?.architecture;
         self.model
-            .get_or_try_init(|| Model::load(&self.path, self.context_size, Some(architecture)))
+            .get_or_try_init(|| {
+                Model::load_with_context_fit(
+                    &self.path,
+                    self.context_size,
+                    self.minimum_context,
+                    Some(architecture),
+                )
+            })
             .await
             .context("Could not load the installed GGUF with llama.cpp")
     }

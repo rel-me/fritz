@@ -111,7 +111,7 @@ private struct FritzHarnessSettingsView: View {
             } header: {
                 settingsTitle("Harness")
             } footer: {
-                Text("Automatic uses the connected model’s reported limit or the catalog. Fritz budgets 32,768 tokens when a remote limit is unknown, or 4,096 for Ollama. The reply reserve leaves room for generated text.")
+                Text("For local chat, Automatic targets 32,768 tokens up to the model’s limit and reduces the window when Metal memory is tight. A fixed budget uses more memory at larger sizes. For remote chat, Automatic uses the reported limit or the catalog. The reply reserve leaves room for generated text.")
             }
             Section {
                 Toggle("Automatically Compact History", isOn: $settings.harness.automaticCompaction)

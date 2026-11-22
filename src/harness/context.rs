@@ -25,7 +25,7 @@ pub(super) struct Budget {
 }
 
 impl ContextSettings {
-    pub(super) fn budget(self, connection: &Connection, model: &str) -> anyhow::Result<Budget> {
+    pub(super) fn validate(self) -> anyhow::Result<()> {
         for (value, min, max, key) in [
             (self.context_tokens, 4096, 2_000_000, "contextTokens"),
             (self.reserve_tokens, 256, 65_536, "reserveTokens"),
@@ -37,6 +37,15 @@ impl ContextSettings {
             );
         }
 
+        Ok(())
+    }
+
+    pub(super) fn budget(
+        self,
+        connection: &Connection,
+        model: &str,
+        local_window: Option<usize>,
+    ) -> Budget {
         let local = connection.provider == ProviderKind::Fritz;
         let positive = |value: Option<u32>| value.filter(|&value| value > 0).map(u64::from);
         let bundled = model_context::bundled(connection, model);
@@ -55,11 +64,7 @@ impl ContextSettings {
         let max_output = positive(limits.output_tokens);
         let automatic = shared_window
             .or_else(|| max_input.map(|input| input.saturating_add(max_output.unwrap_or(8192))));
-        let known_window = if local {
-            positive(bundled.effective_window_tokens)
-        } else {
-            automatic
-        };
+        let known_window = local_window.map(|tokens| tokens as u64).or(automatic);
         let window = self
             .context_tokens
             .or(known_window)
@@ -85,12 +90,12 @@ impl ContextSettings {
             .min(if local { 2048 } else { 8192 })
             .min(max_output.unwrap_or(u64::MAX))
             .max(1);
-        Ok(Budget {
+        Budget {
             input,
             output: output as usize,
             explicit_cap: self.context_tokens.is_some(),
             compaction,
-        })
+        }
     }
 }
 

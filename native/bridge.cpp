@@ -1,6 +1,7 @@
 #include "llama.h"
 #include "ggml-backend.h"
 #include "chat.h"
+#include "fit.h"
 #include "sampling.h"
 #include "unicode.h"
 #include <atomic>
@@ -55,9 +56,23 @@ struct CallbackScope {
     ~CallbackScope() { llama_set_abort_callback(model.context.get(), nullptr, nullptr); }
 };
 
+static bool fits_context(const char * path, const llama_model_params & model,
+                         const llama_context_params & context, ggml_backend_dev_t gpu) {
+    size_t available = 0, total = 0;
+    ggml_backend_dev_memory(gpu, &available, &total);
+    constexpr size_t headroom = 1024ULL * 1024 * 1024;
+    if (available <= headroom) return false;
+    const auto rows = common_fit_measure({path}, &model, &context, nullptr, nullptr, GGML_LOG_LEVEL_ERROR);
+    size_t bytes = 0;
+    // Apple silicon Metal and CPU buffers consume the same physical memory.
+    for (const auto & row : rows) bytes += row.model + row.context + row.compute;
+    return bytes <= available - headroom;
+}
+
 extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
-extern "C" Model * fl_model_load(const char * path, int context, bool chat, bool inkling_loop,
+extern "C" int fl_model_context_size(const Model * model) { return model->capacity; }
+extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool chat, bool inkling_loop,
                                  Cancel cancel, void * data, char ** error) {
     try {
         static std::once_flag initialized;
@@ -89,11 +104,6 @@ extern "C" Model * fl_model_load(const char * path, int context, bool chat, bool
         }
         params.progress_callback = progress;
         params.progress_callback_user_data = &control;
-        auto result = std::make_unique<Model>();
-        result->capacity = context;
-        result->weights.reset(llama_model_load_from_file(path, params));
-        control.check();
-        require(bool(result->weights), "llama.cpp could not load the local GGUF. Check model integrity and available memory.");
         auto config = llama_context_default_params();
         config.n_ctx = context;
         config.n_batch = 512;
@@ -101,9 +111,33 @@ extern "C" Model * fl_model_load(const char * path, int context, bool chat, bool
         config.n_seq_max = 1;
         config.abort_callback = abort_decode;
         config.abort_callback_data = &control;
+        if (minimum_context > 0) {
+            // llama.cpp's measurement temporarily installs a process-wide logger.
+            static std::mutex measure_lock;
+            const std::lock_guard<std::mutex> lock(measure_lock);
+            while (true) {
+                control.check();
+                bool fits = false;
+                try {
+                    fits = fits_context(path, params, config, gpu);
+                } catch (const std::runtime_error & error) {
+                    control.check();
+                    if (std::strcmp(error.what(), "failed to create llama_context from model") != 0) throw;
+                }
+                if (fits) break;
+                require(config.n_ctx > uint32_t(minimum_context),
+                        "The local context does not fit available Metal memory. Choose a smaller Context Budget, a smaller model, or close other models.");
+                config.n_ctx = std::max(config.n_ctx / 2, uint32_t(minimum_context));
+            }
+        }
+        auto result = std::make_unique<Model>();
+        result->weights.reset(llama_model_load_from_file(path, params));
+        control.check();
+        require(bool(result->weights), "llama.cpp could not load the local GGUF. Check model integrity and available memory.");
         result->context.reset(llama_init_from_model(result->weights.get(), config));
         control.check();
         require(bool(result->context), "llama.cpp could not allocate the local context. Close other models or reduce context size.");
+        result->capacity = std::min(config.n_ctx, llama_n_ctx_seq(result->context.get()));
         llama_set_abort_callback(result->context.get(), nullptr, nullptr);
         if (chat) {
             const auto * tmpl = llama_model_chat_template(result->weights.get(), nullptr);

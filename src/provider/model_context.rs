@@ -16,6 +16,8 @@ pub struct ModelContext {
     /// An advertised route or configured runtime limit, where available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effective_window_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub automatic_window_tokens: Option<u32>,
     pub source: ContextSource,
 }
 
@@ -126,7 +128,8 @@ pub(crate) fn bundled(connection: &Connection, model: &str) -> ModelContext {
             return ModelContext {
                 window_tokens: local_entry("local_chat")
                     .and_then(|row| tokens(&row["limit"]["context"])),
-                effective_window_tokens: Some(crate::local::CHAT_CONTEXT_TOKENS),
+                automatic_window_tokens: local_entry("local_chat")
+                    .and_then(|row| tokens(&row["limit"]["automatic_target"])),
                 source: ContextSource::Fritz,
                 ..Default::default()
             };

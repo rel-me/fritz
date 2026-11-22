@@ -1,5 +1,6 @@
 //! Fritz's built-in provider. Pinned weights are installed explicitly and used offline.
-pub(crate) const CHAT_CONTEXT_TOKENS: u32 = 8192;
+pub(crate) const DEFAULT_CHAT_CONTEXT_TOKENS: u32 = 32_768;
+const LEGACY_CHAT_CONTEXT_TOKENS: u32 = 8192;
 
 pub mod inference;
 pub mod models;
@@ -159,8 +160,14 @@ impl Session {
         request: &ChatRequest,
         system: &str,
         store: &models::ModelStore,
+        context: Option<crate::harness::ContextSettings>,
     ) -> Result<Self> {
-        let engine = inference::Engine::installed_in(store, &request.model).await?;
+        let engine = match context {
+            Some(context) => {
+                inference::Engine::for_chat(store, &request.model, context.context_tokens).await?
+            }
+            None => inference::Engine::installed_in(store, &request.model).await?,
+        };
         let mut messages = literal_message(Vec::new(), "system", system);
         for message in &request.messages {
             let role = match message.role.as_str() {
@@ -180,6 +187,10 @@ impl Session {
             output_limit: 2048,
             system: system.into(),
         })
+    }
+
+    pub(crate) async fn context_size(&self) -> Result<usize> {
+        Ok(self.engine.model().await?.context_size)
     }
 
     pub(crate) fn compact_prefix(&mut self, cut: usize, summary: &str) -> Result<()> {

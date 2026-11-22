@@ -39,7 +39,8 @@ as a string up to 128 KiB. `details` remains the bounded display field.
 Model discovery returns a `context` object for each model. `windowTokens`
 is the advertised model window, `inputTokens` and `outputTokens` are separate
 caps where published, and `effectiveWindowTokens` is a reported route or
-runtime capacity. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
+runtime capacity. Built-in chat models publish `automaticWindowTokens`, the
+target before measuring Metal memory. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
 Missing limits are omitted. Discovery takes live values from the connected
 endpoint. Ollama provides architecture limits via `/api/show` and reports
 active capacity via `/api/ps`. Public catalog values are used for known
@@ -47,8 +48,13 @@ models on official endpoints when live metadata is absent.
 
 The optional `context` object accepts `automaticCompaction` (defaults to true),
 `contextTokens`, `reserveTokens`, and `keepRecentTokens`. Omitted token settings
-adapt to the model. Automatic budgeting uses the bundled model's 8,192-token
-window, the selected connection’s reported limits, or catalog metadata.
+adapt to the model. Local budgeting uses the window actually allocated by
+llama.cpp. Automatic targets 32,768 tokens or the model’s published limit,
+whichever is lower, and can use a smaller window when memory is tight.
+For a fixed budget Fritz caps the request at the model’s limit and reports
+an allocation error if the window cannot fit. A local `activity` event reports
+the selected window in `contextTokens`. Remote budgeting uses the selected
+connection’s reported limits or catalog metadata.
 The fallback is 32,768 tokens for unknown remote models and an automatic
 4,096-token budget for Ollama until it reports a runtime window. The app
 passes the selected model’s live limits in `context.reportedContext`. Rig estimates tokens for messages, instructions, and tool
@@ -102,8 +108,10 @@ The `fritz` provider has no endpoint or API key. `models.list` returns its
 present model files. Listing, saving a connection, and chatting never
 implicitly download weights. Local chat streams `delta` and `usage` events
 through the same pipes as remote providers. Each request loads weights in its
-own harness process; closing its pipe cancels the run. The local model is
-limited to 8,192 context tokens and 2,048 output tokens per turn.
+own harness process; closing its pipe cancels the run. The native chat
+harness uses the context allocation policy above. The local reply ceiling
+is 2,048 tokens per turn. The separate Ollama-compatible local service
+retains its existing 8,192-token ceiling.
 
 Fritz local models use the shared harness tool loop when a project folder is
 attached. The pinned GGUF runs in process through llama.cpp. Catalog models
