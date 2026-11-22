@@ -74,19 +74,34 @@ jobs:
         run: |
           python3 - <<'PY'
           import glob, os, re, subprocess
-          for xcode in sorted(glob.glob('/Applications/Xcode*.app'), reverse=True):
+          candidates = []
+          for xcode in sorted(glob.glob('/Applications/Xcode*.app')):
               developer = xcode + '/Contents/Developer'
               env = dict(os.environ, DEVELOPER_DIR=developer)
               result = subprocess.run(['xcrun', 'swift', '--version'], env=env, capture_output=True, text=True)
-              version = re.search(r'Swift version (\d+)\.(\d+)', result.stdout)
-              if result.returncode == 0 and version and tuple(map(int, version.groups())) >= (6, 3):
-                  with open(os.environ['GITHUB_ENV'], 'a') as output:
-                      output.write('DEVELOPER_DIR=' + developer + '\n')
-                  print(result.stdout)
-                  break
-          else:
+              version = re.search(r'Swift version (\d+)\.(\d+)(?:\.(\d+))?', result.stdout)
+              print(f'{xcode}: {result.stdout.splitlines()[0] if result.stdout else "Swift unavailable"}')
+              if result.returncode == 0 and version:
+                  parsed = tuple(int(part or 0) for part in version.groups())
+                  if parsed >= (6, 3, 0):
+                      candidates.append((parsed, developer, result.stdout))
+          if not candidates:
               raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
+          # Prefer the Swift 6.3 package graph used to create committed locks.
+          # Use newer toolchains only when no compatible 6.3 installation exists.
+          candidates.sort(key=lambda candidate: (candidate[0][:2] != (6, 3), candidate[0]))
+          _, developer, version = candidates[0]
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('DEVELOPER_DIR=' + developer + '\n')
+          print(f'Selected Xcode: {developer}')
+          print(version)
           PY
+      - name: Ensure Metal compiler is available
+        run: |
+          if ! xcrun metal --version; then
+            xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun metal --version
       - name: Select runner outputs and shared caches for this toolchain
         run: |
           fingerprint=$( { xcodebuild -version; swift --version; xcrun --sdk macosx --show-sdk-version; rustc -vV; cmake --version; } | shasum -a 256 | cut -d ' ' -f 1)
