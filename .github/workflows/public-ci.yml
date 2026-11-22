@@ -70,22 +70,62 @@ jobs:
         uses: jdx/mise-action@v5.2.7
         with:
           version: 2026.8.8
-      - name: Select installed Swift 6.3 or newer
+      - name: Select an installed Xcode with Swift and Metal
         run: |
           python3 - <<'PY'
-          import glob, os, re, subprocess
-          for xcode in sorted(glob.glob('/Applications/Xcode*.app'), reverse=True):
-              developer = xcode + '/Contents/Developer'
-              env = dict(os.environ, DEVELOPER_DIR=developer)
-              result = subprocess.run(['xcrun', 'swift', '--version'], env=env, capture_output=True, text=True)
-              version = re.search(r'Swift version (\d+)\.(\d+)', result.stdout)
-              if result.returncode == 0 and version and tuple(map(int, version.groups())) >= (6, 3):
+          import glob, os, re, subprocess, tempfile
+          from pathlib import Path
+
+          def run(args, env):
+              return subprocess.run(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+          # SwiftPM needs to build a package that processes Metal resources (Inferno).
+          # Resolving metal through xcrun also activates Xcode's optional Metal Toolchain.
+          with tempfile.TemporaryDirectory(prefix='fritz-xcode-probe-') as probe:
+              package = Path(probe)
+              target = package / 'Sources' / 'MetalProbe'
+              target.mkdir(parents=True)
+              (package / 'Package.swift').write_text(
+                  '// swift-tools-version: 6.3\n'
+                  'import PackageDescription\n'
+                  'let package = Package(name: "MetalProbe", targets: ['
+                  '.target(name: "MetalProbe", resources: [.process("Probe.metal")])])\n'
+              )
+              (target / 'Probe.swift').write_text('enum Probe {}\n')
+              shader = target / 'Probe.metal'
+              shader.write_text(
+                  '#include <metal_stdlib>\n'
+                  'using namespace metal;\n'
+                  'kernel void probe(device uint *value [[buffer(0)]]) { *value += 1; }\n'
+              )
+              for index, xcode in enumerate(sorted(glob.glob('/Applications/Xcode*.app'), reverse=True)):
+                  developer = xcode + '/Contents/Developer'
+                  env = dict(os.environ, DEVELOPER_DIR=developer)
+                  swift = run(['xcrun', 'swift', '--version'], env)
+                  version = re.search(r'Swift version (\d+)\.(\d+)', swift.stdout)
+                  if swift.returncode or not version or tuple(map(int, version.groups())) < (6, 3):
+                      continue
+                  sdk = run(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], env)
+                  if sdk.returncode:
+                      print(f'Skipping {xcode}: {sdk.stdout.strip()}')
+                      continue
+                  env['SDKROOT'] = sdk.stdout.strip()
+                  metal = run(['xcrun', '--sdk', 'macosx', 'metal', '-c', str(shader), '-o', str(package / 'Probe.air')], env)
+                  if metal.returncode:
+                      print(f'Skipping {xcode}: {metal.stdout.strip()}')
+                      continue
+                  build = run(['swift', 'build', '--build-tests', '--package-path', probe,
+                               '--scratch-path', str(package / f'build-{index}')], env)
+                  if build.returncode:
+                      print(f'Skipping {xcode}: the SwiftPM Metal probe failed.\n'
+                            + '\n'.join(build.stdout.splitlines()[-12:]))
+                      continue
                   with open(os.environ['GITHUB_ENV'], 'a') as output:
-                      output.write('DEVELOPER_DIR=' + developer + '\n')
-                  print(result.stdout)
+                      output.write(f'DEVELOPER_DIR={developer}\nSDKROOT={env["SDKROOT"]}\n')
+                  print(f'{xcode} with {env["SDKROOT"]}\n{swift.stdout.strip()}')
                   break
-          else:
-              raise SystemExit('This project requires an installed Xcode with Swift 6.3 or newer.')
+              else:
+                  raise SystemExit('Install Xcode with Swift 6.3 or newer and its Metal Toolchain.')
           PY
       - name: Select runner outputs and shared caches for this toolchain
         run: |
