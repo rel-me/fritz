@@ -57,10 +57,14 @@ struct CallbackScope {
 };
 
 static bool fits_context(const char * path, const llama_model_params & model,
-                         const llama_context_params & context, ggml_backend_dev_t gpu) {
+                         const llama_context_params & context, ggml_backend_dev_t gpu,
+                         bool automatic) {
     size_t available = 0, total = 0;
     ggml_backend_dev_memory(gpu, &available, &total);
-    constexpr size_t headroom = 1024ULL * 1024 * 1024;
+    constexpr size_t gib = 1024ULL * 1024 * 1024;
+    // The Metal working-set estimate alone doesn't account for other apps'
+    // memory growth while a chat is running.
+    const size_t headroom = automatic ? std::max(3 * gib, total / 6) : gib;
     if (available <= headroom) return false;
     const auto rows = common_fit_measure({path}, &model, &context, nullptr, nullptr, GGML_LOG_LEVEL_ERROR);
     size_t bytes = 0;
@@ -121,6 +125,7 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
             static std::mutex measure_lock;
             const std::lock_guard<std::mutex> lock(measure_lock);
             const auto minimum = static_cast<uint32_t>(minimum_context);
+            const bool automatic = config.n_ctx > minimum;
             const uint32_t default_ubatch = config.n_ubatch;
             // Inkling's full-attention layers need more compute memory at long
             // windows. A smaller physical batch leaves room for the KV cache.
@@ -129,7 +134,7 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
                 config.n_ctx = candidate;
                 control.check();
                 try {
-                    return fits_context(path, params, config, gpu);
+                    return fits_context(path, params, config, gpu, automatic);
                 } catch (const std::runtime_error & error) {
                     control.check();
                     if (std::strcmp(error.what(), "failed to create llama_context from model") != 0) throw;

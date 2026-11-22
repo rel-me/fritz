@@ -52,13 +52,18 @@ adapt to the model. Local budgeting uses the window actually allocated by
 llama.cpp. Automatic measures candidate windows up to the model’s published
 limit and accounts for the model weights, KV cache, compute buffers, and
 runtime headroom. Inkling can use smaller prompt-processing batches to fit
-a larger window.
+a larger window. Automatic leaves additional headroom for other apps.
 For a fixed budget Fritz caps the request at the model’s limit and reports
 an allocation error if the window cannot fit. A local `activity` event reports
 the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true
 to use an 8-bit key and value cache for native local chat. The memory estimate
-and the allocated context use the same cache format. Remote budgeting uses the selected
-connection’s reported limits or catalog metadata.
+and the allocated context use the same cache format. The app agent and CLI
+supervisor check macOS memory pressure before starting a Fritz local chat, then
+sample pressure and swap every 500 ms. They stop the harness on a system memory
+warning or 128 MiB of swap growth during the request and report a chat error.
+The supervisor signals private stdin EOF first so the harness cancels active
+work. It terminates an unresponsive harness after three seconds. Remote
+budgeting uses the selected connection’s reported limits or catalog metadata.
 The fallback is 32,768 tokens for unknown remote models and an automatic
 4,096-token budget for Ollama until it reports a runtime window. The app
 passes the selected model’s live limits in `context.reportedContext`. Rig estimates tokens for messages, instructions, and tool
