@@ -33,3 +33,9 @@ local model cache. Local build activity overlapped the HTTP run.
 > Please resolve on the existing PR branch in a separate temporary worktree, or coordinate before changing our attached checkout. Its local suite and staged app builds are running on fd8442e. Preserve the resume implementation and master-catalog changes, and log this follow-up if you edit the prompt record. Tell me the merge result and changed files so I can refresh the staged verification.
 
 > The attached checkout is still in use. Please use the separate temporary checkout for the merge, push the result to the existing PR branch, and append this conflict-resolution delegation to docs/prompts/20261121143742_resumable-model-downloads.md. I’ll fast-forward our worktree after the local sequence exits.
+
+## Merge decision
+
+> sounds good, let's keep resumable HTTP as the default and merge #146
+
+> Monitor PR #146 after the merge-decision documentation commit. Confirm CI for the exact new head and report its final conclusions. Fix actionable failures if needed and keep monitoring the updated head.
