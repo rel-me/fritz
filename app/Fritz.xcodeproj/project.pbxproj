@@ -15,8 +15,12 @@
 		22DD5AE77EBAC5227AF1EB05 /* ChatVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */; };
 		26EF816CE646BE429E794CA3 /* FritzState in Frameworks */ = {isa = PBXBuildFile; productRef = C7548171F5DA5137E90765D8 /* FritzState */; };
 		36F4A560A30974915C4101A1 /* LocalModelRuntimeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30CE32C5162893FA5F689978 /* LocalModelRuntimeStore.swift */; };
+		37F97400029A6178A6E12E2D /* ProviderRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82087F862D08A8B5CBAD48F3 /* ProviderRuntime.swift */; };
+		3E804AEBA7D1E32F8B96441E /* FritzIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E86D4AC7C4F37BE5A85B2FF7 /* FritzIOSApp.swift */; };
 		4414AEF0602C46E8DDF68E5B /* FritzApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368E954ED0C803B0A5BCCA8B /* FritzApp.swift */; };
+		4FDF7586252F851E118C2E34 /* ChatFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A514B9565BF2291DA7D91E81 /* ChatFlowTests.swift */; };
 		52F6BD5AC721E3F440C4CCFB /* ChatScrollState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 719A85DBFDE6DF38AB9624B4 /* ChatScrollState.swift */; };
+		550C1B6667A320872B8AEC5A /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = 9489E21B02B173A3A1F77E3B /* Textual */; };
 		59B71A94F4501F11D9835AB4 /* ProviderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F63B541A22F41ADBBFA229D /* ProviderStore.swift */; };
 		5A6A40D152E72C6769B8CB16 /* AppDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */; };
 		5CA3881D23D40ED4FDD3498F /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68E2C42C88F12B1800D985E2 /* Project.swift */; };
@@ -33,26 +37,45 @@
 		7A7D36A32CBEC67C5684F50D /* ChatMessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A721DA543AEE01311130E2D /* ChatMessageRow.swift */; };
 		7DB130067F16C96A2ED867E8 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2449C729E0450165B195C266 /* ChatComposer.swift */; };
 		89B6D813E2FBEBA2A97810EB /* ProvidersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18739264547CAB0D6256B2E5 /* ProvidersView.swift */; };
+		8BD55ECBB8B01F2A3A85EFE9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 07D6C984CDE46507DBCE9A8E /* Assets.xcassets */; };
 		8DDFD3E78BC0C05278E5EBC0 /* Inferno in Frameworks */ = {isa = PBXBuildFile; productRef = B3FD16680C7450D449DF981B /* Inferno */; };
 		8F147A4C15E74308B8D82119 /* FritzUpdates in Frameworks */ = {isa = PBXBuildFile; productRef = 63772291272E2EF06FD92CDD /* FritzUpdates */; };
 		955EF7C684AAAAFCB7FA6A07 /* CommandLineInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */; };
+		95B1765A6F0F3FFE60E1140C /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 818953B3A2C3F09A1DB117E7 /* SystemConfiguration.framework */; };
 		9CE52D82C7FF3C4602E3CAC9 /* Bonsplit in Frameworks */ = {isa = PBXBuildFile; productRef = DF707874F5442E6BB1553D9D /* Bonsplit */; };
 		A02E7F00B4FAA0B6DFF02839 /* ProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3EFB0AB4243DFD650939B5D /* ProjectRepository.swift */; };
+		A119187DC9710AD1F7984FB6 /* Workspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B34C3C261EFEADF89CB437D3 /* Workspace.swift */; };
 		A8BDF4E8FA544859D0934804 /* Textual in Frameworks */ = {isa = PBXBuildFile; productRef = F8FC8A9558DA38A6831276EC /* Textual */; };
 		BCAAD1194A2B092EF0D33F7A /* BrowserWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B14486279C5BFB5215EA2CF /* BrowserWindow.swift */; };
+		C6844D12C15024684446D17B /* ProvidersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF39ADA66DA5656596D52643 /* ProvidersView.swift */; };
 		CDD5ED6B822EA484C1C8DF65 /* FritzListSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3713CACF28037690000DB8 /* FritzListSurface.swift */; };
 		D639AECA5A25873C26188693 /* ProviderConfigurationTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 763BFEFEDC9ED3D7920497C4 /* ProviderConfigurationTransfer.swift */; };
+		D9ECB4417618872910AD12E5 /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95F7C244264BD851D76DA67 /* ChatStore.swift */; };
 		DA3DEE02D495420A574CB073 /* ChatResponseClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */; };
+		DE58148FF62D8E3D5F596A63 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA728D38332E507D0E303E88 /* PrivacyInfo.xcprivacy */; };
 		E312BADCB3BC49E34E62555A /* BrowserImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6E101476811BD21DF541E81 /* BrowserImport.swift */; };
 		E6BB7F585FA085DA240B681F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA14759ABA74D8311285BC6 /* ChatView.swift */; };
 		E6BEAD3F9AB633444F29F637 /* BrowserPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551E85ADE69D850FE126F68 /* BrowserPage.swift */; };
 		F0BA81F78DB6FF75B6ECE009 /* FritzButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50410FFF06500B44E0F9CF17 /* FritzButtonStyle.swift */; };
+		F75256561CE3D2A4BFF23FFA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 927F749415B684965089C7C9 /* Security.framework */; };
+		F8D09A84A2E5A9D0FEA96DE8 /* ios-privacy.md in Resources */ = {isa = PBXBuildFile; fileRef = F8155BB5CD8E320415E939AD /* ios-privacy.md */; };
 		F91798FA22D9742E3FE02131 /* ChatStartScreenLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */; };
 		FB2702D68C41763A32649373 /* FritzManagementHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */; };
 		FC235D1B9D0AC95700F84A25 /* BrowserDataSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C232494A41369FA47798164A /* BrowserDataSheet.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		340940EE00C5832C92A532C8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F8324B703AE63557B22997DB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C93E3BCE9CCEC6D815535A7;
+			remoteInfo = FritzIOS;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		07D6C984CDE46507DBCE9A8E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0C2B1E9029E8D6CA09B8B42B /* ChatStartScreenLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStartScreenLayout.swift; sourceTree = "<group>"; };
 		18739264547CAB0D6256B2E5 /* ProvidersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvidersView.swift; sourceTree = "<group>"; };
 		1AB65E88BEA21E9ECFE860AE /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -60,6 +83,7 @@
 		2449C729E0450165B195C266 /* ChatComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComposer.swift; sourceTree = "<group>"; };
 		2EA14759ABA74D8311285BC6 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		2F63B541A22F41ADBBFA229D /* ProviderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderStore.swift; sourceTree = "<group>"; };
+		30B5E58D3D4B56D5C2CED8DF /* FritzIOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FritzIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		30CE32C5162893FA5F689978 /* LocalModelRuntimeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelRuntimeStore.swift; sourceTree = "<group>"; };
 		31B41D0524C0C81414318C5F /* FritzSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzSettingsView.swift; sourceTree = "<group>"; };
 		368E954ED0C803B0A5BCCA8B /* FritzApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzApp.swift; sourceTree = "<group>"; };
@@ -72,28 +96,50 @@
 		719A85DBFDE6DF38AB9624B4 /* ChatScrollState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScrollState.swift; sourceTree = "<group>"; };
 		73835E7146A92557D60E42ED /* WorkspaceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceStore.swift; sourceTree = "<group>"; };
 		763BFEFEDC9ED3D7920497C4 /* ProviderConfigurationTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderConfigurationTransfer.swift; sourceTree = "<group>"; };
+		765DE77A462F25AD536EEF6E /* FritzIOSBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FritzIOSBridge.h; sourceTree = "<group>"; };
 		78D7DBE3E7DAFEF77840DCA3 /* LocalModelDownloadSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelDownloadSheet.swift; sourceTree = "<group>"; };
 		7B14486279C5BFB5215EA2CF /* BrowserWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserWindow.swift; sourceTree = "<group>"; };
+		818953B3A2C3F09A1DB117E7 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		82087F862D08A8B5CBAD48F3 /* ProviderRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderRuntime.swift; sourceTree = "<group>"; };
 		847BDB4BC6DFD2AB3E48A209 /* FritzWindowStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzWindowStyle.swift; sourceTree = "<group>"; };
 		8B28E9C6CBBF8379A7819249 /* CommandLineInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandLineInstaller.swift; sourceTree = "<group>"; };
 		8DC560381A84A305A2AD006D /* FritzRaven.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = FritzRaven.icns; sourceTree = "<group>"; };
 		9002B21AC5011EAB783936B4 /* WorkspaceRightPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceRightPanel.swift; sourceTree = "<group>"; };
+		927F749415B684965089C7C9 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		9406C5DE14DA60290BE5DE92 /* FritzManagementHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzManagementHeader.swift; sourceTree = "<group>"; };
 		9B3713CACF28037690000DB8 /* FritzListSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzListSurface.swift; sourceTree = "<group>"; };
+		A514B9565BF2291DA7D91E81 /* ChatFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatFlowTests.swift; sourceTree = "<group>"; };
 		A5BB802CC268F552E0A0514A /* ChatVisualStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatVisualStyle.swift; sourceTree = "<group>"; };
 		A74C73F26BCE7EB0C9D206AD /* AgentClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentClient.swift; sourceTree = "<group>"; };
+		AF39ADA66DA5656596D52643 /* ProvidersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProvidersView.swift; sourceTree = "<group>"; };
+		B34C3C261EFEADF89CB437D3 /* Workspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workspace.swift; sourceTree = "<group>"; };
 		BF2ADAA794BD4BDF138971C1 /* AppDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDatabase.swift; sourceTree = "<group>"; };
 		C232494A41369FA47798164A /* BrowserDataSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserDataSheet.swift; sourceTree = "<group>"; };
 		C276B44B2FB70A4B459E4D10 /* ChatToolDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatToolDetails.swift; sourceTree = "<group>"; };
 		C551E85ADE69D850FE126F68 /* BrowserPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserPage.swift; sourceTree = "<group>"; };
+		C95F7C244264BD851D76DA67 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		D074B702DF3BED67BF3C8EB4 /* Fritz.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fritz.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B638E68FE104CA235307DFBB /* Fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fritz; path = ..; sourceTree = SOURCE_ROOT; };
+		D2B9140422C7D817271DF6AB /* fritz */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fritz; path = ..; sourceTree = SOURCE_ROOT; };
 		E3EFB0AB4243DFD650939B5D /* ProjectRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRepository.swift; sourceTree = "<group>"; };
 		E6E101476811BD21DF541E81 /* BrowserImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserImport.swift; sourceTree = "<group>"; };
+		E86D4AC7C4F37BE5A85B2FF7 /* FritzIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FritzIOSApp.swift; sourceTree = "<group>"; };
+		EA728D38332E507D0E303E88 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F7C550C571C3079EDC2278C9 /* FritzIOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FritzIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F8155BB5CD8E320415E939AD /* ios-privacy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "ios-privacy.md"; sourceTree = "<group>"; };
 		F8486BEE467ADCDE588332B2 /* ChatResponseClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatResponseClipboard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		5E7029139D08C69A6D1BE1A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F75256561CE3D2A4BFF23FFA /* Security.framework in Frameworks */,
+				95B1765A6F0F3FFE60E1140C /* SystemConfiguration.framework in Frameworks */,
+				550C1B6667A320872B8AEC5A /* Textual in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E68AB7875FA988A0AEC68852 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -178,9 +224,14 @@
 		3E6F5AFD4838A58E2A7EB54F = {
 			isa = PBXGroup;
 			children = (
+				DD6012D7AC08391419DD54FA /* docs */,
 				05B50DCEBCD7B7A7414B8686 /* Fritz */,
+				E7E247E99C796FDB29D44A95 /* FritzIOS */,
+				EBEFA897C486429F87A098B2 /* FritzIOSUITests */,
+				A8BE79210B42975E86B647BA /* iOS */,
 				491B10F22B08BC253047DDEA /* Packages */,
 				6A1A95158920937FE034930A /* Resources */,
+				51EF4B84E3503AE52F621E78 /* Frameworks */,
 				B95C419B4F2B2E104305E902 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -188,7 +239,7 @@
 		491B10F22B08BC253047DDEA /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				B638E68FE104CA235307DFBB /* Fritz */,
+				D2B9140422C7D817271DF6AB /* fritz */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -202,6 +253,15 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		51EF4B84E3503AE52F621E78 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				927F749415B684965089C7C9 /* Security.framework */,
+				818953B3A2C3F09A1DB117E7 /* SystemConfiguration.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		6A1A95158920937FE034930A /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -210,10 +270,22 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		A8BE79210B42975E86B647BA /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				07D6C984CDE46507DBCE9A8E /* Assets.xcassets */,
+				EA728D38332E507D0E303E88 /* PrivacyInfo.xcprivacy */,
+			);
+			name = iOS;
+			path = Resources/iOS;
+			sourceTree = "<group>";
+		};
 		B95C419B4F2B2E104305E902 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				D074B702DF3BED67BF3C8EB4 /* Fritz.app */,
+				F7C550C571C3079EDC2278C9 /* FritzIOS.app */,
+				30B5E58D3D4B56D5C2CED8DF /* FritzIOSUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -228,9 +300,62 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		DD6012D7AC08391419DD54FA /* docs */ = {
+			isa = PBXGroup;
+			children = (
+				F8155BB5CD8E320415E939AD /* ios-privacy.md */,
+			);
+			name = docs;
+			path = ../docs;
+			sourceTree = "<group>";
+		};
+		E7E247E99C796FDB29D44A95 /* FritzIOS */ = {
+			isa = PBXGroup;
+			children = (
+				C95F7C244264BD851D76DA67 /* ChatStore.swift */,
+				E86D4AC7C4F37BE5A85B2FF7 /* FritzIOSApp.swift */,
+				765DE77A462F25AD536EEF6E /* FritzIOSBridge.h */,
+				82087F862D08A8B5CBAD48F3 /* ProviderRuntime.swift */,
+				AF39ADA66DA5656596D52643 /* ProvidersView.swift */,
+				B34C3C261EFEADF89CB437D3 /* Workspace.swift */,
+			);
+			name = FritzIOS;
+			path = Sources/FritzIOS;
+			sourceTree = "<group>";
+		};
+		EBEFA897C486429F87A098B2 /* FritzIOSUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A514B9565BF2291DA7D91E81 /* ChatFlowTests.swift */,
+			);
+			name = FritzIOSUITests;
+			path = Tests/FritzIOSUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		4C93E3BCE9CCEC6D815535A7 /* FritzIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9B749344C568AD90549D1200 /* Build configuration list for PBXNativeTarget "FritzIOS" */;
+			buildPhases = (
+				7EC3AF8FB0FED2A96FA919CA /* Build Fritz iOS runtime */,
+				5B4CEDB5585B0A6D6C61EA01 /* Sources */,
+				04D658C3AE315FF0A0CBBE6B /* Resources */,
+				5E7029139D08C69A6D1BE1A3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FritzIOS;
+			packageProductDependencies = (
+				9489E21B02B173A3A1F77E3B /* Textual */,
+			);
+			productName = FritzIOS;
+			productReference = F7C550C571C3079EDC2278C9 /* FritzIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
 		78D914F4EA2A58EA5AF2E78E /* FritzApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EC257BB26F154B570E1D5D10 /* Build configuration list for PBXNativeTarget "FritzApp" */;
@@ -257,6 +382,24 @@
 			productReference = D074B702DF3BED67BF3C8EB4 /* Fritz.app */;
 			productType = "com.apple.product-type.application";
 		};
+		81F90F8AA53E19E71E352308 /* FritzIOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 579DC69C2B0F241DBB244DF7 /* Build configuration list for PBXNativeTarget "FritzIOSUITests" */;
+			buildPhases = (
+				B0ABF6D1463BD5B8CA660F16 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00CE9755C72D9789EFB92A2 /* PBXTargetDependency */,
+			);
+			name = FritzIOSUITests;
+			packageProductDependencies = (
+			);
+			productName = FritzIOSUITests;
+			productReference = 30B5E58D3D4B56D5C2CED8DF /* FritzIOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -266,8 +409,15 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					4C93E3BCE9CCEC6D815535A7 = {
+						ProvisioningStyle = Automatic;
+					};
 					78D914F4EA2A58EA5AF2E78E = {
 						ProvisioningStyle = Manual;
+					};
+					81F90F8AA53E19E71E352308 = {
+						ProvisioningStyle = Manual;
+						TestTargetID = 4C93E3BCE9CCEC6D815535A7;
 					};
 				};
 			};
@@ -291,11 +441,23 @@
 			projectRoot = "";
 			targets = (
 				78D914F4EA2A58EA5AF2E78E /* FritzApp */,
+				4C93E3BCE9CCEC6D815535A7 /* FritzIOS */,
+				81F90F8AA53E19E71E352308 /* FritzIOSUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		04D658C3AE315FF0A0CBBE6B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8BD55ECBB8B01F2A3A85EFE9 /* Assets.xcassets in Resources */,
+				DE58148FF62D8E3D5F596A63 /* PrivacyInfo.xcprivacy in Resources */,
+				F8D09A84A2E5A9D0FEA96DE8 /* ios-privacy.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E1E4AB84FC6E6CE4B08C7E9D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -306,7 +468,41 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		7EC3AF8FB0FED2A96FA919CA /* Build Fritz iOS runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Fritz iOS runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/usr/bin/env bash\nset -euo pipefail\ncd \"${SRCROOT}/..\"\n\ncase \"${PLATFORM_NAME}\" in\n  iphoneos) target=aarch64-apple-ios ;;\n  iphonesimulator) target=aarch64-apple-ios-sim ;;\n  *) echo \"Unsupported Fritz iOS build platform: ${PLATFORM_NAME}\" >&2; exit 1 ;;\nesac\n\n# Xcode launched from Finder uses a smaller PATH than an interactive shell.\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:${HOME}/.local/bin:${PATH}\"\nexport SDKROOT=\"$(xcrun --sdk \"${PLATFORM_NAME}\" --show-sdk-path)\"\nexport IPHONEOS_DEPLOYMENT_TARGET\n\nif [[ \"${FRITZ_BUILD_CACHE_ACTIVE:-}\" != \"$PWD\" ]]; then\n  exec mise exec -- python3 scripts/build-cache.py \"$0\"\nfi\n\nmise exec -- cargo build --locked --release --package fritz-ios --target \"$target\"\nlibrary=\"${CARGO_TARGET_DIR}/${target}/release/libfritz_ios.a\"\noutput=\"${DERIVED_FILE_DIR}/libfritz_ios.a\"\nmkdir -p \"${DERIVED_FILE_DIR}\"\nif ! cmp -s \"$library\" \"$output\"; then\n  cp \"$library\" \"$output\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		5B4CEDB5585B0A6D6C61EA01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D9ECB4417618872910AD12E5 /* ChatStore.swift in Sources */,
+				3E804AEBA7D1E32F8B96441E /* FritzIOSApp.swift in Sources */,
+				37F97400029A6178A6E12E2D /* ProviderRuntime.swift in Sources */,
+				C6844D12C15024684446D17B /* ProvidersView.swift in Sources */,
+				A119187DC9710AD1F7984FB6 /* Workspace.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A82FF4EDACAED5091FBAA528 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -349,7 +545,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B0ABF6D1463BD5B8CA660F16 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4FDF7586252F851E118C2E34 /* ChatFlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A00CE9755C72D9789EFB92A2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C93E3BCE9CCEC6D815535A7 /* FritzIOS */;
+			targetProxy = 340940EE00C5832C92A532C8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		431EC9A0F1697942310BBCFE /* Release */ = {
@@ -399,16 +611,49 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
+		};
+		4F2EA0AB56CC8E60588653A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=iphonesimulator*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Fritz;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.1;
+				OTHER_LDFLAGS = "$(inherited) \"$(DERIVED_FILE_DIR)/libfritz_ios.a\"";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.app;
+				PRODUCT_MODULE_NAME = FritzIOS;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = Sources/FritzIOS/FritzIOSBridge.h;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
 		};
 		6DB7EEBCE167CA3DB33486AA /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -428,6 +673,57 @@
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(FRITZ_BROWSER_SWIFT_CONDITIONS)";
 				SWIFT_OBJC_BRIDGING_HEADER = "$(FRITZ_BROWSER_BRIDGING_HEADER)";
+			};
+			name = Release;
+		};
+		9357722B8C4B723CBCAE93A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=iphonesimulator*]" = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FritzIOS;
+			};
+			name = Release;
+		};
+		A47B6F3EAA79D9E92708007A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=iphonesimulator*]" = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Fritz;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.1;
+				OTHER_LDFLAGS = "$(inherited) \"$(DERIVED_FILE_DIR)/libfritz_ios.a\"";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.app;
+				PRODUCT_MODULE_NAME = FritzIOS;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = Sources/FritzIOS/FritzIOSBridge.h;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
@@ -484,12 +780,12 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -517,9 +813,45 @@
 			};
 			name = Debug;
 		};
+		F059847D9BD10C76CC66F0EF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=iphonesimulator*]" = arm64;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.fritz.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FritzIOS;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		579DC69C2B0F241DBB244DF7 /* Build configuration list for PBXNativeTarget "FritzIOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F059847D9BD10C76CC66F0EF /* Debug */,
+				9357722B8C4B723CBCAE93A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9B749344C568AD90549D1200 /* Build configuration list for PBXNativeTarget "FritzIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F2EA0AB56CC8E60588653A0 /* Debug */,
+				A47B6F3EAA79D9E92708007A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		C118F4DA3BC5E3BB170B2501 /* Build configuration list for PBXProject "Fritz" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -570,6 +902,11 @@
 		63772291272E2EF06FD92CDD /* FritzUpdates */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = FritzUpdates;
+		};
+		9489E21B02B173A3A1F77E3B /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7B1FC3347CE9B6665A97E18D /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
 		};
 		B3FD16680C7450D449DF981B /* Inferno */ = {
 			isa = XCSwiftPackageProductDependency;
