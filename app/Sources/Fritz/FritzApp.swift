@@ -177,6 +177,11 @@ struct FritzApp: App {
                 Button("New Local Model") { openWindow(id: "local-models") }
                 Button("New Remote Model") { openWindow(id: "remote-models") }
             }
+            CommandGroup(after: .toolbar) {
+                Button(state.settings.showsStatusBar ? "Hide Status Bar" : "Show Status Bar") {
+                    state.settings.showsStatusBar.toggle()
+                }
+            }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
                 Button("Stop Response") { state.workspace.selectedChat?.stopByUser() }.keyboardShortcut(".")
@@ -340,6 +345,12 @@ private struct FritzWorkspaceView: View {
                 .accessibilityValue(state.isBrowserPresented ? "Shown" : "Hidden")
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if state.settings.showsStatusBar {
+                let models = activeLocalModels
+                if !models.isEmpty { FritzStatusBar(models: models) }
+            }
+        }
         .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
@@ -362,5 +373,95 @@ private struct FritzWorkspaceView: View {
             .disabled(!state.workspace.canCreateThread)
     }
 
+    private var activeLocalModels: [LocalModelStatus] {
+        var models: [String: LocalModelStatus] = [:]
+        let resident = state.localModels.sessions.compactMap { id, session in
+            LocalModelStatus(id: id, session: session)
+        }
+        for model in resident + state.workspace.localChatStatuses {
+            if let current = models[model.id], current.phase.rawValue >= model.phase.rawValue { continue }
+            models[model.id] = model
+        }
+        return models.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+}
 
+struct LocalModelStatus {
+    enum Phase: Int {
+        case stopping, starting, running
+
+        var title: String {
+            switch self {
+            case .starting: "Starting"
+            case .running: "Running"
+            case .stopping: "Stopping"
+            }
+        }
+    }
+
+    let id: String
+    let name: String
+    var phase: Phase
+
+    init(id: String, name: String, phase: Phase) {
+        self.id = id
+        self.name = name
+        self.phase = phase
+    }
+
+    init?(id: String, session: ModelsRuntimeSession) {
+        let phase: Phase
+        switch session.status {
+        case .starting: phase = .starting
+        case .running: phase = .running
+        case .stopping: phase = .stopping
+        case .stopped, .failed: return nil
+        }
+        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id, phase: phase)
+    }
+}
+
+private struct FritzStatusBar: View {
+    let models: [LocalModelStatus]
+    @State private var usedMemory: UInt64?
+
+    private var modelSummary: String {
+        models.map { "\($0.name) · \($0.phase.title)" }.joined(separator: "  |  ")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 16) {
+                Label(modelSummary, systemImage: "cpu")
+                    .lineLimit(1)
+                    .help(modelSummary)
+                Spacer(minLength: 8)
+                if let usedMemory {
+                    Label("Memory \(gibibytes(usedMemory)) of \(gibibytes(ProcessInfo.processInfo.physicalMemory)) GiB",
+                          systemImage: "memorychip")
+                        .monospacedDigit()
+                        .fixedSize()
+                        .help("System memory used")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+        }
+        .background(FritzWindowStyle.workspaceBackground)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Status Bar")
+        .task {
+            while !Task.isCancelled {
+                usedMemory = ModelsLocalRuntime.usedMemoryBytes
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private func gibibytes(_ bytes: UInt64) -> String {
+        (Double(bytes) / 1_073_741_824).formatted(.number.precision(.fractionLength(0...1)))
+    }
 }

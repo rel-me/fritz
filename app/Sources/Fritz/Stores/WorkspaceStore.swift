@@ -24,7 +24,7 @@ import Observation
     let repository: ProjectRepository
     let modelCatalog: RemoteModelCatalog
     @ObservationIgnored private let agent: AgentClient
-    @ObservationIgnored private var chats: [UUID: (UUID, ChatStore)] = [:]
+    private var chats: [UUID: (UUID, ChatStore)] = [:]
     @ObservationIgnored private var availabilityCheck = false
     @ObservationIgnored private var projectRevision = 0
     @ObservationIgnored private var threadRevision = 0
@@ -60,6 +60,9 @@ import Observation
     }
 
     var selectedThreadID: UUID? { selectedThread?.id }
+    var localChatStatuses: [LocalModelStatus] {
+        chats.values.compactMap { $0.1.localModelStatus }
+    }
     var canCreateThread: Bool {
         canSave && !isEditing && (selectedProject.map { isAvailable($0) } ?? projects.contains { isAvailable($0) })
     }

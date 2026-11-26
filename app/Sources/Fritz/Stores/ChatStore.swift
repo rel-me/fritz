@@ -90,6 +90,7 @@ private struct CompactionReceipt: Decodable {
     var speed: ChatSpeed = .standard { didSet { schedulePreferences() } }
     var responseTokens: Int?
     private(set) var activity: String?
+    private(set) var localModelStatus: LocalModelStatus?
     private(set) var activeTools: [ChatToolActivity] = []
     let projectPath: String?
     let agent: AgentClient
@@ -235,6 +236,9 @@ private struct CompactionReceipt: Decodable {
                     if let projectPath { params["projectPath"] = projectPath }
                     if model.capabilities.supportsReasoningEffort { params["effort"] = effort.rawValue }
                     if model.capabilities.supportsSpeed { params["speed"] = speed.rawValue }
+                    if model.provider == .fritz {
+                        localModelStatus = LocalModelStatus(id: model.modelID, name: model.displayName, phase: .starting)
+                    }
                     for try await data in agent.stream(method: "chat", params: params, id: turn.uuidString) {
                         if stopRequested { break }
                         let event = try JSONDecoder().decode(AgentEvent.self, from: data)
@@ -256,6 +260,7 @@ private struct CompactionReceipt: Decodable {
                 if !stopRequested || !persisted { self.error = error.localizedDescription }
                 if persisted && !stopRequested { agent.cancel(turn.uuidString) }
             }
+            localModelStatus = nil
             isStartingTurn = false
             flushTask?.cancel()
             if let flushTask { await flushTask.value }
@@ -298,6 +303,7 @@ private struct CompactionReceipt: Decodable {
     private func stop(reason: StopReason) {
         guard let requestID, stopReason == nil else { return }
         stopReason = reason
+        localModelStatus?.phase = .stopping
         agent.cancel(requestID.uuidString)
     }
 
@@ -412,6 +418,9 @@ private struct CompactionReceipt: Decodable {
             }
         case "activity":
             activity = event.message
+            if event.contextTokens != nil {
+                localModelStatus?.phase = .running
+            }
         case "tool_start", "tool_end":
             guard let id = event.toolCallId, let name = event.name else { return }
             let current = activeTools.first { $0.id == id }

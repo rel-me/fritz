@@ -24,6 +24,7 @@ struct HarnessSettings: Codable, Equatable, Sendable {
     var appearance = AppAppearance.system.rawValue { didSet { save(appearance, key: "appearance") } }
     var updateChannel = AppUpdateChannel.release.rawValue { didSet { save(updateChannel, key: "updateChannel") } }
     var selectedTab = FritzSettingsTab.general.rawValue { didSet { save(selectedTab, key: "settingsTab") } }
+    var showsStatusBar = true { didSet { save(showsStatusBar, key: "showsStatusBar") } }
     var harness = HarnessSettings() { didSet { save(harness, key: "harness") } }
     private(set) var error: String?
     private var canSave = true
@@ -40,6 +41,7 @@ struct HarnessSettings: Codable, Equatable, Sendable {
                 try database.set(updateChannel, for: "updateChannel")
             }
             selectedTab = try database.setting("settingsTab") ?? FritzSettingsTab.general.rawValue
+            showsStatusBar = try database.setting("showsStatusBar") ?? true
             harness = try database.setting("harness") ?? HarnessSettings()
         } catch {
             canSave = false

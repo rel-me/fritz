@@ -20,6 +20,10 @@ the following surfaces, include these behaviors:
   a flat toolbar strip.
   Compare the toolbar with the exposed padding around the rounded detail corner:
   the color must remain continuous in fullscreen as well as in a normal window.
+- **Local model status bar:** Check the bottom of the main window while a local
+  model starts, runs, and stops. Verify memory updates, idle and remote-only chats,
+  the View menu toggle, and preference restoration after relaunch. Running chats
+  should remain visible in the bar when switching threads.
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.

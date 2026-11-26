@@ -18,6 +18,10 @@ to the model. You can
 set a context budget, reserve space for the reply, and choose how much recent
 history compaction should keep.
 
+Use **View → Show Status Bar** or **Hide Status Bar** to control the display of
+system memory usage and local model status at the bottom of the main window.
+The bar is hidden when no local model is active.
+
 ## Install
 
 Open the release DMG and drag Fritz onto the Applications shortcut. Eject the

@@ -156,6 +156,20 @@ import Observation
     }
 
     private static var availableMemoryGB: Int? {
+        guard let (stats, pageSize) = memoryStatistics() else { return nil }
+        let pages = UInt64(stats.free_count) + UInt64(stats.inactive_count) + UInt64(stats.speculative_count)
+        return max(0, Int(pages * pageSize / 1_073_741_824) - 2)
+    }
+
+    /// System-wide physical memory in use, including wired and compressed pages.
+    public static var usedMemoryBytes: UInt64? {
+        guard let (stats, pageSize) = memoryStatistics() else { return nil }
+        let occupied = Int64(stats.internal_page_count) + Int64(stats.wire_count)
+            + Int64(stats.compressor_page_count) - Int64(stats.purgeable_count)
+        return min(UInt64(max(0, occupied)) * pageSize, ProcessInfo.processInfo.physicalMemory)
+    }
+
+    private static func memoryStatistics() -> (vm_statistics64, UInt64)? {
         let host = mach_host_self()
         defer { mach_port_deallocate(mach_task_self_, host) }
         var stats = vm_statistics64()
@@ -167,8 +181,7 @@ import Observation
         }
         var pageSize: vm_size_t = 0
         guard result == KERN_SUCCESS, host_page_size(host, &pageSize) == KERN_SUCCESS else { return nil }
-        let pages = UInt64(stats.free_count) + UInt64(stats.inactive_count) + UInt64(stats.speculative_count)
-        return max(0, Int(pages * UInt64(pageSize) / 1_073_741_824) - 2)
+        return (stats, UInt64(pageSize))
     }
 
     public func startService() {
