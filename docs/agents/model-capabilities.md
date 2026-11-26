@@ -86,8 +86,10 @@ picker workflow when changing capabilities or presentation.
 
 The catalog records the published model limit. Fritz measures how much
 context fits when a local chat starts, using the selected cache format and
-available Metal memory. For pinned GGUFs, use the publisher’s context limit or the pinned repository’s GGUF
-metadata and record the source in `limit.source_url`. Local decision models
+available Metal memory. A model may set a lower Automatic startup ceiling in
+`limit.automatic_target`. For pinned GGUFs, use the publisher’s context limit or
+the pinned repository’s GGUF metadata and record the source in
+`limit.source_url`. Local decision models
 record the usable input cap from their pinned configuration or Fritz runtime.
 The website displays the published snapshot. Fritz refreshes provider-reported
 limits through model discovery and leaves unreported limits unknown.

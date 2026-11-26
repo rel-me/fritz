@@ -10,7 +10,8 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 In **Settings → Harness**, chat context uses the selected model's limits by
 default. For local chat, Fritz fits the window to available Metal memory up
-to the model's limit. Fritz stops a local chat if macOS reports memory pressure
+to the model's limit. Inkling 2 Mini starts at up to 16,384 tokens in Automatic
+mode. Fritz stops a local chat if macOS reports memory pressure
 or swap use grows during the request. **Quantize Local KV Cache** can fit a larger
 window by using an 8-bit attention cache. Automatic compaction summarizes older
 turns as the conversation fills the context window and keeps recent turns available

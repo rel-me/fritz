@@ -23,6 +23,7 @@ public struct ModelsCatalogView: View {
     @State private var scoreFilter: LocalModelScoreFilter = .all
     @State private var scoreOrder: [LocalModelScoreComparator<LocalModelTableRow>] = []
     @State private var expandedLocalFamilies: Set<String> = []
+    @State private var collapsedSearchFamilies: Set<String> = []
     private let hardware = LocalModelHardware.current
     @State private var checkedInventory = false
     @State private var installedDecisionIDs: Set<String>?
@@ -64,6 +65,7 @@ public struct ModelsCatalogView: View {
         let model: ChatModelOption
         let descriptor: NativeModelDescriptor?
         var id: String { model.id }
+        var family: String { descriptor?.family ?? model.displayProvider.displayName }
     }
 
     private enum LocalModelTableRow: Identifiable {
@@ -93,7 +95,8 @@ public struct ModelsCatalogView: View {
                 && matchesDownloadFilter($0) && (query.isEmpty
                     || $0.displayName.localizedStandardContains(query)
                     || $0.modelID.localizedStandardContains(query)
-                    || descriptors[$0.modelID]?.family.localizedStandardContains(query) == true)
+                    || (descriptors[$0.modelID]?.family ?? $0.displayProvider.displayName)
+                        .localizedStandardContains(query))
         }.map { LocalModelRow(model: $0, descriptor: descriptors[$0.modelID]) }
             .filter { row in
                 scoreFilter.includes(row.descriptor?.benchmarkScore?.points)
@@ -110,31 +113,37 @@ public struct ModelsCatalogView: View {
     private func localTableRows(_ rows: [LocalModelRow]) -> [LocalModelTableRow] {
         let models = rows.map(LocalModelTableRow.model)
         let leaves = scoreOrder.isEmpty ? models : models.sorted(using: scoreOrder)
-        guard query.isEmpty else { return leaves }
-
-        let families = Dictionary(grouping: leaves.compactMap(\.modelRow)) { $0.descriptor?.family }
+        let families = Dictionary(grouping: leaves.compactMap(\.modelRow), by: \.family)
         var shownFamilies = Set<String>()
         // Keep the order of each family's first model and the order within it.
         return leaves.compactMap { leaf in
-            guard let family = leaf.modelRow?.descriptor?.family,
-                  let siblings = families[family], siblings.count > 1 else { return leaf }
+            guard let family = leaf.modelRow?.family,
+                  let siblings = families[family] else { return nil }
             return shownFamilies.insert(family).inserted ? .family(family, siblings) : nil
         }
     }
 
     private var selected: ChatModelOption? {
         guard let selection else { return nil }
-        for row in localTableRows(localRows) {
-            switch row {
-            case .model(let model) where model.id == selection:
-                return model.model
-            case .family(let name, let models) where expandedLocalFamilies.contains(name):
-                if let model = models.first(where: { $0.id == selection }) { return model.model }
-            default:
-                break
-            }
+        for case .family(let name, let models) in localTableRows(localRows) where isFamilyExpanded(name) {
+            if let model = models.first(where: { $0.id == selection }) { return model.model }
         }
         return nil
+    }
+
+    private func isFamilyExpanded(_ family: String) -> Bool {
+        query.isEmpty ? expandedLocalFamilies.contains(family) : !collapsedSearchFamilies.contains(family)
+    }
+
+    private func setFamilyExpanded(_ family: String, models: [LocalModelRow], expanded: Bool) {
+        if query.isEmpty {
+            if expanded { expandedLocalFamilies.insert(family) }
+            else { expandedLocalFamilies.remove(family) }
+        } else {
+            if expanded { collapsedSearchFamilies.remove(family) }
+            else { collapsedSearchFamilies.insert(family) }
+        }
+        if !expanded, models.contains(where: { $0.id == selection }) { selection = nil }
     }
     private var connections: [ProviderConnection] {
         store.connections.filter {
@@ -236,11 +245,14 @@ public struct ModelsCatalogView: View {
             .width(min: 120, ideal: 140)
             TableColumn("Context") { row in
                 if let model = row.modelRow {
-                    Text(model.descriptor?.context?.summary ?? "Unknown")
+                    let context = model.descriptor?.context
+                    let details = context?.summary ?? "Context limit unknown"
+                    Text(compactContext(context))
                         .lineLimit(1)
-                        .help(model.descriptor?.context?.summary ?? "Context limit unknown")
+                        .help(details)
+                        .accessibilityLabel(details)
                 }
-            }.width(min: 125, ideal: 205)
+            }.width(72)
             TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
                 if let model = row.modelRow {
                     LocalModelScoreCell(score: model.descriptor?.benchmarkScore)
@@ -251,15 +263,8 @@ public struct ModelsCatalogView: View {
             ForEach(localTableRows(rows)) { row in
                 if case .family(let name, let models) = row {
                     DisclosureTableRow(row, isExpanded: Binding(
-                        get: { expandedLocalFamilies.contains(name) },
-                        set: { expanded in
-                            if expanded {
-                                expandedLocalFamilies.insert(name)
-                            } else {
-                                expandedLocalFamilies.remove(name)
-                                if models.contains(where: { $0.id == selection }) { selection = nil }
-                            }
-                        }
+                        get: { isFamilyExpanded(name) },
+                        set: { setFamilyExpanded(name, models: models, expanded: $0) }
                     )) {
                         ForEach(models) { TableRow(LocalModelTableRow.model($0)) }
                     }
@@ -269,6 +274,7 @@ public struct ModelsCatalogView: View {
             }
         }
         .accessibilityLabel("Local Models")
+        .onChange(of: query) { collapsedSearchFamilies.removeAll() }
         .contextMenu(forSelectionType: String.self) { ids in
             if let id = ids.first, let row = rows.first(where: { $0.id == id }) {
                 Button("Set Up Model…") { setup = row.model }
@@ -282,6 +288,18 @@ public struct ModelsCatalogView: View {
             }
         } primaryAction: { ids in
             if let id = ids.first { setup = rows.first { $0.id == id }?.model }
+        }
+    }
+
+    private func compactContext(_ context: ModelContext?) -> String {
+        guard let tokens = context?.windowTokens ?? context?.inputTokens else { return "Unknown" }
+        switch tokens {
+        case 999_500...:
+            return "\((Double(tokens) / 1_000_000).formatted(.number.precision(.fractionLength(0...1))))M"
+        case 1_000...:
+            return "\((Double(tokens) / 1_000).formatted(.number.precision(.fractionLength(0))))k"
+        default:
+            return tokens.formatted()
         }
     }
 

@@ -50,11 +50,18 @@ public struct NativeModelDescriptor: Decodable, Identifiable, Equatable, Sendabl
     private struct CatalogLimit: Decodable, Equatable, Sendable {
         let context: UInt32?
         let input: UInt32?
+        let automaticTarget: UInt32?
+
+        private enum CodingKeys: String, CodingKey {
+            case context, input
+            case automaticTarget = "automatic_target"
+        }
     }
 
     public var context: ModelContext? {
         limit.map {
-            ModelContext(windowTokens: $0.context, inputTokens: $0.input, source: .fritz)
+            ModelContext(windowTokens: $0.context, inputTokens: $0.input,
+                         automaticWindowTokens: $0.automaticTarget, source: .fritz)
         }
     }
 
