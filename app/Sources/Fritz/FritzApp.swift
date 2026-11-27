@@ -235,6 +235,19 @@ private struct FritzWorkspaceView: View {
     @State private var chatHeaderFrame: CGRect = .zero
 
     var body: some View {
+        VStack(spacing: 0) {
+            workspace
+            if state.settings.showsStatusBar {
+                let models = activeLocalModels
+                if !models.isEmpty { FritzStatusBar(models: models) }
+            }
+        }
+        .fritzWindowBackground()
+        .frame(minWidth: 900, minHeight: 620)
+        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
+    }
+
+    private var workspace: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             ProjectsSidebar(workspace: state.workspace)
                 .frame(minWidth: 240, idealWidth: 280, maxWidth: 360)
@@ -345,15 +358,6 @@ private struct FritzWorkspaceView: View {
                 .accessibilityValue(state.isBrowserPresented ? "Shown" : "Hidden")
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if state.settings.showsStatusBar {
-                let models = activeLocalModels
-                if !models.isEmpty { FritzStatusBar(models: models) }
-            }
-        }
-        .fritzWindowBackground()
-        .frame(minWidth: 900, minHeight: 620)
-        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {
@@ -450,7 +454,8 @@ private struct FritzStatusBar: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
         }
-        .background(FritzWindowStyle.workspaceBackground)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(.bar)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Status Bar")
         .task {
