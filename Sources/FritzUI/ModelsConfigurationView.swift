@@ -275,7 +275,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     if nativeModel.state == .installed, let directory = nativeModel.downloadDirectory {
                         LabeledContent("Stored in") {
                             ModelStoragePathControl(directory: directory, choose: nil)
-                                .frame(width: 220, height: 24)
+                                .frame(maxWidth: 220, alignment: .trailing)
+                                .frame(height: 24)
                         }
                     }
                     if initialModel == nil && nativeModel.state != .installed {
