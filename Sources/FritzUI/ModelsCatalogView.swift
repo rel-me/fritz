@@ -306,13 +306,17 @@ public struct ModelsCatalogView: View {
         guard row.model.category == .llm else {
             return (compactContext(maximum), context?.summary ?? "Context limit unknown")
         }
+        let fit = automaticContextFits[row.model.modelID]
+        let target = context?.automaticWindowTokens ?? maximum
+        let available = fit ?? target
+        let maximumTitle = compactContext(maximum)
+        let title = available == maximum ? maximumTitle : "\(compactContext(available))/\(maximumTitle)"
         let maximumDetails = "Model maximum: \(maximum.formatted()) tokens."
-        if let fit = automaticContextFits[row.model.modelID] {
-            return ("\(compactContext(fit))/\(compactContext(maximum))",
+        if let fit {
+            return (title,
                     "Last Automatic fit on this Mac: \(fit.formatted()) tokens. \(maximumDetails) Available memory can change between chats.")
         }
-        let target = context?.automaticWindowTokens ?? maximum
-        return ("\(compactContext(target))/\(compactContext(maximum))",
+        return (title,
                 "Automatic target: up to \(target.formatted()) tokens. \(maximumDetails) Fritz checks available memory when the chat starts.")
     }
 
