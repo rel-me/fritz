@@ -107,6 +107,10 @@ the following surfaces, include these behaviors:
   values and their exact token counts in help.
   Check the Context column shows Automatic/maximum for chat models, with the
   latest measured Automatic fit for the selected KV cache setting.
+  Start a model download, close the sheet, and check progress in Local Models.
+  Reopen the sheet during the transfer and use Stop Download. Verify that
+  downloading again resumes the saved bytes and closing the sheet leaves the
+  chat selection alone.
   Local Models has no Provider column or provider picker in local setup/edit.
   Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.

@@ -176,10 +176,31 @@ final class SharedControlSnapshots: XCTestCase {
         }
     }
 
-    func testDownloadCompletionRefreshesInstalledPath() async throws {
-        let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
-        defer { model.cancel() }
-        model.install()
+    func testBackgroundDownloadSurvivesClosingAndCanStopAndRetry() async throws {
+        let store = ModelsFixture(state: "controlled")
+        var firstView: ConfigurationNativeModel? = ConfigurationNativeModel(store: store)
+        weak var releasedView = firstView
+        let requestID = try XCTUnwrap(firstView?.install())
+        firstView = nil
+        XCTAssertNil(releasedView)
+
+        let model = ConfigurationNativeModel(store: store)
+        defer { model.stopDownload() }
+        model.refresh()
+        XCTAssertTrue(model.isDownloading)
+        XCTAssertNil(model.install())
+        let progressDeadline = ContinuousClock.now + .seconds(2)
+        while model.state == .checking && ContinuousClock.now < progressDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.state, .downloading(downloaded: 25, total: 100))
+        model.stopDownload()
+        XCTAssertFalse(model.isDownloading)
+        XCTAssertEqual(store.stoppedDownloads, [requestID])
+
+        let retryID = try XCTUnwrap(model.install())
+        XCTAssertNotEqual(requestID, retryID)
+        try store.finishDownload(retryID)
         let deadline = ContinuousClock.now + .seconds(2)
         while model.installedURL == nil && ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))
@@ -392,6 +413,7 @@ final class SharedControlSnapshots: XCTestCase {
 }
 
 @MainActor @Observable private final class ModelsFixture: ModelsProviderStore {
+    let modelDownloads = ModelDownloads()
     let modelStorage = ModelStorage(events: { _, _, _ in
         AsyncThrowingStream { continuation in
             continuation.yield(Data(#"{"type":"result","result":{"directory":"/Models","modelCount":0,"bytes":0}}"#.utf8))
@@ -409,6 +431,8 @@ final class SharedControlSnapshots: XCTestCase {
     var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
     private let connectionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     private var downloadedIDs: Set<String> = []
+    private var pendingDownloads: [String: (String, AsyncThrowingStream<Data, Error>.Continuation)] = [:]
+    private(set) var stoppedDownloads: [String] = []
     init(state: String) { self.state = state; error = state == "error" ? "The provider is unavailable." : nil }
     func connection(_ provider: AIProviderKind) -> ProviderConnection {
         .init(id: connectionID, name: "Test", provider: provider,
@@ -427,6 +451,11 @@ final class SharedControlSnapshots: XCTestCase {
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             if state == "error" { continuation.finish(throwing: AgentFailure(message: "The installer is unavailable.")); return }
+            if install && state == "controlled" {
+                pendingDownloads[requestID] = (modelID, continuation)
+                continuation.yield(Data(#"{"type":"progress","status":"downloading","downloaded":25,"total":100}"#.utf8))
+                return
+            }
             let result: [String: Any]
             if install {
                 downloadedIDs.insert(modelID)
@@ -441,7 +470,20 @@ final class SharedControlSnapshots: XCTestCase {
             continuation.yield(try! JSONSerialization.data(withJSONObject: event)); continuation.finish()
         }
     }
-    func cancelModelRequest(_ requestID: String) {}
+    func cancelModelRequest(_ requestID: String) {
+        guard let (_, pending) = pendingDownloads.removeValue(forKey: requestID) else { return }
+        stoppedDownloads.append(requestID)
+        pending.finish(throwing: CancellationError())
+    }
+
+    func finishDownload(_ requestID: String) throws {
+        let (modelID, pending) = try XCTUnwrap(pendingDownloads.removeValue(forKey: requestID))
+        downloadedIDs.insert(modelID)
+        pending.yield(try JSONSerialization.data(withJSONObject: [
+            "type": "result", "result": ["modelId": modelID, "installed": true],
+        ]))
+        pending.finish()
+    }
 }
 
 @MainActor @Observable private final class RuntimeFixture: ModelsRuntimeStore {
@@ -500,7 +542,8 @@ extension SharedControlSnapshots {
         LocalModelSetupSheet(model: model, state: progress.state, memoryGB: 8, storage: storage,
                              installedDirectory: URL(fileURLWithPath: "/Models"),
                              primaryActionTitle: actionTitle, canSubmit: !progress.state.isBusy,
-                             isSaving: false, cancel: {}, submit: {}) { EmptyView() }
+                             isSaving: false, isDownloading: progress.state.isBusy,
+                             close: {}, stopDownload: {}, submit: {}) { EmptyView() }
     }
 
     private var actionTitle: String {

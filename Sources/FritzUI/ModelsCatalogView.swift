@@ -241,7 +241,8 @@ public struct ModelsCatalogView: View {
             TableColumn("Status") { row in
                 if let model = row.modelRow?.model {
                     let running = sessions[model.modelID]?.status == .running
-                    Text(running ? ModelsRuntimeSession.Status.running.title : status(model))
+                    Text(store.modelDownloads[model.modelID]?.activeStatus
+                         ?? (running ? ModelsRuntimeSession.Status.running.title : status(model)))
                         .foregroundStyle(running ? .green : .secondary)
                 }
             }
@@ -280,6 +281,9 @@ public struct ModelsCatalogView: View {
         .contextMenu(forSelectionType: String.self) { ids in
             if let id = ids.first, let row = rows.first(where: { $0.id == id }) {
                 Button("Set Up Model…") { setup = row.model }
+                if let transfer = store.modelDownloads[row.model.modelID], transfer.isDownloading {
+                    Button("Stop Download") { transfer.stopDownload() }
+                }
                 if let score = row.descriptor?.benchmarkScore {
                     Link("View Benchmark Result", destination: score.sourceURL)
                 }
@@ -358,6 +362,9 @@ public struct ModelsCatalogView: View {
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
                                  initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model,
                                  providerOptions: location == .local ? [model.displayProvider] : nil)
+        }
+        .onChange(of: store.modelDownloads.completedDownloads) {
+            if location == .local { Task { await refreshInventory() } }
         }
         .sheet(item: $providerSetup) { row in
             ModelsProviderEditor(store: store, localModels: runtime, existing: row.connection,
