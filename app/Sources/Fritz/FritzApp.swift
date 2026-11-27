@@ -445,7 +445,8 @@ struct LocalModelStatus: Identifiable {
         guard phase == .starting else { return phase.title }
         guard let loadProgress else { return "Starting…" }
         if loadProgress >= 1 { return "Preparing context…" }
-        return "Loading weights \(loadProgress.formatted(.percent.rounded(rule: .down)))"
+        let percent = loadProgress.formatted(.percent.precision(.fractionLength(0)).rounded(rule: .down))
+        return "Loading weights \(percent)"
     }
 
     init?(id: String, session: ModelsRuntimeSession, name: String?) {
