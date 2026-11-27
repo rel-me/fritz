@@ -127,8 +127,9 @@ the following surfaces, include these behaviors:
   and sorting by score, and opening setup from a child row. Search opens matching
   families by default. Folder rows have no model actions. Check compact Context
   values and their exact token counts in help.
-  Check the Context column shows Automatic/maximum for chat models, with the
-  latest measured Automatic fit for the selected KV cache setting.
+  Check the Context column uses the latest measured Automatic fit for the
+  selected KV cache setting. It shows one count when Automatic equals the model
+  maximum and Automatic/maximum when the counts differ.
   Start a model download, close the sheet, and check progress in Local Models.
   Reopen the sheet during the transfer and use Stop Download. Verify that
   downloading again resumes the saved bytes and closing the sheet leaves the
