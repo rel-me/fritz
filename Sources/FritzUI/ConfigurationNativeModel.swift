@@ -29,7 +29,7 @@ import Observation
         return transfer
     }
 
-    fileprivate func transfer(for model: NativeModelDescriptor, store: any ModelsProviderStore) -> ModelTransfer {
+    func transfer(for model: NativeModelDescriptor, store: any ModelsProviderStore) -> ModelTransfer {
         if let transfer = transfers[model.id] { return transfer }
         let transfer = ModelTransfer(model: model, store: store) { [weak self] in
             self?.completedDownloads += 1

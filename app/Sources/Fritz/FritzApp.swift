@@ -235,17 +235,29 @@ private struct FritzWorkspaceView: View {
     @State private var browserOpeningID = 0
     @State private var workspaceWidth: CGFloat = 900
     @State private var chatHeaderFrame: CGRect = .zero
+    @State private var selectedModelStatus: LocalModelStatus?
 
     var body: some View {
         VStack(spacing: 0) {
             workspace
             if state.settings.showsStatusBar {
-                FritzStatusBar(models: activeLocalModels)
+                FritzStatusBar(models: activeLocalModels) { selectedModelStatus = $0 }
             }
         }
         .fritzWindowBackground()
         .frame(minWidth: 900, minHeight: 620)
         .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
+        .sheet(item: $selectedModelStatus) { model in
+            LocalModelStatusSheet(store: state.providers, runtime: state.localModels,
+                                  modelID: model.id, name: model.name,
+                                  activeStatus: {
+                activeLocalModels.first { $0.id == model.id }.map { ($0.title, $0.kvCacheBytes) }
+            }, canStopChats: {
+                state.workspace.localChatStatuses.contains { $0.id == model.id && $0.phase != .stopping }
+            }, stopChats: {
+                state.workspace.stopLocalModelChats(model.id)
+            })
+        }
     }
 
     private var workspace: some View {
@@ -400,7 +412,7 @@ private struct FritzWorkspaceView: View {
     }
 }
 
-struct LocalModelStatus {
+struct LocalModelStatus: Identifiable {
     enum Phase: Int {
         case loaded, running, stopping, starting
 
@@ -451,27 +463,41 @@ struct LocalModelStatus {
 
 private struct FritzStatusBar: View {
     let models: [LocalModelStatus]
+    let selectModel: (LocalModelStatus) -> Void
     @State private var usedMemory: UInt64?
 
-    private var modelSummary: String {
-        models.map { model in
-            let status = "\(model.name) · \(model.title)"
-            guard let bytes = model.kvCacheBytes else { return status }
-            let size = ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .binary)
-            return "\(status) · KV cache \(size)"
-        }.joined(separator: "  |  ")
+    private func summary(for model: LocalModelStatus) -> String {
+        let status = "\(model.name) · \(model.title)"
+        guard let bytes = model.kvCacheBytes else { return status }
+        let size = ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .binary)
+        return "\(status) · KV cache \(size)"
     }
 
     var body: some View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 16) {
-                if !models.isEmpty {
-                    Label(modelSummary, systemImage: "cpu")
-                        .lineLimit(1)
-                        .help(modelSummary)
+                if models.isEmpty {
+                    Spacer(minLength: 8)
+                } else {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 16) {
+                            ForEach(models) { model in
+                                let summary = summary(for: model)
+                                Button {
+                                    selectModel(model)
+                                } label: {
+                                    Label(summary, systemImage: "cpu").lineLimit(1)
+                                }
+                                .buttonStyle(.link)
+                                .help(summary)
+                                .accessibilityHint("Opens Model Status")
+                            }
+                        }
+                    }
+                    .scrollIndicators(.never)
+                    .frame(height: 16)
                 }
-                Spacer(minLength: 8)
                 if !models.isEmpty, let usedMemory {
                     Label("Memory \(gibibytes(usedMemory)) of \(gibibytes(ProcessInfo.processInfo.physicalMemory)) GiB",
                           systemImage: "memorychip")
