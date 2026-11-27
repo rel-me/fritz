@@ -20,7 +20,7 @@ enum ProviderRuntime {
 
         init(_ connection: ProviderConnection, model: String? = nil, messages: [ChatMessage]? = nil) {
             api = connection.kind == .openAI ? "openai" : "compatible"
-            baseURL = connection.endpoint
+            baseURL = connection.apiEndpoint
             operation = model == nil ? "discover" : "chat"
             self.model = model
             self.messages = messages
@@ -91,6 +91,7 @@ enum ProviderRuntime {
     }
 
     static func models(for connection: ProviderConnection, key: Data?) async throws -> [Model] {
+        try connection.validate(key: key)
         for try await event in events(Request(connection), key: key) {
             if let models = event.models { return models }
         }
