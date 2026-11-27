@@ -9,7 +9,6 @@ public enum ModelsImportPolicy: String, CaseIterable {
 /// Host persistence and networking. Configuration UI belongs to FritzUI.
 @MainActor public protocol ModelsProviderStore: AnyObject, Observable {
     var connections: [ProviderConnection] { get }
-    var defaultConnectionID: UUID? { get }
     var catalog: [UUID: [DiscoveredAIModel]] { get }
     var discoveryErrors: [UUID: String] { get }
     var isLoading: Bool { get }
@@ -18,9 +17,8 @@ public enum ModelsImportPolicy: String, CaseIterable {
     var modelStorage: ModelStorage { get }
     var nativeModelCatalog: [NativeModelDescriptor] { get }
     func refresh() async
-    func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws
+    func save(_ connection: ProviderConnection, key: String) async throws
     func remove(_ connection: ProviderConnection) async
-    func makeDefault(_ connection: ProviderConnection) async
     func importProviders(_ text: String, policy: ModelsImportPolicy) async throws
     func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel]

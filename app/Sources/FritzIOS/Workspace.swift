@@ -32,7 +32,6 @@ struct ProviderConnection: Identifiable, Codable, Sendable {
     var kind = ProviderKind.openAI
     var name = ""
     var customEndpoint = ""
-    var defaultModel = ""
     var credentialID: UUID?
     var endpoint: String { kind == .compatible || kind == .fritzRemote ? customEndpoint : kind.endpoint }
 

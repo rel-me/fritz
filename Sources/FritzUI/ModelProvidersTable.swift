@@ -6,18 +6,16 @@ public struct ModelProviderItem<ID: Hashable>: Identifiable {
   public let nameHelp: String?
   public let warning: String?
   public let isLocal: Bool
-  public let isDefault: Bool
   public let models: String?
 
   public init(
-    id: ID, name: String, warning: String?, isLocal: Bool, isDefault: Bool, models: String?, nameHelp: String? = nil
+    id: ID, name: String, warning: String?, isLocal: Bool, models: String?, nameHelp: String? = nil
   ) {
     self.id = id
     self.name = name
     self.nameHelp = nameHelp
     self.warning = warning
     self.isLocal = isLocal
-    self.isDefault = isDefault
     self.models = models
   }
 }
@@ -67,9 +65,6 @@ public struct ModelProvidersTable<ID: Hashable>: View {
               }
               if profile.isLocal {
                 providerChip("Local")
-              }
-              if profile.isDefault {
-                providerChip("Default")
               }
             }
           }

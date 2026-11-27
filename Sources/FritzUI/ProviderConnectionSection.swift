@@ -12,13 +12,12 @@ public struct ProviderConnectionPresentation {
   public var canToggleAPIKeyVisibility: Bool
   public var modelCount: Int
   public var isDiscovering: Bool
-  public var showsDefaultToggle: Bool
 
   public init(
     baseURLTitle: String, baseURLPrompt: String, baseURLHelp: String, apiKeyTitle: String,
     apiKeyHelp: String, hasStoredAPIKey: Bool, isAPIKeyVisible: Bool,
     apiKeyVisibilityButtonTitle: String, canToggleAPIKeyVisibility: Bool, modelCount: Int,
-    isDiscovering: Bool, showsDefaultToggle: Bool
+    isDiscovering: Bool
   ) {
     self.baseURLTitle = baseURLTitle
     self.baseURLPrompt = baseURLPrompt
@@ -31,7 +30,6 @@ public struct ProviderConnectionPresentation {
     self.canToggleAPIKeyVisibility = canToggleAPIKeyVisibility
     self.modelCount = modelCount
     self.isDiscovering = isDiscovering
-    self.showsDefaultToggle = showsDefaultToggle
   }
 }
 
@@ -39,21 +37,19 @@ public struct ProviderConnectionPresentation {
 public struct ProviderConnectionSection<Feedback: View>: View {
   @Binding var baseURL: String
   @Binding var apiKey: String
-  @Binding var makeDefault: Bool
   let presentation: ProviderConnectionPresentation
   let toggleAPIKeyVisibility: () -> Void
   let refresh: () -> Void
   let feedback: Feedback
 
   public init(
-    baseURL: Binding<String>, apiKey: Binding<String>, makeDefault: Binding<Bool>,
+    baseURL: Binding<String>, apiKey: Binding<String>,
     presentation: ProviderConnectionPresentation,
     toggleAPIKeyVisibility: @escaping () -> Void, refresh: @escaping () -> Void,
     @ViewBuilder feedback: () -> Feedback
   ) {
     _baseURL = baseURL
     _apiKey = apiKey
-    _makeDefault = makeDefault
     self.presentation = presentation
     self.toggleAPIKeyVisibility = toggleAPIKeyVisibility
     self.refresh = refresh
@@ -137,9 +133,6 @@ public struct ProviderConnectionSection<Feedback: View>: View {
         .frame(minHeight: 20)
       }
 
-      if presentation.showsDefaultToggle {
-        Toggle("Use as Default Provider", isOn: $makeDefault)
-      }
     } footer: {
       feedback
     }

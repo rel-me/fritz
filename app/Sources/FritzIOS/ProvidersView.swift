@@ -134,7 +134,6 @@ private struct ProviderEditor: View {
 
     private func save() {
         var updated = connection
-        if destinationChanged { updated.defaultModel = "" }
         if savedConnection?.kind != connection.kind { updated.name = connection.kind.title }
         do {
             try store.saveProvider(updated, replacement: replacement)
@@ -157,9 +156,9 @@ struct ChatModelView: View {
         self.store = store
         self.chat = chat
         let saved = store.workspace.providers.first { $0.id == chat.providerID }
-        let selection = saved ?? store.workspace.providers.first
+        let selection = saved ?? (store.workspace.providers.count == 1 ? store.workspace.providers.first : nil)
         _providerID = State(initialValue: selection?.id)
-        _model = State(initialValue: saved == nil ? (selection?.defaultModel ?? "") : chat.model)
+        _model = State(initialValue: saved == nil ? "" : chat.model)
     }
 
     private var provider: ProviderConnection? {
@@ -212,7 +211,7 @@ struct ChatModelView: View {
                 .disabled(provider == nil || model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .onChange(of: providerID) { _, _ in model = provider?.defaultModel ?? "" }
+        .onChange(of: providerID) { _, id in model = id == chat.providerID ? chat.model : "" }
     }
 }
 

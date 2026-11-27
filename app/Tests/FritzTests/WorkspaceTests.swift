@@ -177,6 +177,8 @@ import FritzUpdates
         let second = try XCTUnwrap(workspace.selectedThreadID)
         XCTAssertNotEqual(first, second)
         XCTAssertTrue(workspace.selectedChat?.draft.isEmpty == true)
+        workspace.selectedChat?.synchronizeModel(models: [model])
+        XCTAssertNil(workspace.selectedChat?.selectedModel)
         workspace.selectedChat?.draft = "Second draft"
         await workspace.renameThread(second, to: "Investigate a failure")
         await workspace.select(first)
@@ -187,7 +189,7 @@ import FritzUpdates
         XCTAssertEqual(restored.selectedThreadID, first)
         XCTAssertEqual(restored.threads.last?.title, "Investigate a failure")
         XCTAssertEqual(restored.selectedChat?.draft, "First draft")
-        restored.selectedChat?.synchronizeModel(models: [model], defaultModel: nil)
+        restored.selectedChat?.synchronizeModel(models: [model])
         XCTAssertEqual(restored.selectedChat?.selectedModel, model)
         await restored.select(second)
         XCTAssertEqual(restored.selectedChat?.draft, "Second draft")

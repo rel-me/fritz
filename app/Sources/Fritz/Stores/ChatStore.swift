@@ -148,12 +148,11 @@ private struct CompactionReceipt: Decodable {
             && selectedModel?.connectionID != nil && agent.isRunning && !isResponding
     }
 
-    func synchronizeModel(models: [ChatModelOption], defaultModel: ChatModelOption?) {
+    func synchronizeModel(models: [ChatModelOption]) {
+        guard !isResponding else { return }
         if let provider = loadedPreferences.connectionID, let model = loadedPreferences.modelID,
            let saved = models.first(where: { $0.connectionID == provider && $0.modelID == model }) {
             select(saved, restoring: true)
-        } else if let defaultModel {
-            select(defaultModel)
         } else {
             selectedModel = nil
         }
