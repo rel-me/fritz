@@ -75,7 +75,9 @@ impl Engine {
         Ok(Self {
             model_id: model_id.to_owned(),
             path: store.installed_path(model_id).await?,
-            context_size: super::LEGACY_CHAT_CONTEXT_TOKENS as usize,
+            context_size: super::LEGACY_CHAT_CONTEXT_TOKENS
+                .min(super::models::manifest(model_id)?.limit.context)
+                as usize,
             minimum_context: 0,
             quantize_kv_cache: false,
             model: OnceCell::new(),

@@ -1,8 +1,10 @@
 #include "llama.h"
 #include "ggml-backend.h"
+#include "gguf.h"
 #include "chat.h"
 #include "fit.h"
 #include "sampling.h"
+#include "src/llama-arch.h"
 #include "src/llama-memory-hybrid.h"
 #include "src/llama-memory-hybrid-iswa.h"
 #include "unicode.h"
@@ -97,6 +99,33 @@ extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
 extern "C" int fl_model_context_size(const Model * model) { return model->capacity; }
 extern "C" size_t fl_model_kv_cache_bytes(const Model * model) { return model->kv_cache_bytes; }
+
+extern "C" char * fl_gguf_metadata(const char * path) {
+    try {
+        const std::unique_ptr<gguf_context, decltype(&gguf_free)> metadata{
+            gguf_init_from_file(path, {true, nullptr}), gguf_free
+        };
+        require(bool(metadata), "The downloaded file could not be read as a GGUF model.");
+        const auto arch_key = gguf_find_key(metadata.get(), "general.architecture");
+        require(arch_key >= 0 && gguf_get_kv_type(metadata.get(), arch_key) == GGUF_TYPE_STRING,
+                "The GGUF does not declare a model architecture.");
+        const std::string arch = gguf_get_val_str(metadata.get(), arch_key);
+        require(llm_arch_from_string(arch) != LLM_ARCH_UNKNOWN,
+                "This GGUF architecture is not supported by Fritz.");
+        const auto template_key = gguf_find_key(metadata.get(), "tokenizer.chat_template");
+        require(template_key >= 0 && gguf_get_kv_type(metadata.get(), template_key) == GGUF_TYPE_STRING
+                && *gguf_get_val_str(metadata.get(), template_key),
+                "Choose a GGUF chat or instruct model with a built-in chat template.");
+        const auto context_key = gguf_find_key(metadata.get(), (arch + ".context_length").c_str());
+        require(context_key >= 0 && gguf_get_kv_type(metadata.get(), context_key) == GGUF_TYPE_UINT32,
+                "This GGUF does not declare its context window.");
+        const uint32_t context = gguf_get_val_u32(metadata.get(), context_key);
+        require(context > 0 && context <= INT32_MAX, "This GGUF declares an invalid context window.");
+        return copy(json{{"architecture", arch}, {"context", context}}.dump());
+    } catch (const std::exception & error) {
+        return copy(json{{"error", error.what()}}.dump());
+    }
+}
 
 static size_t allocated_kv_cache_bytes(const llama_context * context) {
     const auto * memory = llama_get_memory(context);

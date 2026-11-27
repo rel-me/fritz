@@ -722,7 +722,7 @@ async fn handle(
                 .filter(|model| model["installed"] == true && selected_model.is_none_or(|id| model["id"] == id))
                 .filter_map(|model| {
                     let id = model["id"].as_str()?;
-                    let pin = super::models::catalog().iter().find(|pin| pin.id == id)?;
+                    let pin = super::models::manifest(id).ok()?;
                     if remote {
                         return Some(json!({"id":id, "display_name":pin.name}));
                     }

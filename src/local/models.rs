@@ -7,10 +7,11 @@ use reqwest::{
     StatusCode,
     header::{ACCEPT_ENCODING, CONTENT_RANGE, RANGE},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
+    borrow::Cow,
     fs::{self, File, OpenOptions},
     os::unix::fs::OpenOptionsExt,
 };
@@ -22,7 +23,9 @@ use std::{
 
 use tokio::io::AsyncReadExt;
 
-#[derive(Debug, Deserialize)]
+pub(crate) mod hugging_face;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Manifest {
     pub id: String,
     pub name: String,
@@ -33,11 +36,13 @@ pub struct Manifest {
     pub(crate) file: String,
     repository: String,
     revision: String,
+    #[serde(default)]
+    source_file: Option<String>,
     pub size: u64,
     pub sha256: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct ContextLimit {
     pub context: u32,
     pub automatic_target: Option<u32>,
@@ -61,10 +66,14 @@ pub fn catalog() -> &'static [Manifest] {
     })
 }
 
-pub fn manifest(id: &str) -> Result<&'static Manifest> {
+pub fn manifest(id: &str) -> Result<Cow<'static, Manifest>> {
+    if id.starts_with("hf-") {
+        return hugging_face::manifest(id).map(Cow::Owned);
+    }
     catalog()
         .iter()
         .find(|model| model.id == id)
+        .map(Cow::Borrowed)
         .ok_or_else(|| anyhow!("Unknown Fritz local model: {id}"))
 }
 
@@ -134,11 +143,8 @@ pub async fn download(model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<
 impl ModelStore {
     pub async fn download(&self, model_id: &str, emit: &(impl Fn(Value) + Sync)) -> Result<()> {
         let pin = manifest(model_id)?;
-        let url = format!(
-            "https://huggingface.co/{}/resolve/{}/{}",
-            pin.repository, pin.revision, pin.file
-        );
-        download_to(self.directory_for(model_id), &url, pin, emit).await
+        let url = hugging_face::download_url(&pin)?;
+        download_to(self.directory_for(model_id), url.as_str(), &pin, emit).await
     }
 }
 
@@ -347,11 +353,22 @@ pub async fn inventory_model(id: &str) -> Result<Value> {
 
 impl ModelStore {
     pub async fn inventory(&self) -> Result<Value> {
-        self.inventory_for(catalog().iter()).await
+        let imports = hugging_face::catalog()?;
+        let mut inventory = self
+            .inventory_for(catalog().iter().chain(imports.iter()))
+            .await?;
+        inventory["importedModels"] = json!(
+            imports
+                .iter()
+                .map(hugging_face::descriptor)
+                .collect::<Vec<_>>()
+        );
+        Ok(inventory)
     }
 
     pub async fn inventory_model(&self, id: &str) -> Result<Value> {
-        self.inventory_for(std::iter::once(manifest(id)?)).await
+        let pin = manifest(id)?;
+        self.inventory_for(std::iter::once(pin.as_ref())).await
     }
 
     async fn inventory_for<'a>(&self, pins: impl Iterator<Item = &'a Manifest>) -> Result<Value> {
@@ -421,6 +438,7 @@ mod tests {
                 file: format!("{id}.gguf"),
                 repository: String::new(),
                 revision: String::new(),
+                source_file: None,
                 size: data.len() as u64,
                 sha256: hex::encode(Sha256::digest(data)),
             };
@@ -507,6 +525,7 @@ mod tests {
             file: "model.gguf".into(),
             repository: String::new(),
             revision: String::new(),
+            source_file: None,
             size: data.len() as u64,
             sha256: hex::encode(Sha256::digest(data)),
         };
@@ -547,6 +566,7 @@ mod tests {
             file: "model.gguf".into(),
             repository: String::new(),
             revision: String::new(),
+            source_file: None,
             size: data.len() as u64,
             sha256: hex::encode(Sha256::digest(data)),
         };
@@ -624,6 +644,7 @@ mod tests {
             file: "fixture.gguf".into(),
             repository: String::new(),
             revision: String::new(),
+            source_file: None,
             size: data.len() as u64,
             sha256: hex::encode(Sha256::digest(data)),
         };

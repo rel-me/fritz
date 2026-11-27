@@ -382,7 +382,8 @@ private struct FritzWorkspaceView: View {
     private var activeLocalModels: [LocalModelStatus] {
         var models: [String: LocalModelStatus] = [:]
         let resident = state.localModels.sessions.compactMap { id, session in
-            LocalModelStatus(id: id, session: session)
+            LocalModelStatus(id: id, session: session,
+                             name: state.providers.nativeModelCatalog.first { $0.id == id }?.name)
         }
         for var model in resident + state.workspace.localChatStatuses {
             if let current = models[model.id] {
@@ -435,7 +436,7 @@ struct LocalModelStatus {
         return "Loading weights \(loadProgress.formatted(.percent.rounded(rule: .down)))"
     }
 
-    init?(id: String, session: ModelsRuntimeSession) {
+    init?(id: String, session: ModelsRuntimeSession, name: String?) {
         let phase: Phase
         switch session.status {
         case .starting: phase = .starting
@@ -443,7 +444,7 @@ struct LocalModelStatus {
         case .stopping: phase = .stopping
         case .stopped, .failed: return nil
         }
-        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id,
+        self.init(id: id, name: name ?? id,
                   phase: phase, loadProgress: session.loadProgress, kvCacheBytes: session.kvCacheBytes)
     }
 }

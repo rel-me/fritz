@@ -20,6 +20,12 @@ to the model. You can
 set a context budget, reserve space for the reply, and choose how much recent
 history compaction should keep. In Local Models, **Context** shows the
 Automatic target and the model maximum, such as `16k/1M` for Inkling 2 Mini.
+
+In **Local Models**, choose **Import from Hugging Face**, paste a public model
+repository URL or `owner/model`, and choose a single-file GGUF chat model.
+Fritz downloads it to Model Storage, verifies the publisher's checksum, and
+adds it to Local Models and the chat picker. Closing the sheet leaves the
+download running. Reopen it to check progress or stop the download.
 After an Automatic chat starts, Fritz shows the last context that fit on this
 Mac with the selected KV cache setting.
 

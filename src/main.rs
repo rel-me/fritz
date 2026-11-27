@@ -148,7 +148,7 @@ async fn dispatch(request: &Request, emit: impl Fn(Value) + Sync) -> Result<Valu
     let params = &request.params;
     let _storage_read = if matches!(
         request.method.as_str(),
-        "localModels.install" | "decisionModels.install"
+        "localModels.install" | "localModels.huggingFaceImport" | "decisionModels.install"
     ) {
         Some(fritz::model_storage::read_settings(&config::data_dir())?)
     } else {

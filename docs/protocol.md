@@ -17,6 +17,8 @@ The app launches the bundled `fritz --agent`. Each stdin line is a JSON request 
 | `modelStorage.change` | `directory`, `previousDirectory`, `moveModels` boolean | Updated storage info; progress events carry `completed`, `total`, `file` |
 | `localModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned catalog entries with `id`, `name`, `size`, download `directory`, file-presence `installed` status, and `path` (installed GGUF path or null) |
 | `localModels.install` | `modelId`, optional absolute `directory` | Download progress, then `modelId` and `installed: true`; saves the selected folder after success |
+| `localModels.huggingFaceLookup` | `repository` model URL or `owner/model` | Public repository, pinned commit, and checksummed single-file GGUF choices |
+| `localModels.huggingFaceImport` | `repository`, `revision`, `file` from lookup | Download progress, then `modelId` and `installed: true`; registers GGUF context metadata after verification |
 | `chat` | `connectionId`, `model`, `messages`, optional `effort`, `speed`, `context` | Stream, then empty result |
 | `decisionModels.list` | Optional `modelId`; optional absolute `directory` requires `modelId` | Pinned local decision catalog, download `directory`, file-presence installation status, and `path` (installed ONNX graph path or null) |
 | `decisionModels.install` | `modelId`, optional absolute `directory` | Explicit verified download, progress events, and installed result; saves the selected folder after success |

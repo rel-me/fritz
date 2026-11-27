@@ -34,6 +34,7 @@ public struct ModelsCatalogView: View {
     @State private var providerSetup: RemoteProviderRow?
     @State private var showsCustomSetup = false
     @State private var showsImport = false
+    @State private var showsHuggingFaceImport = false
     @State private var export: ProviderTextExport?
     @State private var confirmsExport = false
     @State private var removing: ProviderConnection?
@@ -342,6 +343,18 @@ public struct ModelsCatalogView: View {
                 if location == .remote {
                     Button("New Remote Model…", systemImage: "plus") { showsCustomSetup = true }
                         .help("New Remote Model…")
+                } else {
+                    Button {
+                        showsHuggingFaceImport = true
+                    } label: {
+                        if let status = store.huggingFaceImport.transfer?.activeStatus {
+                            Label(status, systemImage: "square.and.arrow.down")
+                                .labelStyle(.titleAndIcon)
+                        } else {
+                            Label("Import from Hugging Face…", systemImage: "square.and.arrow.down")
+                        }
+                    }
+                    .help("Import from Hugging Face…")
                 }
                 Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "pencil") {
                     if location == .local { setup = selected } else { providerSetup = selectedProvider }
@@ -374,6 +387,7 @@ public struct ModelsCatalogView: View {
             ModelsProviderEditor(store: store, localModels: runtime, existing: nil, remoteOnly: true)
         }
         .sheet(isPresented: $showsImport) { ConfigurationTransferSheet(store: store) }
+        .sheet(isPresented: $showsHuggingFaceImport) { HuggingFaceImportSheet(store: store) }
         .sheet(item: $export) { ConfigurationTransferSheet(store: store, exported: $0) }
         .confirmationDialog("Export", isPresented: $confirmsExport) {
             Button("Export Without Keys") { exportConnections(keys: false) }

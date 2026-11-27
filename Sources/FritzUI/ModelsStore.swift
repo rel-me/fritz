@@ -17,6 +17,8 @@ import Security
     public let modelDownloads = ModelDownloads()
     public let agent: AgentClient
     public let modelCatalog: RemoteModelCatalog
+    let huggingFaceImport = HuggingFaceImport()
+    private var importedModels: [NativeModelDescriptor] = []
     private let keychainService: String
     @ObservationIgnored private var refreshID = UUID()
 
@@ -135,6 +137,7 @@ import Security
 
     public func refresh() async {
         async let catalogRefresh: Void = modelCatalog.refresh()
+        async let importedRefresh: Void = refreshImportedModels()
         let revision = UUID()
         refreshID = revision
         isLoading = true; error = nil
@@ -173,6 +176,7 @@ import Security
             models = nextModels; catalog = nextCatalog; discoveryErrors = nextErrors
             hasLoadedModels = true
             await catalogRefresh
+            await importedRefresh
         } catch { if refreshID == revision { self.error = error.localizedDescription } }
     }
 
@@ -250,7 +254,15 @@ import Security
 }
 
 extension ModelsStore {
-    public var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
+    public var nativeModelCatalog: [NativeModelDescriptor] {
+        NativeModelDescriptor.catalog + importedModels + NativeModelDescriptor.decisionCatalog
+    }
+
+    func refreshImportedModels() async {
+        if let inventory: LocalModelInventory = try? await agent.request("localModels.list") {
+            importedModels = inventory.importedModels ?? []
+        }
+    }
     public func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
         var params: [String: Any] = ["connection": try connection.jsonObject()]
         if !key.isEmpty { params["apiKey"] = key }

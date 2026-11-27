@@ -254,6 +254,32 @@ impl ModelsService {
         emit: impl Fn(Value) + Sync,
     ) -> Result<Option<Value>> {
         let result: Result<Value> = match method {
+            "localModels.huggingFaceLookup" => {
+                local::models::hugging_face::lookup(
+                    params["repository"]
+                        .as_str()
+                        .context("Enter a Hugging Face repository.")?,
+                )
+                .await
+            }
+            "localModels.huggingFaceImport" => {
+                let store = self
+                    .local_models
+                    .clone()
+                    .with_model_directories(self.model_locations.load()?);
+                local::models::hugging_face::import(
+                    &store,
+                    params["repository"]
+                        .as_str()
+                        .context("Choose a Hugging Face repository.")?,
+                    params["revision"]
+                        .as_str()
+                        .context("Look up the repository again.")?,
+                    params["file"].as_str().context("Choose a GGUF file.")?,
+                    &emit,
+                )
+                .await
+            }
             "localModels.list" | "localModels.install" => {
                 let directory = download_directory(params)?;
                 let store = local::models::ModelStore::new(
