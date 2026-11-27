@@ -21,7 +21,7 @@ history compaction should keep.
 
 Use **View → Show Status Bar** or **Hide Status Bar** to control the display of
 system memory usage and local model status at the bottom of the main window.
-The bar is hidden when no local model is active.
+The bar is visible by default and stays empty when no local model is active.
 The status bar shows local startup progress. Use the play button beside the
 model picker to start a selected local model in the Local API, the same action
 as Start in Local Models. The cancel button can cancel startup or stop the model.

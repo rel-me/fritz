@@ -235,6 +235,18 @@ private struct FritzWorkspaceView: View {
     @State private var chatHeaderFrame: CGRect = .zero
 
     var body: some View {
+        VStack(spacing: 0) {
+            workspace
+            if state.settings.showsStatusBar {
+                FritzStatusBar(models: activeLocalModels)
+            }
+        }
+        .fritzWindowBackground()
+        .frame(minWidth: 900, minHeight: 620)
+        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
+    }
+
+    private var workspace: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             ProjectsSidebar(workspace: state.workspace)
                 .frame(minWidth: 240, idealWidth: 280, maxWidth: 360)
@@ -346,15 +358,6 @@ private struct FritzWorkspaceView: View {
                 .accessibilityValue(state.isBrowserPresented ? "Shown" : "Hidden")
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if state.settings.showsStatusBar {
-                let models = activeLocalModels
-                if !models.isEmpty { FritzStatusBar(models: models) }
-            }
-        }
-        .fritzWindowBackground()
-        .frame(minWidth: 900, minHeight: 620)
-        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {
@@ -460,11 +463,13 @@ private struct FritzStatusBar: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 16) {
-                Label(modelSummary, systemImage: "cpu")
-                    .lineLimit(1)
-                    .help(modelSummary)
+                if !models.isEmpty {
+                    Label(modelSummary, systemImage: "cpu")
+                        .lineLimit(1)
+                        .help(modelSummary)
+                }
                 Spacer(minLength: 8)
-                if let usedMemory {
+                if !models.isEmpty, let usedMemory {
                     Label("Memory \(gibibytes(usedMemory)) of \(gibibytes(ProcessInfo.processInfo.physicalMemory)) GiB",
                           systemImage: "memorychip")
                         .monospacedDigit()
@@ -474,13 +479,19 @@ private struct FritzStatusBar: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+            .frame(minHeight: 14)
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
         }
-        .background(FritzWindowStyle.workspaceBackground)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(.bar)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Status Bar")
-        .task {
+        .task(id: models.isEmpty) {
+            guard !models.isEmpty else {
+                usedMemory = nil
+                return
+            }
             while !Task.isCancelled {
                 usedMemory = ModelsLocalRuntime.usedMemoryBytes
                 try? await Task.sleep(for: .seconds(2))
