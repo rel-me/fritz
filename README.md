@@ -32,8 +32,13 @@ Mac with the selected KV cache setting.
 Use **View → Show Status Bar** or **Hide Status Bar** to control the display of
 system memory usage and local model status at the bottom of the main window.
 The bar is visible by default and stays empty when no local model is active.
-The status bar shows local startup progress. Use the play button beside the
-model picker to start a selected local model in the Local API, the same action
+Click a model in the status bar to open **Model Status**. The dialog shows live
+startup progress, KV cache usage, and Local API process details. Use **Stop** to
+cancel startup or stop the model and its active chats. Keep the dialog open to
+start the model again. **Start on** controls automatic startup, and **Open in
+Finder** reveals the installed file.
+
+Use the play button beside the model picker to start a selected local model in the Local API, the same action
 as Start in Local Models. The cancel button can cancel startup or stop the model.
 Chat requests load their own model with the chat context budget.
 

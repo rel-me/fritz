@@ -64,6 +64,12 @@ import Observation
     var localChatStatuses: [LocalModelStatus] {
         chats.values.compactMap { $0.1.localModelStatus }
     }
+    func stopLocalModelChats(_ modelID: String) {
+        for (_, chat) in chats.values where chat.localModelStatus?.id == modelID {
+            chat.stopByUser()
+        }
+    }
+
     var canCreateThread: Bool {
         canSave && !isEditing && (selectedProject.map { isAvailable($0) } ?? projects.contains { isAvailable($0) })
     }

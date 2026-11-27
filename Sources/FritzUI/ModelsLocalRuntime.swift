@@ -75,8 +75,10 @@ import Security
         await refresh()
         guard !Task.isCancelled, !isShuttingDown, !didApplyStartup, error == nil else { return }
         didApplyStartup = true
-        for connection in connections where connection.provider == .fritz && policy(for: connection.modelID) == .appStart {
-            start(connection.modelID)
+        let configured = connections.filter { $0.provider == .fritz }.map(\.modelID)
+        let modelIDs = configured + installedIDs.subtracting(configured).sorted()
+        for modelID in modelIDs where policy(for: modelID) == .appStart {
+            start(modelID)
         }
     }
 
@@ -85,9 +87,11 @@ import Security
         defer { isLoading = false }
         do {
             let inventory: LocalModelInventory = try await agent.request("localModels.list")
+            try Task.checkCancellation()
             installedIDs = inventory.installedIDs
             importedModels = inventory.importedModels ?? []
             error = nil
+        } catch is CancellationError {
         } catch { self.error = error.localizedDescription }
     }
 
