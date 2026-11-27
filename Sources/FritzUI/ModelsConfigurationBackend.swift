@@ -52,10 +52,11 @@ public struct ModelsRuntimeSession {
     public var processID: Int32?
     public var address: String?
     public var error: String?
+    public var loadProgress: Double?
     public init(status: Status = .stopped, processID: Int32? = nil,
-                address: String? = nil, error: String? = nil) {
+                address: String? = nil, error: String? = nil, loadProgress: Double? = nil) {
         self.status = status; self.processID = processID
-        self.address = address; self.error = error
+        self.address = address; self.error = error; self.loadProgress = loadProgress
     }
 }
 

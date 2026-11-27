@@ -306,7 +306,9 @@ impl Managed {
                     let operation = jobs.spawn(async move {
                         let result = async {
                             let store = storage.models()?;
-                            super::start_model_in(&model_id, &store).await
+                            super::start_model_in(&model_id, &store, |fraction| {
+                                emit(json!({"type":"model", "modelId":model_id, "status":"starting", "progress":fraction}));
+                            }).await
                         }.await.map_err(|error| format!("{error:#}"));
                         match &result {
                             Ok(()) => emit(json!({"type":"model", "modelId":model_id, "status":"running"})),

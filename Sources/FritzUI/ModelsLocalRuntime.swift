@@ -299,7 +299,7 @@ import Observation
                 }
                 if sessions[id]?.status == .stopping, state != .stopped { continue }
                 sessions[id] = Session(status: state, processID: state == .stopped ? nil : service.processID,
-                                       error: event.error)
+                                       error: event.error, loadProgress: event.progress)
             case "loadRequested":
                 guard let id = event.modelId else { continue }
                 // The service verifies catalog membership and file presence before admission.
@@ -328,6 +328,7 @@ private struct ServiceEvent: Decodable {
     var modelId: String?
     var status: String?
     var address: String?
+    var progress: Double?
     public var error: String?
 }
 

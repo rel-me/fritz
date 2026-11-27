@@ -81,6 +81,11 @@ and budget settings. To resume it, place the summary first and set
 prompt and the provider-native suffix. The full transcript remains in the
 workspace database.
 
+Local chat startup emits `model_loading` events with `progress` from zero to one
+as llama.cpp loads the model weights. The existing activity event with
+`contextTokens` signals that the chat context is ready. The managed Local API
+includes the same optional `progress` on `model` events with `status: "starting"`.
+
 OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of
 `none`, `low`, `medium`, `high`, `xhigh`, and `max`; speeds are `standard`,

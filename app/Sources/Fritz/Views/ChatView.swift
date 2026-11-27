@@ -7,6 +7,7 @@ struct ChatView: View {
     @Bindable var store: ChatStore
     let providers: ProviderStore
     let localModels: LocalModelRuntimeStore
+    let localChatStatuses: [LocalModelStatus]
     let openModels: (ModelsLocation) -> Void
     let headerFrame: CGRect
     let contentTrailingInset: CGFloat
@@ -28,6 +29,35 @@ struct ChatView: View {
 
     private var canCompose: Bool { isProjectFolderAvailable && !isArchived }
 
+    private var selectedLocalModel: ChatModelOption? {
+        guard store.selectedModel?.provider == .fritz else { return nil }
+        return store.selectedModel
+    }
+
+    private var selectedLocalSession: ModelsRuntimeSession? {
+        selectedLocalModel.flatMap { localModels.sessions[$0.modelID] }
+    }
+
+    private var localModelStartup: LocalModelStatus? {
+        guard let model = selectedLocalModel else { return nil }
+        if let status = store.localModelStatus, status.phase == .starting { return status }
+        if let session = selectedLocalSession, session.status == .starting {
+            return LocalModelStatus(id: model.modelID, name: model.displayName,
+                                    phase: .starting, loadProgress: session.loadProgress)
+        }
+        return nil
+    }
+
+    private var canStartLocalModel: Bool {
+        guard let model = selectedLocalModel, localModels.installedIDs.contains(model.modelID),
+              !store.isResponding, !isPreparingModel,
+              !localChatStatuses.contains(where: { $0.id == model.modelID }) else { return false }
+        switch selectedLocalSession?.status {
+        case nil, .stopped, .failed: return true
+        case .starting, .running, .stopping: return false
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             transcript
@@ -37,8 +67,11 @@ struct ChatView: View {
                     ChatComposer(
                         draft: $store.draft,
                         placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
-                        canSend: store.canSend && !isPreparingModel,
+                        canSend: store.canSend && !isPreparingModel && selectedLocalSession?.status != .starting,
                         isPreparingModel: isPreparingModel,
+                        localModelStartup: localModelStartup,
+                        localModelStartError: selectedLocalSession?.error,
+                        startLocalModel: canStartLocalModel ? startLocalModel : nil,
                         isResponding: store.isResponding,
                         isFocused: $isFocused,
                         models: providers.pickerModels,
@@ -53,7 +86,7 @@ struct ChatView: View {
                         configureModels: { openModels(.remote) },
                         configureLocalModels: { openModels(.local) },
                         send: {
-                            guard !isPreparingModel else { return }
+                            guard !isPreparingModel, selectedLocalSession?.status != .starting else { return }
                             if let model = store.selectedModel { providers.record(model) }
                             store.send()
                         },
@@ -268,6 +301,11 @@ struct ChatView: View {
             } catch is CancellationError {
             } catch { store.error = error.localizedDescription }
         }
+    }
+
+    private func startLocalModel() {
+        guard canStartLocalModel, let model = selectedLocalModel else { return }
+        localModels.start(model.modelID)
     }
 
     private func loadHistory(older: Bool) {

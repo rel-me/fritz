@@ -21,6 +21,9 @@ history compaction should keep.
 Use **View → Show Status Bar** or **Hide Status Bar** to control the display of
 system memory usage and local model status at the bottom of the main window.
 The bar is hidden when no local model is active.
+Chat shows local startup progress beside the model picker. Use the play button
+to start a selected local model in the Local API, the same action as Start
+in Local Models. Chat requests load their own model with the chat context budget.
 
 ## Install
 

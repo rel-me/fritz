@@ -143,7 +143,11 @@ async fn run_with_policy(
         let budget = if let Some(context) = context {
             let local_window = if let Some(local) = &session.local {
                 emit(json!({"type":"activity","message":"Sizing local context…"}));
-                let size = local.context_size().await?;
+                let size = local
+                    .context_size(|fraction| {
+                        emit(json!({"type":"model_loading","progress":fraction}));
+                    })
+                    .await?;
                 emit(
                     json!({"type":"activity","message":format!("Local context · {size} tokens"),"contextTokens":size}),
                 );

@@ -24,6 +24,9 @@ the following surfaces, include these behaviors:
   model starts, runs, and stops. Verify memory updates, idle and remote-only chats,
   the View menu toggle, and preference restoration after relaunch. Running chats
   should remain visible in the bar when switching threads.
+  In the composer, check that an installed, stopped local model has a play
+  button to the left of the picker. Verify manual and first-use startup show
+  weight-loading progress and clear it when ready, cancelled, or failed.
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.

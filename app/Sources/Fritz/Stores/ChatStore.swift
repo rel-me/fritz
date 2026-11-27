@@ -416,6 +416,8 @@ private struct CompactionReceipt: Decodable {
                     flushTask = nil
                 }
             }
+        case "model_loading":
+            localModelStatus?.loadProgress = event.progress
         case "activity":
             activity = event.message
             if event.contextTokens != nil {

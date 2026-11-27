@@ -15,12 +15,16 @@ use tokio::sync::Mutex;
 // The API retains explicitly started models independently of chat harnesses.
 static API_ENGINES: Mutex<Option<HashMap<String, inference::Engine>>> = Mutex::const_new(None);
 
-pub(crate) async fn start_model_in(model_id: &str, store: &models::ModelStore) -> Result<()> {
+pub(crate) async fn start_model_in(
+    model_id: &str,
+    store: &models::ModelStore,
+    progress: impl FnMut(f32),
+) -> Result<()> {
     let mut engines = API_ENGINES.lock().await;
     let engines = engines.get_or_insert_with(HashMap::new);
     if !engines.contains_key(model_id) {
         let engine = inference::Engine::installed_in(store, model_id).await?;
-        engine.model().await?;
+        engine.model_with_progress(progress).await?;
         engines.insert(model_id.to_owned(), engine);
     }
     Ok(())
@@ -194,8 +198,12 @@ impl Session {
         })
     }
 
-    pub(crate) async fn context_size(&self) -> Result<usize> {
-        Ok(self.engine.model().await?.context_size)
+    pub(crate) async fn context_size(&self, progress: impl FnMut(f32)) -> Result<usize> {
+        Ok(self
+            .engine
+            .model_with_progress(progress)
+            .await?
+            .context_size)
     }
 
     pub(crate) fn compact_prefix(&mut self, cut: usize, summary: &str) -> Result<()> {

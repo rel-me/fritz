@@ -13,6 +13,7 @@
 using json = common_json;
 using Cancel = bool (*)(void *);
 using Emit = bool (*)(void *, const char *);
+using ReportLoadProgress = void (*)(float, void *);
 static void require(bool value, const char * message) {
     if (!value) throw std::runtime_error(message);
 }
@@ -27,7 +28,23 @@ struct Control {
     bool stopped() const { return cancel(data); }
     void check() const { require(!stopped(), "Local inference cancelled"); }
 };
-static bool progress(float, void * data) { return !static_cast<Control *>(data)->stopped(); }
+static bool check_load_cancelled(float, void * data) { return !static_cast<Control *>(data)->stopped(); }
+struct LoadProgress {
+    Control & control;
+    ReportLoadProgress report;
+    void * output;
+    int percent = -1;
+};
+static bool report_load_progress(float fraction, void * data) {
+    auto & load = *static_cast<LoadProgress *>(data);
+    if (load.control.stopped()) return false;
+    const int percent = static_cast<int>(fraction * 100);
+    if (percent > load.percent) {
+        load.percent = percent;
+        load.report(fraction, load.output);
+    }
+    return true;
+}
 static bool abort_decode(void * data) { return static_cast<Control *>(data)->stopped(); }
 
 struct Model {
@@ -77,7 +94,8 @@ extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
 extern "C" int fl_model_context_size(const Model * model) { return model->capacity; }
 extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool chat, bool inkling_loop,
-                                 bool quantize_kv_cache, Cancel cancel, void * data, char ** error) {
+                                 bool quantize_kv_cache, Cancel cancel, void * data,
+                                 ReportLoadProgress report, void * output, char ** error) {
     try {
         static std::once_flag initialized;
         std::call_once(initialized, [] {
@@ -106,7 +124,7 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
                 params.tensor_buft_overrides = inkling_overrides;
             }
         }
-        params.progress_callback = progress;
+        params.progress_callback = check_load_cancelled;
         params.progress_callback_user_data = &control;
         auto config = llama_context_default_params();
         config.n_ctx = context;
@@ -168,6 +186,9 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
             config.n_ctx = fitting;
         }
         auto result = std::make_unique<Model>();
+        LoadProgress load{control, report, output};
+        params.progress_callback = report_load_progress;
+        params.progress_callback_user_data = &load;
         result->weights.reset(llama_model_load_from_file(path, params));
         control.check();
         require(bool(result->weights), "llama.cpp could not load the local GGUF. Check model integrity and available memory.");

@@ -8,6 +8,9 @@ struct ChatComposer: View {
     let placeholder: String
     let canSend: Bool
     let isPreparingModel: Bool
+    let localModelStartup: LocalModelStatus?
+    let localModelStartError: String?
+    let startLocalModel: (() -> Void)?
     let isResponding: Bool
     let isFocused: FocusState<Bool>.Binding
     let models: [ChatModelOption]
@@ -34,20 +37,45 @@ struct ChatComposer: View {
         ) {
             HStack(spacing: 6) {
                 if isPreparingModel { ProgressView().controlSize(.small).accessibilityLabel("Setting up model") }
-            ChatModelPicker(
-                models: models,
-                recentModels: recentModels,
-                modelProviders: modelProviders,
-                selectedModel: selectedModel,
-                selectedEffort: selectedEffort,
-                selectedSpeed: selectedSpeed,
-                selectModel: selectModel,
-                selectEffort: selectEffort,
-                selectSpeed: selectSpeed,
-                configureModels: configureModels,
-                configureLocalModels: configureLocalModels
-            )
-            .disabled(isResponding || isPreparingModel)
+                if let localModelStartup {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small).accessibilityHidden(true)
+                        Text(localModelStartup.title).font(.caption).monospacedDigit().lineLimit(1)
+                    }
+                    .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
+                    .help(localModelStartup.title)
+                } else if let startLocalModel, let selectedModel {
+                    if let localModelStartError {
+                        Image(systemName: "exclamationmark.circle")
+                            .foregroundStyle(.orange)
+                            .accessibilityLabel(localModelStartError)
+                            .help(localModelStartError)
+                    }
+                    Button(action: startLocalModel) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .frame(width: 28, height: 28)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(FritzButtonStyle(.floating, size: .regular, shape: .circle))
+                    .accessibilityLabel("Start \(selectedModel.displayName)")
+                    .help("Start \(selectedModel.displayName)")
+                }
+                ChatModelPicker(
+                    models: models,
+                    recentModels: recentModels,
+                    modelProviders: modelProviders,
+                    selectedModel: selectedModel,
+                    selectedEffort: selectedEffort,
+                    selectedSpeed: selectedSpeed,
+                    selectModel: selectModel,
+                    selectEffort: selectEffort,
+                    selectSpeed: selectSpeed,
+                    configureModels: configureModels,
+                    configureLocalModels: configureLocalModels
+                )
+                .disabled(isResponding || isPreparingModel)
             }
         }
     }

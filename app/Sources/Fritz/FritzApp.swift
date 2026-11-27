@@ -251,6 +251,7 @@ private struct FritzWorkspaceView: View {
                    let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
+                                            localChatStatuses: state.workspace.localChatStatuses,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
                                             headerFrame: chatHeaderFrame,
                                             contentTrailingInset: state.isBrowserPresented ? 0 : trailingInset,
@@ -402,11 +403,20 @@ struct LocalModelStatus {
     let id: String
     let name: String
     var phase: Phase
+    var loadProgress: Double?
 
-    init(id: String, name: String, phase: Phase) {
+    init(id: String, name: String, phase: Phase, loadProgress: Double? = nil) {
         self.id = id
         self.name = name
         self.phase = phase
+        self.loadProgress = loadProgress
+    }
+
+    var title: String {
+        guard phase == .starting else { return phase.title }
+        guard let loadProgress else { return "Starting…" }
+        if loadProgress >= 1 { return "Preparing context…" }
+        return "Loading weights \(loadProgress.formatted(.percent.rounded(rule: .down)))"
     }
 
     init?(id: String, session: ModelsRuntimeSession) {
@@ -417,7 +427,8 @@ struct LocalModelStatus {
         case .stopping: phase = .stopping
         case .stopped, .failed: return nil
         }
-        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id, phase: phase)
+        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id,
+                  phase: phase, loadProgress: session.loadProgress)
     }
 }
 
@@ -426,7 +437,7 @@ private struct FritzStatusBar: View {
     @State private var usedMemory: UInt64?
 
     private var modelSummary: String {
-        models.map { "\($0.name) · \($0.phase.title)" }.joined(separator: "  |  ")
+        models.map { "\($0.name) · \($0.title)" }.joined(separator: "  |  ")
     }
 
     var body: some View {
