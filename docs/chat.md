@@ -15,7 +15,8 @@ activity, and a “Worked for…” summary above each completed answer. Expand 
 review all tool calls, then click a call to inspect its arguments and result.
 When you stop a response, the transcript shows just “Stopped after…” with the elapsed
 time. Fritz retains the saved partial text and tool records. Unexpected interruptions
-still show the saved text and tool activity. A tool
+still show the saved text and tool activity. If no duration was recorded, Fritz shows
+“Response interrupted.” A tool
 without a recorded result may have taken effect. Review the activity before
 retrying. Chats open on their latest messages. Scroll up to load earlier pages,
 or use **Load Older Messages**. **Jump** returns to the latest response.
@@ -63,7 +64,7 @@ Switching threads keeps an in-progress response attached to its original thread.
 
 ## Activity and usage
 
-Hover over the info button beside **Copy** on a completed or stopped response to see
+Hover over the info button beside **Copy** on a displayed response to see
 total tokens, cached input tokens, and USD cost. Click the button to keep the popover
 open. When all calls report cost, Fritz uses it. Otherwise, standard-tier calls use
 prices in the shared model catalog, accounting for cache and context tiers. Missing
