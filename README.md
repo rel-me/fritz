@@ -20,7 +20,7 @@ history compaction should keep.
 
 Use **View → Show Status Bar** or **Hide Status Bar** to control the display of
 system memory usage and local model status at the bottom of the main window.
-The bar is hidden when no local model is active.
+The bar is visible by default and stays empty when no local model is active.
 
 ## Install
 
