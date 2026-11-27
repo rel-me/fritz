@@ -5,6 +5,9 @@ account `fritz`, the custom domain configured in `website/wrangler.jsonc`,
 and R2 bucket `fritz-updates`. The Apple notarization profile is configured
 through `FRITZ_NOTARY_PROFILE` in `scripts/release-config.sh`.
 
+Both editions package the signed app and Finder layout in an HFS+ DMG with
+lossless LZMA (`ULMO`) compression. macOS 10.15 and later can mount this format.
+
 ## One-time setup
 
 The public Sparkle key is in `scripts/release-config.sh`. Its private half was

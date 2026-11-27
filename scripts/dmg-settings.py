@@ -3,7 +3,8 @@
 from pathlib import Path
 import subprocess
 
-format = "UDZO"
+# LZMA is supported on macOS 10.15 and later, including Fritz's minimum macOS.
+format = "ULMO"
 filesystem = "HFS+"
 app = defines["app"]
 app_name = Path(app).name
