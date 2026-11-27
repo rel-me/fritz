@@ -99,7 +99,8 @@ the access key in the iPhone provider.
    CPU (local) and network (remote) buttons, or the **Models** menu to open the
    separate lists. Local Models contains models downloaded and run by Fritz.
    Expand a family folder such as Qwen to see its models, or search by model or
-   family name to see matching models directly.
+   family name to see matching models directly. **Use Model** in a local setup
+   sheet selects the model in the open conversation’s composer.
    API services such as Ollama belong to Remote Models, including when hosted on this Mac.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first. Use the filter menu in either window to show LLMs or

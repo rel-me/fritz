@@ -201,9 +201,16 @@ struct FritzApp: App {
 
         Window("Local Models", id: "local-models") {
             let quantized = state.settings.harness.quantizeLocalKVCache == true
+            let chat = state.workspace.selectedChat
             ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .local,
-                              automaticContextFits: state.workspace.automaticContextFits[quantized] ?? [:])
-                .frame(minWidth: 640, minHeight: 400)
+                              automaticContextFits: state.workspace.automaticContextFits[quantized] ?? [:]) { [weak chat] model in
+                guard let chat, chat.isReady, !chat.isResponding, state.workspace.selectedChat === chat,
+                      state.workspace.selectedThread?.isArchived == false,
+                      let project = state.workspace.selectedProject, state.workspace.isAvailable(project) else { return }
+                chat.select(model)
+                state.providers.record(model)
+            }
+            .frame(minWidth: 640, minHeight: 400)
         }
         .defaultSize(width: 900, height: 620)
         .defaultLaunchBehavior(.suppressed)

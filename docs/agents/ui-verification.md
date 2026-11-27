@@ -143,7 +143,10 @@ the following surfaces, include these behaviors:
   native setup/edit/download/import/export titles, forms, pickers, disclosure
   controls and buttons in light/dark appearance,
   successful setup selecting the chosen model, and decision-model exclusion from
-  chat. Check blank/populated lists and model process controls (First use
+  chat. With two conversations, open setup from Local Models and choose Use
+  Model. Verify the original conversation’s picker and saved selection update
+  while the other conversation keeps its selection. Check blank/populated lists
+  and model process controls (First use
   by default, App start persistence, weight load/unload, installed path and Finder
   reveal, PID, address, multi-model memory warnings including API first-use
   admission, errors, and quit cleanup), automatic Local API startup with no models,

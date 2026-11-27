@@ -16,6 +16,7 @@ public struct ModelsCatalogView: View {
     @Bindable private var runtime: ModelsLocalRuntime
     let location: ModelsLocation
     let automaticContextFits: [String: UInt32]
+    let onUseModel: ((ChatModelOption) -> Void)?
     @State private var query = ""
     @State private var category: AIModelCategory?
     @State private var downloadFilter: DownloadFilter = .all
@@ -29,7 +30,7 @@ public struct ModelsCatalogView: View {
     @State private var installedDecisionIDs: Set<String>?
     @State private var decisionInventoryError: String?
     @State private var selection: String?
-    @State private var setup: ChatModelOption?
+    @State private var setup: LocalModelSetup?
     @State private var providerSetup: RemoteProviderRow?
     @State private var showsCustomSetup = false
     @State private var showsImport = false
@@ -39,9 +40,20 @@ public struct ModelsCatalogView: View {
     @State private var removing: ProviderConnection?
 
     public init(store: ModelsStore, runtime: ModelsLocalRuntime, location: ModelsLocation,
-                automaticContextFits: [String: UInt32] = [:]) {
+                automaticContextFits: [String: UInt32] = [:], onUseModel: ((ChatModelOption) -> Void)? = nil) {
         self.store = store; self.runtime = runtime; self.location = location
         self.automaticContextFits = automaticContextFits
+        self.onUseModel = onUseModel
+    }
+
+    private struct LocalModelSetup: Identifiable {
+        let model: ChatModelOption
+        let onUseModel: ((ChatModelOption) -> Void)?
+        var id: String { model.id }
+    }
+
+    private func presentSetup(for model: ChatModelOption) {
+        setup = LocalModelSetup(model: model, onUseModel: onUseModel)
     }
 
     private enum DownloadFilter: String, CaseIterable {
@@ -281,7 +293,7 @@ public struct ModelsCatalogView: View {
         .onChange(of: query) { collapsedSearchFamilies.removeAll() }
         .contextMenu(forSelectionType: String.self) { ids in
             if let id = ids.first, let row = rows.first(where: { $0.id == id }) {
-                Button("Set Up Model…") { setup = row.model }
+                Button("Set Up Model…") { presentSetup(for: row.model) }
                 if let transfer = store.modelDownloads[row.model.modelID], transfer.isDownloading {
                     Button("Stop Download") { transfer.stopDownload() }
                 }
@@ -294,7 +306,7 @@ public struct ModelsCatalogView: View {
                 }
             }
         } primaryAction: { ids in
-            if let id = ids.first { setup = rows.first { $0.id == id }?.model }
+            if let id = ids.first, let row = rows.first(where: { $0.id == id }) { presentSetup(for: row.model) }
         }
     }
 
@@ -367,7 +379,9 @@ public struct ModelsCatalogView: View {
                     .help("Import from Hugging Face…")
                 }
                 Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "pencil") {
-                    if location == .local { setup = selected } else { providerSetup = selectedProvider }
+                    if location == .local {
+                        if let selected { presentSetup(for: selected) }
+                    } else { providerSetup = selectedProvider }
                 }
                 .disabled(location == .local ? selected == nil : selectedProvider == nil)
                 .help(location == .local ? "Set Up Model…" : "Set Up Provider…")
@@ -380,11 +394,17 @@ public struct ModelsCatalogView: View {
                 }
             }
         }
-        .sheet(item: $setup, onDismiss: { Task { await refreshInventory() } }) { model in
+        .sheet(item: $setup, onDismiss: { Task { await refreshInventory() } }) { setup in
+            let model = setup.model
             let connection = store.setupConnection(for: model)
+            let initialModel = model.connectionID != nil && connection?.modelID == model.modelID ? nil : model
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
-                                 initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model,
-                                 providerOptions: location == .local ? [model.displayProvider] : nil)
+                                 initialModel: initialModel, providerOptions: [model.displayProvider]) { saved in
+                guard initialModel != nil, saved.category == .llm else { return }
+                let selected = ChatModelOption(connection: saved,
+                    model: DiscoveredAIModel(id: saved.modelID, displayName: model.displayName))
+                setup.onUseModel?(selected)
+            }
         }
         .onChange(of: store.modelDownloads.completedDownloads) {
             if location == .local { Task { await refreshInventory() } }
