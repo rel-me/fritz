@@ -33,18 +33,6 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
                     editor = ModelsEditorSelection(connection: connection)
                 }
             },
-            canMakeDefault: { id in
-                store.connections.contains { $0.id == id && $0.category == .llm }
-                    && id != store.defaultConnectionID
-            },
-            showsMakeDefault: { id in
-                store.connections.contains { $0.id == id && $0.category == .llm }
-            },
-            makeDefault: { id in
-                if let connection = store.connections.first(where: { $0.id == id }) {
-                    Task { await store.makeDefault(connection) }
-                }
-            },
             exportProviders: prepareExport,
             deleteProvider: { id in
                 deleting = store.connections.first(where: { $0.id == id })
@@ -108,7 +96,6 @@ public struct ModelsConfigurationView<Store: ModelsProviderStore, Runtime: Model
                 id: connection.id, name: connection.providerDisplayName,
                 warning: store.discoveryErrors[connection.id],
                 isLocal: connection.provider.isNative,
-                isDefault: connection.id == store.defaultConnectionID,
                 models: names, nameHelp: connection.name
             )
         }
@@ -142,7 +129,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var apiKey = ""
     @State private var isAPIKeyVisible = false
     @State private var modelID: String
-    @State private var makeDefault: Bool
     @State private var models: [DiscoveredAIModel] = []
     @State private var isDiscovering = false
     @State private var isSaving = false
@@ -184,8 +170,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         _preset = State(initialValue: initialPreset)
         _endpoint = State(initialValue: existing?.baseURL ?? initialPreset.baseURL)
         _modelID = State(initialValue: initialModel?.modelID ?? existing?.modelID ?? initialPreset.provider.decisionModelID)
-        _makeDefault = State(initialValue: category == .llm &&
-                             (existing?.id == store.defaultConnectionID || store.defaultConnectionID == nil))
     }
 
     public var body: some View {
@@ -226,10 +210,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             if managesLocalModels { nativeModel.refresh() }
         }
         .onChange(of: preset) { old, new in
-            if old.category != new.category {
-                makeDefault = new.category == .llm &&
-                    (existing?.id == store.defaultConnectionID || store.defaultConnectionID == nil)
-            }
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.provider.decisionModelID
@@ -295,7 +275,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     if nativeModel.state == .installed, let directory = nativeModel.downloadDirectory {
                         LabeledContent("Stored in") {
                             ModelStoragePathControl(directory: directory, choose: nil)
-                                .frame(width: 220, height: 24)
+                                .frame(maxWidth: 220, alignment: .trailing)
+                                .frame(height: 24)
                         }
                     }
                     if initialModel == nil && nativeModel.state != .installed {
@@ -374,12 +355,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     }
                     if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
                 }
-                if initialModel == nil && category == .llm && store.defaultConnectionID != nil {
-                    Section {
-                        Toggle("Use as Default Model", isOn: $makeDefault)
-                            .disabled(existing?.id == store.defaultConnectionID)
-                    }
-                }
             } else {
                 remoteSections
             }
@@ -453,10 +428,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     }.frame(minHeight: 20)
                 }
             }
-            if initialModel == nil && category == .llm && store.defaultConnectionID != nil {
-                Toggle(AIProviderCategory.local.contains(preset) ? "Use as Default Model" : "Use as Default Provider", isOn: $makeDefault)
-                    .disabled(existing?.id == store.defaultConnectionID)
-            }
         } footer: {
             if let duplicateConnection {
                 duplicateWarning(duplicateConnection)
@@ -474,15 +445,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 if !requiresEndpoint { endpointField }
                 if category == .llm {
                     TextField("Connection name", text: $name)
-                    if initialModel == nil && !models.isEmpty {
-                        Picker("Default model", selection: $modelID) {
-                            Text("Choose automatically").tag("")
-                            if !modelID.isEmpty && !models.contains(where: { $0.id == modelID }) { Text(modelID).tag(modelID) }
-                            ForEach(models) { Text($0.displayName).tag($0.id) }
-                        }
-                    }
                     if initialModel == nil {
-                        TextField("Model ID", text: $modelID, prompt: Text("Optional manual model ID")).autocorrectionDisabled()
+                        TextField("Manual Model ID", text: $modelID, prompt: Text("Optional")).autocorrectionDisabled()
                     }
                 }
             }
@@ -521,14 +485,13 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     private var editorHeight: CGFloat {
         let base: CGFloat
         if managesLocalModels {
-            base = 340 + (category == .llm && store.defaultConnectionID != nil ? 40 : 0)
+            base = 340
                 + (managesLocalAPI ? 65 : 0)
                 + (nativeModel.installedURL == nil ? 44 : 50)
         } else if category == .decision {
             base = 350 + (showsAdvanced ? 100 : 0)
         } else {
-            base = 370 + (requiresEndpoint ? 64 : 0) + (showsAdvanced ? (requiresEndpoint ? 150 : 250) : 0)
-                + (store.connections.isEmpty ? 0 : 32)
+            base = 370 + (requiresEndpoint ? 64 : 0) + (showsAdvanced ? (requiresEndpoint ? 150 : 210) : 0)
                 + (discoveryError == nil ? 0 : 60)
         }
         return base - (existing == nil ? 32 : 0) + (duplicateConnection == nil ? 0 : 44)
@@ -632,7 +595,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             defer { isSaving = false; saveTask = nil }
             do {
                 let saved = connection
-                try await store.save(saved, key: apiKey, makeDefault: makeDefault)
+                try await store.save(saved, key: apiKey)
                 if let existing, existing.provider == .fritz,
                    saved.provider != .fritz || saved.modelID != existing.modelID {
                     localModels.stop(existing.modelID)

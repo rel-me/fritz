@@ -44,10 +44,30 @@ you send a message.
 See the [iPhone privacy policy](docs/ios-privacy.md) and
 [iPhone build and TestFlight guide](docs/agents/ios-release.md).
 
+### Use local Mac models on iPhone
+
+1. On the Mac, download a chat model in **Local Models**. Open **Settings →
+   Service → Remote Model Access**, click **Share Local Models**, and copy the
+   access key.
+2. Connect the Mac and iPhone to the same private VPN. With Tailscale connected
+   on both devices, run `tailscale serve http://127.0.0.1:11436` on the Mac.
+   Keep that terminal open and use the HTTPS URL it prints. Enable HTTPS for
+   the tailnet if prompted. [Tailscale Serve setup](https://tailscale.com/docs/features/tailscale-serve)
+3. In Fritz on iPhone, add a **Fritz on a Mac** provider. Enter the HTTPS tunnel
+   URL and access key, then tap **Save**. Start a chat, select the connection in the
+   model picker, and use **Load Models** to choose from the Mac’s installed models.
+
+Fritz streams the response from the Mac while the Mac app is running. The
+listener handles model discovery and text chat. Keep the VPN's access limited to
+your intended devices. Fritz stores the access key on iPhone in Keychain.
+**Stop Sharing** or quitting Fritz closes the listener and revokes the key.
+When you finish, also stop the tunnel. If you start sharing again, replace
+the access key in the iPhone provider.
+
 ## Get started on Mac
 
-1. Create a conversation with **New Chat** or ⌘N. In the composer, click
-   **Choose Model…** to browse all known chat models. **Local** and **Remote**
+1. Create a conversation with **New Chat** or ⌘N. Click **Choose Model…** in the
+   composer to select a model for that chat. **Local** and **Remote**
    filters come first; search and provider filters also include models that have
    not been configured yet.
 2. Choose a model. A ready model is selected immediately. Otherwise its setup

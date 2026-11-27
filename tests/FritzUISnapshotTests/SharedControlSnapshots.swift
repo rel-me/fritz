@@ -118,9 +118,9 @@ final class SharedControlSnapshots: XCTestCase {
             }
             ModelProvidersTable(providers: [
                 .init(id: "openai", name: "OpenAI", warning: nil, isLocal: false,
-                      isDefault: true, models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
+                      models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
                 .init(id: "local", name: "Local", warning: "Download a model", isLocal: true,
-                      isDefault: false, models: "Local Model")
+                      models: "Local Model")
             ], selection: .constant([]), isLoading: false) { _ in }
             .scrollContentBackground(.hidden)
             .alternatingRowBackgrounds(.disabled)
@@ -424,7 +424,6 @@ final class SharedControlSnapshots: XCTestCase {
     var error: String?
     var isLoading: Bool { state == "loading" }
     var connections: [ProviderConnection] { ["empty", "loading"].contains(state) ? [] : [.init(id: connectionID, name: "Test", provider: .ollama)] }
-    var defaultConnectionID: UUID? { connections.first?.id }
     var catalog: [UUID: [DiscoveredAIModel]] { [connectionID: [.init(id: "test-model", displayName: "Test Model")]] }
     var discoveryErrors: [UUID: String] { state == "error" ? [connectionID: "The provider is unavailable."] : [:] }
     var recentIDs: [String] { [] }
@@ -439,9 +438,8 @@ final class SharedControlSnapshots: XCTestCase {
               modelID: provider.rawValue == "ollaya" ? NativeModelDescriptor.decisionCatalog[0].id : "qwen2.5-1.5b-instruct-q4_k_m")
     }
     func refresh() async {}
-    func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws {}
+    func save(_ connection: ProviderConnection, key: String) async throws {}
     func remove(_ connection: ProviderConnection) async {}
-    func makeDefault(_ connection: ProviderConnection) async {}
     func importProviders(_ text: String, policy: ModelsImportPolicy) async throws {}
     func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String { "" }
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {

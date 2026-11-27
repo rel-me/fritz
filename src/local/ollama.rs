@@ -2,6 +2,7 @@
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     io::Write,
@@ -11,14 +12,22 @@ use std::{
     },
     time::Instant,
 };
+use subtle::ConstantTimeEq;
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     net::{TcpListener, TcpStream},
     sync::{Mutex, oneshot},
 };
 
 const MAX_REQUEST: usize = 128 * 1024;
 const MAX_OUTPUT: usize = 2 * 1024 * 1024;
+const REMOTE_PORT: u16 = 11436;
+const REMOTE_CONNECTIONS: usize = 8;
+type TokenDigest = [u8; 32];
+
+fn token_digest(token: &str) -> TokenDigest {
+    Sha256::digest(token.as_bytes()).into()
+}
 static BUSY: AtomicBool = AtomicBool::new(false);
 
 struct Permit;
@@ -167,10 +176,52 @@ fn bounded_option(
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Control {
-    action: String,
-    model_id: String,
+#[serde(
+    tag = "action",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+enum Control {
+    Start { model_id: String },
+    Stop { model_id: String },
+    Deny { model_id: String },
+    EnableRemote { token: String },
+    DisableRemote,
+}
+
+struct RemoteListener {
+    listener: TcpListener,
+    digest: TokenDigest,
+}
+
+impl RemoteListener {
+    async fn bind(token: String) -> Result<Self> {
+        anyhow::ensure!(
+            token.len() == 64 && token.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "Invalid remote model access key"
+        );
+        let listener = TcpListener::bind(("127.0.0.1", REMOTE_PORT))
+            .await
+            .with_context(|| format!("Could not listen on 127.0.0.1:{REMOTE_PORT}"))?;
+        Ok(Self {
+            listener,
+            digest: token_digest(&token),
+        })
+    }
+}
+
+async fn accept_remote(
+    remote: &Option<RemoteListener>,
+) -> std::io::Result<(TcpStream, TokenDigest)> {
+    let Some(remote) = remote else {
+        return std::future::pending().await;
+    };
+    remote
+        .listener
+        .accept()
+        .await
+        .map(|(stream, _)| (stream, remote.digest))
 }
 
 struct PendingLoad {
@@ -231,11 +282,13 @@ impl Managed {
 
     async fn run(
         self: Arc<Self>,
-        mut stream: TcpStream,
+        mut stream: impl AsyncWrite + Unpin + Send + 'static,
         request: InferenceRequest,
         permit: Permit,
         store: super::models::ModelStore,
+        mut remote_read: Option<tokio::net::tcp::OwnedReadHalf>,
     ) -> Result<()> {
+        let remote = remote_read.is_some();
         let model_id = request.model.clone();
         let owner = self.clone();
         // Register under the same lock Stop uses, so it cannot miss a new request.
@@ -243,17 +296,38 @@ impl Managed {
         let mut work = AbortOnDrop(tokio::spawn(async move {
             let _permit = permit;
             if let Err(message) = owner.request_start(&request.model).await {
-                error(&mut stream, 503, &message).await?;
+                error(
+                    &mut stream,
+                    503,
+                    if remote {
+                        "Could not start the model in Fritz"
+                    } else {
+                        &message
+                    },
+                )
+                .await?;
                 return Ok(());
             }
-            infer(&mut stream, request, true, store).await
+            infer(&mut stream, request, true, store, remote).await
         }));
         *active = Some(ActiveRequest {
             model_id,
             abort: work.0.abort_handle(),
         });
         drop(active);
-        let result = (&mut work.0).await;
+        let result = if let Some(read) = &mut remote_read {
+            let mut byte = [0];
+            tokio::select! {
+                result = &mut work.0 => result,
+                // The proxy closes its upstream connection when the phone stops.
+                _ = read.read(&mut byte) => {
+                    work.0.abort();
+                    (&mut work.0).await
+                }
+            }
+        } else {
+            (&mut work.0).await
+        };
         let mut active = self.active.lock().await;
         if active
             .as_ref()
@@ -268,16 +342,43 @@ impl Managed {
         }
     }
 
-    async fn controls(self: Arc<Self>, storage: Arc<RuntimeStorage>) -> Result<()> {
+    async fn controls(
+        self: Arc<Self>,
+        storage: Arc<RuntimeStorage>,
+        selected_model: Option<String>,
+    ) -> Result<()> {
         let mut lines = BufReader::new(crate::harness_client::PrivateStdin::new()?);
         let mut jobs = tokio::task::JoinSet::new();
         let mut operations: HashMap<String, tokio::task::AbortHandle> = HashMap::new();
+        let mut remote = None;
+        let mut remote_requests = tokio::task::JoinSet::new();
         loop {
             // Keep partial command bytes while completed jobs are reaped.
             let mut next_line = Box::pin(crate::harness_client::read_line(&mut lines, 8192));
             let line = loop {
                 tokio::select! {
                     line = &mut next_line => break line?,
+                    accepted = accept_remote(&remote), if remote_requests.len() < REMOTE_CONNECTIONS => {
+                        match accepted {
+                            Ok((stream, digest)) => {
+                                let storage = storage.clone();
+                                let owner = self.clone();
+                                let selected_model = selected_model.clone();
+                                remote_requests.spawn(async move {
+                                    let _ = tokio::time::timeout(
+                                        std::time::Duration::from_secs(330),
+                                        handle(stream, selected_model.as_deref(), Some(owner), storage, Some(digest)),
+                                    ).await;
+                                });
+                            }
+                            Err(error) => {
+                                remote = None;
+                                remote_requests.shutdown().await;
+                                emit(json!({"type":"remoteModels", "status":"failed", "error":error.to_string()}));
+                            }
+                        }
+                    }
+                    _ = remote_requests.join_next(), if !remote_requests.is_empty() => {},
                     joined = jobs.join_next_with_id(), if !jobs.is_empty() => {
                         match joined {
                             Some(Ok((task, id))) if operations.get(&id).is_some_and(|operation| operation.id() == task) => { operations.remove(&id); }
@@ -291,11 +392,10 @@ impl Managed {
             let Some(line) = line else {
                 break;
             };
-            let control: Control =
-                serde_json::from_str(&line).context("Invalid model service command")?;
-            let id = control.model_id;
-            match control.action.as_str() {
-                "start" => {
+            let control: Control = serde_json::from_str(&line)
+                .map_err(|_| anyhow::anyhow!("Invalid model service command"))?;
+            match control {
+                Control::Start { model_id: id } => {
                     if let Some(operation) = operations.remove(&id) {
                         operation.abort();
                     }
@@ -317,7 +417,7 @@ impl Managed {
                     });
                     operations.insert(id, operation);
                 }
-                "stop" => {
+                Control::Stop { model_id: id } => {
                     if let Some(operation) = operations.remove(&id) {
                         operation.abort();
                     }
@@ -340,13 +440,32 @@ impl Managed {
                     });
                     operations.insert(id, operation);
                 }
-                "deny" => {
+                Control::Deny { model_id: id } => {
                     self.complete(&id, Err("Model start was cancelled".into()))
                         .await;
                 }
-                _ => bail!("Unknown model service command"),
+                Control::EnableRemote { token } => {
+                    drop(remote.take());
+                    remote_requests.shutdown().await;
+                    match RemoteListener::bind(token).await {
+                        Ok(listener) => {
+                            remote = Some(listener);
+                            emit(json!({"type":"remoteModels", "status":"running",
+                                "address":format!("http://127.0.0.1:{REMOTE_PORT}")}));
+                        }
+                        Err(error) => emit(
+                            json!({"type":"remoteModels", "status":"failed", "error":format!("{error:#}")}),
+                        ),
+                    }
+                }
+                Control::DisableRemote => {
+                    remote = None;
+                    remote_requests.shutdown().await;
+                    emit(json!({"type":"remoteModels", "status":"stopped"}));
+                }
             }
         }
+        remote_requests.shutdown().await;
         jobs.abort_all();
         while jobs.join_next().await.is_some() {}
         Ok(())
@@ -402,9 +521,10 @@ pub async fn serve_in(
     let supervisor = managed.then(|| Arc::new(Managed::default()));
     let control_owner = supervisor.clone();
     let control_storage = storage.clone();
+    let control_model = model.clone();
     let mut controls = Box::pin(async move {
         match control_owner {
-            Some(owner) => owner.controls(control_storage).await,
+            Some(owner) => owner.controls(control_storage, control_model).await,
             None => std::future::pending().await,
         }
     });
@@ -416,7 +536,7 @@ pub async fn serve_in(
                 let model = model.clone();
                 let supervisor = supervisor.clone();
                 let storage = storage.clone();
-                requests.spawn(async move { let _ = tokio::time::timeout(std::time::Duration::from_secs(330), handle(stream, model.as_deref(), supervisor, storage)).await; });
+                requests.spawn(async move { let _ = tokio::time::timeout(std::time::Duration::from_secs(330), handle(stream, model.as_deref(), supervisor, storage, None)).await; });
             }
             result = &mut controls => break result,
             _ = requests.join_next(), if !requests.is_empty() => {},
@@ -438,7 +558,10 @@ impl<T> Drop for AbortOnDrop<T> {
     }
 }
 
-async fn read_request(stream: &mut TcpStream) -> Result<(String, String, Vec<u8>)> {
+async fn read_request(
+    stream: &mut TcpStream,
+    remote: Option<TokenDigest>,
+) -> Result<Option<(String, String, Vec<u8>)>> {
     let mut buffer = Vec::new();
     let header_end = loop {
         if buffer.len() > MAX_REQUEST + 8192 {
@@ -467,10 +590,17 @@ async fn read_request(stream: &mut TcpStream) -> Result<(String, String, Vec<u8>
         bail!("HTTP/1.1 is required");
     }
     let mut length = None;
+    let mut authorization = None;
     for line in lines {
         if let Some((name, value)) = line.split_once(':') {
             if name.eq_ignore_ascii_case("transfer-encoding") {
                 bail!("Chunked requests are not supported");
+            }
+            if remote.is_some()
+                && name.eq_ignore_ascii_case("authorization")
+                && authorization.replace(value.trim()).is_some()
+            {
+                return Ok(None);
             }
             if name.eq_ignore_ascii_case("content-length") {
                 if length.is_some() {
@@ -478,6 +608,12 @@ async fn read_request(stream: &mut TcpStream) -> Result<(String, String, Vec<u8>
                 }
                 length = Some(value.trim().parse::<usize>()?);
             }
+        }
+    }
+    if let Some(digest) = remote {
+        let key = authorization.and_then(|header| header.strip_prefix("Bearer "));
+        if !key.is_some_and(|key| key.len() == 64 && bool::from(digest.ct_eq(&token_digest(key)))) {
+            return Ok(None);
         }
     }
     let length = length.unwrap_or(0);
@@ -496,14 +632,15 @@ async fn read_request(stream: &mut TcpStream) -> Result<(String, String, Vec<u8>
         }
         body.extend_from_slice(&chunk[..count]);
     }
-    Ok((method, path, body))
+    Ok(Some((method, path, body)))
 }
 
-async fn reply(stream: &mut TcpStream, status: u16, body: &Value) -> Result<()> {
+async fn reply(stream: &mut (impl AsyncWrite + Unpin), status: u16, body: &Value) -> Result<()> {
     let bytes = serde_json::to_vec(body)?;
     let heading = match status {
         200 => "OK",
         400 => "Bad Request",
+        401 => "Unauthorized",
         404 => "Not Found",
         405 => "Method Not Allowed",
         413 => "Content Too Large",
@@ -515,7 +652,7 @@ async fn reply(stream: &mut TcpStream, status: u16, body: &Value) -> Result<()> 
     Ok(())
 }
 
-async fn error(stream: &mut TcpStream, status: u16, message: &str) -> Result<()> {
+async fn error(stream: &mut (impl AsyncWrite + Unpin), status: u16, message: &str) -> Result<()> {
     reply(stream, status, &json!({"error":message})).await
 }
 
@@ -550,15 +687,33 @@ async fn handle(
     selected_model: Option<&str>,
     supervisor: Option<Arc<Managed>>,
     storage: Arc<RuntimeStorage>,
+    credential: Option<TokenDigest>,
 ) -> Result<()> {
-    let (method, path, body) = match read_request(&mut stream).await {
-        Ok(request) => request,
+    let remote = credential.is_some();
+    let request = if remote {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            read_request(&mut stream, credential),
+        )
+        .await?
+    } else {
+        read_request(&mut stream, None).await
+    };
+    let (method, path, body) = match request {
+        Ok(Some(request)) => request,
+        Ok(None) => return error(&mut stream, 401, "Remote model access key required").await,
         Err(problem) => {
             error(&mut stream, 400, &problem.to_string()).await?;
             return Ok(());
         }
     };
-    match (method.as_str(), path.as_str()) {
+    let route = match (remote, method.as_str(), path.as_str()) {
+        (true, "GET", "/fritz/v1/models") => "/api/tags",
+        (true, "POST", "/fritz/v1/chat/completions") => "/api/chat",
+        (true, _, _) => return error(&mut stream, 404, "Unknown endpoint").await,
+        (false, _, path) => path,
+    };
+    match (method.as_str(), route) {
         ("GET", "/api/tags") => {
             let inventory = storage.models()?.inventory().await?;
             let models = inventory["models"].as_array().into_iter().flatten()
@@ -566,20 +721,31 @@ async fn handle(
                 .filter_map(|model| {
                     let id = model["id"].as_str()?;
                     let pin = super::models::catalog().iter().find(|pin| pin.id == id)?;
+                    if remote {
+                        return Some(json!({"id":id, "display_name":pin.name}));
+                    }
                     Some(json!({"name":id,"model":id,"modified_at":timestamp(),"size":pin.size,
                         "digest":format!("sha256:{}",pin.sha256),"details":{"format":"gguf","family":pin.architecture,
                         "families":[pin.architecture],"parameter_size":pin.name,"quantization_level":pin.quantization.as_deref().unwrap_or("Q4_K_M")}}))
                 }).collect::<Vec<_>>();
-            reply(&mut stream, 200, &json!({"models":models})).await?;
+            let body = if remote {
+                json!({"data":models})
+            } else {
+                json!({"models":models})
+            };
+            reply(&mut stream, 200, &body).await?;
         }
         ("POST", "/api/chat" | "/api/generate") => {
-            let request = match parse_request(&path, &body) {
+            let request = match parse_request(route, &body) {
                 Ok(request) => request,
                 Err(message) => {
                     error(&mut stream, 400, &message).await?;
                     return Ok(());
                 }
             };
+            if remote && !request.stream {
+                return error(&mut stream, 400, "Remote chat requires streaming").await;
+            }
             if selected_model.is_some_and(|id| id != request.model) {
                 error(&mut stream, 404, "Model is not available on this listener").await?;
                 return Ok(());
@@ -604,12 +770,20 @@ async fn handle(
                 return Ok(());
             };
             if let Some(supervisor) = supervisor {
-                supervisor
-                    .run(stream, request, _permit, storage.models()?)
-                    .await?;
+                let store = storage.models()?;
+                if remote {
+                    let (read, write) = stream.into_split();
+                    supervisor
+                        .run(write, request, _permit, store, Some(read))
+                        .await?;
+                } else {
+                    supervisor
+                        .run(stream, request, _permit, store, None)
+                        .await?;
+                }
             } else {
                 super::stop_other_models(&request.model).await;
-                infer(&mut stream, request, false, storage.models()?).await?;
+                infer(&mut stream, request, false, storage.models()?, false).await?;
             }
         }
         ("GET" | "POST", _) => error(&mut stream, 404, "Unknown endpoint").await?,
@@ -618,11 +792,26 @@ async fn handle(
     Ok(())
 }
 
+async fn write_event(
+    stream: &mut (impl AsyncWrite + Unpin),
+    value: Value,
+    remote: bool,
+) -> Result<()> {
+    let frame = if remote {
+        format!("data: {value}\n\n")
+    } else {
+        format!("{value}\n")
+    };
+    stream.write_all(frame.as_bytes()).await?;
+    Ok(())
+}
+
 async fn infer(
-    stream: &mut TcpStream,
+    stream: &mut (impl AsyncWrite + Unpin),
     request: InferenceRequest,
     managed: bool,
     store: super::models::ModelStore,
+    remote: bool,
 ) -> Result<()> {
     let started = Instant::now();
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
@@ -645,7 +834,12 @@ async fn infer(
     }));
     let mut content = String::new();
     if request.stream {
-        stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n").await?;
+        let content_type = if remote {
+            "text/event-stream"
+        } else {
+            "application/x-ndjson"
+        };
+        stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n").as_bytes()).await?;
     }
     while let Some(chunk) = receiver.recv().await {
         content.push_str(&chunk);
@@ -654,21 +848,36 @@ async fn infer(
             bail!("Model output exceeded its limit");
         }
         if request.stream {
-            stream
-                .write_all(format!("{}\n", event(&request, &chunk, false, None, 0)).as_bytes())
-                .await?;
+            let value = if remote {
+                json!({"choices":[{"index":0,"delta":{"content":chunk}}]})
+            } else {
+                event(&request, &chunk, false, None, 0)
+            };
+            write_event(stream, value, remote).await?;
         }
     }
     match (&mut work.0).await? {
         Ok(usage) => {
             if request.json_format && serde_json::from_str::<Value>(&content).is_err() {
                 if request.stream {
-                    stream
-                        .write_all(b"{\"error\":\"Local model returned invalid JSON\"}\n")
-                        .await?;
+                    write_event(
+                        stream,
+                        json!({"error":"Local model returned invalid JSON"}),
+                        remote,
+                    )
+                    .await?;
                 } else {
                     error(stream, 500, "Local model returned invalid JSON").await?;
                 }
+                return Ok(());
+            }
+            if remote {
+                let (input, output, truncated) = usage;
+                write_event(stream, json!({
+                    "choices":[{"index":0,"delta":{},"finish_reason":if truncated { "length" } else { "stop" }}],
+                    "usage":{"prompt_tokens":input,"completion_tokens":output,"total_tokens":input+output}
+                }), true).await?;
+                stream.write_all(b"data: [DONE]\n\n").await?;
                 return Ok(());
             }
             let final_event = event(
@@ -693,9 +902,12 @@ async fn infer(
                 );
             }
             if request.stream {
-                stream
-                    .write_all(format!("{}\n", json!({"error":problem.to_string()})).as_bytes())
-                    .await?;
+                let message = if remote {
+                    "Local model could not finish generating".into()
+                } else {
+                    problem.to_string()
+                };
+                write_event(stream, json!({"error":message}), remote).await?;
             } else {
                 error(stream, 500, &problem.to_string()).await?;
             }
@@ -738,7 +950,7 @@ mod tests {
         let address = listener.local_addr().unwrap();
         let server = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
-            handle(stream, None, None, storage).await.unwrap();
+            handle(stream, None, None, storage, None).await.unwrap();
         });
         let mut client = TcpStream::connect(address).await.unwrap();
         client
@@ -754,6 +966,88 @@ mod tests {
         assert_eq!(tags["models"][0]["name"], id);
         assert_eq!(tags["models"].as_array().unwrap().len(), 1);
         assert!(!default.exists());
+    }
+
+    #[tokio::test]
+    async fn remote_api_requires_bearer_auth_and_exposes_only_chat_and_installed_models() {
+        let root = tempfile::tempdir().unwrap();
+        let model = &super::super::models::catalog()[0];
+        std::fs::write(root.path().join(&model.file), b"inventory-only fixture").unwrap();
+        let storage = Arc::new(RuntimeStorage {
+            directory: root.path().into(),
+            locations: crate::config::ModelLocationStore::new(root.path()),
+        });
+        let key = "12".repeat(32);
+        let digest = token_digest(&key);
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let requests = [
+            ("GET /fritz/v1/models", String::new(), "401"),
+            (
+                "GET /fritz/v1/models",
+                format!("Authorization: Bearer {}\r\n", "34".repeat(32)),
+                "401",
+            ),
+            (
+                "GET /fritz/v1/models",
+                format!("Authorization: Bearer {key}\r\nAuthorization: Bearer {key}\r\n"),
+                "401",
+            ),
+            (
+                "GET /api/tags",
+                format!("Authorization: Bearer {key}\r\n"),
+                "404",
+            ),
+            (
+                "GET /fritz/v1/models",
+                format!("Authorization: Bearer {key}\r\n"),
+                "200",
+            ),
+            (
+                "POST /fritz/v1/chat/completions",
+                format!("Authorization: Bearer {key}\r\nContent-Length: 2\r\n"),
+                "400",
+            ),
+        ];
+        let count = requests.len();
+        let server = tokio::spawn(async move {
+            for _ in 0..count {
+                let (stream, _) = listener.accept().await.unwrap();
+                handle(stream, None, None, storage.clone(), Some(digest))
+                    .await
+                    .unwrap();
+            }
+        });
+        for (request, headers, status) in requests {
+            let mut client = TcpStream::connect(address).await.unwrap();
+            let body = if request.starts_with("POST") {
+                "{}"
+            } else {
+                ""
+            };
+            client
+                .write_all(
+                    format!("{request} HTTP/1.1\r\nHost: localhost\r\n{headers}\r\n{body}")
+                        .as_bytes(),
+                )
+                .await
+                .unwrap();
+            let mut response = String::new();
+            client.read_to_string(&mut response).await.unwrap();
+            assert!(
+                response.starts_with(&format!("HTTP/1.1 {status} ")),
+                "{response}"
+            );
+            if status == "200" {
+                let catalog: Value =
+                    serde_json::from_str(response.split_once("\r\n\r\n").unwrap().1).unwrap();
+                assert_eq!(
+                    catalog["data"],
+                    json!([{"id":model.id,"display_name":model.name}])
+                );
+            }
+        }
+        server.await.unwrap();
     }
 
     #[test]

@@ -150,6 +150,22 @@ service reports Running only after the native loader succeeds. Failed loads
 return a model error and leave the API available. Managed listeners can retain
 multiple models; inference remains serialized.
 
+The managed service can also open a separate remote model listener on
+`127.0.0.1:11436`. The Mac app sends `enableRemote` with a fresh 32-byte
+hexadecimal `token` over private stdin, or sends `disableRemote` to revoke it and
+close client connections. Stdout emits `remoteModels` status and the loopback
+address or bind error. It never echoes the token. The process holds only the
+token digest while listening. The Mac app holds the current key in memory for
+explicit copying. The service closes with its owner.
+
+The remote listener is a target for a private HTTPS tunnel terminating on the
+same Mac. It requires `Authorization: Bearer <token>` on every request.
+`GET /fritz/v1/models` lists installed Fritz chat models. `POST
+/fritz/v1/chat/completions` accepts a model ID and system, user, and assistant
+text messages and returns OpenAI-compatible server-sent events. The service
+shares the local API's model admission, 8,192-token context limit and
+2,048-token reply limit. Remote requests have no project or tool access.
+
 New Models and Edit Models expose Download, Start/Stop, and Start on for Fritz
 chat models. Startup policies live in the workspace database. First use is the
 default and loads on the first API request; App start preloads saved Fritz

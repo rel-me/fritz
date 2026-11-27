@@ -14,6 +14,10 @@ For OpenRouter and other gateways, the gateway may route your request to one of
 its upstream model providers. Each provider's own policies govern how it
 handles requests and responses.
 
+For a Fritz on a Mac connection, the selected Mac receives the chat for local
+inference through the private HTTPS tunnel you configure. The iPhone stores
+the Mac access key in Keychain alongside other provider credentials.
+
 The app contains no analytics or advertising and sends no chat data to Fritz's
 maintainers. Apple may receive TestFlight feedback or crash reports according
 to your Apple settings and actions.

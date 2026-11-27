@@ -79,23 +79,30 @@ private struct ProviderEditor: View {
                     }
                 }
                 .accessibilityIdentifier("provider-kind")
-                if connection.kind == .compatible {
-                    TextField("Endpoint URL", text: $connection.customEndpoint, prompt: Text("https://example.com/v1"))
+                if connection.kind == .compatible || connection.kind == .fritzRemote {
+                    TextField(connection.kind == .fritzRemote ? "Tunnel URL" : "Endpoint URL",
+                              text: $connection.customEndpoint,
+                              prompt: Text(connection.kind == .fritzRemote ? "https://mac.example.com" : "https://example.com/v1"))
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
                         .accessibilityIdentifier("provider-endpoint")
                 }
-                SecureField(connection.credentialID == nil || destinationChanged ? "API Key" : "Replace API Key", text: $replacement)
+                SecureField(credentialTitle, text: $replacement)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             } footer: {
-                if let issue {
-                    Text(issue).foregroundStyle(.red)
-                }
-                if destinationChanged {
-                    let destination = URLComponents(string: endpoint)?.host ?? connection.kind.title
-                    Text("By tapping Save, you allow Fritz to send your conversation history to \(destination) when you send a message or retry a reply.")
+                VStack(alignment: .leading, spacing: 6) {
+                    if let issue {
+                        Text(issue).foregroundStyle(.red)
+                    }
+                    if connection.kind == .fritzRemote {
+                        Text("Get the access key from Settings → Service → Remote Model Access on your Mac.")
+                    }
+                    if destinationChanged {
+                        let destination = URLComponents(string: endpoint)?.host ?? connection.kind.title
+                        Text("By tapping Save, you allow Fritz to send your conversation history to \(destination) when you send a message or retry a reply.")
+                    }
                 }
             }
         }
@@ -117,9 +124,16 @@ private struct ProviderEditor: View {
         .onChange(of: replacement) { _, _ in issue = nil }
     }
 
+    private var credentialTitle: String {
+        let replacingKey = connection.credentialID != nil && !destinationChanged
+        if connection.kind == .fritzRemote {
+            return replacingKey ? "Replace Access Key" : "Access Key"
+        }
+        return replacingKey ? "Replace API Key" : "API Key"
+    }
+
     private func save() {
         var updated = connection
-        if destinationChanged { updated.defaultModel = "" }
         if savedConnection?.kind != connection.kind { updated.name = connection.kind.title }
         do {
             try store.saveProvider(updated, replacement: replacement)
@@ -142,9 +156,9 @@ struct ChatModelView: View {
         self.store = store
         self.chat = chat
         let saved = store.workspace.providers.first { $0.id == chat.providerID }
-        let selection = saved ?? store.workspace.providers.first
+        let selection = saved ?? (store.workspace.providers.count == 1 ? store.workspace.providers.first : nil)
         _providerID = State(initialValue: selection?.id)
-        _model = State(initialValue: saved == nil ? (selection?.defaultModel ?? "") : chat.model)
+        _model = State(initialValue: saved == nil ? "" : chat.model)
     }
 
     private var provider: ProviderConnection? {
@@ -162,7 +176,9 @@ struct ChatModelView: View {
                 }
             }
             if let provider {
-                ModelField(model: $model) {
+                ModelField(model: $model, emptyMessage: provider.kind == .fritzRemote
+                           ? "No installed chat models on the Mac."
+                           : "The provider returned an empty catalog. Enter a model ID if you know it.") {
                     let key = try ProviderKeychain.read(provider.credentialID)
                     return try await ProviderRuntime.models(for: provider, key: key)
                 }
@@ -195,12 +211,13 @@ struct ChatModelView: View {
                 .disabled(provider == nil || model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .onChange(of: providerID) { _, _ in model = provider?.defaultModel ?? "" }
+        .onChange(of: providerID) { _, id in model = id == chat.providerID ? chat.model : "" }
     }
 }
 
 private struct ModelField: View {
     @Binding var model: String
+    let emptyMessage: String
     let load: @MainActor () async throws -> [ProviderRuntime.Model]
     @State private var results: [ProviderRuntime.Model]?
     @State private var issue: String?
@@ -235,7 +252,7 @@ private struct ModelField: View {
             } else if let issue {
                 Text(issue).foregroundStyle(.red)
             } else if results?.isEmpty == true {
-                Text("The provider returned an empty catalog. Enter a model ID if you know it.")
+                Text(emptyMessage)
             }
         }
         .task(id: query) {
