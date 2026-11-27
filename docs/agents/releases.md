@@ -123,8 +123,8 @@ quits only the instance it launched. Temporary chat/provider data is removed on
 exit. `FRITZ_DATA_DIR` does not isolate Release UserDefaults or the Keychain, but
 this capture uses no keys; macOS may retain the app's window geometry.
 
-`make beta`, `make staging`, `make publish-beta`, `make publish-staging`, and `make promote` deploy the current page
-with the Worker. Run `npm --prefix website test` after editing it. To preview
+The Beta, Staging, promotion, and publication retry targets deploy the current
+page with the Worker. Run `npm --prefix website test` after editing it. To preview
 locally, seed the local bucket and start Wrangler; nothing is uploaded:
 
 ```sh
@@ -170,32 +170,39 @@ CONFIGURATION=release make build
 make beta
 ```
 
-`make staging` and `make beta` select a new version and publish to their respective Sparkle channels. They read the source defaults, local DMGs, staged app, local appcast, and live appcast across all channels. When the source version has already been used, they increment the highest patch version; the build number exceeds all known builds. A higher unused source version or build number is kept. Published appcast items are merged into the local feed to preserve the other channels on a fresh or stale checkout. Only HTTP 404 is treated as an initial publication; network errors, other HTTP failures, and malformed feeds stop the target before building. Staging accepts Staging, Beta, and Release updates in Settings. Saved Dev selections migrate to Staging on launch. Staging updates are excluded from the website’s download selection and cannot be promoted directly to Release. Moving from Staging to Beta automatically selects a new app version and build number.
+`make beta` increments the prerelease suffix, for example from `0.1.23-beta.1`
+to `0.1.23-beta.2`. Staging uses its own sequence, starting at `0.1.23-staging.1`
+on the same release base. Both targets advance to the next patch after a
+numeric release version is used. Previously published numeric Beta and
+Staging versions still reserve their numbers. Use a higher three-part
+`FRITZ_VERSION` to start a new series explicitly.
 
-Each target verifies notarization
-credentials before building, refuses to replace an existing local versioned
-DMG, then builds, notarizes, staples, signs the appcast, deploys the Worker,
-uploads the DMG and appcast to the separate bucket, and checks the live URLs.
-Both targets run setup when mise needs to install the pinned tools or llama.cpp
-source archive, or when the checkout lacks the Sparkle release tools.
-An interrupted upload can be retried with `make publish-staging` for Staging or `make publish-beta` for Beta
-after the local archive and appcast have been prepared. Test the Beta update channel before
-running `make promote`. Promotion changes the appcast channel and uploads it;
-the DMG is not rebuilt or uploaded again.
+The build number increases across all channels. Selection considers source
+defaults, local artifacts, and the local and live appcasts. Beta and promotion
+also check GitHub Releases. Prerelease suffixes keep every DMG URL unique.
+Published appcast items are merged into the local feed to preserve channel
+history. HTTP 404 allows an initial publication. Other HTTP failures,
+network errors, and malformed feeds stop the target before building.
 
-`make publish-beta`, `make publish-staging`, and `make promote` read the version and build number from
-the staged `dist/Fritz.app` and validate them against the appcast and archive.
-If the beta was built with `FRITZ_VERSION` and `FRITZ_BUILD_NUMBER` overrides,
-these publication commands do not need the overrides repeated. Keep that
-staged app with its archive and appcast until publication and promotion finish.
+After testing the Beta, run `make promote` from the source commit you want
+to release. The target selects the latest Beta in the published Fritz appcast
+and builds its three-part version, for example `0.1.23` from
+`0.1.23-beta.2`, with a new build number. The next Beta starts at
+`0.1.24-beta.1`. A numeric Beta published before suffixes were introduced
+can still be promoted in place using its matching staged app and archive.
+Staging updates stay out of the website download selection and are ineligible
+for promotion.
 
-Every `make beta` or `make staging` invocation prepares a new artifact, including
-after promotion. DMG URLs contain the app version and are immutable, so both
-the app version and build number advance. Explicit `FRITZ_VERSION` and
-`FRITZ_BUILD_NUMBER` overrides must exceed all known local and published values;
-an omitted override is selected automatically. Use the `publish-*` targets to
-retry a prepared update, or `make promote` to retry a promoted Release. Keep
-prepared artifacts until their publication finishes.
+The targets verify credentials before building, refuse to replace existing
+local archives, then build, notarize, staple, sign the appcast, deploy the
+Worker, upload the DMG and appcast, and verify the live URLs. They run setup
+when the pinned tools or Sparkle release tools are missing.
+
+Use `make publish-beta`, `make publish-staging`, or `make publish-release` to
+retry publication once the notarized archive and appcast are ready. These
+targets read the version and build number from the staged app. Keep the
+staged app, archive, source metadata, and appcast together until publication
+finishes. An explicit `FRITZ_BUILD_NUMBER` must exceed every known build.
 
 Release defaults in `scripts/release-config.sh` can be overridden through
 `FRITZ_VERSION`, `FRITZ_BUILD_NUMBER`, `FRITZ_CODE_SIGN_IDENTITY`,
@@ -227,14 +234,13 @@ commit even if publication is retried from a later checkout. Archives prepared
 before source metadata was introduced need a new distribution build and version.
 The DMG is Developer ID signed before notarization.
 
-`make beta` and `make publish-beta` create `v{version}` as a GitHub prerelease.
-`make promote` promotes that same entry to a full Release and marks it latest,
-without rebuilding or replacing the DMG. GitHub publication follows verification
-of the live Fritz update feed. If it fails, the command reports failure even if
-the update feed was published; retry the matching `make publish-beta` or
-`make promote` command with the prepared files intact.
+`make beta` and `make publish-beta` create prerelease tags such as
+`v0.1.23-beta.2`. `make promote` publishes a separate stable tag such as
+`v0.1.23` and marks it latest. Legacy numeric Betas keep their existing tag
+when promoted. GitHub publication follows verification of the live Fritz
+appcast. If the GitHub step fails, retry the matching publication target
+with the prepared files intact.
 
 GitHub uploads are prepared as a draft and verified before publication. Retries
-resume missing assets and compare existing asset checksums; different bytes or
-a tag pointing at another source commit are rejected. Retrying an already
-promoted Beta verifies the assets without demoting the GitHub Release.
+resume missing assets and check existing asset checksums and the tag's source
+commit. A retry of a previously promoted numeric Beta preserves the Release.

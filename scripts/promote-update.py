@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote the current signed beta update without rebuilding its archive."""
+"""Promote a legacy numeric Beta without rebuilding its signed archive."""
 
 import base64
 import os
@@ -77,6 +77,8 @@ def main() -> int:
         info = plistlib.load(source)
     version = info["CFBundleShortVersionString"]
     build = info["CFBundleVersion"]
+    if "-" in version or (sys.argv[1:] and sys.argv[1:] != [version, build]):
+        raise ValueError("Stage the matching published numeric Beta to promote it")
     archive = updates / f"Fritz-{version}.dmg"
     if not archive.is_file():
         raise ValueError(f"missing {archive}")

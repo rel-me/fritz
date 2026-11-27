@@ -4,6 +4,7 @@
 FRITZ_VERSION="${FRITZ_VERSION:-$(awk -F '"' '/^version = / { print $2; exit }' Cargo.toml)}"
 FRITZ_BUILD_NUMBER="${FRITZ_BUILD_NUMBER:-$(awk '/^[[:space:]]*CURRENT_PROJECT_VERSION:/ { print $2; exit }' app/project.yml)}"
 export FRITZ_VERSION FRITZ_BUILD_NUMBER
+fritz_version_pattern='^[0-9]+\.[0-9]+\.[0-9]+(-(beta|staging)\.[1-9][0-9]*)?$'
 
 if [[ "${FRITZ_DISTRIBUTION:-0}" == 1 ]]; then
   FRITZ_RELEASE_BASE_URL="${FRITZ_RELEASE_BASE_URL:-https://fritz.rel.me}"

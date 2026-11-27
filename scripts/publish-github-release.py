@@ -12,6 +12,7 @@ import tempfile
 
 
 REPOSITORY = "rel-me/fritz"
+VERSION_PATTERN = r"[0-9]+\.[0-9]+\.[0-9]+(?:-beta\.[1-9][0-9]*)?"
 
 
 def gh(*args):
@@ -54,8 +55,10 @@ def publish(channel):
     with Path("dist/Fritz.app/Contents/Info.plist").open("rb") as file:
         info = plistlib.load(file)
     version, build = info["CFBundleShortVersionString"], info["CFBundleVersion"]
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version) or not re.fullmatch(r"[1-9]\d*", build):
+    if not re.fullmatch(VERSION_PATTERN, version) or not re.fullmatch(r"[1-9][0-9]*", build):
         raise ValueError("The staged app needs a semantic version and a positive build number.")
+    if channel == "release" and "-" in version:
+        raise ValueError("Promote the Beta to a numeric Release version before publishing it as stable.")
     archive = Path(f"dist/updates/Fritz-{version}.dmg")
     source = json.loads(archive.with_suffix(".source.json").read_text())
     if source["version"] != version or source["build"] != build:
@@ -120,7 +123,7 @@ def inventory():
     for page in pages:
         for release in page:
             tag = release['tag_name']
-            if not re.fullmatch(r'v\d+\.\d+\.\d+', tag):
+            if not re.fullmatch(f'v{VERSION_PATTERN}', tag):
                 continue
             filename = f"Fritz-{tag[1:]}.source.json"
             if not any(asset['name'] == filename for asset in release['assets']):

@@ -20,26 +20,18 @@ under the `fritz` Sparkle account.
 
 ## Publishing updates
 
-`make staging` publishes a Staging update; `make beta` publishes a Beta update. Both use
-the same pipeline, which builds the Developer ID signed app, creates and notarizes a
-versioned DMG in `dist/updates/`, signs the selected channel’s appcast, and publishes
-both through Fritz's own Cloudflare Worker and R2 bucket. Each run selects the next
-unused patch version and build number from the source defaults, local artifacts, and
-published appcast across all channels. `make publish-beta` and `make publish-staging`
-retry prepared updates without rebuilding or notarizing. Staging updates are excluded
-from the website download and cannot be promoted directly to Release. After testing a
-Beta update, `make promote` publishes the same artifact on the Release channel by
-updating the appcast. Explicit `FRITZ_VERSION` and `FRITZ_BUILD_NUMBER` overrides must
-exceed existing versions and builds. See [the release procedure](agents/releases.md) for
-one-time Cloudflare setup, credentials, and verification.
+`make beta` publishes successive Betas such as `0.1.23-beta.1` and
+`0.1.23-beta.2`. `make staging` uses its own suffix, such as
+`0.1.23-staging.1`. Build numbers increase across all channels.
 
-`make publish-beta`, `make publish-staging`, and `make promote` use the staged app's
-version and build number, so version overrides used to build an update do not need to be
-repeated for publication or promotion. Keep the staged app, DMG, and appcast together
-until publication and promotion finish.
+After testing a Beta, run `make promote` to build the base version of the
+latest published Beta for the Release channel. For example, `0.1.23-beta.2`
+becomes `0.1.23` with a higher build number. The following Beta starts at
+`0.1.24-beta.1`.
 
-Beta and Release publications also appear on
-[GitHub Releases](https://github.com/rel-me/fritz/releases), with the same notarized
-DMG and a SHA-256 checksum. Beta entries are marked as prereleases; promotion
-updates the same entry to a full Release. Staging updates remain on Fritz's
-update service. See [the release procedure](agents/releases.md#github-releases).
+Beta and Release have separate entries on
+[GitHub Releases](https://github.com/rel-me/fritz/releases), each with its
+notarized DMG and SHA-256 checksum. Staging stays on Fritz's update service.
+Use `make publish-beta`, `make publish-staging`, or `make publish-release`
+to retry publication of a prepared update. See the
+[release procedure](agents/releases.md) for credentials and verification.

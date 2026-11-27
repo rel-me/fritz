@@ -76,7 +76,7 @@ class PrereleaseVersionTests(unittest.TestCase):
         scripts = self.root / "scripts"
         scripts.mkdir()
         for name in ("prerelease.sh", "release-config.sh", "build-cache.py", "next-release.py",
-                     "publish-github-release.py"):
+                     "promote-release.sh", "promote-update.py", "publish-github-release.py"):
             shutil.copy2(SCRIPT.parent / name, scripts / name)
         shutil.copy2(SCRIPT.parent.parent / "Makefile", self.root / "Makefile")
         (self.root / "Cargo.toml").write_text('version = "0.1.1"\n')
@@ -219,7 +219,9 @@ with Path('setup-receipts').open('a') as receipts:
         (self.updates / "appcast.xml").write_text(self.feed(("0.1.2", "3", "beta")))
         self.remote.write_text(self.feed(("0.1.4", "5", None), ("0.1.3", "4", "staging"),
                                          ("0.1.2", "3", None)))
-        for channel, expected in (("staging", ["0.1.5", "6"]), ("beta", ["0.1.6", "7"])):
+        for channel, expected in (("staging", ["0.1.5-staging.1", "6"]),
+                                  ("beta", ["0.1.5-beta.1", "7"]),
+                                  ("beta", ["0.1.5-beta.2", "8"])):
             with self.subTest(channel=channel):
                 result = self.run_release(channel)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -234,12 +236,12 @@ with Path('setup-receipts').open('a') as receipts:
                 self.assertEqual(old.read_bytes(), b'immutable old archive')
 
         # GitHub-only releases also reserve their version and build number.
-        result = self.run_release('beta', GH_VERSION='0.1.8', GH_BUILD='9')
+        result = self.run_release('beta', GH_VERSION='0.1.8-beta.9', GH_BUILD='9')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads((self.root / 'built.json').read_text()), ['0.1.9', '10'])
+        self.assertEqual(json.loads((self.root / 'built.json').read_text()), ['0.1.8-beta.10', '10'])
 
     def test_clean_checkout_and_first_publication(self):
-        for remote, expected in ((True, ["0.1.3", "4"]), (False, ["0.1.1", "2"])):
+        for remote, expected in ((True, ["0.1.3-beta.1", "4"]), (False, ["0.1.1-beta.1", "2"])):
             with self.subTest(remote=remote):
                 if not remote:
                     self.remote.unlink()
@@ -252,18 +254,36 @@ with Path('setup-receipts').open('a') as receipts:
     def test_explicit_version_and_build_overrides(self):
         result = self.run_release("staging", FRITZ_VERSION="1.0.0", FRITZ_BUILD_NUMBER="20")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads((self.root / "built.json").read_text()), ["1.0.0", "20"])
+        self.assertEqual(json.loads((self.root / "built.json").read_text()), ["1.0.0-staging.1", "20"])
 
     def test_higher_source_defaults_and_partial_overrides(self):
         (self.root / "Cargo.toml").write_text('version = "0.2.0"\n')
         (self.root / "app/project.yml").write_text('CURRENT_PROJECT_VERSION: 10\n')
-        for overrides, expected in (({}, ["0.2.0", "10"]),
-                                    ({"FRITZ_VERSION": "0.3.0"}, ["0.3.0", "11"]),
-                                    ({"FRITZ_BUILD_NUMBER": "20"}, ["0.3.1", "20"])):
+        for overrides, expected in (({}, ["0.2.0-beta.1", "10"]),
+                                    ({"FRITZ_VERSION": "0.3.0"}, ["0.3.0-beta.1", "11"]),
+                                    ({"FRITZ_VERSION": "0.3.0", "FRITZ_BUILD_NUMBER": "20"}, ["0.3.0-beta.2", "20"])):
             with self.subTest(overrides=overrides):
                 result = self.run_release("beta", **overrides)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(json.loads((self.root / "built.json").read_text()), expected)
+
+    def test_promote_builds_the_latest_published_beta_base(self):
+        self.remote.write_text(self.feed(("0.1.2-beta.3", "5", "beta"),
+                                         ("0.1.2-staging.2", "6", "staging"),
+                                         ("0.1.2-beta.2", "4", "beta"), ("0.1.1", "2", None)))
+        for channel, expected, publication in (
+            ("promote", ["0.1.2", "7"], "release"),
+            ("beta", ["0.1.3-beta.1", "8"], "beta"),
+        ):
+            with self.subTest(channel=channel):
+                result = self.run_release(channel)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads((self.root / "built.json").read_text()), expected)
+                self.assertEqual((self.root / "published").read_text(), publication)
+        result = self.run_release("promote")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("make publish-release", result.stderr)
+        self.assertEqual(json.loads((self.root / "built.json").read_text()), ["0.1.3-beta.1", "8"])
 
     def test_rejects_collisions_and_unreadable_feed_before_building(self):
         for overrides, error in (
@@ -485,6 +505,36 @@ if state:
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("appcast build number is '3', expected '4'", result.stderr)
             self.assertFalse(commands.exists())
+
+            # A suffixed Beta and its stable successor use distinct archives and tags.
+            for version, build, channel in (("0.1.3-beta.2", "5", "beta"), ("0.1.3", "6", "release")):
+                with self.subTest(version=version):
+                    github_state.unlink()
+                    commands.unlink(missing_ok=True)
+                    (contents / "Info.plist").write_bytes(plistlib.dumps({
+                        "CFBundleShortVersionString": version, "CFBundleVersion": build,
+                    }))
+                    fresh_archive = updates / f"Fritz-{version}.dmg"
+                    fresh_archive.write_bytes(original_archive)
+                    fresh_archive.with_suffix(".source.json").write_text(json.dumps({
+                        "version": version, "build": build, "commit": "a" * 40,
+                    }))
+                    appcast.write_text(f"""<rss xmlns:sparkle="{release.SPARKLE}"><channel><item>
+<sparkle:channel>{channel}</sparkle:channel><sparkle:version>{build}</sparkle:version>
+<sparkle:shortVersionString>{version}</sparkle:shortVersionString>
+<enclosure url="https://fritz.rel.me/updates/{fresh_archive.name}"
+ length="{fresh_archive.stat().st_size}" sparkle:edSignature="{signature}"/>
+</item></channel></rss>""")
+                    result = subprocess.run(["/bin/bash", str(scripts / "publish-update.sh"), channel],
+                                            env=environment, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    operations = [json.loads(line) for line in commands.read_text().splitlines()]
+                    self.assertTrue(any(f"fritz-updates/updates/{fresh_archive.name}" in args
+                                        for args in operations))
+                    github = json.loads(github_state.read_text())
+                    self.assertEqual(github["tagName"], f"v{version}")
+                    self.assertEqual(github["isPrerelease"], channel == "beta")
+                    self.assertEqual(github["latest"], channel == "release")
 
 
 if __name__ == "__main__":

@@ -5,18 +5,27 @@ export FRITZ_DISTRIBUTION=1
 source scripts/release-config.sh
 
 channel="${1:-}"
+reuse_archive="${2:-}"
 case "$channel" in
   beta|staging|release) ;;
   *) echo "error: publish-update.sh requires beta, staging, or release" >&2; exit 64 ;;
 esac
+if [[ -n "$reuse_archive" && ( "$channel" != release || "$reuse_archive" != --reuse-archive ) ]]; then
+  echo "error: --reuse-archive is only available for legacy Release promotion" >&2
+  exit 64
+fi
 
 test -d dist/Fritz.app || { echo "error: missing dist/Fritz.app" >&2; exit 1; }
 # Publication uses the prepared artifact, including version overrides used when
 # it was built. Source defaults describe the next build, not this signed update.
 version="$(plutil -extract CFBundleShortVersionString raw dist/Fritz.app/Contents/Info.plist)"
 build="$(plutil -extract CFBundleVersion raw dist/Fritz.app/Contents/Info.plist)"
-if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$build" =~ ^[1-9][0-9]*$ ]]; then
+if [[ ! "$version" =~ $fritz_version_pattern || ! "$build" =~ ^[1-9][0-9]*$ ]]; then
   echo "error: staged app must have a semantic version and a positive build number" >&2
+  exit 1
+fi
+if [[ "$version" == *-* && "$version" != *-"$channel".* ]]; then
+  echo "error: staged version $version does not match the $channel channel" >&2
   exit 1
 fi
 archive="dist/updates/Fritz-$version.dmg"
@@ -91,7 +100,7 @@ fi
 (
   cd website
   npx --no-install wrangler deploy
-  if [[ "$channel" != release ]]; then
+  if [[ "$reuse_archive" != --reuse-archive ]]; then
     npx --no-install wrangler r2 object put \
       "fritz-updates/updates/Fritz-$version.dmg" --remote \
       --file="../$archive" --content-type=application/x-apple-diskimage \

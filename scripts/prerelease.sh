@@ -3,8 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 channel="${1:-}"
 case "$channel" in
-  beta|staging) ;;
-  *) echo "error: use make beta or make staging" >&2; exit 64 ;;
+  beta|staging|release) ;;
+  *) echo "error: use make beta, make staging, or make promote" >&2; exit 64 ;;
 esac
 # Resolve the repository's Rust toolchain before release preparation or npm work.
 cargo --version
@@ -46,23 +46,24 @@ case "$status" in
   404) rm -f "$published_appcast" ;; # First publication has no feed yet.
   *) echo "error: cannot read published appcast (HTTP $status)" >&2; exit 1 ;;
 esac
-selection_args=("$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$published_appcast")
+selection_args=("$FRITZ_VERSION" "$FRITZ_BUILD_NUMBER" "$published_appcast" --channel "$channel")
 if [[ -n "$explicit_version" ]]; then selection_args+=("$explicit_version"); fi
 if [[ -n "$explicit_build" ]]; then selection_args+=("$explicit_build"); fi
-if [[ "$channel" == beta ]]; then
+if [[ "$channel" != staging ]]; then
   python3 scripts/publish-github-release.py "$channel" --inventory "$github_inventory"
   selection_args+=(--github-inventory "$github_inventory")
 fi
 next="$(python3 scripts/next-release.py "${selection_args[@]}")"
-read -r FRITZ_VERSION FRITZ_BUILD_NUMBER <<< "$next"
-export FRITZ_VERSION FRITZ_BUILD_NUMBER
+read -r version build legacy_build <<< "$next"
+if [[ "$version" == legacy ]]; then
+  ./scripts/promote-release.sh "$build" "$legacy_build"
+  exit 0
+fi
+export FRITZ_VERSION="$version" FRITZ_BUILD_NUMBER="$build"
 archive="dist/updates/Fritz-$FRITZ_VERSION.dmg"
 echo "Preparing Fritz $FRITZ_VERSION ($FRITZ_BUILD_NUMBER) for $channel."
 
 # Check credentials before spending time on the release build.
-if [[ "$channel" == beta ]]; then
-  python3 scripts/publish-github-release.py "$channel" --check
-fi
 xcrun notarytool history --keychain-profile "$FRITZ_NOTARY_PROFILE" >/dev/null
 sparkle_bin="$(python3 scripts/build-cache.py --derived-data)/SourcePackages/artifacts/sparkle/Sparkle/bin"
 release_dependencies_ready() {

@@ -122,9 +122,18 @@ test("download redirects to the newest Release archive", async () => {
 });
 
 test("download falls back to the newest Beta archive before any Release", async () => {
-  const response = await download(appcast(item("0.1.1", 2, "beta"), item("0.1.2", 3, "beta"), item("0.2.0", 5, "staging")));
+  const version = "0.1.2-beta.2";
+  const environment = appcast(item("0.1.2-beta.1", 2, "beta"), item(version, 3, "beta"),
+    item("0.1.2-staging.1", 5, "staging"));
+  const path = `/updates/Fritz-${version}.dmg`;
+  const response = await download(environment);
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("location"), "/updates/Fritz-0.1.2.dmg");
+  assert.equal(response.headers.get("location"), path);
+  const archive = await worker.fetch(new Request(`https://fritz.rel.me${path}`), {
+    UPDATES: bucket({ [path.slice(1)]: new TextEncoder().encode("beta installer") }),
+  });
+  assert.equal(archive.status, 200);
+  assert.equal(await archive.text(), "beta installer");
 });
 
 test("download ignores Staging builds and unexpected archive URLs", async () => {
