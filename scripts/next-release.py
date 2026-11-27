@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Select an unused prerelease version and preserve published appcast history."""
+"""Select the next Fritz update and preserve published appcast history."""
 
 import argparse
 import json
@@ -16,10 +16,12 @@ SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
 ET.register_namespace("sparkle", SPARKLE)
 
 
-def version_tuple(value: str) -> tuple[int, int, int]:
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
+def parse_version(value: str) -> tuple[tuple[int, int, int], str | None, int]:
+    match = re.fullmatch(r"([0-9]+\.[0-9]+\.[0-9]+)(?:-(beta|staging)\.([1-9][0-9]*))?", value)
+    if not match:
         raise ValueError(f"invalid release version: {value!r}")
-    return tuple(map(int, value.split(".")))
+    base, channel, sequence = match.groups()
+    return tuple(map(int, base.split("."))), channel, int(sequence or 0)
 
 
 def build_number(value: str) -> int:
@@ -38,16 +40,36 @@ def read_feed(path: Path) -> ET.ElementTree:
         raise ValueError(f"invalid appcast at {path}: {error}") from error
 
 
+def next_prerelease(base, channel, versions, explicit):
+    numeric = max((base for base, suffix, _ in versions if suffix is None), default=None)
+    minimum = max((known for known, _, _ in versions), default=base)
+    if numeric == minimum:
+        major, minor, patch = numeric
+        minimum = (major, minor, patch + 1)
+    if explicit and base < minimum:
+        raise ValueError("FRITZ_VERSION must be at least the next available release base; "
+                         "use make publish-beta or make publish-staging to retry a prepared update")
+    base = max(base, minimum)
+    sequence = max((number for known, suffix, number in versions
+                    if (known, suffix) == (base, channel)), default=0) + 1
+    return ".".join(map(str, base)) + f"-{channel}.{sequence}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("version")
     parser.add_argument("build")
     parser.add_argument("published_appcast", type=Path)
+    parser.add_argument("--channel", choices=["beta", "staging", "release"], required=True)
     parser.add_argument("--explicit-version", action="store_true")
     parser.add_argument("--explicit-build", action="store_true")
     parser.add_argument("--github-inventory", type=Path)
     args = parser.parse_args()
-    version = version_tuple(args.version)
+    base, suffix, _ = parse_version(args.version)
+    if suffix is not None:
+        raise ValueError("FRITZ_VERSION must be a three-part release base")
+    if args.channel == "release" and args.explicit_version:
+        raise ValueError("make promote selects the version from the published Beta; remove FRITZ_VERSION")
     build = build_number(args.build)
     updates = Path("dist/updates")
     appcast = updates / "appcast.xml"
@@ -58,26 +80,47 @@ def main() -> None:
     for tree in (local, published):
         if tree is not None:
             for item in tree.getroot().findall("./channel/item"):
-                versions.append(version_tuple(item.findtext(f"{{{SPARKLE}}}shortVersionString", "")))
+                versions.append(parse_version(item.findtext(f"{{{SPARKLE}}}shortVersionString", "")))
                 builds.append(build_number(item.findtext(f"{{{SPARKLE}}}version", "")))
     if args.github_inventory:
         for source in json.loads(args.github_inventory.read_text()):
-            versions.append(version_tuple(source['version']))
+            versions.append(parse_version(source['version']))
             builds.append(build_number(source['build']))
-    for archive in updates.glob("Fritz-*.dmg"):
-        versions.append(version_tuple(archive.name.removeprefix("Fritz-").removesuffix(".dmg")))
+    for directory in (updates, updates / "old_updates"):
+        for archive in directory.glob("Fritz-[0-9]*.dmg"):
+            versions.append(parse_version(archive.stem.removeprefix("Fritz-")))
+    for record in updates.glob("Fritz-[0-9]*.source.json"):
+        source = json.loads(record.read_text())
+        versions.append(parse_version(source['version']))
+        builds.append(build_number(source['build']))
     plist = Path("dist/Fritz.app/Contents/Info.plist")
     if plist.exists():
         with plist.open("rb") as source:
             info = plistlib.load(source)
-        versions.append(version_tuple(info["CFBundleShortVersionString"]))
         builds.append(build_number(info["CFBundleVersion"]))
-    if versions and version <= max(versions):
-        if args.explicit_version:
-            raise ValueError("FRITZ_VERSION must exceed every local and published app version; "
-                             "use make publish-beta or make publish-staging to retry a prepared update")
-        major, minor, patch = max(versions)
-        version = (major, minor, patch + 1)
+    if args.channel == "release":
+        items = published.getroot().findall("./channel/item") if published is not None else []
+        betas = [(build_number(item.findtext(f"{{{SPARKLE}}}version", "")),
+                  item.findtext(f"{{{SPARKLE}}}shortVersionString", ""))
+                 for item in items if item.findtext(f"{{{SPARKLE}}}channel") == "beta"]
+        if not betas:
+            raise ValueError("No published Beta to promote.")
+        beta_build, beta_version = max(betas)
+        base, suffix, _ = parse_version(beta_version)
+        if suffix is None:
+            if any(build_number(item.findtext(f"{{{SPARKLE}}}version", "")) > beta_build
+                   for item in items if not item.findtext(f"{{{SPARKLE}}}channel")):
+                raise ValueError("A newer Release is already published; build a new Beta before promoting")
+            print(f"legacy {beta_version} {beta_build}")
+            return
+        if suffix != "beta":
+            raise ValueError(f"invalid published Beta version: {beta_version}")
+        if any(known >= base for known, suffix, _ in versions if suffix is None):
+            raise ValueError("An equal or newer Release version is already reserved; "
+                             "use make publish-release to retry a prepared Release")
+        version = ".".join(map(str, base))
+    else:
+        version = next_prerelease(base, args.channel, versions, args.explicit_version)
     if builds and build <= max(builds):
         if args.explicit_build:
             raise ValueError("FRITZ_BUILD_NUMBER must exceed every local and published build number")
@@ -118,7 +161,7 @@ def main() -> None:
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
-    print(".".join(map(str, version)), build)
+    print(version, build)
 
 
 if __name__ == "__main__":

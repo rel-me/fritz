@@ -2,7 +2,7 @@ import { recordNetworkUnique, excludedRequest } from "./network-uniques.mjs";
 import { latestDownload } from "./public/appcast.mjs";
 import { serveModelCatalog, serveModelCatalogPage } from "./model-catalog.mjs";
 
-const ARCHIVE_PATH = /^\/updates\/(Fritz-(?:\d+\.\d+\.\d+|Chromium-\d+\.\d+\.\d+-arm64)\.dmg)$/;
+const ARCHIVE_PATH = /^\/updates\/(Fritz-(?:\d+\.\d+\.\d+(?:-(?:beta|staging)\.[1-9]\d*)?|Chromium-\d+\.\d+\.\d+-arm64)\.dmg)$/;
 
 function rangeFor(header, size) {
   if (!header) return null;

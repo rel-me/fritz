@@ -1,5 +1,5 @@
 // Shared by the Worker's /download route and the home page's version label.
-const ARCHIVE_URL = /\/updates\/(Fritz-(\d+\.\d+\.\d+)\.dmg)$/;
+const ARCHIVE_URL = /\/updates\/(Fritz-(\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?)\.dmg)$/;
 
 // Returns the newest Release update, or the newest Beta while no Release exists.
 export function latestDownload(appcast) {

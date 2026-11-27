@@ -1,4 +1,4 @@
-.PHONY: setup ios-build ios-test ios-archive ios-upload build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast beta staging publish-beta publish-staging promote
+.PHONY: setup ios-build ios-test ios-archive ios-upload build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast beta staging publish-beta publish-staging publish-release promote
 .DEFAULT_GOAL := build
 
 setup:
@@ -6,11 +6,11 @@ setup:
 
 # One lock spans compilation, integration tests, and bundle staging.
 ifneq ($(FRITZ_BUILD_CACHE_ACTIVE),$(CURDIR))
-ios-build ios-test ios-archive ios-upload build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast publish-beta publish-staging promote:
+ios-build ios-test ios-archive ios-upload build release-build run dev-open test test-runtime test-swift ci-prepare ci-prepare-runtime ci-prepare-swift check check-ui-snapshots install-cli update-archive chromium-archive appcast publish-beta publish-staging publish-release:
 	+@mise exec -- python3 scripts/build-cache.py $(MAKE) --no-print-directory $@
 
 # Setup can install the tools needed to enter the build cache wrapper.
-beta staging:
+beta staging promote:
 	+@if ! missing_tools="$$(mise ls --local --missing --no-header 2>/dev/null)" || [ -n "$$missing_tools" ]; then \
 		$(MAKE) --no-print-directory setup; \
 	fi
@@ -101,10 +101,10 @@ appcast:
 beta staging:
 	@./scripts/prerelease.sh "$@"
 
-publish-beta publish-staging:
+publish-beta publish-staging publish-release:
 	@./scripts/publish-update.sh "$(patsubst publish-%,%,$@)"
 
 promote:
-	@./scripts/promote-release.sh
+	@./scripts/prerelease.sh release
 
 endif

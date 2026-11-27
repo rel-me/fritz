@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/release-config.sh
 case "${1:-webkit}" in
   webkit)
     name=Fritz
@@ -25,7 +26,7 @@ if [[ "$identity" != "Developer ID Application:"* ]]; then
 fi
 version="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
 build="$(plutil -extract CFBundleVersion raw "$app/Contents/Info.plist")"
-if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$build" =~ ^[1-9][0-9]*$ ]]; then
+if [[ ! "$version" =~ $fritz_version_pattern || ! "$build" =~ ^[1-9][0-9]*$ ]]; then
   echo "error: set FRITZ_VERSION and a monotonic FRITZ_BUILD_NUMBER" >&2
   exit 1
 fi
