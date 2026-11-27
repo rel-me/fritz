@@ -127,6 +127,9 @@ the following surfaces, include these behaviors:
   filtering by score, and opening setup from a child row. Search opens matching
   families by default. Folder rows have no model actions. Check that model rows
   show rounded file sizes such as `16G` and family rows have an empty Size cell.
+  In both model windows, activate a filter and verify Clear appears first in the
+  filter menu. Choose it and check that the filters and toolbar indicator reset
+  and Clear disappears.
   Check compact Context values and their exact token counts in help.
   Check the Context column shows Automatic/maximum for chat models, with the
   latest measured Automatic fit for the selected KV cache setting.

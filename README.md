@@ -106,7 +106,8 @@ the access key in the iPhone provider.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first. Use the filter menu in either window to show LLMs or
    decision models. Local Models also filters by download status, benchmark score,
-   whether the model fits this Mac, and **Abliterated**. The **Size** column
+   whether the model fits this Mac, and **Abliterated**. Choose **Clear** at the
+   top of the filter menu to reset active filters. The **Size** column
    shows the approximate model file size, such as `16G` for 16 gigabytes.
    **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.

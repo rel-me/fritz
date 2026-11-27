@@ -449,6 +449,16 @@ public struct ModelsCatalogView: View {
     private var filterMenu: some View {
         let isActive = category != nil || downloadFilter != .all || runnableOnly || abliteratedOnly || scoreFilter != .all
         return Menu {
+            if isActive {
+                Button("Clear") {
+                    category = nil
+                    downloadFilter = .all
+                    runnableOnly = false
+                    abliteratedOnly = false
+                    scoreFilter = .all
+                }
+                Divider()
+            }
             Picker("Model Type", selection: $category) {
                 Text("All Model Types").tag(nil as AIModelCategory?)
                 ForEach(AIModelCategory.allCases) { category in
@@ -473,6 +483,7 @@ public struct ModelsCatalogView: View {
             Label("Filter Models", systemImage: isActive
                   ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
         }
+        .menuOrder(.fixed)
         .menuIndicator(.hidden)
         .help("Filter Models")
     }
