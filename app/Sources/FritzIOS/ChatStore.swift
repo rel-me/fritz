@@ -38,11 +38,7 @@ final class ChatStore {
     }
 
     func newChat() -> UUID? {
-        var chat = Conversation()
-        if let provider = workspace.providers.first {
-            chat.providerID = provider.id
-            chat.model = provider.defaultModel
-        }
+        let chat = Conversation()
         var state = workspace
         state.conversations.insert(chat, at: 0)
         state.selectedID = chat.id
@@ -103,7 +99,6 @@ final class ChatStore {
         var connection = edit
         connection.name = edit.name.trimmingCharacters(in: .whitespacesAndNewlines)
         connection.customEndpoint = edit.customEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        connection.defaultModel = edit.defaultModel.trimmingCharacters(in: .whitespacesAndNewlines)
         if connection.name.isEmpty { connection.name = connection.kind.title }
         let replacesKey = !replacement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let key = try key(for: connection, replacement: replacement)

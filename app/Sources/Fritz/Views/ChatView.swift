@@ -294,7 +294,7 @@ struct ChatView: View {
 
     private func synchronizeModel() {
         guard canCompose, store.isReady, providers.hasLoadedModels, !store.isResponding, !isPreparingModel else { return }
-        store.synchronizeModel(models: providers.models, defaultModel: providers.defaultModel)
+        store.synchronizeModel(models: providers.models)
     }
 }
 

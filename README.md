@@ -42,8 +42,8 @@ See the [iPhone privacy policy](docs/ios-privacy.md) and
 
 ## Get started on Mac
 
-1. Create a conversation with **New Chat** or ⌘N. In the composer, click
-   **Choose Model…** to browse all known chat models. **Local** and **Remote**
+1. Create a conversation with **New Chat** or ⌘N. Click **Choose Model…** in the
+   composer to select a model for that chat. **Local** and **Remote**
    filters come first; search and provider filters also include models that have
    not been configured yet.
 2. Choose a model. A ready model is selected immediately. Otherwise its setup
