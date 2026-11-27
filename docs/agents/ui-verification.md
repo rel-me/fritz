@@ -105,6 +105,8 @@ the following surfaces, include these behaviors:
   and sorting by score, and opening setup from a child row. Search opens matching
   families by default. Folder rows have no model actions. Check compact Context
   values and their exact token counts in help.
+  Check the Context column shows Automatic/maximum for chat models, with the
+  latest measured Automatic fit for the selected KV cache setting.
   Local Models has no Provider column or provider picker in local setup/edit.
   Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.

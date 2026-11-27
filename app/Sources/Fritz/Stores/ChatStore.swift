@@ -98,6 +98,7 @@ private struct CompactionReceipt: Decodable {
 
     @ObservationIgnored var onFirstPrompt: (() -> Void)?
     @ObservationIgnored var onIdle: (() -> Void)?
+    @ObservationIgnored var onAutomaticContextFit: ((String, Bool, UInt32) -> Void)?
     @ObservationIgnored private var loadedPreferences = ChatPreferences()
     @ObservationIgnored private var savedPreferences = ChatPreferences()
     @ObservationIgnored private var preferenceTask: Task<Void, Never>?
@@ -238,6 +239,10 @@ private struct CompactionReceipt: Decodable {
                     for try await data in agent.stream(method: "chat", params: params, id: turn.uuidString) {
                         if stopRequested { break }
                         let event = try JSONDecoder().decode(AgentEvent.self, from: data)
+                        if model.provider == .fritz, harness.contextTokens == 0, event.type == "activity",
+                           let tokens = event.contextTokens.flatMap(UInt32.init(exactly:)), tokens > 0 {
+                            onAutomaticContextFit?(model.modelID, harness.quantizeLocalKVCache == true, tokens)
+                        }
                         if event.type == "context_compacted", let contextKey, let summary = event.summary {
                             let receipt = try JSONDecoder().decode(CompactionReceipt.self, from: data)
                             if receipt.prefixMessages > 0, receipt.prefixMessages < prepared.context.count,

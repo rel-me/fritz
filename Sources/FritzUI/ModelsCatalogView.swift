@@ -15,6 +15,7 @@ public struct ModelsCatalogView: View {
     @Bindable private var store: ModelsStore
     @Bindable private var runtime: ModelsLocalRuntime
     let location: ModelsLocation
+    let automaticContextFits: [String: UInt32]
     @State private var query = ""
     @State private var category: AIModelCategory?
     @State private var downloadFilter: DownloadFilter = .all
@@ -37,8 +38,10 @@ public struct ModelsCatalogView: View {
     @State private var confirmsExport = false
     @State private var removing: ProviderConnection?
 
-    public init(store: ModelsStore, runtime: ModelsLocalRuntime, location: ModelsLocation) {
+    public init(store: ModelsStore, runtime: ModelsLocalRuntime, location: ModelsLocation,
+                automaticContextFits: [String: UInt32] = [:]) {
         self.store = store; self.runtime = runtime; self.location = location
+        self.automaticContextFits = automaticContextFits
     }
 
     private enum DownloadFilter: String, CaseIterable {
@@ -245,14 +248,13 @@ public struct ModelsCatalogView: View {
             .width(min: 120, ideal: 140)
             TableColumn("Context") { row in
                 if let model = row.modelRow {
-                    let context = model.descriptor?.context
-                    let details = context?.summary ?? "Context limit unknown"
-                    Text(compactContext(context))
+                    let context = localContext(for: model)
+                    Text(context.title)
                         .lineLimit(1)
-                        .help(details)
-                        .accessibilityLabel(details)
+                        .help(context.details)
+                        .accessibilityLabel(context.details)
                 }
-            }.width(72)
+            }.width(96)
             TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
                 if let model = row.modelRow {
                     LocalModelScoreCell(score: model.descriptor?.benchmarkScore)
@@ -291,8 +293,25 @@ public struct ModelsCatalogView: View {
         }
     }
 
-    private func compactContext(_ context: ModelContext?) -> String {
-        guard let tokens = context?.windowTokens ?? context?.inputTokens else { return "Unknown" }
+    private func localContext(for row: LocalModelRow) -> (title: String, details: String) {
+        let context = row.descriptor?.context ?? row.model.context
+        guard let maximum = context?.windowTokens ?? context?.inputTokens else {
+            return ("Unknown", "Context limit unknown")
+        }
+        guard row.model.category == .llm else {
+            return (compactContext(maximum), context?.summary ?? "Context limit unknown")
+        }
+        let maximumDetails = "Model maximum: \(maximum.formatted()) tokens."
+        if let fit = automaticContextFits[row.model.modelID] {
+            return ("\(compactContext(fit))/\(compactContext(maximum))",
+                    "Last Automatic fit on this Mac: \(fit.formatted()) tokens. \(maximumDetails) Available memory can change between chats.")
+        }
+        let target = context?.automaticWindowTokens ?? maximum
+        return ("\(compactContext(target))/\(compactContext(maximum))",
+                "Automatic target: up to \(target.formatted()) tokens. \(maximumDetails) Fritz checks available memory when the chat starts.")
+    }
+
+    private func compactContext(_ tokens: UInt32) -> String {
         switch tokens {
         case 999_500...:
             return "\((Double(tokens) / 1_000_000).formatted(.number.precision(.fractionLength(0...1))))M"

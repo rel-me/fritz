@@ -17,7 +17,10 @@ window by using an 8-bit attention cache. Automatic compaction summarizes older
 turns as the conversation fills the context window and keeps recent turns available
 to the model. You can
 set a context budget, reserve space for the reply, and choose how much recent
-history compaction should keep.
+history compaction should keep. In Local Models, **Context** shows the
+Automatic target and the model maximum, such as `16k/1M` for Inkling 2 Mini.
+After an Automatic chat starts, Fritz shows the last context that fit on this
+Mac with the selected KV cache setting.
 
 ## Install
 
