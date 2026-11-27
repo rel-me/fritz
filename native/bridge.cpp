@@ -86,7 +86,7 @@ static bool fits_context(const char * path, const llama_model_params & model,
     constexpr size_t gib = 1024ULL * 1024 * 1024;
     // The Metal working-set estimate alone doesn't account for other apps'
     // memory growth while a chat is running.
-    const size_t headroom = automatic ? std::max(3 * gib, total / 6) : gib;
+    const size_t headroom = automatic ? std::max(4 * gib, total / 4) : gib;
     if (available <= headroom) return false;
     const auto rows = common_fit_measure({path}, &model, &context, nullptr, nullptr, GGML_LOG_LEVEL_ERROR);
     size_t bytes = 0;
@@ -146,7 +146,7 @@ static size_t allocated_kv_cache_bytes(const llama_context * context) {
     }
     return bytes;
 }
-extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool chat, bool inkling_loop,
+extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool automatic, bool chat, bool inkling_loop,
                                  bool quantize_kv_cache, Cancel cancel, void * data,
                                  ReportLoadProgress report, void * output, char ** error) {
     try {
@@ -196,7 +196,6 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
             static std::mutex measure_lock;
             const std::lock_guard<std::mutex> lock(measure_lock);
             const auto minimum = static_cast<uint32_t>(minimum_context);
-            const bool automatic = config.n_ctx > minimum;
             const uint32_t default_ubatch = config.n_ubatch;
             // Inkling's full-attention layers need more compute memory at long
             // windows. A smaller physical batch leaves room for the KV cache.
@@ -218,8 +217,9 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
             uint32_t fitting = config.n_ctx;
             uint32_t too_large = fitting;
             while (!fits(fitting)) {
-                require(fitting > minimum,
-                        "The local context does not fit available Metal memory. Choose a smaller Context Budget, a smaller model, or close other models.");
+                require(fitting > minimum, automatic
+                        ? "The model and its minimum context do not fit the Automatic memory budget. Close other models, choose a smaller model, or set a fixed Context Budget."
+                        : "The local context does not fit available Metal memory. Choose a smaller Context Budget, a smaller model, or close other models.");
                 too_large = fitting;
                 fitting = std::max(fitting / 2, minimum);
             }

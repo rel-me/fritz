@@ -9,8 +9,9 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 
 In **Settings → Harness**, chat context uses the selected model's limits by
-default. For local chat, Fritz fits the window to available Metal memory up
-to the model's limit. Inkling 2 Mini starts at up to 16,384 tokens in Automatic
+default. For local chat, Automatic leaves at least 4 GiB or a quarter of Metal’s
+recommended working set, whichever is larger, when sizing the context window
+up to the model's limit. Inkling 2 Mini starts at up to 16,384 tokens in Automatic
 mode. During startup, Fritz tolerates brief memory warnings
 and stops on critical pressure or rapid swap growth. During generation, the
 first memory warning stops the chat. **Quantize Local KV Cache** can fit a larger
@@ -106,13 +107,15 @@ the access key in the iPhone provider.
    CPU (local) and network (remote) buttons, or the **Models** menu to open the
    separate lists. Local Models contains models downloaded and run by Fritz.
    Expand a family folder such as Qwen to see its models, or search by model or
-   family name to see matching models directly.
+   family name to see matching models directly. **Use Model** in a local setup
+   sheet selects the model in the open conversation’s composer.
    API services such as Ollama belong to Remote Models, including when hosted on this Mac.
    Remote Models shows providers with a comma-separated model summary, recent
    selections first. Use the filter menu in either window to show LLMs or
    decision models. Local Models also filters by download status, benchmark score,
-   whether the model fits this Mac, and **Abliterated**. Click the Score header to
-   sort models within each folder and place folders by their first matching model.
+   whether the model fits this Mac, and **Abliterated**. Choose **Clear** at the
+   top of the filter menu to reset active filters. The **Size** column
+   shows the approximate model file size, such as `16G` for 16 gigabytes.
    **New Remote Model…** also supports custom endpoints and model
    IDs. Catalog presence alone does not establish account access or readiness.
 

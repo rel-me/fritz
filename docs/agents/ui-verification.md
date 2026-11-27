@@ -125,8 +125,12 @@ the following surfaces, include these behaviors:
   and filtered results, and places recent selections first by default. Check
   expanding and collapsing a family, searching by family and model name, filtering
   and sorting by score, and opening setup from a child row. Search opens matching
-  families by default. Folder rows have no model actions. Check compact Context
-  values and their exact token counts in help.
+  families by default. Folder rows have no model actions. Check that model rows
+  show rounded file sizes such as `16G` and family rows have an empty Size cell.
+  In both model windows, activate a filter and verify Clear appears first in the
+  filter menu. Choose it and check that the filters and toolbar indicator reset
+  and Clear disappears.
+  Check compact Context values and their exact token counts in help.
   Check the Context column uses the latest measured Automatic fit for the
   selected KV cache setting. It shows one count when Automatic equals the model
   maximum and Automatic/maximum when the counts differ.
@@ -143,7 +147,10 @@ the following surfaces, include these behaviors:
   native setup/edit/download/import/export titles, forms, pickers, disclosure
   controls and buttons in light/dark appearance,
   successful setup selecting the chosen model, and decision-model exclusion from
-  chat. Check blank/populated lists and model process controls (First use
+  chat. With two conversations, open setup from Local Models and choose Use
+  Model. Verify the original conversation’s picker and saved selection update
+  while the other conversation keeps its selection. Check blank/populated lists
+  and model process controls (First use
   by default, App start persistence, weight load/unload, installed path and Finder
   reveal, PID, address, multi-model memory warnings including API first-use
   admission, errors, and quit cleanup), automatic Local API startup with no models,

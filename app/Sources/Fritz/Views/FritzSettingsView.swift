@@ -111,7 +111,7 @@ private struct FritzHarnessSettingsView: View {
             } header: {
                 settingsTitle("Harness")
             } footer: {
-                Text("For local chat, Automatic sizes the window to fit available Metal memory, up to the model’s limit. A fixed budget requests a specific window. For remote chat, Automatic uses the reported limit or the catalog. The reply reserve leaves room for generated text.")
+                Text("For local chat, Automatic leaves Metal memory available for macOS and other apps when sizing the window. A fixed budget requests a specific window. For remote chat, Automatic uses the reported limit or the catalog. The reply reserve leaves room for generated text.")
             }
             Section {
                 Toggle("Quantize Local KV Cache", isOn: Binding(

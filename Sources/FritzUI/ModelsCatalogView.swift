@@ -16,13 +16,13 @@ public struct ModelsCatalogView: View {
     @Bindable private var runtime: ModelsLocalRuntime
     let location: ModelsLocation
     let automaticContextFits: [String: UInt32]
+    let onUseModel: ((ChatModelOption) -> Void)?
     @State private var query = ""
     @State private var category: AIModelCategory?
     @State private var downloadFilter: DownloadFilter = .all
     @State private var runnableOnly = false
     @State private var abliteratedOnly = false
     @State private var scoreFilter: LocalModelScoreFilter = .all
-    @State private var scoreOrder: [LocalModelScoreComparator<LocalModelTableRow>] = []
     @State private var expandedLocalFamilies: Set<String> = []
     @State private var collapsedSearchFamilies: Set<String> = []
     private let hardware = LocalModelHardware.current
@@ -30,7 +30,7 @@ public struct ModelsCatalogView: View {
     @State private var installedDecisionIDs: Set<String>?
     @State private var decisionInventoryError: String?
     @State private var selection: String?
-    @State private var setup: ChatModelOption?
+    @State private var setup: LocalModelSetup?
     @State private var providerSetup: RemoteProviderRow?
     @State private var showsCustomSetup = false
     @State private var showsImport = false
@@ -40,9 +40,20 @@ public struct ModelsCatalogView: View {
     @State private var removing: ProviderConnection?
 
     public init(store: ModelsStore, runtime: ModelsLocalRuntime, location: ModelsLocation,
-                automaticContextFits: [String: UInt32] = [:]) {
+                automaticContextFits: [String: UInt32] = [:], onUseModel: ((ChatModelOption) -> Void)? = nil) {
         self.store = store; self.runtime = runtime; self.location = location
         self.automaticContextFits = automaticContextFits
+        self.onUseModel = onUseModel
+    }
+
+    private struct LocalModelSetup: Identifiable {
+        let model: ChatModelOption
+        let onUseModel: ((ChatModelOption) -> Void)?
+        var id: String { model.id }
+    }
+
+    private func presentSetup(for model: ChatModelOption) {
+        setup = LocalModelSetup(model: model, onUseModel: onUseModel)
     }
 
     private enum DownloadFilter: String, CaseIterable {
@@ -68,6 +79,8 @@ public struct ModelsCatalogView: View {
     private struct LocalModelRow: Identifiable {
         let model: ChatModelOption
         let descriptor: NativeModelDescriptor?
+        let status: String
+        let isRunning: Bool
         var id: String { model.id }
         var family: String { descriptor?.family ?? model.displayProvider.displayName }
     }
@@ -87,43 +100,44 @@ public struct ModelsCatalogView: View {
             if case .model(let row) = self { return row }
             return nil
         }
-
-        var scorePoints: Int? { modelRow?.descriptor?.benchmarkScore?.points }
     }
 
     private var localRows: [LocalModelRow] {
         let descriptors = Dictionary(uniqueKeysWithValues: store.nativeModelCatalog.map { ($0.id, $0) })
         let recents = store.recentIDs
-        return store.availableModels.filter {
+        let sessions = runtime.sessions
+        let models = store.availableModels.filter {
             location.contains($0) && (category == nil || $0.category == category)
                 && matchesDownloadFilter($0) && (query.isEmpty
                     || $0.displayName.localizedStandardContains(query)
                     || $0.modelID.localizedStandardContains(query)
                     || (descriptors[$0.modelID]?.family ?? $0.displayProvider.displayName)
                         .localizedStandardContains(query))
-        }.map { LocalModelRow(model: $0, descriptor: descriptors[$0.modelID]) }
-            .filter { row in
-                scoreFilter.includes(row.descriptor?.benchmarkScore?.points)
-                    && (!runnableOnly || row.descriptor.map(hardware.canRun) == true)
-                    && (!abliteratedOnly || row.descriptor?.isAbliterated == true)
-            }
-            .sorted {
-                let left = recents.firstIndex(of: $0.id) ?? Int.max
-                let right = recents.firstIndex(of: $1.id) ?? Int.max
-                return left < right
-            }
+        }
+        return models.compactMap { model in
+            let descriptor = descriptors[model.modelID]
+            guard scoreFilter.includes(descriptor?.benchmarkScore?.points),
+                  !runnableOnly || descriptor.map(hardware.canRun) == true,
+                  !abliteratedOnly || descriptor?.isAbliterated == true else { return nil }
+            // Read observable status while building the rows, before Table renders its cells.
+            let isRunning = sessions[model.modelID]?.status == .running
+            let status = store.modelDownloads[model.modelID]?.activeStatus
+                ?? (isRunning ? ModelsRuntimeSession.Status.running.title : self.status(model))
+            return LocalModelRow(model: model, descriptor: descriptor, status: status, isRunning: isRunning)
+        }.sorted {
+            let left = recents.firstIndex(of: $0.id) ?? Int.max
+            let right = recents.firstIndex(of: $1.id) ?? Int.max
+            return left < right
+        }
     }
 
     private func localTableRows(_ rows: [LocalModelRow]) -> [LocalModelTableRow] {
-        let models = rows.map(LocalModelTableRow.model)
-        let leaves = scoreOrder.isEmpty ? models : models.sorted(using: scoreOrder)
-        let families = Dictionary(grouping: leaves.compactMap(\.modelRow), by: \.family)
+        let families = Dictionary(grouping: rows, by: \.family)
         var shownFamilies = Set<String>()
         // Keep the order of each family's first model and the order within it.
-        return leaves.compactMap { leaf in
-            guard let family = leaf.modelRow?.family,
-                  let siblings = families[family] else { return nil }
-            return shownFamilies.insert(family).inserted ? .family(family, siblings) : nil
+        return rows.compactMap { row in
+            guard shownFamilies.insert(row.family).inserted, let siblings = families[row.family] else { return nil }
+            return .family(row.family, siblings)
         }
     }
 
@@ -223,9 +237,8 @@ public struct ModelsCatalogView: View {
     }
 
     private var localModelTable: some View {
-        let sessions = runtime.sessions
         let rows = localRows
-        return Table(of: LocalModelTableRow.self, selection: $selection, sortOrder: $scoreOrder) {
+        return Table(of: LocalModelTableRow.self, selection: $selection) {
             TableColumn("Name") { row in
                 switch row {
                 case .model(let model):
@@ -240,11 +253,9 @@ public struct ModelsCatalogView: View {
                 }
             }.width(75)
             TableColumn("Status") { row in
-                if let model = row.modelRow?.model {
-                    let running = sessions[model.modelID]?.status == .running
-                    Text(store.modelDownloads[model.modelID]?.activeStatus
-                         ?? (running ? ModelsRuntimeSession.Status.running.title : status(model)))
-                        .foregroundStyle(running ? .green : .secondary)
+                if let model = row.modelRow {
+                    Text(model.status)
+                        .foregroundStyle(model.isRunning ? .green : .secondary)
                 }
             }
             .width(min: 120, ideal: 140)
@@ -257,9 +268,10 @@ public struct ModelsCatalogView: View {
                         .accessibilityLabel(context.details)
                 }
             }.width(96)
-            TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
-                if let model = row.modelRow {
-                    LocalModelScoreCell(score: model.descriptor?.benchmarkScore)
+            TableColumn("Size") { row in
+                if let size = row.modelRow?.descriptor?.size {
+                    Text(compactSize(size))
+                        .monospacedDigit()
                 }
             }
             .width(66)
@@ -281,7 +293,7 @@ public struct ModelsCatalogView: View {
         .onChange(of: query) { collapsedSearchFamilies.removeAll() }
         .contextMenu(forSelectionType: String.self) { ids in
             if let id = ids.first, let row = rows.first(where: { $0.id == id }) {
-                Button("Set Up Model…") { setup = row.model }
+                Button("Set Up Model…") { presentSetup(for: row.model) }
                 if let transfer = store.modelDownloads[row.model.modelID], transfer.isDownloading {
                     Button("Stop Download") { transfer.stopDownload() }
                 }
@@ -294,7 +306,7 @@ public struct ModelsCatalogView: View {
                 }
             }
         } primaryAction: { ids in
-            if let id = ids.first { setup = rows.first { $0.id == id }?.model }
+            if let id = ids.first, let row = rows.first(where: { $0.id == id }) { presentSetup(for: row.model) }
         }
     }
 
@@ -331,6 +343,16 @@ public struct ModelsCatalogView: View {
         }
     }
 
+    private func compactSize(_ bytes: UInt64) -> String {
+        let number = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0))
+        switch bytes {
+        case 999_500_000...: return "\((Double(bytes) / 1_000_000_000).formatted(number))G"
+        case 999_500...: return "\((Double(bytes) / 1_000_000).formatted(number))M"
+        case 1_000...: return "\((Double(bytes) / 1_000).formatted(number))K"
+        default: return "\(bytes.formatted())B"
+        }
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
             if location == .local { localModelTable } else { remoteProviderTable }
@@ -361,7 +383,9 @@ public struct ModelsCatalogView: View {
                     .help("Import from Hugging Face…")
                 }
                 Button(location == .local ? "Set Up Model…" : "Set Up Provider…", systemImage: "pencil") {
-                    if location == .local { setup = selected } else { providerSetup = selectedProvider }
+                    if location == .local {
+                        if let selected { presentSetup(for: selected) }
+                    } else { providerSetup = selectedProvider }
                 }
                 .disabled(location == .local ? selected == nil : selectedProvider == nil)
                 .help(location == .local ? "Set Up Model…" : "Set Up Provider…")
@@ -374,11 +398,17 @@ public struct ModelsCatalogView: View {
                 }
             }
         }
-        .sheet(item: $setup, onDismiss: { Task { await refreshInventory() } }) { model in
+        .sheet(item: $setup, onDismiss: { Task { await refreshInventory() } }) { setup in
+            let model = setup.model
             let connection = store.setupConnection(for: model)
+            let initialModel = model.connectionID != nil && connection?.modelID == model.modelID ? nil : model
             ModelsProviderEditor(store: store, localModels: runtime, existing: connection,
-                                 initialModel: model.connectionID != nil && connection?.modelID == model.modelID ? nil : model,
-                                 providerOptions: location == .local ? [model.displayProvider] : nil)
+                                 initialModel: initialModel, providerOptions: [model.displayProvider]) { saved in
+                guard initialModel != nil, saved.category == .llm else { return }
+                let selected = ChatModelOption(connection: saved,
+                    model: DiscoveredAIModel(id: saved.modelID, displayName: model.displayName))
+                setup.onUseModel?(selected)
+            }
         }
         .onChange(of: store.modelDownloads.completedDownloads) {
             if location == .local { Task { await refreshInventory() } }
@@ -423,6 +453,16 @@ public struct ModelsCatalogView: View {
     private var filterMenu: some View {
         let isActive = category != nil || downloadFilter != .all || runnableOnly || abliteratedOnly || scoreFilter != .all
         return Menu {
+            if isActive {
+                Button("Clear") {
+                    category = nil
+                    downloadFilter = .all
+                    runnableOnly = false
+                    abliteratedOnly = false
+                    scoreFilter = .all
+                }
+                Divider()
+            }
             Picker("Model Type", selection: $category) {
                 Text("All Model Types").tag(nil as AIModelCategory?)
                 ForEach(AIModelCategory.allCases) { category in
@@ -447,6 +487,7 @@ public struct ModelsCatalogView: View {
             Label("Filter Models", systemImage: isActive
                   ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
         }
+        .menuOrder(.fixed)
         .menuIndicator(.hidden)
         .help("Filter Models")
     }
