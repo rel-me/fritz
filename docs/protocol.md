@@ -39,8 +39,10 @@ as a string up to 128 KiB. `details` remains the bounded display field.
 Model discovery returns a `context` object for each model. `windowTokens`
 is the advertised model window, `inputTokens` and `outputTokens` are separate
 caps where published, and `effectiveWindowTokens` is a reported route or
-runtime capacity. The automatic local window is determined when the model
-loads. `source` is `provider`, `catalog`, `fritz`, or `unknown`.
+runtime capacity. For native models with a startup ceiling,
+`automaticWindowTokens` is the maximum Fritz considers in Automatic mode.
+The actual automatic local window is determined when the model loads.
+`source` is `provider`, `catalog`, `fritz`, or `unknown`.
 Missing limits are omitted. Discovery takes live values from the connected
 endpoint. Ollama provides architecture limits via `/api/show` and reports
 active capacity via `/api/ps`. Public catalog values are used for known
@@ -49,10 +51,11 @@ models on official endpoints when live metadata is absent.
 The optional `context` object accepts `automaticCompaction` (defaults to true),
 `contextTokens`, `reserveTokens`, and `keepRecentTokens`. Omitted token settings
 adapt to the model. Local budgeting uses the window actually allocated by
-llama.cpp. Automatic measures candidate windows up to the model’s published
-limit and accounts for the model weights, KV cache, compute buffers, and
-runtime headroom. Inkling can use smaller prompt-processing batches to fit
-a larger window. Automatic leaves additional headroom for other apps.
+llama.cpp. Automatic measures candidate windows up to the catalog startup
+ceiling or the model’s published limit and accounts for model weights, KV cache,
+compute buffers, and runtime headroom. Inkling can use smaller prompt-processing
+batches to fit a larger window. Automatic leaves additional headroom for other
+apps.
 For a fixed budget Fritz caps the request at the model’s limit and reports
 an allocation error if the window cannot fit. A local `activity` event reports
 the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true
@@ -156,6 +159,22 @@ unloaded weights. That request waits for app admission before loading. The
 service reports Running only after the native loader succeeds. Failed loads
 return a model error and leave the API available. Managed listeners can retain
 multiple models; inference remains serialized.
+
+The managed service can also open a separate remote model listener on
+`127.0.0.1:11436`. The Mac app sends `enableRemote` with a fresh 32-byte
+hexadecimal `token` over private stdin, or sends `disableRemote` to revoke it and
+close client connections. Stdout emits `remoteModels` status and the loopback
+address or bind error. It never echoes the token. The process holds only the
+token digest while listening. The Mac app holds the current key in memory for
+explicit copying. The service closes with its owner.
+
+The remote listener is a target for a private HTTPS tunnel terminating on the
+same Mac. It requires `Authorization: Bearer <token>` on every request.
+`GET /fritz/v1/models` lists installed Fritz chat models. `POST
+/fritz/v1/chat/completions` accepts a model ID and system, user, and assistant
+text messages and returns OpenAI-compatible server-sent events. The service
+shares the local API's model admission, 8,192-token context limit and
+2,048-token reply limit. Remote requests have no project or tool access.
 
 New Models and Edit Models expose Download, Start/Stop, and Start on for Fritz
 chat models. Startup policies live in the workspace database. First use is the

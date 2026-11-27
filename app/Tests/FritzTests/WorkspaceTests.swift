@@ -177,6 +177,8 @@ import FritzUpdates
         let second = try XCTUnwrap(workspace.selectedThreadID)
         XCTAssertNotEqual(first, second)
         XCTAssertTrue(workspace.selectedChat?.draft.isEmpty == true)
+        workspace.selectedChat?.synchronizeModel(models: [model])
+        XCTAssertNil(workspace.selectedChat?.selectedModel)
         workspace.selectedChat?.draft = "Second draft"
         await workspace.renameThread(second, to: "Investigate a failure")
         await workspace.select(first)
@@ -187,7 +189,7 @@ import FritzUpdates
         XCTAssertEqual(restored.selectedThreadID, first)
         XCTAssertEqual(restored.threads.last?.title, "Investigate a failure")
         XCTAssertEqual(restored.selectedChat?.draft, "First draft")
-        restored.selectedChat?.synchronizeModel(models: [model], defaultModel: nil)
+        restored.selectedChat?.synchronizeModel(models: [model])
         XCTAssertEqual(restored.selectedChat?.selectedModel, model)
         await restored.select(second)
         XCTAssertEqual(restored.selectedChat?.draft, "Second draft")
@@ -270,6 +272,47 @@ import FritzUpdates
         var isDirectory: ObjCBool = false
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory))
         XCTAssertTrue(isDirectory.boolValue)
+    }
+
+    func testAutomaticLocalContextFitTracksCacheModeAndIgnoresFixedBudgets() async throws {
+        let root = try directory()
+        let script = #"""
+        import json, sys
+        windows = iter([8192, 32768, 16384])
+        for line in sys.stdin:
+            request = json.loads(line)
+            if request["method"] == "chat":
+                for event in [
+                    {"type": "activity", "contextTokens": next(windows)},
+                    {"type": "delta", "text": "Ready"},
+                    {"type": "result", "result": {}},
+                ]:
+                    print(json.dumps(dict(event, id=request["id"])), flush=True)
+        """#
+        let agent = AgentClient(executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
+                                arguments: ["-u", "-c", script], environment: ["PATH": "/usr/bin:/bin"])
+        agent.start()
+        defer { agent.stop() }
+        let workspace = WorkspaceStore(agent: agent, dataDirectory: root)
+        await workspace.restore()
+        _ = try await workspace.createProject(name: "Test", directory: root)
+        let chat = try XCTUnwrap(workspace.selectedChat)
+        let modelID = "inkling-2-mini-iq4_nl"
+        chat.select(ChatModelOption(connection: ProviderConnection(name: "Fixture", provider: .fritz, modelID: modelID)))
+
+        for (budget, quantized) in [(0, false), (32768, false), (0, true)] {
+            workspace.appSettings.harness.contextTokens = budget
+            workspace.appSettings.harness.quantizeLocalKVCache = quantized
+            let completed = expectation(description: "Fixture chat completed")
+            chat.onIdle = { completed.fulfill() }
+            chat.draft = "Check local context"
+            chat.send()
+            await fulfillment(of: [completed], timeout: 2)
+            XCTAssertNil(chat.error)
+        }
+
+        XCTAssertEqual(workspace.automaticContextFits[false]?[modelID], 8192)
+        XCTAssertEqual(workspace.automaticContextFits[true]?[modelID], 16384)
     }
 
     func testUserStopRemainsDistinctFromProviderInterruptionAfterReload() async throws {

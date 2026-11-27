@@ -19,9 +19,6 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
   private let addProvider: () -> Void
   private let downloadModels: () -> Void
   private let editProvider: (ProviderID) -> Void
-  private let canMakeDefault: (ProviderID) -> Bool
-  private let showsMakeDefault: (ProviderID) -> Bool
-  private let makeDefault: (ProviderID) -> Void
   private let exportProviders: (Set<ProviderID>) -> Void
   private let deleteProvider: (ProviderID) -> Void
   private let startSession: (SessionID) -> Void
@@ -44,9 +41,6 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
     addProvider: @escaping () -> Void,
     downloadModels: @escaping () -> Void = {},
     editProvider: @escaping (ProviderID) -> Void,
-    canMakeDefault: @escaping (ProviderID) -> Bool = { _ in false },
-    showsMakeDefault: @escaping (ProviderID) -> Bool = { _ in true },
-    makeDefault: @escaping (ProviderID) -> Void = { _ in },
     exportProviders: @escaping (Set<ProviderID>) -> Void = { _ in },
     deleteProvider: @escaping (ProviderID) -> Void,
     startSession: @escaping (SessionID) -> Void = { _ in },
@@ -68,9 +62,6 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
     self.addProvider = addProvider
     self.downloadModels = downloadModels
     self.editProvider = editProvider
-    self.canMakeDefault = canMakeDefault
-    self.showsMakeDefault = showsMakeDefault
-    self.makeDefault = makeDefault
     self.exportProviders = exportProviders
     self.deleteProvider = deleteProvider
     self.startSession = startSession
@@ -116,10 +107,6 @@ public struct ModelsView<ProviderID: Hashable, SessionID: Hashable, TransferActi
           .contextMenu(forSelectionType: ProviderID.self) { ids in
             if ids.count == 1, let id = ids.first, providers.contains(where: { $0.id == id }) {
               Button("Edit Models", systemImage: "pencil") { editProvider(id) }
-              if showsMakeDefault(id) {
-                Button("Make Default", systemImage: "checkmark.circle") { makeDefault(id) }
-                  .disabled(!canMakeDefault(id))
-              }
               Divider()
             }
             if ids.count == 1, let id = ids.first, providers.contains(where: { $0.id == id }) {

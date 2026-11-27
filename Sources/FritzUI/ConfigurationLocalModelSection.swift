@@ -21,6 +21,7 @@ struct ConfigurationLocalModelSection: View {
     let state: LocalModelInstallState
     let hardware: LocalModelHardware
     let catalog: [NativeModelDescriptor]
+    let downloads: ModelDownloads
 
     @State private var scoreOrder: [LocalModelScoreComparator<NativeModelDescriptor>] = []
 
@@ -36,7 +37,7 @@ struct ConfigurationLocalModelSection: View {
     private var selection: Binding<String?> {
         Binding(
             get: { modelID },
-            set: { if let id = $0, !state.isBusy { modelID = id } }
+            set: { if let id = $0 { modelID = id } }
         )
     }
 
@@ -57,7 +58,9 @@ struct ConfigurationLocalModelSection: View {
                     HStack(spacing: 6) {
                         Text(ByteCountFormatter.string(fromByteCount: Int64(entry.size), countStyle: .file))
                             .monospacedDigit()
-                        if entry.id == modelID {
+                        if let status = downloads[entry.id]?.activeStatus {
+                            Text(status).foregroundStyle(.secondary)
+                        } else if entry.id == modelID {
                             Text(statusTitle).foregroundStyle(.secondary)
                         }
                     }
@@ -74,7 +77,6 @@ struct ConfigurationLocalModelSection: View {
                 }
                 .width(66)
             }
-            .disabled(state.isBusy)
             .accessibilityLabel("Downloadable models")
             .accessibilityIdentifier("native-model-list")
             .overlay {
@@ -144,7 +146,6 @@ struct ConfigurationLocalModelSection: View {
         }
         .pickerStyle(.menu)
         .padding()
-        .disabled(state.isBusy)
         .accessibilityLabel("Filter downloadable models")
     }
 

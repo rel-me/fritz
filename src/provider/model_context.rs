@@ -23,9 +23,10 @@ pub(crate) fn bundled(connection: &Connection, model: &str) -> ModelContext {
     };
     match connection.provider {
         ProviderKind::Fritz => {
+            let limit = local_entry("local_chat").map(|row| &row["limit"]);
             return ModelContext {
-                window_tokens: local_entry("local_chat")
-                    .and_then(|row| tokens(&row["limit"]["context"])),
+                window_tokens: limit.and_then(|limit| tokens(&limit["context"])),
+                automatic_window_tokens: limit.and_then(|limit| tokens(&limit["automatic_target"])),
                 source: ContextSource::Fritz,
                 ..Default::default()
             };

@@ -40,6 +40,7 @@ pub struct Manifest {
 #[derive(Debug, Deserialize)]
 pub(crate) struct ContextLimit {
     pub context: u32,
+    pub automatic_target: Option<u32>,
 }
 
 pub fn catalog() -> &'static [Manifest] {
@@ -392,6 +393,11 @@ mod tests {
             assert!(pin.size > 0);
             assert!(paths.insert(&pin.file));
             assert!(pin.limit.context > 0);
+            assert!(
+                pin.limit
+                    .automatic_target
+                    .is_none_or(|target| (1..=pin.limit.context).contains(&target))
+            );
         }
         assert!(manifest("../../outside").is_err());
         assert!(manifest("unknown").is_err());
@@ -407,7 +413,10 @@ mod tests {
                 name: id.into(),
                 disable_thinking: false,
                 architecture: String::new(),
-                limit: ContextLimit { context: 8192 },
+                limit: ContextLimit {
+                    context: 8192,
+                    automatic_target: None,
+                },
                 quantization: None,
                 file: format!("{id}.gguf"),
                 repository: String::new(),
@@ -490,7 +499,10 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
-            limit: ContextLimit { context: 8192 },
+            limit: ContextLimit {
+                context: 8192,
+                automatic_target: None,
+            },
             quantization: None,
             file: "model.gguf".into(),
             repository: String::new(),
@@ -527,7 +539,10 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
-            limit: ContextLimit { context: 8192 },
+            limit: ContextLimit {
+                context: 8192,
+                automatic_target: None,
+            },
             quantization: None,
             file: "model.gguf".into(),
             repository: String::new(),
@@ -601,7 +616,10 @@ mod tests {
             name: "Fixture".into(),
             disable_thinking: false,
             architecture: String::new(),
-            limit: ContextLimit { context: 8192 },
+            limit: ContextLimit {
+                context: 8192,
+                automatic_target: None,
+            },
             quantization: None,
             file: "fixture.gguf".into(),
             repository: String::new(),

@@ -29,6 +29,13 @@ struct ModelStoragePathControl: NSViewRepresentable {
         control.url = directory
         control.toolTip = directory?.path
     }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView control: NSPathControl, context: Context) -> CGSize? {
+        guard choose == nil else { return nil }
+        let size = control.intrinsicContentSize
+        // The native pop-up's intrinsic width leaves extra space before its chevrons.
+        let width = size.width - 22
+        return CGSize(width: min(proposal.width ?? width, width), height: proposal.height ?? size.height)
+    }
     @MainActor final class Coordinator: NSObject, NSPathControlDelegate {
         weak var panel: NSOpenPanel?
         var parent: ModelStoragePathControl

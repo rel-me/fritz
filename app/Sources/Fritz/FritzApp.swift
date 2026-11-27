@@ -200,7 +200,9 @@ struct FritzApp: App {
         }
 
         Window("Local Models", id: "local-models") {
-            ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .local)
+            let quantized = state.settings.harness.quantizeLocalKVCache == true
+            ModelsCatalogView(store: state.providers, runtime: state.localModels, location: .local,
+                              automaticContextFits: state.workspace.automaticContextFits[quantized] ?? [:])
                 .frame(minWidth: 640, minHeight: 400)
         }
         .defaultSize(width: 900, height: 620)

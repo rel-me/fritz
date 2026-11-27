@@ -17,7 +17,6 @@ final class ModelTests: XCTestCase {
         }
         XCTAssertTrue(providers.connections.isEmpty)
         XCTAssertTrue(providers.models.isEmpty)
-        XCTAssertNil(providers.defaultModel)
         XCTAssertTrue(providers.availableModels.contains { $0.category == .decision })
         XCTAssertTrue(providers.pickerModels.allSatisfy { $0.category == .llm })
     }

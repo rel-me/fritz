@@ -118,9 +118,9 @@ final class SharedControlSnapshots: XCTestCase {
             }
             ModelProvidersTable(providers: [
                 .init(id: "openai", name: "OpenAI", warning: nil, isLocal: false,
-                      isDefault: true, models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
+                      models: "Example Flagship, Example Fast, Example Mini, Example Nano, Example Audio, Example Embedding"),
                 .init(id: "local", name: "Local", warning: "Download a model", isLocal: true,
-                      isDefault: false, models: "Local Model")
+                      models: "Local Model")
             ], selection: .constant([]), isLoading: false) { _ in }
             .scrollContentBackground(.hidden)
             .alternatingRowBackgrounds(.disabled)
@@ -176,10 +176,31 @@ final class SharedControlSnapshots: XCTestCase {
         }
     }
 
-    func testDownloadCompletionRefreshesInstalledPath() async throws {
-        let model = ConfigurationNativeModel(store: ModelsFixture(state: "available"))
-        defer { model.cancel() }
-        model.install()
+    func testBackgroundDownloadSurvivesClosingAndCanStopAndRetry() async throws {
+        let store = ModelsFixture(state: "controlled")
+        var firstView: ConfigurationNativeModel? = ConfigurationNativeModel(store: store)
+        weak var releasedView = firstView
+        let requestID = try XCTUnwrap(firstView?.install())
+        firstView = nil
+        XCTAssertNil(releasedView)
+
+        let model = ConfigurationNativeModel(store: store)
+        defer { model.stopDownload() }
+        model.refresh()
+        XCTAssertTrue(model.isDownloading)
+        XCTAssertNil(model.install())
+        let progressDeadline = ContinuousClock.now + .seconds(2)
+        while model.state == .checking && ContinuousClock.now < progressDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.state, .downloading(downloaded: 25, total: 100))
+        model.stopDownload()
+        XCTAssertFalse(model.isDownloading)
+        XCTAssertEqual(store.stoppedDownloads, [requestID])
+
+        let retryID = try XCTUnwrap(model.install())
+        XCTAssertNotEqual(requestID, retryID)
+        try store.finishDownload(retryID)
         let deadline = ContinuousClock.now + .seconds(2)
         while model.installedURL == nil && ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))
@@ -392,6 +413,7 @@ final class SharedControlSnapshots: XCTestCase {
 }
 
 @MainActor @Observable private final class ModelsFixture: ModelsProviderStore {
+    let modelDownloads = ModelDownloads()
     let modelStorage = ModelStorage(events: { _, _, _ in
         AsyncThrowingStream { continuation in
             continuation.yield(Data(#"{"type":"result","result":{"directory":"/Models","modelCount":0,"bytes":0}}"#.utf8))
@@ -402,22 +424,22 @@ final class SharedControlSnapshots: XCTestCase {
     var error: String?
     var isLoading: Bool { state == "loading" }
     var connections: [ProviderConnection] { ["empty", "loading"].contains(state) ? [] : [.init(id: connectionID, name: "Test", provider: .ollama)] }
-    var defaultConnectionID: UUID? { connections.first?.id }
     var catalog: [UUID: [DiscoveredAIModel]] { [connectionID: [.init(id: "test-model", displayName: "Test Model")]] }
     var discoveryErrors: [UUID: String] { state == "error" ? [connectionID: "The provider is unavailable."] : [:] }
     var recentIDs: [String] { [] }
     var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
     private let connectionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     private var downloadedIDs: Set<String> = []
+    private var pendingDownloads: [String: (String, AsyncThrowingStream<Data, Error>.Continuation)] = [:]
+    private(set) var stoppedDownloads: [String] = []
     init(state: String) { self.state = state; error = state == "error" ? "The provider is unavailable." : nil }
     func connection(_ provider: AIProviderKind) -> ProviderConnection {
         .init(id: connectionID, name: "Test", provider: provider,
               modelID: provider.rawValue == "ollaya" ? NativeModelDescriptor.decisionCatalog[0].id : "qwen2.5-1.5b-instruct-q4_k_m")
     }
     func refresh() async {}
-    func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws {}
+    func save(_ connection: ProviderConnection, key: String) async throws {}
     func remove(_ connection: ProviderConnection) async {}
-    func makeDefault(_ connection: ProviderConnection) async {}
     func importProviders(_ text: String, policy: ModelsImportPolicy) async throws {}
     func exportProviders(_ connections: [ProviderConnection], includeKeys: Bool) throws -> String { "" }
     func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
@@ -427,6 +449,11 @@ final class SharedControlSnapshots: XCTestCase {
                      requestID: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             if state == "error" { continuation.finish(throwing: AgentFailure(message: "The installer is unavailable.")); return }
+            if install && state == "controlled" {
+                pendingDownloads[requestID] = (modelID, continuation)
+                continuation.yield(Data(#"{"type":"progress","status":"downloading","downloaded":25,"total":100}"#.utf8))
+                return
+            }
             let result: [String: Any]
             if install {
                 downloadedIDs.insert(modelID)
@@ -441,7 +468,20 @@ final class SharedControlSnapshots: XCTestCase {
             continuation.yield(try! JSONSerialization.data(withJSONObject: event)); continuation.finish()
         }
     }
-    func cancelModelRequest(_ requestID: String) {}
+    func cancelModelRequest(_ requestID: String) {
+        guard let (_, pending) = pendingDownloads.removeValue(forKey: requestID) else { return }
+        stoppedDownloads.append(requestID)
+        pending.finish(throwing: CancellationError())
+    }
+
+    func finishDownload(_ requestID: String) throws {
+        let (modelID, pending) = try XCTUnwrap(pendingDownloads.removeValue(forKey: requestID))
+        downloadedIDs.insert(modelID)
+        pending.yield(try JSONSerialization.data(withJSONObject: [
+            "type": "result", "result": ["modelId": modelID, "installed": true],
+        ]))
+        pending.finish()
+    }
 }
 
 @MainActor @Observable private final class RuntimeFixture: ModelsRuntimeStore {
@@ -500,7 +540,8 @@ extension SharedControlSnapshots {
         LocalModelSetupSheet(model: model, state: progress.state, memoryGB: 8, storage: storage,
                              installedDirectory: URL(fileURLWithPath: "/Models"),
                              primaryActionTitle: actionTitle, canSubmit: !progress.state.isBusy,
-                             isSaving: false, cancel: {}, submit: {}) { EmptyView() }
+                             isSaving: false, isDownloading: progress.state.isBusy,
+                             close: {}, stopDownload: {}, submit: {}) { EmptyView() }
     }
 
     private var actionTitle: String {

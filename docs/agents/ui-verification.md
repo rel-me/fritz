@@ -116,10 +116,18 @@ the following surfaces, include these behaviors:
   record card, redundant Not installed status, fixed-height empty area, or separate
   destination footer. Check long names, wrapped errors, linear progress, memory
   warnings, Settings navigation, Escape, and Command-Q after presentation updates.
-  Local Models uses native disclosure rows for families with multiple visible
-  models and places recent selections first by default. Check expanding and
-  collapsing a family, searching by family and model name, filtering and sorting
-  by score, and opening setup from a child row. Folder rows have no model actions.
+  Local Models uses native disclosure rows for every family, including singleton
+  and filtered results, and places recent selections first by default. Check
+  expanding and collapsing a family, searching by family and model name, filtering
+  and sorting by score, and opening setup from a child row. Search opens matching
+  families by default. Folder rows have no model actions. Check compact Context
+  values and their exact token counts in help.
+  Check the Context column shows Automatic/maximum for chat models, with the
+  latest measured Automatic fit for the selected KV cache setting.
+  Start a model download, close the sheet, and check progress in Local Models.
+  Reopen the sheet during the transfer and use Stop Download. Verify that
+  downloading again resumes the saved bytes and closing the sheet leaves the
+  chat selection alone.
   Local Models has no Provider column or provider picker in local setup/edit.
   Remote Models shows providers with recent models first in comma-separated,
   tail-truncated summaries; setup/edit/remove acts on the selected provider.

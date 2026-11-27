@@ -14,6 +14,7 @@ import Security
     public var recentIDs: [String] = []
     private let database: any ModelsPreferences
     public let modelStorage: ModelStorage
+    public let modelDownloads = ModelDownloads()
     public let agent: AgentClient
     public let modelCatalog: RemoteModelCatalog
     private let keychainService: String
@@ -118,18 +119,10 @@ import Security
         let connection = setupConnection(for: model)
             ?? ProviderConnection(name: name, provider: .fritz, modelID: model.modelID)
         if !connections.contains(where: { $0.id == connection.id }) {
-            try await save(connection, key: "", makeDefault: defaultConnectionID == nil)
+            try await save(connection, key: "")
         }
         try Task.checkCancellation()
         return ChatModelOption(connection: connection, model: .init(id: model.modelID, displayName: model.displayName))
-    }
-
-    public var defaultModel: ChatModelOption? {
-        if let recent = recordedRecentModels.first { return recent }
-        if let connection = connections.first(where: { $0.id == registry.defaultConnectionId }),
-           let model = models.first(where: { $0.connectionID == connection.id && $0.modelID == connection.modelID }) { return model }
-        return models.first(where: { $0.connectionID == registry.defaultConnectionId && $0.capabilities.isRecommendedInChatPicker })
-            ?? models.first(where: { $0.capabilities.isRecommendedInChatPicker })
     }
 
     public func record(_ model: ChatModelOption) {
@@ -183,11 +176,11 @@ import Security
         } catch { if refreshID == revision { self.error = error.localizedDescription } }
     }
 
-    public func save(_ connection: ProviderConnection, key: String, makeDefault: Bool) async throws {
+    public func save(_ connection: ProviderConnection, key: String) async throws {
         let isNewLocalSetup = connection.provider == .fritz && !connections.contains {
             $0.id == connection.id && $0.provider == .fritz && $0.modelID == connection.modelID
         }
-        var params: [String: Any] = ["connection": try connection.jsonObject(), "makeDefault": makeDefault]
+        var params: [String: Any] = ["connection": try connection.jsonObject()]
         if !key.isEmpty { params["apiKey"] = key }
         registry = try await agent.request("providers.save", params: params)
         await refresh()
@@ -254,14 +247,9 @@ import Security
         do { registry = try await agent.request("providers.remove", params: ["id": connection.id.uuidString]); await refresh() }
         catch { self.error = error.localizedDescription }
     }
-    public func makeDefault(_ connection: ProviderConnection) async {
-        do { registry = try await agent.request("providers.default", params: ["id": connection.id.uuidString]) }
-        catch { self.error = error.localizedDescription }
-    }
 }
 
 extension ModelsStore {
-    public var defaultConnectionID: UUID? { registry.defaultConnectionId }
     public var nativeModelCatalog: [NativeModelDescriptor] { NativeModelDescriptor.catalog + NativeModelDescriptor.decisionCatalog }
     public func discoverModels(_ connection: ProviderConnection, key: String) async throws -> [DiscoveredAIModel] {
         var params: [String: Any] = ["connection": try connection.jsonObject()]

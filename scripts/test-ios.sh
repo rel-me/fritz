@@ -19,13 +19,14 @@ cleanup() {
 trap cleanup EXIT
 
 # Use the app's regular provider UI with Fritz's existing keyless mock.
-python3 tests/mock_provider.py --port 18743 > "$temporary/mock.log" 2>&1 &
+python3 tests/mock_provider.py > "$temporary/mock.log" 2>&1 &
 mock_pid=$!
 for attempt in {1..50}; do
   if [[ -s "$temporary/mock.log" ]]; then break; fi
   sleep 0.1
 done
-if [[ "$(cat "$temporary/mock.log")" != 18743 ]]; then
+mock_port="$(cat "$temporary/mock.log")"
+if [[ ! "$mock_port" =~ ^[0-9]+$ ]]; then
   cat "$temporary/mock.log" >&2
   exit 1
 fi
@@ -33,7 +34,8 @@ fi
 simulator="$(xcrun simctl create 'Fritz iOS Verification' 'iPhone 17 Pro')"
 xcrun simctl boot "$simulator"
 xcrun simctl bootstatus "$simulator" -b
-xcodebuild -project app/Fritz.xcodeproj -scheme Fritz-iOS \
+TEST_RUNNER_FRITZ_MOCK_URL="http://127.0.0.1:$mock_port/v1" \
+  xcodebuild -project app/Fritz.xcodeproj -scheme Fritz-iOS \
   -derivedDataPath "${FRITZ_DERIVED_DATA}/iOS" \
   -clonedSourcePackagesDirPath "${FRITZ_XCODE_CACHE}/iOS" \
   -destination "id=$simulator" -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 120 test
