@@ -11,6 +11,7 @@ import Security
     public typealias Session = ModelsRuntimeSession
 
     public private(set) var installedIDs: Set<String> = []
+    public private(set) var importedModels: [NativeModelDescriptor] = []
     public private(set) var sessions: [String: Session] = [:]
     public private(set) var service = Session()
     public private(set) var remoteService = Session()
@@ -85,6 +86,7 @@ import Security
         do {
             let inventory: LocalModelInventory = try await agent.request("localModels.list")
             installedIDs = inventory.installedIDs
+            importedModels = inventory.importedModels ?? []
             error = nil
         } catch { self.error = error.localizedDescription }
     }
@@ -106,7 +108,7 @@ import Security
     private func startNext() {
         guard !isShuttingDown, warningAlert == nil, !pendingStarts.isEmpty else { return }
         let modelID = pendingStarts.removeFirst()
-        let catalog = NativeModelDescriptor.catalog
+        let catalog = NativeModelDescriptor.catalog + importedModels
         if let model = catalog.first(where: { $0.id == modelID }),
            let warning = Self.memoryWarning(model: model, activeModels: catalog.filter {
                sessions[$0.id]?.status == .running || sessions[$0.id]?.status == .starting || sessions[$0.id]?.status == .stopping
@@ -401,5 +403,6 @@ private struct ServiceEvent: Decodable {
 struct LocalModelInventory: Decodable {
     struct Model: Decodable { let id: String; let installed: Bool }
     let models: [Model]
+    let importedModels: [NativeModelDescriptor]?
     var installedIDs: Set<String> { Set(models.filter(\.installed).map(\.id)) }
 }

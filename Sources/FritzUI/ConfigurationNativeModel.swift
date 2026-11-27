@@ -11,6 +11,24 @@ import Observation
 
     subscript(modelID: String) -> ModelTransfer? { transfers[modelID] }
 
+    func transfer(for file: HuggingFaceRepository.File, repository: HuggingFaceRepository,
+                  store: ModelsStore) -> ModelTransfer {
+        if let transfer = transfers[file.id] { return transfer }
+        let agent = store.agent
+        let model = NativeModelDescriptor(id: file.id, name: file.path, size: file.size, memoryGB: 0,
+                                          licenseURL: repository.url)
+        let transfer = ModelTransfer(model: model, store: store, importEvents: { id in
+            agent.stream(method: "localModels.huggingFaceImport",
+                         params: ["repository": repository.repository, "revision": repository.revision,
+                                  "file": file.path], id: id)
+        }) { [weak self, weak store] in
+            self?.completedDownloads += 1
+            Task { await store?.refreshImportedModels() }
+        }
+        transfers[file.id] = transfer
+        return transfer
+    }
+
     fileprivate func transfer(for model: NativeModelDescriptor, store: any ModelsProviderStore) -> ModelTransfer {
         if let transfer = transfers[model.id] { return transfer }
         let transfer = ModelTransfer(model: model, store: store) { [weak self] in
@@ -76,13 +94,17 @@ import Observation
     private let model: NativeModelDescriptor
     @ObservationIgnored private weak var store: (any ModelsProviderStore)?
     @ObservationIgnored private let onInstalled: () -> Void
+    @ObservationIgnored private let importEvents: ((String) -> AsyncThrowingStream<Data, Error>)?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var requestID: String?
 
-    init(model: NativeModelDescriptor, store: any ModelsProviderStore, onInstalled: @escaping () -> Void) {
+    init(model: NativeModelDescriptor, store: any ModelsProviderStore,
+         importEvents: ((String) -> AsyncThrowingStream<Data, Error>)? = nil,
+         onInstalled: @escaping () -> Void) {
         self.model = model
         self.store = store
         self.onInstalled = onInstalled
+        self.importEvents = importEvents
     }
 
     func refresh() {
@@ -102,7 +124,7 @@ import Observation
         cancelRequest()
         isDownloading = false
         state = .available
-        refresh()
+        if importEvents == nil { refresh() }
     }
 
     private func cancelRequest() {
@@ -120,8 +142,9 @@ import Observation
         let id = UUID().uuidString
         let modelID = model.id
         requestID = id
-        let events = store.modelEvents(category: model.category, modelID: modelID, install: install,
-                                       directory: nil, requestID: id)
+        let events = (install ? importEvents?(id) : nil)
+            ?? store.modelEvents(category: model.category, modelID: modelID, install: install,
+                                 directory: nil, requestID: id)
         task = Task { [weak self] in
             var completed = false
             do {

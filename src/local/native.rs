@@ -32,6 +32,7 @@ unsafe extern "C" {
     fn fl_model_free(model: *mut c_void);
     fn fl_model_context_size(model: *const c_void) -> i32;
     fn fl_model_kv_cache_bytes(model: *const c_void) -> usize;
+    fn fl_gguf_metadata(path: *const c_char) -> *mut c_char;
     fn fl_string_free(value: *mut c_char);
     fn fl_tokenize(model: *mut c_void, text: *const c_char, special: bool) -> *mut c_char;
     fn fl_logits(
@@ -102,6 +103,21 @@ fn response(value: *mut c_char) -> Result<Value> {
     }
     Ok(value)
 }
+pub(crate) async fn gguf_metadata(path: &Path) -> Result<(String, u32)> {
+    let model_file = crate::model_storage::use_file(path)?;
+    let path = CString::new(path.as_os_str().as_encoded_bytes())?;
+    worker(move |_| {
+        let _model_file = model_file;
+        let value = response(unsafe { fl_gguf_metadata(path.as_ptr()) })?;
+        let architecture = value["architecture"]
+            .as_str()
+            .context("Missing GGUF architecture")?;
+        let context = value["context"].as_u64().context("Missing GGUF context")?;
+        Ok((architecture.to_owned(), u32::try_from(context)?))
+    })
+    .await
+}
+
 async fn worker<T: Send + 'static>(
     action: impl FnOnce(&AtomicBool) -> Result<T> + Send + 'static,
 ) -> Result<T> {

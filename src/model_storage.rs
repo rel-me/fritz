@@ -65,9 +65,11 @@ struct Artifact {
     size: u64,
     hash: String,
 }
-fn artifacts() -> Vec<Artifact> {
-    crate::local::models::catalog()
+fn artifacts() -> Result<Vec<Artifact>> {
+    let imports = crate::local::models::hugging_face::catalog()?;
+    Ok(crate::local::models::catalog()
         .iter()
+        .chain(imports.iter())
         .map(|p| Artifact {
             id: p.id.clone(),
             file: p.file.clone(),
@@ -82,7 +84,7 @@ fn artifacts() -> Vec<Artifact> {
                 hash: f.sha256.clone(),
             })
         }))
-        .collect()
+        .collect())
 }
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -366,7 +368,7 @@ pub async fn dispatch(
 ) -> Result<Value> {
     let data = crate::config::data_dir();
     let fallback = crate::config::default_models_dir();
-    let specs = artifacts();
+    let specs = artifacts()?;
     match method {
         "modelStorage.info" => Ok(serde_json::to_value(info(&data, &fallback, &specs)?)?),
         "modelStorage.change" => {

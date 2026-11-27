@@ -11,10 +11,12 @@ pub(crate) fn database(directory: &Path) -> Result<Database> {
         &[
             "CREATE TABLE model_locations (model_id TEXT PRIMARY KEY NOT NULL, directory TEXT NOT NULL);",
             "CREATE TABLE model_storage (id INTEGER PRIMARY KEY CHECK(id = 1), directory TEXT NOT NULL);",
+            "CREATE TABLE imported_local_models (id TEXT PRIMARY KEY NOT NULL, manifest TEXT NOT NULL CHECK(json_valid(manifest)));",
         ],
         &[
             ("model_locations", &["model_id", "directory"]),
             ("model_storage", &["id", "directory"]),
+            ("imported_local_models", &["id", "manifest"]),
         ],
     )
 }

@@ -23,10 +23,10 @@ pub(crate) fn bundled(connection: &Connection, model: &str) -> ModelContext {
     };
     match connection.provider {
         ProviderKind::Fritz => {
-            let limit = local_entry("local_chat").map(|row| &row["limit"]);
+            let pin = crate::local::models::manifest(model).ok();
             return ModelContext {
-                window_tokens: limit.and_then(|limit| tokens(&limit["context"])),
-                automatic_window_tokens: limit.and_then(|limit| tokens(&limit["automatic_target"])),
+                window_tokens: pin.as_ref().map(|pin| pin.limit.context),
+                automatic_window_tokens: pin.and_then(|pin| pin.limit.automatic_target),
                 source: ContextSource::Fritz,
                 ..Default::default()
             };
