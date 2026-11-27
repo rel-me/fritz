@@ -24,6 +24,9 @@ the following surfaces, include these behaviors:
   model starts, runs, and stops. Verify memory updates, idle and remote-only chats,
   the View menu toggle, and preference restoration after relaunch. Running chats
   should remain visible in the bar when switching threads.
+  Start a local model without sending a message. Verify the bar shows it as
+  Loaded with its allocated KV cache size. Check that the chat harness reports
+  its cache size once ready and that the allocation clears when the model stops.
   In the composer, check that an installed, stopped local model has a play
   button to the left of the picker. Use the cancel icon to cancel startup or
   stop a running model, and verify it is disabled while stopping. Confirm that

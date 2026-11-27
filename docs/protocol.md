@@ -83,8 +83,10 @@ workspace database.
 
 Local chat startup emits `model_loading` events with `progress` from zero to one
 as llama.cpp loads the model weights. The existing activity event with
-`contextTokens` signals that the chat context is ready. The managed Local API
-includes the same optional `progress` on `model` events with `status: "starting"`.
+`contextTokens` signals that the chat context is ready and includes
+`kvCacheBytes`, the allocated attention cache size in bytes. The managed Local
+API includes `progress` on `model` events with `status: "starting"` and reports
+`kvCacheBytes` when the model is running.
 
 OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of

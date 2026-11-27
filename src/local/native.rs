@@ -31,6 +31,7 @@ unsafe extern "C" {
     ) -> *mut c_void;
     fn fl_model_free(model: *mut c_void);
     fn fl_model_context_size(model: *const c_void) -> i32;
+    fn fl_model_kv_cache_bytes(model: *const c_void) -> usize;
     fn fl_string_free(value: *mut c_char);
     fn fl_tokenize(model: *mut c_void, text: *const c_char, special: bool) -> *mut c_char;
     fn fl_logits(
@@ -63,6 +64,7 @@ impl Drop for Handle {
 pub(crate) struct Model {
     inner: Mutex<Handle>,
     pub(crate) context_size: usize,
+    pub(crate) kv_cache_bytes: usize,
     _storage_use: std::fs::File,
 }
 
@@ -180,6 +182,7 @@ impl Model {
             };
             Ok(Arc::new(Self {
                 context_size: unsafe { fl_model_context_size(value.as_ptr()) } as usize,
+                kv_cache_bytes: unsafe { fl_model_kv_cache_bytes(value.as_ptr()) },
                 inner: Mutex::new(Handle(value)),
                 _storage_use: storage_use,
             }))
