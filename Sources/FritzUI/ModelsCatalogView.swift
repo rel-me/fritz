@@ -68,6 +68,8 @@ public struct ModelsCatalogView: View {
     private struct LocalModelRow: Identifiable {
         let model: ChatModelOption
         let descriptor: NativeModelDescriptor?
+        let status: String
+        let isRunning: Bool
         var id: String { model.id }
         var family: String { descriptor?.family ?? model.displayProvider.displayName }
     }
@@ -94,24 +96,30 @@ public struct ModelsCatalogView: View {
     private var localRows: [LocalModelRow] {
         let descriptors = Dictionary(uniqueKeysWithValues: store.nativeModelCatalog.map { ($0.id, $0) })
         let recents = store.recentIDs
-        return store.availableModels.filter {
+        let sessions = runtime.sessions
+        let models = store.availableModels.filter {
             location.contains($0) && (category == nil || $0.category == category)
                 && matchesDownloadFilter($0) && (query.isEmpty
                     || $0.displayName.localizedStandardContains(query)
                     || $0.modelID.localizedStandardContains(query)
                     || (descriptors[$0.modelID]?.family ?? $0.displayProvider.displayName)
                         .localizedStandardContains(query))
-        }.map { LocalModelRow(model: $0, descriptor: descriptors[$0.modelID]) }
-            .filter { row in
-                scoreFilter.includes(row.descriptor?.benchmarkScore?.points)
-                    && (!runnableOnly || row.descriptor.map(hardware.canRun) == true)
-                    && (!abliteratedOnly || row.descriptor?.isAbliterated == true)
-            }
-            .sorted {
-                let left = recents.firstIndex(of: $0.id) ?? Int.max
-                let right = recents.firstIndex(of: $1.id) ?? Int.max
-                return left < right
-            }
+        }
+        return models.compactMap { model in
+            let descriptor = descriptors[model.modelID]
+            guard scoreFilter.includes(descriptor?.benchmarkScore?.points),
+                  !runnableOnly || descriptor.map(hardware.canRun) == true,
+                  !abliteratedOnly || descriptor?.isAbliterated == true else { return nil }
+            // Read observable status while building the rows, before Table renders its cells.
+            let isRunning = sessions[model.modelID]?.status == .running
+            let status = store.modelDownloads[model.modelID]?.activeStatus
+                ?? (isRunning ? ModelsRuntimeSession.Status.running.title : self.status(model))
+            return LocalModelRow(model: model, descriptor: descriptor, status: status, isRunning: isRunning)
+        }.sorted {
+            let left = recents.firstIndex(of: $0.id) ?? Int.max
+            let right = recents.firstIndex(of: $1.id) ?? Int.max
+            return left < right
+        }
     }
 
     private func localTableRows(_ rows: [LocalModelRow]) -> [LocalModelTableRow] {
@@ -223,7 +231,6 @@ public struct ModelsCatalogView: View {
     }
 
     private var localModelTable: some View {
-        let sessions = runtime.sessions
         let rows = localRows
         return Table(of: LocalModelTableRow.self, selection: $selection, sortOrder: $scoreOrder) {
             TableColumn("Name") { row in
@@ -240,11 +247,9 @@ public struct ModelsCatalogView: View {
                 }
             }.width(75)
             TableColumn("Status") { row in
-                if let model = row.modelRow?.model {
-                    let running = sessions[model.modelID]?.status == .running
-                    Text(store.modelDownloads[model.modelID]?.activeStatus
-                         ?? (running ? ModelsRuntimeSession.Status.running.title : status(model)))
-                        .foregroundStyle(running ? .green : .secondary)
+                if let model = row.modelRow {
+                    Text(model.status)
+                        .foregroundStyle(model.isRunning ? .green : .secondary)
                 }
             }
             .width(min: 120, ideal: 140)
