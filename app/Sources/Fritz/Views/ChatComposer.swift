@@ -55,11 +55,11 @@ struct ChatComposer: View {
                     }
                     Button(action: startLocalModel) {
                         Image(systemName: "play.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                            .frame(width: 28, height: 28)
+                            .font(.system(size: 10, weight: .semibold))
+                            .frame(width: 22, height: 22)
                             .contentShape(Circle())
                     }
-                    .buttonStyle(FritzButtonStyle(.floating, size: .regular, shape: .circle))
+                    .buttonStyle(FritzButtonStyle(.floating, size: .small, shape: .circle))
                     .accessibilityLabel("Start \(selectedModel.displayName)")
                     .help("Start \(selectedModel.displayName)")
                 }
