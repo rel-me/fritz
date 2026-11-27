@@ -28,7 +28,9 @@ if [[ -f dist/updates/appcast.xml ]]; then
 else
   rm "$temporary_appcast"
 fi
-args=(-o "$temporary_appcast" --versions "$build" --account "$FRITZ_SPARKLE_KEY_ACCOUNT" --download-url-prefix "${prefix%/}/" --link "$homepage")
+# Fritz's download service only publishes full DMGs.
+args=(-o "$temporary_appcast" --versions "$build" --maximum-deltas 0
+      --account "$FRITZ_SPARKLE_KEY_ACCOUNT" --download-url-prefix "${prefix%/}/" --link "$homepage")
 if [[ "$channel" != release ]]; then args+=(--channel "$channel"); fi
 "$tool" "${args[@]}" dist/updates
 python3 - "$channel" "$temporary_appcast" "$version" "$build" "$prefix" "$archive" <<'PY'
