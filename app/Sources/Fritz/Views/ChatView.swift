@@ -38,23 +38,23 @@ struct ChatView: View {
         selectedLocalModel.flatMap { localModels.sessions[$0.modelID] }
     }
 
-    private var localModelStartup: LocalModelStatus? {
+    private var localModelControlStatus: ModelsRuntimeSession.Status? {
         guard let model = selectedLocalModel else { return nil }
-        if let status = store.localModelStatus, status.phase == .starting { return status }
-        if let session = selectedLocalSession, session.status == .starting {
-            return LocalModelStatus(id: model.modelID, name: model.displayName,
-                                    phase: .starting, loadProgress: session.loadProgress)
-        }
-        return nil
+        let resident = selectedLocalSession?.status ?? .stopped
+        let chatPhases = localChatStatuses.lazy.filter { $0.id == model.modelID }.map(\.phase)
+        if resident == .stopping || chatPhases.contains(.stopping) { return .stopping }
+        if resident == .starting || chatPhases.contains(.starting) { return .starting }
+        if resident == .running || chatPhases.contains(.running) { return .running }
+        return localModels.installedIDs.contains(model.modelID) ? resident : nil
     }
 
-    private var canStartLocalModel: Bool {
-        guard let model = selectedLocalModel, localModels.installedIDs.contains(model.modelID),
-              !store.isResponding, !isPreparingModel,
-              !localChatStatuses.contains(where: { $0.id == model.modelID }) else { return false }
-        switch selectedLocalSession?.status ?? .stopped {
-        case .stopped, .failed: return true
-        case .starting, .running, .stopping: return false
+    private var canToggleLocalModel: Bool {
+        guard !isPreparingModel, let status = localModelControlStatus else { return false }
+        switch status {
+        case .stopped, .failed: return !store.isResponding
+        case .starting: return selectedLocalSession?.status == .starting || store.localModelStatus?.phase == .starting
+        case .running: return selectedLocalSession?.status == .running || store.localModelStatus?.phase == .running
+        case .stopping: return false
         }
     }
 
@@ -129,10 +129,10 @@ struct ChatView: View {
             placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
             canSend: store.canSend && !isPreparingModel && selectedLocalSession?.status != .starting,
             isPreparingModel: isPreparingModel,
-            localModelStartup: localModelStartup,
             localModelStartError: selectedLocalSession?.error,
-            canStartLocalModel: canStartLocalModel,
-            startLocalModel: startLocalModel,
+            localModelStatus: localModelControlStatus,
+            canToggleLocalModel: canToggleLocalModel,
+            toggleLocalModel: toggleLocalModel,
             isResponding: store.isResponding,
             isFocused: $isFocused,
             models: providers.pickerModels,
@@ -307,9 +307,21 @@ struct ChatView: View {
         }
     }
 
-    private func startLocalModel() {
-        guard canStartLocalModel, let model = selectedLocalModel else { return }
-        localModels.start(model.modelID)
+    private func toggleLocalModel() {
+        guard canToggleLocalModel, let model = selectedLocalModel,
+              let status = localModelControlStatus else { return }
+        switch status {
+        case .starting, .running:
+            if selectedLocalSession?.status == status {
+                localModels.stop(model.modelID)
+            } else {
+                store.stopByUser()
+            }
+        case .stopped, .failed:
+            localModels.start(model.modelID)
+        case .stopping:
+            break
+        }
     }
 
     private func loadHistory(older: Bool) {

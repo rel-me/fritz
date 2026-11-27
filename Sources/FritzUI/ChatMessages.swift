@@ -49,10 +49,6 @@ public struct ChatErrorMessage: View {
         }
         .padding(12)
         .background(Color.red.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.red.opacity(0.16))
-        }
     }
 }
 

@@ -8,10 +8,10 @@ struct ChatComposer: View {
     let placeholder: String
     let canSend: Bool
     let isPreparingModel: Bool
-    let localModelStartup: LocalModelStatus?
     let localModelStartError: String?
-    let canStartLocalModel: Bool
-    let startLocalModel: () -> Void
+    let localModelStatus: ModelsRuntimeSession.Status?
+    let canToggleLocalModel: Bool
+    let toggleLocalModel: () -> Void
     let isResponding: Bool
     let isFocused: FocusState<Bool>.Binding
     let models: [ChatModelOption]
@@ -38,30 +38,16 @@ struct ChatComposer: View {
         ) {
             HStack(spacing: 6) {
                 if isPreparingModel { ProgressView().controlSize(.small).accessibilityLabel("Setting up model") }
-                if let localModelStartup {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small).accessibilityHidden(true)
-                        Text(localModelStartup.title).font(.caption).monospacedDigit().lineLimit(1)
-                    }
-                    .foregroundStyle(.secondary)
-                    .accessibilityElement(children: .combine)
-                    .help(localModelStartup.title)
-                } else if canStartLocalModel, let selectedModel {
-                    if let localModelStartError {
+                if let localModelStatus, let selectedModel {
+                    if localModelStatus == .failed, let localModelStartError {
                         Image(systemName: "exclamationmark.circle")
                             .foregroundStyle(.orange)
                             .accessibilityLabel(localModelStartError)
                             .help(localModelStartError)
                     }
-                    Button(action: startLocalModel) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .frame(width: 22, height: 22)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(FritzButtonStyle(.floating, size: .small, shape: .circle))
-                    .accessibilityLabel("Start \(selectedModel.displayName)")
-                    .help("Start \(selectedModel.displayName)")
+                    ChatLocalModelButton(status: localModelStatus, modelName: selectedModel.displayName,
+                                         action: toggleLocalModel)
+                        .disabled(!canToggleLocalModel)
                 }
                 ChatModelPicker(
                     models: models,
@@ -78,6 +64,48 @@ struct ChatComposer: View {
                 )
                 .disabled(isResponding || isPreparingModel)
             }
+        }
+    }
+}
+
+private struct ChatLocalModelButton: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let status: ModelsRuntimeSession.Status
+    let modelName: String
+    let action: () -> Void
+
+    private var title: String {
+        switch status {
+        case .starting: "Cancel Start of \(modelName)"
+        case .running: "Stop \(modelName)"
+        case .stopping: "Stopping \(modelName)"
+        case .stopped, .failed: "Start \(modelName)"
+        }
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: status == .stopped || status == .failed ? "play.fill" : "xmark")
+                .font(.system(size: 10, weight: .semibold))
+                .frame(width: 26, height: 26)
+                .contentShape(Circle())
+                .modifier(ChatLocalModelButtonSurface(isEnabled: isEnabled))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .help(title)
+    }
+}
+
+private struct ChatLocalModelButtonSurface: ViewModifier {
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        let label = content.opacity(isEnabled ? 1 : 0.45)
+        if #available(macOS 26.0, *) {
+            label.glassEffect(.regular.interactive(isEnabled), in: Circle())
+        } else {
+            label.background(.quaternary, in: Circle())
         }
     }
 }

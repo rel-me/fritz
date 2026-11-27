@@ -1,10 +1,18 @@
 //! Read-only macOS memory telemetry for the local chat supervisor.
 use anyhow::{Context, Result, anyhow, ensure};
-use std::{ffi::CStr, mem::MaybeUninit, time::Duration};
+use std::{
+    ffi::CStr,
+    mem::MaybeUninit,
+    sync::atomic::{AtomicBool, Ordering},
+    time::{Duration, Instant},
+};
 
 const NORMAL: u32 = 0x01; // DISPATCH_MEMORYPRESSURE_NORMAL
+const WARNING: u32 = 0x02; // DISPATCH_MEMORYPRESSURE_WARN
 const SWAP_GROWTH_LIMIT: u64 = 128 * 1024 * 1024;
 const SAMPLE_INTERVAL: Duration = Duration::from_millis(500);
+const STARTUP_WARNING_LIMIT: Duration = Duration::from_secs(1);
+const PRESSURE_ERROR: &str = "Fritz stopped local chat because macOS reported memory pressure. Wait for it to ease and try a smaller Context Budget in Settings → Harness.";
 
 pub(super) struct Sample {
     level: u32,
@@ -31,30 +39,55 @@ impl Sample {
         Ok(())
     }
 
-    fn check(&self, lowest_swap: &mut u64) -> Result<()> {
-        ensure!(
-            self.level == NORMAL,
-            "Fritz stopped local chat because macOS reported memory pressure. Wait for it to ease and try a smaller Context Budget in Settings → Harness."
-        );
-        *lowest_swap = (*lowest_swap).min(self.swap_used);
-        ensure!(
-            self.swap_used - *lowest_swap < SWAP_GROWTH_LIMIT,
-            "Fritz stopped local chat because swap usage increased. Try a smaller Context Budget in Settings → Harness."
-        );
-        Ok(())
-    }
-
-    pub(super) async fn watch(initial: Option<Self>) -> anyhow::Error {
+    pub(super) async fn watch(initial: Option<Self>, starting: &AtomicBool) -> anyhow::Error {
         let Some(initial) = initial else {
             return std::future::pending().await;
         };
-        let mut lowest_swap = initial.swap_used;
+        let mut guard = Guard::new(initial.swap_used);
         loop {
             tokio::time::sleep(SAMPLE_INTERVAL).await;
-            if let Err(error) = Self::read().and_then(|sample| sample.check(&mut lowest_swap)) {
+            if let Err(error) = Self::read().and_then(|sample| {
+                guard.check(sample, starting.load(Ordering::Relaxed), Instant::now())
+            }) {
                 return error;
             }
         }
+    }
+}
+
+struct Guard {
+    lowest_swap: u64,
+    warning_since: Option<Instant>,
+}
+
+impl Guard {
+    fn new(initial_swap: u64) -> Self {
+        Self {
+            lowest_swap: initial_swap,
+            warning_since: None,
+        }
+    }
+
+    fn check(&mut self, sample: Sample, starting: bool, now: Instant) -> Result<()> {
+        ensure!(
+            sample.level == NORMAL || (starting && sample.level == WARNING),
+            "{PRESSURE_ERROR}"
+        );
+        self.lowest_swap = self.lowest_swap.min(sample.swap_used);
+        ensure!(
+            sample.swap_used - self.lowest_swap < SWAP_GROWTH_LIMIT,
+            "Fritz stopped local chat because swap usage increased. Try a smaller Context Budget in Settings → Harness."
+        );
+        if sample.level == WARNING {
+            let since = *self.warning_since.get_or_insert(now);
+            ensure!(
+                now.duration_since(since) < STARTUP_WARNING_LIMIT,
+                "{PRESSURE_ERROR}"
+            );
+        } else {
+            self.warning_since = None;
+        }
+        Ok(())
     }
 }
 
@@ -89,19 +122,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stable_existing_swap_allows_chat_but_pressure_or_new_swap_stops_it() {
+    fn startup_only_tolerates_brief_warnings_without_swap_growth() {
         let existing_swap = 6 * 1024 * 1024 * 1024;
-        let mut lowest = existing_swap;
         let sample = |level, swap_used| Sample { level, swap_used };
+        let now = Instant::now();
 
         assert!(sample(NORMAL, existing_swap).ensure_start().is_ok());
-        assert!(sample(NORMAL, existing_swap).check(&mut lowest).is_ok());
-        assert!(sample(2, existing_swap).ensure_start().is_err());
-        assert!(sample(2, existing_swap).check(&mut lowest).is_err());
+        assert!(sample(WARNING, existing_swap).ensure_start().is_err());
+        let mut guard = Guard::new(existing_swap);
+        for (elapsed_ms, level) in [
+            (0, WARNING),
+            (500, WARNING),
+            (1000, NORMAL),
+            (1500, WARNING),
+            (2000, WARNING),
+        ] {
+            assert!(
+                guard
+                    .check(
+                        sample(level, existing_swap),
+                        true,
+                        now + Duration::from_millis(elapsed_ms)
+                    )
+                    .is_ok()
+            );
+        }
+        assert!(
+            guard
+                .check(
+                    sample(WARNING, existing_swap),
+                    true,
+                    now + Duration::from_millis(2500)
+                )
+                .is_err()
+        );
+
+        let mut guard = Guard::new(existing_swap);
+        assert!(guard.check(sample(0x04, existing_swap), true, now).is_err());
+        assert!(
+            guard
+                .check(sample(WARNING, existing_swap), false, now)
+                .is_err()
+        );
 
         let lower = existing_swap - SWAP_GROWTH_LIMIT;
-        assert!(sample(NORMAL, lower).check(&mut lowest).is_ok());
-        assert!(sample(NORMAL, existing_swap - 1).check(&mut lowest).is_ok());
-        assert!(sample(NORMAL, existing_swap).check(&mut lowest).is_err());
+        assert!(guard.check(sample(NORMAL, lower), true, now).is_ok());
+        assert!(
+            guard
+                .check(sample(WARNING, existing_swap - 1), true, now)
+                .is_ok()
+        );
+        let error = guard
+            .check(sample(WARNING, existing_swap), true, now)
+            .unwrap_err();
+        assert!(error.to_string().contains("swap usage increased"));
     }
 }
