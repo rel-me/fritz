@@ -123,10 +123,11 @@ the following surfaces, include these behaviors:
   warnings, Settings navigation, Escape, and Command-Q after presentation updates.
   Local Models uses native disclosure rows for every family, including singleton
   and filtered results, and places recent selections first by default. Check
-  expanding and collapsing a family, searching by family and model name, filtering
-  and sorting by score, and opening setup from a child row. Search opens matching
-  families by default. Folder rows have no model actions. Check compact Context
-  values and their exact token counts in help.
+  expanding and collapsing a family, searching by family and model name,
+  filtering by score, and opening setup from a child row. Search opens matching
+  families by default. Folder rows have no model actions. Check that model rows
+  show rounded file sizes such as `16G` and family rows have an empty Size cell.
+  Check compact Context values and their exact token counts in help.
   Check the Context column shows Automatic/maximum for chat models, with the
   latest measured Automatic fit for the selected KV cache setting.
   Start a model download, close the sheet, and check progress in Local Models.

@@ -22,7 +22,6 @@ public struct ModelsCatalogView: View {
     @State private var runnableOnly = false
     @State private var abliteratedOnly = false
     @State private var scoreFilter: LocalModelScoreFilter = .all
-    @State private var scoreOrder: [LocalModelScoreComparator<LocalModelTableRow>] = []
     @State private var expandedLocalFamilies: Set<String> = []
     @State private var collapsedSearchFamilies: Set<String> = []
     private let hardware = LocalModelHardware.current
@@ -89,8 +88,6 @@ public struct ModelsCatalogView: View {
             if case .model(let row) = self { return row }
             return nil
         }
-
-        var scorePoints: Int? { modelRow?.descriptor?.benchmarkScore?.points }
     }
 
     private var localRows: [LocalModelRow] {
@@ -123,15 +120,12 @@ public struct ModelsCatalogView: View {
     }
 
     private func localTableRows(_ rows: [LocalModelRow]) -> [LocalModelTableRow] {
-        let models = rows.map(LocalModelTableRow.model)
-        let leaves = scoreOrder.isEmpty ? models : models.sorted(using: scoreOrder)
-        let families = Dictionary(grouping: leaves.compactMap(\.modelRow), by: \.family)
+        let families = Dictionary(grouping: rows, by: \.family)
         var shownFamilies = Set<String>()
         // Keep the order of each family's first model and the order within it.
-        return leaves.compactMap { leaf in
-            guard let family = leaf.modelRow?.family,
-                  let siblings = families[family] else { return nil }
-            return shownFamilies.insert(family).inserted ? .family(family, siblings) : nil
+        return rows.compactMap { row in
+            guard shownFamilies.insert(row.family).inserted, let siblings = families[row.family] else { return nil }
+            return .family(row.family, siblings)
         }
     }
 
@@ -232,7 +226,7 @@ public struct ModelsCatalogView: View {
 
     private var localModelTable: some View {
         let rows = localRows
-        return Table(of: LocalModelTableRow.self, selection: $selection, sortOrder: $scoreOrder) {
+        return Table(of: LocalModelTableRow.self, selection: $selection) {
             TableColumn("Name") { row in
                 switch row {
                 case .model(let model):
@@ -262,9 +256,10 @@ public struct ModelsCatalogView: View {
                         .accessibilityLabel(context.details)
                 }
             }.width(96)
-            TableColumn("Score", sortUsing: LocalModelScoreComparator(points: \.scorePoints)) { row in
-                if let model = row.modelRow {
-                    LocalModelScoreCell(score: model.descriptor?.benchmarkScore)
+            TableColumn("Size") { row in
+                if let size = row.modelRow?.descriptor?.size {
+                    Text(compactSize(size))
+                        .monospacedDigit()
                 }
             }
             .width(66)
@@ -329,6 +324,16 @@ public struct ModelsCatalogView: View {
             return "\((Double(tokens) / 1_000).formatted(.number.precision(.fractionLength(0))))k"
         default:
             return tokens.formatted()
+        }
+    }
+
+    private func compactSize(_ bytes: UInt64) -> String {
+        let number = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0))
+        switch bytes {
+        case 999_500_000...: return "\((Double(bytes) / 1_000_000_000).formatted(number))G"
+        case 999_500...: return "\((Double(bytes) / 1_000_000).formatted(number))M"
+        case 1_000...: return "\((Double(bytes) / 1_000).formatted(number))K"
+        default: return "\(bytes.formatted())B"
         }
     }
 
