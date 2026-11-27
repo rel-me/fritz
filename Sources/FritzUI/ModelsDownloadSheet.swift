@@ -6,11 +6,13 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
     @State private var model: ConfigurationNativeModel<Store>
     @State private var filters = NativeModelFilters()
     private let storage: ModelStorage
+    private let downloads: ModelDownloads
     private let hardware: LocalModelHardware
 
     public init(store: Store, hardware: LocalModelHardware, modelID: String? = nil, category: AIModelCategory? = nil) {
         self.hardware = hardware
         self.storage = store.modelStorage
+        self.downloads = store.modelDownloads
         _model = State(initialValue: ConfigurationNativeModel(store: store, modelID: modelID, category: category))
     }
 
@@ -20,7 +22,7 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                 ConfigurationLocalModelSection(filters: $filters, modelID: Binding(
                     get: { model.selectedModelID },
                     set: { model.select($0) }
-                ), state: model.state, hardware: hardware, catalog: model.catalog)
+                ), state: model.state, hardware: hardware, catalog: model.catalog, downloads: downloads)
                 if hasVisibleSelection {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("\(model.selectedModel.name) · \(hardware.summary)")
@@ -33,6 +35,15 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                                     .layoutPriority(-1)
                                 Spacer(minLength: 0)
                             }
+                            if model.isDownloading {
+                                Button("Stop Download") { model.stopDownload() }
+                                    .buttonStyle(FritzButtonStyle())
+                            } else {
+                                Button(downloadTitle) { model.install() }
+                                    .keyboardShortcut(.defaultAction)
+                                    .buttonStyle(FritzButtonStyle(.primary))
+                                    .disabled(model.state.isBusy || storage.isBusy)
+                            }
                         }
                     }
                     .padding(.horizontal, 24)
@@ -40,22 +51,13 @@ public struct ModelsDownloadSheet<Store: ModelsProviderStore>: View {
                 }
             }
         } actions: {
-            Button(hasVisibleSelection && model.state == .installed ? "Close" : "Cancel") {
-                model.cancel()
-                dismiss()
-            }
+            Button("Close") { dismiss() }
             .keyboardShortcut(.cancelAction)
-            if !hasVisibleSelection || model.state != .installed {
-                Button(downloadTitle) { if hasVisibleSelection { model.install() } }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!hasVisibleSelection || model.state.isBusy || storage.isBusy)
-            }
         }
         .padding(.vertical, 12)
         .frame(width: 840, height: 540)
         .task { model.refresh() }
         .onChange(of: storage.info?.directory) { _, _ in model.refresh() }
-        .onDisappear { model.cancel() }
         .onChange(of: filters) { _, newFilters in
             if !hasVisibleSelection, let first = newFilters.models(in: model.catalog, hardware: hardware).first {
                 model.select(first.id)
