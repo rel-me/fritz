@@ -28,6 +28,15 @@ the following surfaces, include these behaviors:
   Starting and stopping a model should leave the footer and composer in place.
   Check that showing the bar leaves the composer and sidebar above it at the
   minimum window size and with the browser inspector open.
+  Start a local model without sending a message. Verify the bar shows it as
+  Loaded with its allocated KV cache size. Check that the chat harness reports
+  its cache size once ready and that the allocation clears when the model stops.
+  In the composer, check that an installed, stopped local model has a play
+  button to the left of the picker. Use the cancel icon to cancel startup or
+  stop a running model, and verify it is disabled while stopping. Confirm that
+  the send button keeps its inference stop action. Check that manual and
+  first-use startup show progress in the status bar and clear it when ready,
+  cancelled, or failed.
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.

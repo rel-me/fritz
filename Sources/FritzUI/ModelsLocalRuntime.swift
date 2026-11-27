@@ -252,7 +252,8 @@ import Observation
             parent.endSheet(window, returnCode: .alertSecondButtonReturn)
         }
         if command("stop", modelID) {
-            sessions[modelID] = Session(status: .stopping, processID: service.processID)
+            sessions[modelID] = Session(status: .stopping, processID: service.processID,
+                                        kvCacheBytes: sessions[modelID]?.kvCacheBytes)
         } else { sessions[modelID] = Session() }
     }
 
@@ -299,7 +300,8 @@ import Observation
                 }
                 if sessions[id]?.status == .stopping, state != .stopped { continue }
                 sessions[id] = Session(status: state, processID: state == .stopped ? nil : service.processID,
-                                       error: event.error)
+                                       error: event.error, loadProgress: event.progress,
+                                       kvCacheBytes: event.kvCacheBytes)
             case "loadRequested":
                 guard let id = event.modelId else { continue }
                 // The service verifies catalog membership and file presence before admission.
@@ -328,6 +330,8 @@ private struct ServiceEvent: Decodable {
     var modelId: String?
     var status: String?
     var address: String?
+    var progress: Double?
+    var kvCacheBytes: UInt64?
     public var error: String?
 }
 

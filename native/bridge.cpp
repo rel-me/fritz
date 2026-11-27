@@ -3,6 +3,8 @@
 #include "chat.h"
 #include "fit.h"
 #include "sampling.h"
+#include "src/llama-memory-hybrid.h"
+#include "src/llama-memory-hybrid-iswa.h"
 #include "unicode.h"
 #include <atomic>
 #include <cstring>
@@ -13,6 +15,7 @@
 using json = common_json;
 using Cancel = bool (*)(void *);
 using Emit = bool (*)(void *, const char *);
+using ReportLoadProgress = void (*)(float, void *);
 static void require(bool value, const char * message) {
     if (!value) throw std::runtime_error(message);
 }
@@ -27,7 +30,23 @@ struct Control {
     bool stopped() const { return cancel(data); }
     void check() const { require(!stopped(), "Local inference cancelled"); }
 };
-static bool progress(float, void * data) { return !static_cast<Control *>(data)->stopped(); }
+static bool check_load_cancelled(float, void * data) { return !static_cast<Control *>(data)->stopped(); }
+struct LoadProgress {
+    Control & control;
+    ReportLoadProgress report;
+    void * output;
+    int percent = -1;
+};
+static bool report_load_progress(float fraction, void * data) {
+    auto & load = *static_cast<LoadProgress *>(data);
+    if (load.control.stopped()) return false;
+    const int percent = static_cast<int>(fraction * 100);
+    if (percent > load.percent) {
+        load.percent = percent;
+        load.report(fraction, load.output);
+    }
+    return true;
+}
 static bool abort_decode(void * data) { return static_cast<Control *>(data)->stopped(); }
 
 struct Model {
@@ -35,6 +54,7 @@ struct Model {
     std::unique_ptr<llama_context, decltype(&llama_free)> context{nullptr, llama_free};
     common_chat_templates_ptr templates;
     int capacity;
+    size_t kv_cache_bytes;
     void decode(std::vector<llama_token> & tokens, Control & control) {
         for (size_t start = 0; start < tokens.size(); start += 512) {
             control.check();
@@ -76,8 +96,30 @@ static bool fits_context(const char * path, const llama_model_params & model,
 extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
 extern "C" int fl_model_context_size(const Model * model) { return model->capacity; }
+extern "C" size_t fl_model_kv_cache_bytes(const Model * model) { return model->kv_cache_bytes; }
+
+static size_t allocated_kv_cache_bytes(const llama_context * context) {
+    const auto * memory = llama_get_memory(context);
+    if (!memory || dynamic_cast<const llama_memory_recurrent *>(memory)) return 0;
+
+    const llama_memory_i * recurrent = nullptr;
+    if (const auto * hybrid = dynamic_cast<const llama_memory_hybrid *>(memory)) {
+        recurrent = hybrid->get_mem_recr();
+    } else if (const auto * hybrid = dynamic_cast<const llama_memory_hybrid_iswa *>(memory)) {
+        recurrent = hybrid->get_mem_recr();
+    }
+
+    // Include attention side buffers, such as the index cache on hybrid models.
+    size_t bytes = 0;
+    for (const auto & entry : memory->memory_breakdown()) bytes += entry.second;
+    if (recurrent) {
+        for (const auto & entry : recurrent->memory_breakdown()) bytes -= entry.second;
+    }
+    return bytes;
+}
 extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool chat, bool inkling_loop,
-                                 bool quantize_kv_cache, Cancel cancel, void * data, char ** error) {
+                                 bool quantize_kv_cache, Cancel cancel, void * data,
+                                 ReportLoadProgress report, void * output, char ** error) {
     try {
         static std::once_flag initialized;
         std::call_once(initialized, [] {
@@ -106,7 +148,7 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
                 params.tensor_buft_overrides = inkling_overrides;
             }
         }
-        params.progress_callback = progress;
+        params.progress_callback = check_load_cancelled;
         params.progress_callback_user_data = &control;
         auto config = llama_context_default_params();
         config.n_ctx = context;
@@ -168,6 +210,9 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
             config.n_ctx = fitting;
         }
         auto result = std::make_unique<Model>();
+        LoadProgress load{control, report, output};
+        params.progress_callback = report_load_progress;
+        params.progress_callback_user_data = &load;
         result->weights.reset(llama_model_load_from_file(path, params));
         control.check();
         require(bool(result->weights), "llama.cpp could not load the local GGUF. Check model integrity and available memory.");
@@ -175,6 +220,7 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
         control.check();
         require(bool(result->context), "llama.cpp could not allocate the local context. Close other models or reduce context size.");
         result->capacity = std::min(config.n_ctx, llama_n_ctx_seq(result->context.get()));
+        result->kv_cache_bytes = allocated_kv_cache_bytes(result->context.get());
         llama_set_abort_callback(result->context.get(), nullptr, nullptr);
         if (chat) {
             const auto * tmpl = llama_model_chat_template(result->weights.get(), nullptr);

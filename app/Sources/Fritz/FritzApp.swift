@@ -263,6 +263,7 @@ private struct FritzWorkspaceView: View {
                    let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
+                                            localChatStatuses: state.workspace.localChatStatuses,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
                                             headerFrame: chatHeaderFrame,
                                             contentTrailingInset: state.isBrowserPresented ? 0 : trailingInset,
@@ -381,8 +382,15 @@ private struct FritzWorkspaceView: View {
         let resident = state.localModels.sessions.compactMap { id, session in
             LocalModelStatus(id: id, session: session)
         }
-        for model in resident + state.workspace.localChatStatuses {
-            if let current = models[model.id], current.phase.rawValue >= model.phase.rawValue { continue }
+        for var model in resident + state.workspace.localChatStatuses {
+            if let current = models[model.id] {
+                let cacheSizes = [current.kvCacheBytes, model.kvCacheBytes].compactMap { $0 }
+                if (current.phase.rawValue, current.loadProgress ?? -1) >=
+                   (model.phase.rawValue, model.loadProgress ?? -1) {
+                    model = current
+                }
+                model.kvCacheBytes = cacheSizes.isEmpty ? nil : cacheSizes.reduce(0, +)
+            }
             models[model.id] = model
         }
         return models.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
@@ -391,10 +399,11 @@ private struct FritzWorkspaceView: View {
 
 struct LocalModelStatus {
     enum Phase: Int {
-        case stopping, starting, running
+        case loaded, running, stopping, starting
 
         var title: String {
             switch self {
+            case .loaded: "Loaded"
             case .starting: "Starting"
             case .running: "Running"
             case .stopping: "Stopping"
@@ -405,22 +414,35 @@ struct LocalModelStatus {
     let id: String
     let name: String
     var phase: Phase
+    var loadProgress: Double?
+    var kvCacheBytes: UInt64?
 
-    init(id: String, name: String, phase: Phase) {
+    init(id: String, name: String, phase: Phase, loadProgress: Double? = nil,
+         kvCacheBytes: UInt64? = nil) {
         self.id = id
         self.name = name
         self.phase = phase
+        self.loadProgress = loadProgress
+        self.kvCacheBytes = kvCacheBytes
+    }
+
+    var title: String {
+        guard phase == .starting else { return phase.title }
+        guard let loadProgress else { return "Starting…" }
+        if loadProgress >= 1 { return "Preparing context…" }
+        return "Loading weights \(loadProgress.formatted(.percent.rounded(rule: .down)))"
     }
 
     init?(id: String, session: ModelsRuntimeSession) {
         let phase: Phase
         switch session.status {
         case .starting: phase = .starting
-        case .running: phase = .running
+        case .running: phase = .loaded
         case .stopping: phase = .stopping
         case .stopped, .failed: return nil
         }
-        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id, phase: phase)
+        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id,
+                  phase: phase, loadProgress: session.loadProgress, kvCacheBytes: session.kvCacheBytes)
     }
 }
 
@@ -429,7 +451,12 @@ private struct FritzStatusBar: View {
     @State private var usedMemory: UInt64?
 
     private var modelSummary: String {
-        models.map { "\($0.name) · \($0.phase.title)" }.joined(separator: "  |  ")
+        models.map { model in
+            let status = "\(model.name) · \(model.title)"
+            guard let bytes = model.kvCacheBytes else { return status }
+            let size = ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .binary)
+            return "\(status) · KV cache \(size)"
+        }.joined(separator: "  |  ")
     }
 
     var body: some View {
