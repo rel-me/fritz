@@ -380,7 +380,9 @@ private struct FritzWorkspaceView: View {
             LocalModelStatus(id: id, session: session)
         }
         for model in resident + state.workspace.localChatStatuses {
-            if let current = models[model.id], current.phase.rawValue >= model.phase.rawValue { continue }
+            if let current = models[model.id],
+               (current.phase.rawValue, current.loadProgress ?? -1) >=
+               (model.phase.rawValue, model.loadProgress ?? -1) { continue }
             models[model.id] = model
         }
         return models.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
@@ -389,7 +391,7 @@ private struct FritzWorkspaceView: View {
 
 struct LocalModelStatus {
     enum Phase: Int {
-        case stopping, starting, running
+        case running, stopping, starting
 
         var title: String {
             switch self {

@@ -25,10 +25,11 @@ the following surfaces, include these behaviors:
   the View menu toggle, and preference restoration after relaunch. Running chats
   should remain visible in the bar when switching threads.
   In the composer, check that an installed, stopped local model has a play
-  button to the left of the picker. Verify the circle shows pause while the
-  model is running and cannot be pressed while starting or stopping.
-  Check that manual and first-use startup show weight-loading progress and
-  clear it when ready, cancelled, or failed.
+  button to the left of the picker. Use the cancel icon to cancel startup or
+  stop a running model, and verify it is disabled while stopping. Confirm that
+  the send button keeps its inference stop action. Check that manual and
+  first-use startup show progress in the status bar and clear it when ready,
+  cancelled, or failed.
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
