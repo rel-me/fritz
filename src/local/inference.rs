@@ -56,7 +56,8 @@ impl Engine {
         let pin = super::models::manifest(model_id)?;
         let mut engine = Self::installed_in(store, model_id).await?;
         let maximum = u64::from(pin.limit.context);
-        let target = requested.unwrap_or(maximum).min(maximum);
+        let automatic = pin.limit.automatic_target.unwrap_or(pin.limit.context);
+        let target = requested.unwrap_or(u64::from(automatic)).min(maximum);
         engine.context_size = usize::try_from(target)?;
         engine.quantize_kv_cache = quantize_kv_cache;
         engine.minimum_context = if requested.is_some() {
@@ -106,5 +107,27 @@ impl Engine {
         // The model is owned by this harness process. Its streams are dropped
         // before this engine, so releasing it also releases its Metal weights.
         drop(self);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Engine;
+    use crate::local::models;
+
+    #[tokio::test]
+    async fn inkling_starts_smaller_on_automatic_and_honors_fixed_context() -> anyhow::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let store = models::ModelStore::new(directory.path());
+        for id in ["inkling-2-mini-iq4_nl", "inkling-2-mini-ud-iq3_xxs"] {
+            let pin = models::manifest(id)?;
+            std::fs::File::create(directory.path().join(&pin.file))?;
+
+            let automatic = Engine::for_chat(&store, id, None, true).await?;
+            assert_eq!(automatic.context_size(), 16_384);
+            let fixed = Engine::for_chat(&store, id, Some(32_768), true).await?;
+            assert_eq!(fixed.context_size(), 32_768);
+        }
+        Ok(())
     }
 }

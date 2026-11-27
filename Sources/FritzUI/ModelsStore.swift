@@ -14,6 +14,7 @@ import Security
     public var recentIDs: [String] = []
     private let database: any ModelsPreferences
     public let modelStorage: ModelStorage
+    public let modelDownloads = ModelDownloads()
     public let agent: AgentClient
     public let modelCatalog: RemoteModelCatalog
     private let keychainService: String

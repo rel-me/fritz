@@ -274,6 +274,47 @@ import FritzUpdates
         XCTAssertTrue(isDirectory.boolValue)
     }
 
+    func testAutomaticLocalContextFitTracksCacheModeAndIgnoresFixedBudgets() async throws {
+        let root = try directory()
+        let script = #"""
+        import json, sys
+        windows = iter([8192, 32768, 16384])
+        for line in sys.stdin:
+            request = json.loads(line)
+            if request["method"] == "chat":
+                for event in [
+                    {"type": "activity", "contextTokens": next(windows)},
+                    {"type": "delta", "text": "Ready"},
+                    {"type": "result", "result": {}},
+                ]:
+                    print(json.dumps(dict(event, id=request["id"])), flush=True)
+        """#
+        let agent = AgentClient(executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
+                                arguments: ["-u", "-c", script], environment: ["PATH": "/usr/bin:/bin"])
+        agent.start()
+        defer { agent.stop() }
+        let workspace = WorkspaceStore(agent: agent, dataDirectory: root)
+        await workspace.restore()
+        _ = try await workspace.createProject(name: "Test", directory: root)
+        let chat = try XCTUnwrap(workspace.selectedChat)
+        let modelID = "inkling-2-mini-iq4_nl"
+        chat.select(ChatModelOption(connection: ProviderConnection(name: "Fixture", provider: .fritz, modelID: modelID)))
+
+        for (budget, quantized) in [(0, false), (32768, false), (0, true)] {
+            workspace.appSettings.harness.contextTokens = budget
+            workspace.appSettings.harness.quantizeLocalKVCache = quantized
+            let completed = expectation(description: "Fixture chat completed")
+            chat.onIdle = { completed.fulfill() }
+            chat.draft = "Check local context"
+            chat.send()
+            await fulfillment(of: [completed], timeout: 2)
+            XCTAssertNil(chat.error)
+        }
+
+        XCTAssertEqual(workspace.automaticContextFits[false]?[modelID], 8192)
+        XCTAssertEqual(workspace.automaticContextFits[true]?[modelID], 16384)
+    }
+
     func testUserStopRemainsDistinctFromProviderInterruptionAfterReload() async throws {
         let root = try directory()
         let repository = ProjectRepository(directory: root)

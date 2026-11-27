@@ -132,7 +132,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     @State private var models: [DiscoveredAIModel] = []
     @State private var isDiscovering = false
     @State private var isSaving = false
-    @State private var useAfterInstall = false
+    @State private var useAfterInstall: String?
     @State private var error: String?
     @State private var discoveryError: String?
     @State private var discoveryFinished = false
@@ -179,8 +179,10 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     memoryGB: LocalModelHardware.current.memoryGB, storage: store.modelStorage,
                     installedDirectory: nativeModel.downloadDirectory,
                     primaryActionTitle: primaryActionTitle, canSubmit: canSubmit && !store.modelStorage.isBusy,
-                    isSaving: isSaving,
-                    cancel: { nativeModel.cancel(); dismiss() }, submit: submit) {
+                    isSaving: isSaving, isDownloading: nativeModel.isDownloading,
+                    close: { useAfterInstall = nil; dismiss() },
+                    stopDownload: { useAfterInstall = nil; nativeModel.stopDownload() },
+                    submit: submit) {
                         if let duplicateConnection { duplicateWarning(duplicateConnection) }
                         if let policyError = localModels.policyError { Text(policyError).foregroundStyle(.red) }
                         if let error { Text(error).foregroundStyle(.red).textSelection(.enabled) }
@@ -189,7 +191,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                 ModelProviderEditor(
                     title: editorTitle, primaryActionTitle: primaryActionTitle, canSave: canSubmit && !store.modelStorage.isBusy, isSaving: isSaving,
                     height: editorHeight,
-                    cancel: { nativeModel.cancel(); dismiss() }, save: submit,
+                    cancel: { dismiss() }, save: submit,
                     downloadModels: existing == nil && initialModel == nil && !remoteOnly && providerOptions == nil ? { showsDownload = true } : nil,
                     isInstalling: nativeModel.state.isBusy
                 ) {
@@ -208,16 +210,15 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             if managesLocalModels { nativeModel.refresh() }
         }
         .onChange(of: preset) { old, new in
-            nativeModel.cancel()
             if existing == nil || name == old.name { name = suggestedName(new.name) }
             endpoint = new.baseURL; apiKey = ""; isAPIKeyVisible = false
             modelID = new.provider.decisionModelID
             models = []; error = nil; discoveryError = nil; discoveryFinished = false; refreshID = 0
             showsModels = false
         }
-        .onChange(of: nativeModel.state) { _, state in
-            if state == .installed && useAfterInstall {
-                useAfterInstall = false
+        .onChange(of: nativeModel.completedDownloadID) { _, completedID in
+            if let completedID, completedID == useAfterInstall {
+                useAfterInstall = nil
                 save()
             }
         }
@@ -225,7 +226,6 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
             startPolicy = localModels.policy(for: modelID)
         }
         .task(id: preset.provider) {
-            nativeModel.cancel()
             if nativeModel.category != category {
                 nativeModel = ConfigurationNativeModel(store: store, category: category)
             }
@@ -235,7 +235,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
         .task(id: nativeModel.state == .installed) {
             if nativeModel.state == .installed { await localModels.refresh() }
         }
-        .onDisappear { nativeModel.cancel(); saveTask?.cancel() }
+        .onDisappear { saveTask?.cancel() }
         .task(id: discoveryKey) { await discover() }
     }
 
@@ -329,8 +329,8 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
                     if initialModel == nil { HStack(spacing: 8) {
                         if initialModel == nil && !nativeModel.state.isBusy && nativeModel.state != .installed {
                             Button("Download") { nativeModel.install() }
-                        } else if case .downloading = nativeModel.state {
-                            Button("Cancel Download") { nativeModel.cancel() }
+                        } else if nativeModel.isDownloading {
+                            Button("Stop Download") { nativeModel.stopDownload() }
                         }
                         if managesLocalAPI {
                             if localSession.status == .running || localSession.status == .starting || localSession.status == .stopping {
@@ -514,8 +514,7 @@ public struct ModelsProviderEditor<Store: ModelsProviderStore, Runtime: ModelsRu
     }
     private func submit() {
         if initialModel != nil && managesLocalModels && nativeModel.state != .installed {
-            useAfterInstall = true
-            nativeModel.install()
+            useAfterInstall = nativeModel.install()
         } else { save() }
     }
     private var apiKeyTitle: String { preset.requiresAPIKey ? "API Key" : "API Key (Optional)" }

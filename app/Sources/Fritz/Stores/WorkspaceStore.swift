@@ -17,6 +17,7 @@ import Observation
     private(set) var hasMoreThreads = false
     private(set) var projectCursors: [Int64] = [0]
     private(set) var threadCursors: [Int64] = [0]
+    private(set) var automaticContextFits: [Bool: [String: UInt32]] = [:]
     var error: String?
 
     let database: AppDatabase
@@ -300,6 +301,9 @@ import Observation
                     }
                 }
                 created.onIdle = { [weak self] in self?.pruneChats() }
+                created.onAutomaticContextFit = { [weak self] modelID, quantized, tokens in
+                    self?.automaticContextFits[quantized, default: [:]][modelID] = tokens
+                }
                 chats[id] = (selection.project.id, created)
                 chat = created
             }
