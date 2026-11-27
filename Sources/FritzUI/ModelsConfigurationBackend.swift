@@ -53,10 +53,13 @@ public struct ModelsRuntimeSession {
     public var address: String?
     public var error: String?
     public var loadProgress: Double?
+    public var kvCacheBytes: UInt64?
     public init(status: Status = .stopped, processID: Int32? = nil,
-                address: String? = nil, error: String? = nil, loadProgress: Double? = nil) {
+                address: String? = nil, error: String? = nil, loadProgress: Double? = nil,
+                kvCacheBytes: UInt64? = nil) {
         self.status = status; self.processID = processID
         self.address = address; self.error = error; self.loadProgress = loadProgress
+        self.kvCacheBytes = kvCacheBytes
     }
 }
 

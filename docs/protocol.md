@@ -59,8 +59,11 @@ the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true
 to use an 8-bit key and value cache for native local chat. The memory estimate
 and the allocated context use the same cache format. The app agent and CLI
 supervisor check macOS memory pressure before starting a Fritz local chat, then
-sample pressure and swap every 500 ms. They stop the harness on a system memory
-warning or 128 MiB of swap growth during the request and report a chat error.
+sample pressure and swap every 500 ms. They stop the harness on critical
+pressure or 128 MiB of swap growth during the request and report a chat error.
+While a local chat with context settings loads, warning-level pressure has to
+persist for one second to stop the harness. After the context-ready event,
+the first observed warning stops it.
 The supervisor signals private stdin EOF first so the harness cancels active
 work. It terminates an unresponsive harness after three seconds. Remote
 budgeting uses the selected connection’s reported limits or catalog metadata.
@@ -83,8 +86,10 @@ workspace database.
 
 Local chat startup emits `model_loading` events with `progress` from zero to one
 as llama.cpp loads the model weights. The existing activity event with
-`contextTokens` signals that the chat context is ready. The managed Local API
-includes the same optional `progress` on `model` events with `status: "starting"`.
+`contextTokens` signals that the chat context is ready and includes
+`kvCacheBytes`, the allocated attention cache size in bytes. The managed Local
+API includes `progress` on `model` events with `status: "starting"` and reports
+`kvCacheBytes` when the model is running.
 
 OpenAI chat `effort` and `speed` are validated against the bundled
 `Sources/Fritz/ModelCatalog.json` catalog. Efforts are model-specific subsets of

@@ -9,6 +9,7 @@ public struct AgentFailure: LocalizedError {
 
 public struct AgentEvent: Decodable, Sendable {
     public let contextTokens: Int?
+    public let kvCacheBytes: UInt64?
     public let progress: Double?
     public let id: String
     public let type: String

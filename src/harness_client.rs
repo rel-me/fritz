@@ -10,6 +10,7 @@ use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 
 /// Nonblocking private stdin for supervised harnesses and the local model service.
@@ -146,7 +147,20 @@ async fn chat_process(
     } else {
         None
     };
-    supervise_harness(executable, input, emit, memory::Sample::watch(initial)).await
+    // Budgeted local chats emit their actual context once the model is ready.
+    let starting = AtomicBool::new(initial.is_some() && input.context.is_some());
+    supervise_harness(
+        executable,
+        input,
+        |event| {
+            if event["type"] == "activity" && event["contextTokens"].is_u64() {
+                starting.store(false, Ordering::Relaxed);
+            }
+            emit(event);
+        },
+        memory::Sample::watch(initial, &starting),
+    )
+    .await
 }
 
 async fn supervise_harness(
