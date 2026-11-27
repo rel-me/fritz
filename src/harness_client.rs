@@ -10,6 +10,7 @@ use anyhow::{Context, Result, bail};
 use serde_json::{Value, json};
 use std::os::fd::{AsRawFd, FromRawFd};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWriteExt, BufReader};
 
 /// Nonblocking private stdin for supervised harnesses and the local model service.
@@ -146,7 +147,20 @@ async fn chat_process(
     } else {
         None
     };
-    supervise_harness(executable, input, emit, memory::Sample::watch(initial)).await
+    // Budgeted local chats emit their actual context once the model is ready.
+    let starting = AtomicBool::new(initial.is_some() && input.context.is_some());
+    supervise_harness(
+        executable,
+        input,
+        |event| {
+            if event["type"] == "activity" && event["contextTokens"].is_u64() {
+                starting.store(false, Ordering::Relaxed);
+            }
+            emit(event);
+        },
+        memory::Sample::watch(initial, &starting),
+    )
+    .await
 }
 
 async fn supervise_harness(
@@ -239,7 +253,8 @@ async fn read_events(
                 break;
             }
             Some(
-                "delta" | "usage" | "activity" | "tool_start" | "tool_end" | "context_compacted",
+                "delta" | "usage" | "activity" | "model_loading" | "tool_start" | "tool_end"
+                | "context_compacted",
             ) => emit(event),
             _ => bail!("Unexpected harness event."),
         }
@@ -258,6 +273,29 @@ pub fn terminal(result: Result<()>) -> Value {
 mod tests {
     use super::*;
     use std::{os::unix::fs::PermissionsExt, time::Duration};
+
+    #[tokio::test]
+    async fn startup_progress_reaches_the_client_before_chat_output() -> Result<()> {
+        let wire = b"{\"type\":\"model_loading\",\"progress\":0.42}\n\
+                     {\"type\":\"activity\",\"contextTokens\":8192}\n\
+                     {\"type\":\"delta\",\"text\":\"Ready\"}\n\
+                     {\"type\":\"result\",\"result\":{}}\n";
+        let received = std::cell::RefCell::new(Vec::new());
+        read_events(BufReader::new(&wire[..]), |event| {
+            received.borrow_mut().push(event);
+        })
+        .await?
+        .context("Missing terminal event")??;
+        assert_eq!(
+            received.into_inner(),
+            [
+                json!({"type":"model_loading","progress":0.42}),
+                json!({"type":"activity","contextTokens":8192}),
+                json!({"type":"delta","text":"Ready"}),
+            ]
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     async fn memory_alarm_closes_active_harness_and_surfaces_the_reason() -> Result<()> {

@@ -25,10 +25,13 @@ unsafe extern "C" {
         quantize_kv_cache: bool,
         cancel: extern "C" fn(*mut c_void) -> bool,
         data: *mut c_void,
+        report: extern "C" fn(f32, *mut c_void),
+        output: *mut c_void,
         error: *mut *mut c_char,
     ) -> *mut c_void;
     fn fl_model_free(model: *mut c_void);
     fn fl_model_context_size(model: *const c_void) -> i32;
+    fn fl_model_kv_cache_bytes(model: *const c_void) -> usize;
     fn fl_string_free(value: *mut c_char);
     fn fl_tokenize(model: *mut c_void, text: *const c_char, special: bool) -> *mut c_char;
     fn fl_logits(
@@ -61,6 +64,7 @@ impl Drop for Handle {
 pub(crate) struct Model {
     inner: Mutex<Handle>,
     pub(crate) context_size: usize,
+    pub(crate) kv_cache_bytes: usize,
     _storage_use: std::fs::File,
 }
 
@@ -76,6 +80,11 @@ extern "C" fn cancelled(data: *mut c_void) -> bool {
 }
 fn flag_pointer(flag: &AtomicBool) -> *mut c_void {
     (flag as *const AtomicBool).cast_mut().cast()
+}
+extern "C" fn report_load_progress(fraction: f32, output: *mut c_void) {
+    // The synchronous native load borrows the worker's sender.
+    let sender = unsafe { &*output.cast::<mpsc::UnboundedSender<f32>>() };
+    let _ = sender.send(fraction);
 }
 fn text(value: *mut c_char) -> Result<String> {
     if value.is_null() {
@@ -122,7 +131,7 @@ impl Model {
         context: usize,
         chat_architecture: Option<&str>,
     ) -> Result<Arc<Self>> {
-        Self::load_with_context_fit(path, context, 0, chat_architecture, false).await
+        Self::load_with_context_fit(path, context, 0, chat_architecture, false, |_| {}).await
     }
 
     pub(crate) async fn load_with_context_fit(
@@ -131,6 +140,7 @@ impl Model {
         minimum_context: usize,
         chat_architecture: Option<&str>,
         quantize_kv_cache: bool,
+        mut progress: impl FnMut(f32),
     ) -> Result<Arc<Self>> {
         let storage_use = crate::model_storage::use_file(path)?;
         let path = CString::new(path.as_os_str().as_encoded_bytes())?;
@@ -144,7 +154,8 @@ impl Model {
         );
         let chat = chat_architecture.is_some();
         let inkling_loop = chat_architecture == Some("inkling2_loop");
-        worker(move |flag| {
+        let (output, mut updates) = mpsc::unbounded_channel::<f32>();
+        let load = worker(move |flag| {
             let mut error = std::ptr::null_mut();
             let value = unsafe {
                 fl_model_load(
@@ -156,6 +167,10 @@ impl Model {
                     quantize_kv_cache,
                     cancelled,
                     flag_pointer(flag),
+                    report_load_progress,
+                    (&output as *const mpsc::UnboundedSender<f32>)
+                        .cast_mut()
+                        .cast(),
                     &mut error,
                 )
             };
@@ -167,11 +182,19 @@ impl Model {
             };
             Ok(Arc::new(Self {
                 context_size: unsafe { fl_model_context_size(value.as_ptr()) } as usize,
+                kv_cache_bytes: unsafe { fl_model_kv_cache_bytes(value.as_ptr()) },
                 inner: Mutex::new(Handle(value)),
                 _storage_use: storage_use,
             }))
-        })
-        .await
+        });
+        tokio::pin!(load);
+        loop {
+            tokio::select! {
+                biased;
+                Some(fraction) = updates.recv() => progress(fraction),
+                result = &mut load => return result,
+            }
+        }
     }
     pub(crate) async fn tokenize(
         self: &Arc<Self>,

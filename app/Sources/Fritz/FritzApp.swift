@@ -177,6 +177,11 @@ struct FritzApp: App {
                 Button("New Local Model") { openWindow(id: "local-models") }
                 Button("New Remote Model") { openWindow(id: "remote-models") }
             }
+            CommandGroup(after: .toolbar) {
+                Button(state.settings.showsStatusBar ? "Hide Status Bar" : "Show Status Bar") {
+                    state.settings.showsStatusBar.toggle()
+                }
+            }
             CommandMenu("Chat") {
                 Button("Show Chat") { openWindow(id: "main") }.keyboardShortcut("1")
                 Button("Stop Response") { state.workspace.selectedChat?.stopByUser() }.keyboardShortcut(".")
@@ -232,6 +237,18 @@ private struct FritzWorkspaceView: View {
     @State private var chatHeaderFrame: CGRect = .zero
 
     var body: some View {
+        VStack(spacing: 0) {
+            workspace
+            if state.settings.showsStatusBar {
+                FritzStatusBar(models: activeLocalModels)
+            }
+        }
+        .fritzWindowBackground()
+        .frame(minWidth: 900, minHeight: 620)
+        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
+    }
+
+    private var workspace: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             ProjectsSidebar(workspace: state.workspace)
                 .frame(minWidth: 240, idealWidth: 280, maxWidth: 360)
@@ -248,6 +265,7 @@ private struct FritzWorkspaceView: View {
                    let thread = state.workspace.selectedThread, let chat = state.workspace.selectedChat {
                     let chatView = ChatView(store: chat, providers: state.providers,
                                             localModels: state.localModels,
+                                            localChatStatuses: state.workspace.localChatStatuses,
                                             openModels: { openWindow(id: $0 == .local ? "local-models" : "remote-models") },
                                             headerFrame: chatHeaderFrame,
                                             contentTrailingInset: state.isBrowserPresented ? 0 : trailingInset,
@@ -342,9 +360,6 @@ private struct FritzWorkspaceView: View {
                 .accessibilityValue(state.isBrowserPresented ? "Shown" : "Hidden")
             }
         }
-        .fritzWindowBackground()
-        .frame(minWidth: 900, minHeight: 620)
-        .sheet(isPresented: $state.isCreatingProject) { NewProjectSheet(workspace: state.workspace) }
     }
 
     private func chatHeader(projectName: String, threadTitle: String) -> some View {
@@ -364,5 +379,129 @@ private struct FritzWorkspaceView: View {
             .disabled(!state.workspace.canCreateThread)
     }
 
+    private var activeLocalModels: [LocalModelStatus] {
+        var models: [String: LocalModelStatus] = [:]
+        let resident = state.localModels.sessions.compactMap { id, session in
+            LocalModelStatus(id: id, session: session)
+        }
+        for var model in resident + state.workspace.localChatStatuses {
+            if let current = models[model.id] {
+                let cacheSizes = [current.kvCacheBytes, model.kvCacheBytes].compactMap { $0 }
+                if (current.phase.rawValue, current.loadProgress ?? -1) >=
+                   (model.phase.rawValue, model.loadProgress ?? -1) {
+                    model = current
+                }
+                model.kvCacheBytes = cacheSizes.isEmpty ? nil : cacheSizes.reduce(0, +)
+            }
+            models[model.id] = model
+        }
+        return models.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+}
 
+struct LocalModelStatus {
+    enum Phase: Int {
+        case loaded, running, stopping, starting
+
+        var title: String {
+            switch self {
+            case .loaded: "Loaded"
+            case .starting: "Starting"
+            case .running: "Running"
+            case .stopping: "Stopping"
+            }
+        }
+    }
+
+    let id: String
+    let name: String
+    var phase: Phase
+    var loadProgress: Double?
+    var kvCacheBytes: UInt64?
+
+    init(id: String, name: String, phase: Phase, loadProgress: Double? = nil,
+         kvCacheBytes: UInt64? = nil) {
+        self.id = id
+        self.name = name
+        self.phase = phase
+        self.loadProgress = loadProgress
+        self.kvCacheBytes = kvCacheBytes
+    }
+
+    var title: String {
+        guard phase == .starting else { return phase.title }
+        guard let loadProgress else { return "Starting…" }
+        if loadProgress >= 1 { return "Preparing context…" }
+        return "Loading weights \(loadProgress.formatted(.percent.rounded(rule: .down)))"
+    }
+
+    init?(id: String, session: ModelsRuntimeSession) {
+        let phase: Phase
+        switch session.status {
+        case .starting: phase = .starting
+        case .running: phase = .loaded
+        case .stopping: phase = .stopping
+        case .stopped, .failed: return nil
+        }
+        self.init(id: id, name: NativeModelDescriptor.catalog.first { $0.id == id }?.name ?? id,
+                  phase: phase, loadProgress: session.loadProgress, kvCacheBytes: session.kvCacheBytes)
+    }
+}
+
+private struct FritzStatusBar: View {
+    let models: [LocalModelStatus]
+    @State private var usedMemory: UInt64?
+
+    private var modelSummary: String {
+        models.map { model in
+            let status = "\(model.name) · \(model.title)"
+            guard let bytes = model.kvCacheBytes else { return status }
+            let size = ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .binary)
+            return "\(status) · KV cache \(size)"
+        }.joined(separator: "  |  ")
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 16) {
+                if !models.isEmpty {
+                    Label(modelSummary, systemImage: "cpu")
+                        .lineLimit(1)
+                        .help(modelSummary)
+                }
+                Spacer(minLength: 8)
+                if !models.isEmpty, let usedMemory {
+                    Label("Memory \(gibibytes(usedMemory)) of \(gibibytes(ProcessInfo.processInfo.physicalMemory)) GiB",
+                          systemImage: "memorychip")
+                        .monospacedDigit()
+                        .fixedSize()
+                        .help("System memory used")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(minHeight: 14)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .background(.bar)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Status Bar")
+        .task(id: models.isEmpty) {
+            guard !models.isEmpty else {
+                usedMemory = nil
+                return
+            }
+            while !Task.isCancelled {
+                usedMemory = ModelsLocalRuntime.usedMemoryBytes
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private func gibibytes(_ bytes: UInt64) -> String {
+        (Double(bytes) / 1_073_741_824).formatted(.number.precision(.fractionLength(0...1)))
+    }
 }

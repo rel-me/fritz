@@ -83,6 +83,13 @@ impl Engine {
     }
 
     pub(crate) async fn model(&self) -> Result<&Arc<Model>> {
+        self.model_with_progress(|_| {}).await
+    }
+
+    pub(crate) async fn model_with_progress(
+        &self,
+        progress: impl FnMut(f32),
+    ) -> Result<&Arc<Model>> {
         let architecture = &super::models::manifest(&self.model_id)?.architecture;
         let loaded = self
             .model
@@ -93,6 +100,7 @@ impl Engine {
                     self.minimum_context,
                     Some(architecture),
                     self.quantize_kv_cache,
+                    progress,
                 )
             })
             .await;
