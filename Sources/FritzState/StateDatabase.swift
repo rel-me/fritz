@@ -46,7 +46,13 @@ public final class StateDatabase: @unchecked Sendable {
             try executeScript("PRAGMA foreign_keys = ON; PRAGMA synchronous = \(durableCommits ? "FULL" : "NORMAL"); PRAGMA wal_autocheckpoint = 1000; PRAGMA journal_size_limit = 67108864;")
             try transaction {
                 let version = Int(try query("PRAGMA user_version").first?["user_version"]?.integer ?? 0)
-                guard version >= 0, version <= migrations.count else { throw StateDatabaseError("State database is newer than this build supports.") }
+                guard version >= 0 else { throw StateDatabaseError("Invalid state database schema version.") }
+                guard version <= migrations.count else {
+                    throw StateDatabaseError("""
+                        State database \(url.lastPathComponent) uses schema \(version). This build supports up to \(migrations.count). \
+                        Use the build that last opened this profile or a later compatible build.
+                        """)
+                }
                 if version == 0, !(try tableNames()).isEmpty { throw StateDatabaseError("Unversioned state database is not supported.") }
                 for index in version..<migrations.count {
                     try executeScript(migrations[index])

@@ -42,6 +42,13 @@ Chat requests load their own model with the chat context budget.
 Open the release DMG and drag Fritz onto the Applications shortcut. Eject the
 disk image, then open Fritz from Applications.
 
+If Fritz reports a newer state database schema, reopen the profile with the Fritz
+build that last used it or a later compatible build. Keep the database files to
+preserve your saved state. For local development, `make dev-open` uses a Debug
+profile specific to the checkout. When testing a local Release build, set
+`FRITZ_DATA_DIR` to an isolated directory to protect your regular profile from
+schema upgrades.
+
 ## Fritz for iPhone
 
 The iPhone beta runs on iOS 18 or later. It supports OpenAI, OpenRouter, and
