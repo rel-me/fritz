@@ -8,7 +8,6 @@ struct ChatComposer: View {
     let placeholder: String
     let canSend: Bool
     let isPreparingModel: Bool
-    let localModelStartup: LocalModelStatus?
     let localModelStartError: String?
     let localModelStatus: ModelsRuntimeSession.Status?
     let canToggleLocalModel: Bool
@@ -39,15 +38,6 @@ struct ChatComposer: View {
         ) {
             HStack(spacing: 6) {
                 if isPreparingModel { ProgressView().controlSize(.small).accessibilityLabel("Setting up model") }
-                if let localModelStartup {
-                    HStack(spacing: 6) {
-                        ProgressView().controlSize(.small).accessibilityHidden(true)
-                        Text(localModelStartup.title).font(.caption).monospacedDigit().lineLimit(1)
-                    }
-                    .foregroundStyle(.secondary)
-                    .accessibilityElement(children: .combine)
-                    .help(localModelStartup.title)
-                }
                 if let localModelStatus, let selectedModel {
                     if localModelStatus == .failed, let localModelStartError {
                         Image(systemName: "exclamationmark.circle")
@@ -86,8 +76,8 @@ private struct ChatLocalModelButton: View {
 
     private var title: String {
         switch status {
-        case .starting: "Starting \(modelName)"
-        case .running: "Pause \(modelName)"
+        case .starting: "Cancel Start of \(modelName)"
+        case .running: "Stop \(modelName)"
         case .stopping: "Stopping \(modelName)"
         case .stopped, .failed: "Start \(modelName)"
         }
@@ -95,7 +85,7 @@ private struct ChatLocalModelButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: status == .running || status == .stopping ? "pause.fill" : "play.fill")
+            Image(systemName: status == .stopped || status == .failed ? "play.fill" : "xmark")
                 .font(.system(size: 10, weight: .semibold))
                 .frame(width: 26, height: 26)
                 .contentShape(Circle())

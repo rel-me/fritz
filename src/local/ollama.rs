@@ -311,10 +311,10 @@ impl Managed {
                             }).await
                         }.await.map_err(|error| format!("{error:#}"));
                         match &result {
-                            Ok(()) => emit(json!({"type":"model", "modelId":model_id, "status":"running"})),
+                            Ok(bytes) => emit(json!({"type":"model", "modelId":model_id, "status":"running", "kvCacheBytes":bytes})),
                             Err(error) => emit(json!({"type":"model", "modelId":model_id, "status":"failed", "error":error})),
                         }
-                        owner.complete(&model_id, result).await;
+                        owner.complete(&model_id, result.map(|_| ())).await;
                         model_id
                     });
                     operations.insert(id, operation);

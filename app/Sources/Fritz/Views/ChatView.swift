@@ -38,16 +38,6 @@ struct ChatView: View {
         selectedLocalModel.flatMap { localModels.sessions[$0.modelID] }
     }
 
-    private var localModelStartup: LocalModelStatus? {
-        guard let model = selectedLocalModel else { return nil }
-        if let status = store.localModelStatus, status.phase == .starting { return status }
-        if let session = selectedLocalSession, session.status == .starting {
-            return LocalModelStatus(id: model.modelID, name: model.displayName,
-                                    phase: .starting, loadProgress: session.loadProgress)
-        }
-        return nil
-    }
-
     private var localModelControlStatus: ModelsRuntimeSession.Status? {
         guard let model = selectedLocalModel else { return nil }
         let resident = selectedLocalSession?.status ?? .stopped
@@ -62,8 +52,9 @@ struct ChatView: View {
         guard !isPreparingModel, let status = localModelControlStatus else { return false }
         switch status {
         case .stopped, .failed: return !store.isResponding
+        case .starting: return selectedLocalSession?.status == .starting || store.localModelStatus?.phase == .starting
         case .running: return selectedLocalSession?.status == .running || store.localModelStatus?.phase == .running
-        case .starting, .stopping: return false
+        case .stopping: return false
         }
     }
 
@@ -138,7 +129,6 @@ struct ChatView: View {
             placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
             canSend: store.canSend && !isPreparingModel && selectedLocalSession?.status != .starting,
             isPreparingModel: isPreparingModel,
-            localModelStartup: localModelStartup,
             localModelStartError: selectedLocalSession?.error,
             localModelStatus: localModelControlStatus,
             canToggleLocalModel: canToggleLocalModel,
@@ -318,13 +308,19 @@ struct ChatView: View {
     }
 
     private func toggleLocalModel() {
-        guard canToggleLocalModel, let model = selectedLocalModel else { return }
-        if selectedLocalSession?.status == .running {
-            localModels.stop(model.modelID)
-        } else if store.localModelStatus?.phase == .running {
-            store.stopByUser()
-        } else {
+        guard canToggleLocalModel, let model = selectedLocalModel,
+              let status = localModelControlStatus else { return }
+        switch status {
+        case .starting, .running:
+            if selectedLocalSession?.status == status {
+                localModels.stop(model.modelID)
+            } else {
+                store.stopByUser()
+            }
+        case .stopped, .failed:
             localModels.start(model.modelID)
+        case .stopping:
+            break
         }
     }
 
