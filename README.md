@@ -10,8 +10,9 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 In **Settings → Harness**, chat context uses the selected model's limits by
 default. For local chat, Fritz fits the window to available Metal memory up
-to the model's limit. Fritz stops a local chat if macOS reports memory pressure
-or swap use grows during the request. **Quantize Local KV Cache** can fit a larger
+to the model's limit. During startup, Fritz tolerates brief memory warnings
+and stops on critical pressure or rapid swap growth. During generation, the
+first memory warning stops the chat. **Quantize Local KV Cache** can fit a larger
 window by using an 8-bit attention cache. Automatic compaction summarizes older
 turns as the conversation fills the context window and keeps recent turns available
 to the model. You can
