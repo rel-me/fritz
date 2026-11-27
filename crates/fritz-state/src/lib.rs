@@ -39,7 +39,14 @@ impl Database {
         let version: i32 = transaction.query_row("PRAGMA user_version", [], |row| row.get(0))?;
         let version = usize::try_from(version).context("Invalid state database schema version.")?;
         if version > migrations.len() {
-            bail!("State database is newer than this build supports.");
+            let name = path
+                .file_name()
+                .unwrap_or(path.as_os_str())
+                .to_string_lossy();
+            bail!(
+                "State database {name} uses schema {version}. This build supports up to {}. Use the build that last opened this profile or a later compatible build.",
+                migrations.len()
+            );
         }
         if version == 0 && !tables(&transaction)?.is_empty() {
             bail!("Unversioned state database is not supported.");

@@ -32,7 +32,7 @@ the following surfaces, include these behaviors:
   Loaded with its allocated KV cache size. Check that the chat harness reports
   its cache size once ready and that the allocation clears when the model stops.
   Click each model's status to open its Model Status sheet. Check live startup
-  progress, cache and Local API details, the installed file action, and the
+  progress as a whole percentage, cache and Local API details, the installed file action, and the
   Start on setting across a relaunch. Stop a model from the sheet and start it
   again while the sheet stays open. Verify Stop cancels chats using that model,
   including in another thread. Check Escape and Command-Q with the sheet open.
@@ -123,16 +123,17 @@ the following surfaces, include these behaviors:
   warnings, Settings navigation, Escape, and Command-Q after presentation updates.
   Local Models uses native disclosure rows for every family, including singleton
   and filtered results, and places recent selections first by default. Check
-  expanding and collapsing a family, searching by family and model name,
-  filtering by score, and opening setup from a child row. Search opens matching
+  expanding and collapsing a family, searching by family and model name, filtering
+  and sorting by score, and opening setup from a child row. Search opens matching
   families by default. Folder rows have no model actions. Check that model rows
   show rounded file sizes such as `16G` and family rows have an empty Size cell.
   In both model windows, activate a filter and verify Clear appears first in the
   filter menu. Choose it and check that the filters and toolbar indicator reset
   and Clear disappears.
   Check compact Context values and their exact token counts in help.
-  Check the Context column shows Automatic/maximum for chat models, with the
-  latest measured Automatic fit for the selected KV cache setting.
+  Check the Context column uses the latest measured Automatic fit for the
+  selected KV cache setting. It shows one count when Automatic equals the model
+  maximum and Automatic/maximum when the counts differ.
   Start a model download, close the sheet, and check progress in Local Models.
   Reopen the sheet during the transfer and use Stop Download. Verify that
   downloading again resumes the saved bytes and closing the sheet leaves the
