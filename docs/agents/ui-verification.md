@@ -24,6 +24,10 @@ the following surfaces, include these behaviors:
   model starts, runs, and stops. Verify memory updates, idle and remote-only chats,
   the View menu toggle, and preference restoration after relaunch. Running chats
   should remain visible in the bar when switching threads.
+  With fresh settings, verify that the bar is visible and empty while idle.
+  Starting and stopping a model should leave the footer and composer in place.
+  Check that showing the bar leaves the composer and sidebar above it at the
+  minimum window size and with the browser inspector open.
 - **Browser:** Run the same flow in the staged default and
   `BROWSER_ENGINE=chromium` apps. Open Browser with Command-2, visit an HTTP or
   HTTPS test page, follow a link, and exercise back, forward, reload, and stop.
