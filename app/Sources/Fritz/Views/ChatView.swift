@@ -52,8 +52,8 @@ struct ChatView: View {
         guard let model = selectedLocalModel, localModels.installedIDs.contains(model.modelID),
               !store.isResponding, !isPreparingModel,
               !localChatStatuses.contains(where: { $0.id == model.modelID }) else { return false }
-        switch selectedLocalSession?.status {
-        case nil, .stopped, .failed: return true
+        switch selectedLocalSession?.status ?? .stopped {
+        case .stopped, .failed: return true
         case .starting, .running, .stopping: return false
         }
     }
@@ -64,35 +64,7 @@ struct ChatView: View {
 
             VStack(alignment: .trailing, spacing: 8) {
                 if canCompose {
-                    ChatComposer(
-                        draft: $store.draft,
-                        placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
-                        canSend: store.canSend && !isPreparingModel && selectedLocalSession?.status != .starting,
-                        isPreparingModel: isPreparingModel,
-                        localModelStartup: localModelStartup,
-                        localModelStartError: selectedLocalSession?.error,
-                        startLocalModel: canStartLocalModel ? startLocalModel : nil,
-                        isResponding: store.isResponding,
-                        isFocused: $isFocused,
-                        models: providers.pickerModels,
-                        recentModels: providers.recentModels,
-                        modelProviders: providers.providerOrder,
-                        selectedModel: store.selectedModel,
-                        selectedEffort: store.effort,
-                        selectedSpeed: store.speed,
-                        selectModel: chooseModel,
-                        selectEffort: { store.effort = $0 },
-                        selectSpeed: { store.speed = $0 },
-                        configureModels: { openModels(.remote) },
-                        configureLocalModels: { openModels(.local) },
-                        send: {
-                            guard !isPreparingModel, selectedLocalSession?.status != .starting else { return }
-                            if let model = store.selectedModel { providers.record(model) }
-                            store.send()
-                        },
-                        stop: store.stopByUser
-                    )
-                    .disabled(!store.isReady)
+                    composer.disabled(!store.isReady)
                 } else {
                     Label(isArchived ? "Archived chat. Restore it in Settings to continue chatting."
                                     : "Project folder unavailable. Reconnect it from the project’s context menu to continue chatting.",
@@ -149,6 +121,38 @@ struct ChatView: View {
             ChatStoredBody(entry: entry, repository: store.repository)
         }
         .onChange(of: store.isResponding) { _, responding in if !responding { synchronizeModel() } }
+    }
+
+    private var composer: ChatComposer {
+        ChatComposer(
+            draft: $store.draft,
+            placeholder: store.messages.isEmpty ? "Ask Fritz anything" : "Ask for follow-up changes",
+            canSend: store.canSend && !isPreparingModel && selectedLocalSession?.status != .starting,
+            isPreparingModel: isPreparingModel,
+            localModelStartup: localModelStartup,
+            localModelStartError: selectedLocalSession?.error,
+            canStartLocalModel: canStartLocalModel,
+            startLocalModel: startLocalModel,
+            isResponding: store.isResponding,
+            isFocused: $isFocused,
+            models: providers.pickerModels,
+            recentModels: providers.recentModels,
+            modelProviders: providers.providerOrder,
+            selectedModel: store.selectedModel,
+            selectedEffort: store.effort,
+            selectedSpeed: store.speed,
+            selectModel: chooseModel,
+            selectEffort: { store.effort = $0 },
+            selectSpeed: { store.speed = $0 },
+            configureModels: { openModels(.remote) },
+            configureLocalModels: { openModels(.local) },
+            send: {
+                guard !isPreparingModel, selectedLocalSession?.status != .starting else { return }
+                if let model = store.selectedModel { providers.record(model) }
+                store.send()
+            },
+            stop: store.stopByUser
+        )
     }
 
     private var transcript: some View {

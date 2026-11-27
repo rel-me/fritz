@@ -10,7 +10,8 @@ struct ChatComposer: View {
     let isPreparingModel: Bool
     let localModelStartup: LocalModelStatus?
     let localModelStartError: String?
-    let startLocalModel: (() -> Void)?
+    let canStartLocalModel: Bool
+    let startLocalModel: () -> Void
     let isResponding: Bool
     let isFocused: FocusState<Bool>.Binding
     let models: [ChatModelOption]
@@ -45,7 +46,7 @@ struct ChatComposer: View {
                     .foregroundStyle(.secondary)
                     .accessibilityElement(children: .combine)
                     .help(localModelStartup.title)
-                } else if let startLocalModel, let selectedModel {
+                } else if canStartLocalModel, let selectedModel {
                     if let localModelStartError {
                         Image(systemName: "exclamationmark.circle")
                             .foregroundStyle(.orange)
