@@ -56,8 +56,8 @@ adapt to the model. Local budgeting uses the window actually allocated by
 llama.cpp. Automatic measures candidate windows up to the catalog startup
 ceiling or the model’s published limit and accounts for model weights, KV cache,
 compute buffers, and runtime headroom. Inkling can use smaller prompt-processing
-batches to fit a larger window. Automatic leaves additional headroom for other
-apps.
+batches to fit a larger window. Every Automatic fit leaves at least 4 GiB or one
+quarter of Metal’s recommended working set available, whichever is larger.
 For a fixed budget Fritz caps the request at the model’s limit and reports
 an allocation error if the window cannot fit. A local `activity` event reports
 the selected window in `contextTokens`. Set `quantizeLocalKVCache` to true

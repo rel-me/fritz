@@ -9,8 +9,9 @@ A native macOS personal assistant with persistent conversations and a choice of 
 
 
 In **Settings → Harness**, chat context uses the selected model's limits by
-default. For local chat, Fritz fits the window to available Metal memory up
-to the model's limit. Inkling 2 Mini starts at up to 16,384 tokens in Automatic
+default. For local chat, Automatic leaves at least 4 GiB or a quarter of Metal’s
+recommended working set, whichever is larger, when sizing the context window
+up to the model's limit. Inkling 2 Mini starts at up to 16,384 tokens in Automatic
 mode. During startup, Fritz tolerates brief memory warnings
 and stops on critical pressure or rapid swap growth. During generation, the
 first memory warning stops the chat. **Quantize Local KV Cache** can fit a larger

@@ -10,6 +10,7 @@ pub struct Engine {
     path: PathBuf,
     context_size: usize,
     minimum_context: usize,
+    automatic_context: bool,
     quantize_kv_cache: bool,
     model: OnceCell<Arc<Model>>,
 }
@@ -60,12 +61,13 @@ impl Engine {
         let target = requested.unwrap_or(u64::from(automatic)).min(maximum);
         engine.context_size = usize::try_from(target)?;
         engine.quantize_kv_cache = quantize_kv_cache;
-        engine.minimum_context = if requested.is_some() {
-            engine.context_size
-        } else {
+        engine.automatic_context = requested.is_none();
+        engine.minimum_context = if engine.automatic_context {
             engine
                 .context_size
                 .min(super::LEGACY_CHAT_CONTEXT_TOKENS as usize)
+        } else {
+            engine.context_size
         };
         Ok(engine)
     }
@@ -79,6 +81,7 @@ impl Engine {
                 .min(super::models::manifest(model_id)?.limit.context)
                 as usize,
             minimum_context: 0,
+            automatic_context: false,
             quantize_kv_cache: false,
             model: OnceCell::new(),
         })
@@ -100,6 +103,7 @@ impl Engine {
                     &self.path,
                     self.context_size,
                     self.minimum_context,
+                    self.automatic_context,
                     Some(architecture),
                     self.quantize_kv_cache,
                     progress,

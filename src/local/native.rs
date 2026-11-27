@@ -20,6 +20,7 @@ unsafe extern "C" {
         path: *const c_char,
         context: i32,
         minimum_context: i32,
+        automatic_context: bool,
         chat: bool,
         inkling_loop: bool,
         quantize_kv_cache: bool,
@@ -147,13 +148,14 @@ impl Model {
         context: usize,
         chat_architecture: Option<&str>,
     ) -> Result<Arc<Self>> {
-        Self::load_with_context_fit(path, context, 0, chat_architecture, false, |_| {}).await
+        Self::load_with_context_fit(path, context, 0, false, chat_architecture, false, |_| {}).await
     }
 
     pub(crate) async fn load_with_context_fit(
         path: &Path,
         context: usize,
         minimum_context: usize,
+        automatic_context: bool,
         chat_architecture: Option<&str>,
         quantize_kv_cache: bool,
         mut progress: impl FnMut(f32),
@@ -178,6 +180,7 @@ impl Model {
                     path.as_ptr(),
                     context,
                     minimum_context,
+                    automatic_context,
                     chat,
                     inkling_loop,
                     quantize_kv_cache,
