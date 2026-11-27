@@ -11,7 +11,9 @@ struct LocalModelSetupSheet<Feedback: View>: View {
     let primaryActionTitle: String
     let canSubmit: Bool
     let isSaving: Bool
-    let cancel: () -> Void
+    let isDownloading: Bool
+    let close: () -> Void
+    let stopDownload: () -> Void
     let submit: () -> Void
     @ViewBuilder let feedback: Feedback
 
@@ -55,19 +57,23 @@ struct LocalModelSetupSheet<Feedback: View>: View {
                 .accessibilityElement(children: .contain)
                 installationFeedback
                 feedback
+                if isSaving {
+                    ProgressView().controlSize(.small).accessibilityLabel("Saving model")
+                } else if isDownloading {
+                    Button("Stop Download", action: stopDownload)
+                        .buttonStyle(FritzButtonStyle())
+                } else {
+                    Button(primaryActionTitle, action: submit)
+                        .keyboardShortcut(.defaultAction)
+                        .buttonStyle(FritzButtonStyle(.primary))
+                        .disabled(!canSubmit)
+                }
             }
             .padding(.horizontal, 24)
         } actions: {
-            if isSaving {
-                ProgressView().controlSize(.small).accessibilityLabel("Saving model")
-                Spacer()
-            }
-            Button("Cancel", action: cancel)
+            Button("Close", action: close)
                 .keyboardShortcut(.cancelAction)
                 .disabled(isSaving)
-            Button(primaryActionTitle, action: submit)
-                .keyboardShortcut(.defaultAction)
-                .disabled(!canSubmit || isSaving)
         }
         .accessibilityElement(children: .contain)
         .padding(.top, 12)
@@ -79,7 +85,7 @@ struct LocalModelSetupSheet<Feedback: View>: View {
         switch state {
         case .available, .installed: EmptyView()
         case .checking:
-            ProgressView("Checking model…").progressViewStyle(.linear)
+            ProgressView(isDownloading ? "Preparing download…" : "Checking model…").progressViewStyle(.linear)
         case let .downloading(downloaded, total, bytesPerSecond):
             ModelDownloadProgress(downloaded: downloaded, total: total, bytesPerSecond: bytesPerSecond, showsTitle: true)
         case .failed(let message):

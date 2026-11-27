@@ -17,7 +17,10 @@ window by using an 8-bit attention cache. Automatic compaction summarizes older
 turns as the conversation fills the context window and keeps recent turns available
 to the model. You can
 set a context budget, reserve space for the reply, and choose how much recent
-history compaction should keep.
+history compaction should keep. In Local Models, **Context** shows the
+Automatic target and the model maximum, such as `16k/1M` for Inkling 2 Mini.
+After an Automatic chat starts, Fritz shows the last context that fit on this
+Mac with the selected KV cache setting.
 
 ## Install
 
@@ -79,9 +82,11 @@ The local download catalog includes Dolphin 3.0 (Llama 3.2 3B and Llama 3.1
 8B), Hermes 3 Llama 3.1 8B, and Mistral Nemo 12B Instruct alongside Qwen and
 the other bundled choices. These downloads use Q4_K_M GGUF quantization; the
 picker shows download sizes and recommended memory. Model licenses are available
-under **Settings → General → Licenses**. While downloading, Fritz shows transfer
-speed and estimated time remaining. Restart an interrupted download in the same
-storage folder to resume it.
+under **Settings → General → Licenses**. Downloads continue while Fritz is open
+after you close the download sheet. Local Models shows progress, and reopening
+the sheet shows transfer speed and estimated time remaining. Use **Stop Download**
+in the sheet or the model’s context menu. Restart an interrupted download in the
+same storage folder to resume it.
 
 The **Abliterated** filter shows Huihui Qwen3 4B Instruct 2507 and Nueva Tech Qwen3
 8B v2, two variants modified to reduce refusals. The same filter is available
