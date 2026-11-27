@@ -48,13 +48,22 @@ struct ChatView: View {
         return nil
     }
 
-    private var canStartLocalModel: Bool {
-        guard let model = selectedLocalModel, localModels.installedIDs.contains(model.modelID),
-              !store.isResponding, !isPreparingModel,
-              !localChatStatuses.contains(where: { $0.id == model.modelID }) else { return false }
-        switch selectedLocalSession?.status ?? .stopped {
-        case .stopped, .failed: return true
-        case .starting, .running, .stopping: return false
+    private var localModelControlStatus: ModelsRuntimeSession.Status? {
+        guard let model = selectedLocalModel else { return nil }
+        let resident = selectedLocalSession?.status ?? .stopped
+        let chatPhases = localChatStatuses.lazy.filter { $0.id == model.modelID }.map(\.phase)
+        if resident == .stopping || chatPhases.contains(.stopping) { return .stopping }
+        if resident == .starting || chatPhases.contains(.starting) { return .starting }
+        if resident == .running || chatPhases.contains(.running) { return .running }
+        return localModels.installedIDs.contains(model.modelID) ? resident : nil
+    }
+
+    private var canToggleLocalModel: Bool {
+        guard !isPreparingModel, let status = localModelControlStatus else { return false }
+        switch status {
+        case .stopped, .failed: return !store.isResponding
+        case .running: return selectedLocalSession?.status == .running || store.localModelStatus?.phase == .running
+        case .starting, .stopping: return false
         }
     }
 
@@ -131,8 +140,9 @@ struct ChatView: View {
             isPreparingModel: isPreparingModel,
             localModelStartup: localModelStartup,
             localModelStartError: selectedLocalSession?.error,
-            canStartLocalModel: canStartLocalModel,
-            startLocalModel: startLocalModel,
+            localModelStatus: localModelControlStatus,
+            canToggleLocalModel: canToggleLocalModel,
+            toggleLocalModel: toggleLocalModel,
             isResponding: store.isResponding,
             isFocused: $isFocused,
             models: providers.pickerModels,
@@ -307,9 +317,15 @@ struct ChatView: View {
         }
     }
 
-    private func startLocalModel() {
-        guard canStartLocalModel, let model = selectedLocalModel else { return }
-        localModels.start(model.modelID)
+    private func toggleLocalModel() {
+        guard canToggleLocalModel, let model = selectedLocalModel else { return }
+        if selectedLocalSession?.status == .running {
+            localModels.stop(model.modelID)
+        } else if store.localModelStatus?.phase == .running {
+            store.stopByUser()
+        } else {
+            localModels.start(model.modelID)
+        }
     }
 
     private func loadHistory(older: Bool) {
