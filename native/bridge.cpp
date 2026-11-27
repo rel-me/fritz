@@ -3,6 +3,8 @@
 #include "chat.h"
 #include "fit.h"
 #include "sampling.h"
+#include "src/llama-memory-hybrid.h"
+#include "src/llama-memory-hybrid-iswa.h"
 #include "unicode.h"
 #include <atomic>
 #include <cstring>
@@ -52,6 +54,7 @@ struct Model {
     std::unique_ptr<llama_context, decltype(&llama_free)> context{nullptr, llama_free};
     common_chat_templates_ptr templates;
     int capacity;
+    size_t kv_cache_bytes;
     void decode(std::vector<llama_token> & tokens, Control & control) {
         for (size_t start = 0; start < tokens.size(); start += 512) {
             control.check();
@@ -93,6 +96,27 @@ static bool fits_context(const char * path, const llama_model_params & model,
 extern "C" void fl_string_free(char * value) { delete[] value; }
 extern "C" void fl_model_free(Model * model) { delete model; }
 extern "C" int fl_model_context_size(const Model * model) { return model->capacity; }
+extern "C" size_t fl_model_kv_cache_bytes(const Model * model) { return model->kv_cache_bytes; }
+
+static size_t allocated_kv_cache_bytes(const llama_context * context) {
+    const auto * memory = llama_get_memory(context);
+    if (!memory || dynamic_cast<const llama_memory_recurrent *>(memory)) return 0;
+
+    const llama_memory_i * recurrent = nullptr;
+    if (const auto * hybrid = dynamic_cast<const llama_memory_hybrid *>(memory)) {
+        recurrent = hybrid->get_mem_recr();
+    } else if (const auto * hybrid = dynamic_cast<const llama_memory_hybrid_iswa *>(memory)) {
+        recurrent = hybrid->get_mem_recr();
+    }
+
+    // Include attention side buffers, such as the index cache on hybrid models.
+    size_t bytes = 0;
+    for (const auto & entry : memory->memory_breakdown()) bytes += entry.second;
+    if (recurrent) {
+        for (const auto & entry : recurrent->memory_breakdown()) bytes -= entry.second;
+    }
+    return bytes;
+}
 extern "C" Model * fl_model_load(const char * path, int context, int minimum_context, bool chat, bool inkling_loop,
                                  bool quantize_kv_cache, Cancel cancel, void * data,
                                  ReportLoadProgress report, void * output, char ** error) {
@@ -196,6 +220,7 @@ extern "C" Model * fl_model_load(const char * path, int context, int minimum_con
         control.check();
         require(bool(result->context), "llama.cpp could not allocate the local context. Close other models or reduce context size.");
         result->capacity = std::min(config.n_ctx, llama_n_ctx_seq(result->context.get()));
+        result->kv_cache_bytes = allocated_kv_cache_bytes(result->context.get());
         llama_set_abort_callback(result->context.get(), nullptr, nullptr);
         if (chat) {
             const auto * tmpl = llama_model_chat_template(result->weights.get(), nullptr);

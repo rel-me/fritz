@@ -422,6 +422,7 @@ private struct CompactionReceipt: Decodable {
             activity = event.message
             if event.contextTokens != nil {
                 localModelStatus?.phase = .running
+                localModelStatus?.kvCacheBytes = event.kvCacheBytes
             }
         case "tool_start", "tool_end":
             guard let id = event.toolCallId, let name = event.name else { return }
