@@ -238,8 +238,7 @@ private struct FritzWorkspaceView: View {
         VStack(spacing: 0) {
             workspace
             if state.settings.showsStatusBar {
-                let models = activeLocalModels
-                if !models.isEmpty { FritzStatusBar(models: models) }
+                FritzStatusBar(models: activeLocalModels)
             }
         }
         .fritzWindowBackground()
@@ -437,11 +436,13 @@ private struct FritzStatusBar: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 16) {
-                Label(modelSummary, systemImage: "cpu")
-                    .lineLimit(1)
-                    .help(modelSummary)
+                if !models.isEmpty {
+                    Label(modelSummary, systemImage: "cpu")
+                        .lineLimit(1)
+                        .help(modelSummary)
+                }
                 Spacer(minLength: 8)
-                if let usedMemory {
+                if !models.isEmpty, let usedMemory {
                     Label("Memory \(gibibytes(usedMemory)) of \(gibibytes(ProcessInfo.processInfo.physicalMemory)) GiB",
                           systemImage: "memorychip")
                         .monospacedDigit()
@@ -451,6 +452,7 @@ private struct FritzStatusBar: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+            .frame(minHeight: 14)
             .padding(.horizontal, 12)
             .padding(.vertical, 5)
         }
@@ -458,7 +460,11 @@ private struct FritzStatusBar: View {
         .background(.bar)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Status Bar")
-        .task {
+        .task(id: models.isEmpty) {
+            guard !models.isEmpty else {
+                usedMemory = nil
+                return
+            }
             while !Task.isCancelled {
                 usedMemory = ModelsLocalRuntime.usedMemoryBytes
                 try? await Task.sleep(for: .seconds(2))
