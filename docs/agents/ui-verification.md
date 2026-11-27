@@ -32,7 +32,7 @@ the following surfaces, include these behaviors:
   Loaded with its allocated KV cache size. Check that the chat harness reports
   its cache size once ready and that the allocation clears when the model stops.
   Click each model's status to open its Model Status sheet. Check live startup
-  progress, cache and Local API details, the installed file action, and the
+  progress as a whole percentage, cache and Local API details, the installed file action, and the
   Start on setting across a relaunch. Stop a model from the sheet and start it
   again while the sheet stays open. Verify Stop cancels chats using that model,
   including in another thread. Check Escape and Command-Q with the sheet open.
